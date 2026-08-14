@@ -35,7 +35,6 @@ defmodule QuickTrain.MixProject do
         verify: :test,
         "architecture.check": :test,
         "dependency.audit": :test,
-        "migration.drift": :test,
         "static.analysis": :test,
         typecheck: :test
       ]
@@ -60,7 +59,6 @@ defmodule QuickTrain.MixProject do
       {:absinthe_plug, "== 1.5.10"},
       {:oidcc, "== 3.8.0"},
       {:req, "== 0.7.2"},
-      {:oban, "== 2.23.1"},
       {:boundary, "== 0.10.4", runtime: false},
       {:credo, "== 1.7.19", only: [:dev, :test], runtime: false},
       {:dialyxir, "== 1.4.7", only: [:dev, :test], runtime: false},
@@ -82,7 +80,6 @@ defmodule QuickTrain.MixProject do
       "ecto.setup": ["ecto.create", "ecto.migrate", "run priv/repo/seeds.exs"],
       "ecto.reset": ["ecto.drop", "ecto.setup"],
       test: ["ecto.create --quiet", "ecto.migrate --quiet", "test"],
-      "migration.drift": ["ash_postgres.generate_migrations --check"],
       "dependency.audit": ["cmd mix hex.audit"],
       "static.analysis": ["credo --strict", "reach.check --arch --smells --strict"],
       typecheck: ["dialyzer --quiet-with-result"],
@@ -95,7 +92,6 @@ defmodule QuickTrain.MixProject do
         "deps.unlock --check-unused",
         "compile --warnings-as-errors",
         "format --check-formatted",
-        "migration.drift",
         "boundary.check",
         "architecture.check",
         "static.analysis",

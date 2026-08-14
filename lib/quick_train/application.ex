@@ -19,10 +19,7 @@ defmodule QuickTrain.Application do
         {Phoenix.PubSub, name: QuickTrain.PubSub}
       ] ++
         Oidc.children() ++
-        [
-          {Oban, Application.fetch_env!(:quick_train, Oban)},
-          QuickTrainWeb.Endpoint
-        ]
+        [QuickTrainWeb.Endpoint]
 
     # See https://hexdocs.pm/elixir/Supervisor.html
     # for other strategies and supported options

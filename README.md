@@ -1,8 +1,8 @@
 # QuickTrain
 
 QuickTrain is a backend-only Elixir template for enterprise applications. It keeps reusable
-account, tenant, authorization, enterprise identity, audit, integration, operation, and durable
-delivery foundations while leaving product domains and the frontend empty.
+account, tenant, authorization, enterprise identity, integration, and operation foundations while
+leaving product domains and the frontend empty.
 
 ## Deliberate model choices
 
@@ -17,7 +17,7 @@ delivery foundations while leaving product domains and the frontend empty.
 - Authorization is fail-closed and organization-scoped through roles and capability keys.
 - GraphQL is the only application API. No generated REST/JSON:API surface and no frontend are
   included. `/healthz` is an operational endpoint, not an application API.
-- Generic revision history is intentionally omitted. Append-only audit evidence remains.
+- Generic revision history, audit logging, and durable event delivery are intentionally omitted.
 
 ## Included foundations
 
@@ -31,9 +31,6 @@ delivery foundations while leaving product domains and the frontend empty.
 - `QuickTrain.Integrations`: secret references, external references, and idempotent webhook
   receipts.
 - `QuickTrain.Operations`: idempotent correlation records for user and system operations.
-- `QuickTrain.DurableDelivery`: idempotent domain-event persistence with Oban available for
-  application-specific dispatch workers.
-- `QuickTrain.Audit`: append-only generic audit records.
 - `QuickTrainWeb.GraphQL.Schema`: a minimal GraphQL-only API ready for product fields.
 
 ## Toolchain
@@ -79,12 +76,12 @@ are documented in `.env.example`.
 
 ## Verification
 
-`mise run verify` runs formatting, migration drift detection, boundary and dependency-cycle
-checks, static analysis, Dialyzer, Hex's retired-package audit, a production compile, and the test
-suite. Resource schema changes should be generated with:
+`mise run verify` runs formatting, boundary and dependency-cycle checks, static analysis,
+Dialyzer, Hex's retired-package audit, a production compile, and the test suite. Create ordinary
+Ecto migrations for resource schema changes:
 
 ```sh
-mix ash_postgres.generate_migrations --name describe_the_change
+mix ecto.gen.migration describe_the_change
 ```
 
-Review generated migrations before applying them.
+Review migrations before applying them.
