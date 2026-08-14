@@ -13,6 +13,11 @@ defmodule QuickTrain.AuthorizationTest do
     :ok = Authorization.grant_capability(role.id, capability.id)
     :ok = Authorization.assign_role(organization.id, user.id, role.id)
 
+    {:ok, _other_membership} = Organizations.add_member(other_organization.id, user.id)
+
+    assert {:error, :role_scope_mismatch} =
+             Authorization.assign_role(other_organization.id, user.id, role.id)
+
     assert Authorization.allowed?(user.id, organization.id, "forms.manage")
     refute Authorization.allowed?(user.id, other_organization.id, "forms.manage")
     refute Authorization.allowed?(user.id, organization.id, "unknown.capability")

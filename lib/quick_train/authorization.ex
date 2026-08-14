@@ -25,18 +25,23 @@ defmodule QuickTrain.Authorization do
   end
 
   def assign_role(organization_id, user_id, role_id, workspace_id \\ nil) do
-    if Organizations.member?(organization_id, user_id) do
-      RoleAssignment
-      |> Ash.Changeset.for_create(:assign, %{
-        organization_id: organization_id,
-        user_id: user_id,
-        role_id: role_id,
-        workspace_id: workspace_id
-      })
-      |> Ash.create(authorize?: false)
-      |> ok()
-    else
-      {:error, :membership_required}
+    cond do
+      not Organizations.member?(organization_id, user_id) ->
+        {:error, :membership_required}
+
+      not role_in_organization?(role_id, organization_id) ->
+        {:error, :role_scope_mismatch}
+
+      true ->
+        RoleAssignment
+        |> Ash.Changeset.for_create(:assign, %{
+          organization_id: organization_id,
+          user_id: user_id,
+          role_id: role_id,
+          workspace_id: workspace_id
+        })
+        |> Ash.create(authorize?: false)
+        |> ok()
     end
   end
 
@@ -85,6 +90,13 @@ defmodule QuickTrain.Authorization do
       {:ok, assignments} -> Enum.map(assignments, & &1.role_id)
       {:error, _error} -> []
     end
+  end
+
+  defp role_in_organization?(role_id, organization_id) do
+    match?(
+      {:ok, %Role{organization_id: ^organization_id}},
+      Ash.get(Role, role_id, authorize?: false)
+    )
   end
 
   defp ok({:ok, _record}), do: :ok
