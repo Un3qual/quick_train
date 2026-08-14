@@ -1,0 +1,34 @@
+min_version = "2026.8.5"
+
+[tools]
+erlang = "29.0.4"
+elixir = "1.20.3-otp-29"
+node = "26.5.0"
+"npm:@fission-ai/openspec" = "1.9.0"
+
+[env]
+QUICK_TRAIN_POSTGRES_PORT = "55433"
+
+[tasks.setup]
+description = "Install dependencies and prepare the database"
+run = ["mix deps.get", "mix ecto.setup"]
+
+[tasks."db.start"]
+description = "Start PostgreSQL"
+run = "docker compose up -d postgres"
+
+[tasks."db.stop"]
+description = "Stop PostgreSQL"
+run = "docker compose down"
+
+[tasks.test]
+description = "Run backend tests"
+run = "MIX_ENV=test mix test"
+
+[tasks.verify]
+description = "Run the complete backend verification gate"
+run = "MIX_ENV=test mix verify"
+
+[tasks.server]
+description = "Run the Phoenix API server"
+run = "mix phx.server"

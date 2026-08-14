@@ -1,0 +1,27 @@
+services:
+  postgres:
+    image: postgres:18.4-alpine3.22
+    environment:
+      POSTGRES_DB: quick_train_dev
+      POSTGRES_USER: quick_train
+      POSTGRES_PASSWORD: quick_train
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U quick_train -d quick_train_dev"]
+      interval: 2s
+      timeout: 5s
+      retries: 20
+    ports:
+      - "${QUICK_TRAIN_POSTGRES_PORT:-55433}:5432"
+    networks:
+      - quick_train
+    volumes:
+      - quick_train_postgres:/var/lib/postgresql
+
+networks:
+  quick_train:
+    ipam:
+      config:
+        - subnet: 10.253.0.0/24
+
+volumes:
+  quick_train_postgres:
