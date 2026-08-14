@@ -7,9 +7,6 @@ defmodule QuickTrain do
       Authorization,
       EnterpriseIdentity,
       EnterpriseIdentity.Adapter,
-      Integrations,
-      Integrations.SecretStore,
-      Operations,
       Organizations
     ]
 

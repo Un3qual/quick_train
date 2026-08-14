@@ -27,26 +27,6 @@ defmodule QuickTrain.Repo.Migrations.InitialDomainFoundations do
              name: "workspaces_organization_slug_index"
            )
 
-    create table(:webhook_receipts, primary_key: false) do
-      add :id, :uuid, null: false, default: fragment("gen_random_uuid()"), primary_key: true
-      add :provider, :text, null: false
-      add :external_id, :text, null: false
-      add :payload, :map, null: false
-      add :status, :text, null: false, default: "received"
-
-      add :inserted_at, :utc_datetime_usec,
-        null: false,
-        default: fragment("(now() AT TIME ZONE 'utc')")
-
-      add :updated_at, :utc_datetime_usec,
-        null: false,
-        default: fragment("(now() AT TIME ZONE 'utc')")
-    end
-
-    create unique_index(:webhook_receipts, [:provider, :external_id],
-             name: "webhook_receipts_provider_external_index"
-           )
-
     create table(:users, primary_key: false) do
       add :id, :uuid, null: false, default: fragment("gen_random_uuid()"), primary_key: true
       add :email, :text, null: false
@@ -205,29 +185,6 @@ defmodule QuickTrain.Repo.Migrations.InitialDomainFoundations do
              name: "organization_memberships_organization_user_index"
            )
 
-    create table(:operations, primary_key: false) do
-      add :id, :uuid, null: false, default: fragment("gen_random_uuid()"), primary_key: true
-      add :source, :text, null: false
-      add :idempotency_key, :text, null: false
-      add :operation, :text, null: false
-      add :user_id, :uuid
-      add :organization_id, :uuid
-      add :status, :text, null: false, default: "started"
-      add :metadata, :map, null: false, default: %{}
-
-      add :inserted_at, :utc_datetime_usec,
-        null: false,
-        default: fragment("(now() AT TIME ZONE 'utc')")
-
-      add :updated_at, :utc_datetime_usec,
-        null: false,
-        default: fragment("(now() AT TIME ZONE 'utc')")
-    end
-
-    create unique_index(:operations, [:source, :idempotency_key],
-             name: "operations_source_idempotency_index"
-           )
-
     create table(:oidc_login_transactions, primary_key: false) do
       add :id, :uuid, null: false, default: fragment("gen_random_uuid()"), primary_key: true
       add :state_hash, :text, null: false
@@ -243,45 +200,6 @@ defmodule QuickTrain.Repo.Migrations.InitialDomainFoundations do
 
     create unique_index(:oidc_login_transactions, [:state_hash],
              name: "oidc_login_transactions_state_hash_index"
-           )
-
-    create table(:integration_credentials, primary_key: false) do
-      add :id, :uuid, null: false, default: fragment("gen_random_uuid()"), primary_key: true
-      add :organization_id, :uuid, null: false
-      add :provider, :text, null: false
-      add :name, :text, null: false
-      add :secret_reference, :text, null: false
-      add :status, :text, null: false, default: "active"
-
-      add :inserted_at, :utc_datetime_usec,
-        null: false,
-        default: fragment("(now() AT TIME ZONE 'utc')")
-
-      add :updated_at, :utc_datetime_usec,
-        null: false,
-        default: fragment("(now() AT TIME ZONE 'utc')")
-    end
-
-    create unique_index(:integration_credentials, [:organization_id, :provider, :name],
-             name: "integration_credentials_scope_index"
-           )
-
-    create table(:external_references, primary_key: false) do
-      add :id, :uuid, null: false, default: fragment("gen_random_uuid()"), primary_key: true
-      add :organization_id, :uuid
-      add :provider, :text, null: false
-      add :external_type, :text, null: false
-      add :external_id, :text, null: false
-      add :internal_type, :text, null: false
-      add :internal_id, :uuid, null: false
-
-      add :inserted_at, :utc_datetime_usec,
-        null: false,
-        default: fragment("(now() AT TIME ZONE 'utc')")
-    end
-
-    create unique_index(:external_references, [:provider, :external_type, :external_id],
-             name: "external_references_provider_reference_index"
            )
 
     create table(:external_identities, primary_key: false) do
@@ -526,29 +444,11 @@ defmodule QuickTrain.Repo.Migrations.InitialDomainFoundations do
 
     drop table(:external_identities)
 
-    drop_if_exists unique_index(:external_references, [:provider, :external_type, :external_id],
-                     name: "external_references_provider_reference_index"
-                   )
-
-    drop table(:external_references)
-
-    drop_if_exists unique_index(:integration_credentials, [:organization_id, :provider, :name],
-                     name: "integration_credentials_scope_index"
-                   )
-
-    drop table(:integration_credentials)
-
     drop_if_exists unique_index(:oidc_login_transactions, [:state_hash],
                      name: "oidc_login_transactions_state_hash_index"
                    )
 
     drop table(:oidc_login_transactions)
-
-    drop_if_exists unique_index(:operations, [:source, :idempotency_key],
-                     name: "operations_source_idempotency_index"
-                   )
-
-    drop table(:operations)
 
     drop constraint(:organization_memberships, "organization_memberships_organization_id_fkey")
 
@@ -605,12 +505,6 @@ defmodule QuickTrain.Repo.Migrations.InitialDomainFoundations do
     drop_if_exists unique_index(:users, [:email], name: "users_email_index")
 
     drop table(:users)
-
-    drop_if_exists unique_index(:webhook_receipts, [:provider, :external_id],
-                     name: "webhook_receipts_provider_external_index"
-                   )
-
-    drop table(:webhook_receipts)
 
     drop_if_exists unique_index(:workspaces, [:organization_id, :slug],
                      name: "workspaces_organization_slug_index"

@@ -5,8 +5,6 @@ config :quick_train,
     QuickTrain.Accounts.Domain,
     QuickTrain.Authorization.Domain,
     QuickTrain.EnterpriseIdentity.Domain,
-    QuickTrain.Integrations.Domain,
-    QuickTrain.Operations.Domain,
     QuickTrain.Organizations.Domain
   ],
   ecto_repos: [QuickTrain.Repo],

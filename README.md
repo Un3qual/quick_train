@@ -1,8 +1,8 @@
 # QuickTrain
 
 QuickTrain is a backend-only Elixir template for enterprise applications. It keeps reusable
-account, tenant, authorization, enterprise identity, integration, and operation foundations while
-leaving product domains and the frontend empty.
+account, tenant, authorization, and enterprise identity foundations while leaving product domains
+and the frontend empty.
 
 ## Deliberate model choices
 
@@ -17,7 +17,8 @@ leaving product domains and the frontend empty.
 - Authorization is fail-closed and organization-scoped through roles and capability keys.
 - GraphQL is the only application API. No generated REST/JSON:API surface and no frontend are
   included. `/healthz` is an operational endpoint, not an application API.
-- Generic revision history, audit logging, and durable event delivery are intentionally omitted.
+- Generic revision history, audit logging, durable event delivery, generic integrations, and
+  operation tracking are intentionally omitted.
 
 ## Included foundations
 
@@ -28,9 +29,6 @@ leaving product domains and the frontend empty.
   assignments, and optional decision evidence.
 - `QuickTrain.EnterpriseIdentity`: provider-neutral connections, directories, users, groups,
   memberships, group-to-role mappings, and an adapter behaviour.
-- `QuickTrain.Integrations`: secret references, external references, and idempotent webhook
-  receipts.
-- `QuickTrain.Operations`: idempotent correlation records for user and system operations.
 - `QuickTrainWeb.GraphQL.Schema`: a minimal GraphQL-only API ready for product fields.
 
 ## Toolchain
@@ -67,9 +65,7 @@ discovery worker. `QuickTrain.Accounts.Oidc` exposes authorization URL and verif
 functions through `oidcc`. Persist only hashes and short-lived transaction material; never store
 raw browser session tokens.
 
-Integration credentials persist a `secret_reference`, not the secret. Implement
-`QuickTrain.Integrations.SecretStore` for the selected deployment platform and
-`QuickTrain.EnterpriseIdentity.Adapter` for the selected enterprise identity provider.
+Implement `QuickTrain.EnterpriseIdentity.Adapter` for the selected enterprise identity provider.
 
 Production additionally requires `DATABASE_URL` and `SECRET_KEY_BASE`; the other runtime settings
 are documented in `.env.example`.
