@@ -24,7 +24,7 @@ defmodule QuickTrain.Authorization do
     |> ok()
   end
 
-  def assign_role(organization_id, user_id, role_id, workspace_id \\ nil) do
+  def assign_role(organization_id, user_id, role_id) do
     cond do
       not Organizations.member?(organization_id, user_id) ->
         {:error, :membership_required}
@@ -37,34 +37,22 @@ defmodule QuickTrain.Authorization do
         |> Ash.Changeset.for_create(:assign, %{
           organization_id: organization_id,
           user_id: user_id,
-          role_id: role_id,
-          workspace_id: workspace_id
+          role_id: role_id
         })
         |> Ash.create(authorize?: false)
         |> ok()
     end
   end
 
-  def allowed?(user_id, organization_id, capability_key, workspace_id \\ nil) do
+  def allowed?(user_id, organization_id, capability_key) do
     Organizations.member?(organization_id, user_id) and
-      role_ids(user_id, organization_id, workspace_id)
+      role_ids(user_id, organization_id)
       |> roles_allow?(capability_key)
   end
 
-  defp role_ids(user_id, organization_id, nil) do
+  defp role_ids(user_id, organization_id) do
     RoleAssignment
-    |> Ash.Query.filter(
-      user_id == ^user_id and organization_id == ^organization_id and is_nil(workspace_id)
-    )
-    |> assignment_role_ids()
-  end
-
-  defp role_ids(user_id, organization_id, requested_workspace_id) do
-    RoleAssignment
-    |> Ash.Query.filter(
-      user_id == ^user_id and organization_id == ^organization_id and
-        (is_nil(workspace_id) or workspace_id == ^requested_workspace_id)
-    )
+    |> Ash.Query.filter(user_id == ^user_id and organization_id == ^organization_id)
     |> assignment_role_ids()
   end
 

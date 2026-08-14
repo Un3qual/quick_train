@@ -5,7 +5,6 @@ defmodule QuickTrain.Organizations.Domain do
 
   resources do
     resource QuickTrain.Organizations.Organization
-    resource QuickTrain.Organizations.Workspace
     resource QuickTrain.Organizations.Membership
   end
 end

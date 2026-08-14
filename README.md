@@ -24,7 +24,7 @@ and the frontend empty.
 
 - `QuickTrain.Accounts`: global users, external OIDC identities, OIDC login transactions,
   account-required sessions, and authentication events.
-- `QuickTrain.Organizations`: organizations, workspaces, and user memberships.
+- `QuickTrain.Organizations`: organizations and user memberships.
 - `QuickTrain.Authorization`: organization roles, capability catalog, role grants, scoped role
   assignments, and optional decision evidence.
 - `QuickTrain.EnterpriseIdentity`: provider-neutral connections, directories, users, groups,

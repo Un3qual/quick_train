@@ -6,27 +6,6 @@ defmodule QuickTrain.Repo.Migrations.InitialDomainFoundations do
   use Ecto.Migration
 
   def up do
-    create table(:workspaces, primary_key: false) do
-      add :id, :uuid, null: false, default: fragment("gen_random_uuid()"), primary_key: true
-      add :name, :text, null: false
-      add :slug, :text, null: false
-      add :status, :text, null: false, default: "active"
-
-      add :inserted_at, :utc_datetime_usec,
-        null: false,
-        default: fragment("(now() AT TIME ZONE 'utc')")
-
-      add :updated_at, :utc_datetime_usec,
-        null: false,
-        default: fragment("(now() AT TIME ZONE 'utc')")
-
-      add :organization_id, :uuid, null: false
-    end
-
-    create unique_index(:workspaces, [:organization_id, :slug],
-             name: "workspaces_organization_slug_index"
-           )
-
     create table(:users, primary_key: false) do
       add :id, :uuid, null: false, default: fragment("gen_random_uuid()"), primary_key: true
       add :email, :text, null: false
@@ -47,7 +26,6 @@ defmodule QuickTrain.Repo.Migrations.InitialDomainFoundations do
     create table(:sessions, primary_key: false) do
       add :id, :uuid, null: false, default: fragment("gen_random_uuid()"), primary_key: true
       add :organization_id, :uuid
-      add :workspace_id, :uuid
       add :authentication_method, :text, null: false, default: "oidc"
       add :token_hash, :text
       add :issued_at, :utc_datetime_usec, null: false
@@ -108,30 +86,18 @@ defmodule QuickTrain.Repo.Migrations.InitialDomainFoundations do
       add :organization_id, :uuid, null: false
       add :user_id, :uuid, null: false
       add :role_id, :uuid, null: false
-      add :workspace_id, :uuid
 
       add :inserted_at, :utc_datetime_usec,
         null: false,
         default: fragment("(now() AT TIME ZONE 'utc')")
     end
 
-    create unique_index(:role_assignments, [:organization_id, :user_id, :role_id, :workspace_id],
-             name: "role_assignments_scope_user_role_index",
-             nulls_distinct: false
+    create unique_index(:role_assignments, [:organization_id, :user_id, :role_id],
+             name: "role_assignments_organization_user_role_index"
            )
 
     create table(:organizations, primary_key: false) do
       add :id, :uuid, null: false, default: fragment("gen_random_uuid()"), primary_key: true
-    end
-
-    alter table(:workspaces) do
-      modify :organization_id,
-             references(:organizations,
-               column: :id,
-               name: "workspaces_organization_id_fkey",
-               type: :uuid,
-               prefix: "public"
-             )
     end
 
     alter table(:organizations) do
@@ -470,18 +436,10 @@ defmodule QuickTrain.Repo.Migrations.InitialDomainFoundations do
       remove :name
     end
 
-    drop constraint(:workspaces, "workspaces_organization_id_fkey")
-
-    alter table(:workspaces) do
-      modify :organization_id, :uuid
-    end
-
     drop table(:organizations)
 
-    drop_if_exists unique_index(
-                     :role_assignments,
-                     [:organization_id, :user_id, :role_id, :workspace_id],
-                     name: "role_assignments_scope_user_role_index"
+    drop_if_exists unique_index(:role_assignments, [:organization_id, :user_id, :role_id],
+                     name: "role_assignments_organization_user_role_index"
                    )
 
     drop table(:role_assignments)
@@ -505,11 +463,5 @@ defmodule QuickTrain.Repo.Migrations.InitialDomainFoundations do
     drop_if_exists unique_index(:users, [:email], name: "users_email_index")
 
     drop table(:users)
-
-    drop_if_exists unique_index(:workspaces, [:organization_id, :slug],
-                     name: "workspaces_organization_slug_index"
-                   )
-
-    drop table(:workspaces)
   end
 end

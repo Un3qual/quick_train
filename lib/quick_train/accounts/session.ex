@@ -1,5 +1,5 @@
 defmodule QuickTrain.Accounts.Session do
-  @moduledoc "An account-required session, optionally scoped to an organization and workspace."
+  @moduledoc "An account-required session, optionally scoped to an organization."
 
   use Ash.Resource,
     domain: QuickTrain.Accounts.Domain,
@@ -13,7 +13,6 @@ defmodule QuickTrain.Accounts.Session do
   attributes do
     uuid_primary_key :id
     attribute :organization_id, :uuid, public?: true
-    attribute :workspace_id, :uuid, public?: true
     attribute :authentication_method, :string, allow_nil?: false, public?: true, default: "oidc"
     attribute :token_hash, :string, public?: true, sensitive?: true
     attribute :issued_at, :utc_datetime_usec, allow_nil?: false, public?: true
@@ -37,7 +36,6 @@ defmodule QuickTrain.Accounts.Session do
       accept [
         :user_id,
         :organization_id,
-        :workspace_id,
         :authentication_method,
         :token_hash,
         :issued_at,

@@ -29,7 +29,6 @@ defmodule QuickTrain.Accounts do
       |> Ash.Changeset.for_create(:issue, %{
         user_id: user_id,
         organization_id: Map.get(attrs, :organization_id),
-        workspace_id: Map.get(attrs, :workspace_id),
         authentication_method: Map.get(attrs, :authentication_method, "oidc"),
         token_hash: Map.get(attrs, :token_hash),
         issued_at: now,
