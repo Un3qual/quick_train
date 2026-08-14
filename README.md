@@ -1,21 +1,90 @@
 # QuickTrain
 
-**TODO: Add description**
+QuickTrain is a backend-only Elixir template for enterprise applications. It keeps reusable
+account, tenant, authorization, enterprise identity, audit, integration, operation, and durable
+delivery foundations while leaving product domains and the frontend empty.
 
-## Installation
+## Deliberate model choices
 
-If [available in Hex](https://hex.pm/docs/publish), the package can be installed
-by adding `quick_train` to your list of dependencies in `mix.exs`:
+- There is one global human `User` resource. There are no separate enterprise and consumer user
+  tables and no principal abstraction.
+- An `OrganizationMembership` relates a user to an enterprise organization. A consumer user may
+  have no memberships, and the same account may be both an organization member and a consumer.
+- Every session requires an active user account. Consumer sessions have no organization scope;
+  organization-scoped sessions require an active membership. There are no guest sessions.
+- Directory deprovisioning disables the enterprise membership while preserving the global user
+  and independent consumer access.
+- Authorization is fail-closed and organization-scoped through roles and capability keys.
+- GraphQL is the only application API. No generated REST/JSON:API surface and no frontend are
+  included. `/healthz` is an operational endpoint, not an application API.
+- Generic revision history is intentionally omitted. Append-only audit evidence remains.
 
-```elixir
-def deps do
-  [
-    {:quick_train, "~> 0.1.0"}
-  ]
-end
+## Included foundations
+
+- `QuickTrain.Accounts`: global users, external OIDC identities, OIDC login transactions,
+  account-required sessions, and authentication events.
+- `QuickTrain.Organizations`: organizations, workspaces, and user memberships.
+- `QuickTrain.Authorization`: organization roles, capability catalog, role grants, scoped role
+  assignments, and optional decision evidence.
+- `QuickTrain.EnterpriseIdentity`: provider-neutral connections, directories, users, groups,
+  memberships, group-to-role mappings, and an adapter behaviour.
+- `QuickTrain.Integrations`: secret references, external references, and idempotent webhook
+  receipts.
+- `QuickTrain.Operations`: idempotent correlation records for user and system operations.
+- `QuickTrain.DurableDelivery`: idempotent domain-event persistence with Oban available for
+  application-specific dispatch workers.
+- `QuickTrain.Audit`: append-only generic audit records.
+- `QuickTrainWeb.GraphQL.Schema`: a minimal GraphQL-only API ready for product fields.
+
+## Toolchain
+
+The repository is managed by [mise](https://mise.jdx.dev/) and pins stable releases in
+`.mise.toml`: Erlang/OTP 29.0.4, Elixir 1.20.3 for OTP 29, Node.js 26.5.0, and OpenSpec 1.9.0.
+Node and OpenSpec are development tools only; there is no JavaScript application or frontend.
+Local PostgreSQL uses the official PostgreSQL 18.4 image.
+
+```sh
+mise install
+mise run db.start
+mise run setup
+mise run test
+mise run server
 ```
 
-Documentation can be generated with [ExDoc](https://github.com/elixir-lang/ex_doc)
-and published on [HexDocs](https://hexdocs.pm). Once published, the docs can
-be found at <https://hexdocs.pm/quick_train>.
+GraphQL is available at `POST http://localhost:4000/graphql`:
 
+```graphql
+query {
+  health
+}
+```
+
+Stop the local database with `mise run db.stop`. The database is published on port `55433` by
+default so it does not collide with a system PostgreSQL installation; override
+`QUICK_TRAIN_POSTGRES_PORT` if needed.
+
+## Authentication and secrets
+
+Set `OIDC_ISSUER`, `OIDC_CLIENT_ID`, and `OIDC_CLIENT_SECRET` to enable the supervised OIDC
+discovery worker. `QuickTrain.Accounts.Oidc` exposes authorization URL and verified code exchange
+functions through `oidcc`. Persist only hashes and short-lived transaction material; never store
+raw browser session tokens.
+
+Integration credentials persist a `secret_reference`, not the secret. Implement
+`QuickTrain.Integrations.SecretStore` for the selected deployment platform and
+`QuickTrain.EnterpriseIdentity.Adapter` for the selected enterprise identity provider.
+
+Production additionally requires `DATABASE_URL` and `SECRET_KEY_BASE`; the other runtime settings
+are documented in `.env.example`.
+
+## Verification
+
+`mise run verify` runs formatting, migration drift detection, boundary and dependency-cycle
+checks, static analysis, Dialyzer, Hex's retired-package audit, a production compile, and the test
+suite. Resource schema changes should be generated with:
+
+```sh
+mix ash_postgres.generate_migrations --name describe_the_change
+```
+
+Review generated migrations before applying them.

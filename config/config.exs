@@ -1,7 +1,16 @@
 import Config
 
 config :quick_train,
-  ash_domains: [],
+  ash_domains: [
+    QuickTrain.Accounts.Domain,
+    QuickTrain.Audit.Domain,
+    QuickTrain.Authorization.Domain,
+    QuickTrain.DurableDelivery.Domain,
+    QuickTrain.EnterpriseIdentity.Domain,
+    QuickTrain.Integrations.Domain,
+    QuickTrain.Operations.Domain,
+    QuickTrain.Organizations.Domain
+  ],
   ecto_repos: [QuickTrain.Repo],
   generators: [timestamp_type: :utc_datetime_usec]
 

@@ -55,8 +55,6 @@ defmodule QuickTrain.MixProject do
       {:ash, "== 3.31.3"},
       {:ash_postgres, "== 2.11.0"},
       {:ash_graphql, "== 1.10.0"},
-      {:ash_json_api, "== 1.7.1"},
-      {:open_api_spex, "== 3.22.3"},
       {:absinthe, "== 1.11.0"},
       {:absinthe_relay, "== 1.6.0"},
       {:absinthe_plug, "== 1.5.10"},
