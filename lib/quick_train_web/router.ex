@@ -9,10 +9,11 @@ defmodule QuickTrainWeb.Router do
     pipe_through :api
 
     forward "/graphql", Absinthe.Plug, schema: QuickTrainWeb.GraphQL.Schema
+
     forward "/graphiql",
-      Absinthe.Plug.GraphiQL,
-      schema: Module.concat(["QuickTrainWeb.GraphQL.Schema"]),
-      interface: :simple
+            Absinthe.Plug.GraphiQL,
+            schema: QuickTrainWeb.GraphQL.Schema,
+            interface: :simple
   end
 
   scope "/", QuickTrainWeb do
