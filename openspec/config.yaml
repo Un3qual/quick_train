@@ -1,0 +1,47 @@
+schema: spec-driven
+
+context: |
+  QuickTrain is a backend-only Elixir and Phoenix template built with Ash and AshPostgres.
+  It provides reusable account, organization, authorization, enterprise identity, and
+  GraphQL foundations while deliberately omitting product domains and a frontend.
+
+  Use the repository toolchain through mise. Keep Erlang, Elixir, Node.js, OpenSpec,
+  and backend dependencies on stable GA releases with exact pins where the repository
+  already uses them. Update .mise.toml, mix.exs, and mix.lock together when dependency
+  changes require it.
+
+  Preserve one global User resource. Organization membership is relational and optional,
+  every session requires an active account, and organization-scoped access requires an
+  active membership. Authorization must remain fail-closed and explicitly scoped to an
+  organization.
+
+  Prefer Ash resources, actions, changes, validations, policies, relationships, and
+  generators over direct Ecto implementation. GraphQL is the only application API;
+  /healthz is operational, and the repository contains no frontend.
+
+  OpenSpec is the sole durable source of truth for specifications and implementation
+  plans. Do not create docs/superpowers or another parallel planning tree. Run
+  mise run verify before considering implementation complete.
+
+rules:
+  proposal:
+    - State the user-visible or template-consumer outcome and include explicit non-goals.
+    - Explain any effect on the reusable backend-template boundary.
+  specs:
+    - Specify organization scope and fail-closed behavior for authorization changes.
+    - Cover account-required sessions and optional organization membership when relevant.
+  design:
+    - Use Ash-first domain concepts and identify any justified boundary exceptions.
+    - Address database concurrency when correctness depends on related-data validation.
+  tasks:
+    - Start with generators where available, then describe the deliberate edits required.
+    - Include focused tests and finish with mise run verify.
+
+operations:
+  apply:
+    guidance:
+      - Keep changes within the approved OpenSpec scope and preserve explicit non-goals.
+      - Add regression tests only when they protect meaningful behavior.
+  archive:
+    guidance:
+      - Archive only after all tasks are complete and mise run verify passes.

@@ -43,8 +43,19 @@ mise install
 mise run db.start
 mise run setup
 mise run test
+mise run openspec.validate
 mise run server
 ```
+
+## OpenSpec workflow
+
+OpenSpec is the source of truth for durable specifications and implementation plans. Its core
+Codex skills are stored in `.agents/skills`, while project context and artifact rules live in
+`openspec/config.yaml`.
+
+Start a change in Codex with `$openspec-propose "describe the change"`, review the generated
+artifacts, then use `$openspec-apply-change` to implement it and `$openspec-archive-change` after
+verification. Run `mise exec -- openspec list --json` to inspect active changes from the terminal.
 
 GraphQL is available at `POST http://localhost:4000/graphql`:
 
@@ -72,9 +83,10 @@ are documented in `.env.example`.
 
 ## Verification
 
-`mise run verify` runs formatting, boundary and dependency-cycle checks, static analysis,
-Dialyzer, Hex's retired-package audit, a production compile, and the test suite. Generate migrations
-and resource snapshots after changing Ash resources:
+`mise run verify` first validates all OpenSpec artifacts in strict, non-interactive mode, then runs
+formatting, boundary and dependency-cycle checks, static analysis, Dialyzer, Hex's retired-package
+audit, a production compile, and the test suite. Generate migrations and resource snapshots after
+changing Ash resources:
 
 ```sh
 mix ash.codegen describe_the_change

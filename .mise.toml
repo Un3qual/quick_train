@@ -22,9 +22,16 @@ run = "docker compose down"
 description = "Run backend tests"
 run = "MIX_ENV=test mix test"
 
+[tasks."openspec.validate"]
+description = "Validate all OpenSpec changes and specifications"
+run = "openspec validate --all --strict --no-interactive"
+
 [tasks.verify]
-description = "Run the complete backend verification gate"
-run = "MIX_ENV=test mix verify"
+description = "Run the complete project verification gate"
+run = [
+  "openspec validate --all --strict --no-interactive",
+  "MIX_ENV=test mix verify",
+]
 
 [tasks.server]
 description = "Run the Phoenix API server"
