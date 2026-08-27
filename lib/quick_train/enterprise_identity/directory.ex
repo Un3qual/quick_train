@@ -2,7 +2,7 @@ defmodule QuickTrain.EnterpriseIdentity.Directory do
   @moduledoc "A directory synchronized through an enterprise connection."
 
   use Ash.Resource,
-    domain: QuickTrain.EnterpriseIdentity.Domain,
+    domain: QuickTrain.EnterpriseIdentity,
     data_layer: AshPostgres.DataLayer,
     extensions: [AshGraphql.Resource]
 
@@ -42,7 +42,15 @@ defmodule QuickTrain.EnterpriseIdentity.Directory do
   end
 
   actions do
-    defaults [:read, :create, :update]
+    defaults [:read]
+
+    create :create do
+      accept [:enterprise_connection_id, :external_id, :status, :last_synced_at]
+    end
+
+    update :update do
+      accept [:status, :last_synced_at]
+    end
   end
 
   identities do

@@ -2,7 +2,7 @@ defmodule QuickTrain.EnterpriseIdentity.DirectoryGroup do
   @moduledoc false
 
   use Ash.Resource,
-    domain: QuickTrain.EnterpriseIdentity.Domain,
+    domain: QuickTrain.EnterpriseIdentity,
     data_layer: AshPostgres.DataLayer,
     extensions: [AshGraphql.Resource]
 
@@ -40,11 +40,21 @@ defmodule QuickTrain.EnterpriseIdentity.DirectoryGroup do
 
     has_many :directory_memberships, DirectoryMembership
 
-    has_many :users, User, through: [:directory_memberships, :directory_user, :user], public?: true
+    has_many :users, User,
+      through: [:directory_memberships, :directory_user, :user],
+      public?: true
   end
 
   actions do
-    defaults [:read, :create, :update]
+    defaults [:read]
+
+    create :create do
+      accept [:directory_id, :external_id, :name, :status]
+    end
+
+    update :update do
+      accept [:name, :status]
+    end
   end
 
   identities do

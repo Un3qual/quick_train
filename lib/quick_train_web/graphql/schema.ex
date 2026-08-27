@@ -7,7 +7,7 @@ defmodule QuickTrainWeb.GraphQL.Schema do
     domains: [
       QuickTrain.Organizations,
       QuickTrain.Accounts,
-      QuickTrain.EnterpriseIdentity.Domain,
+      QuickTrain.EnterpriseIdentity,
       QuickTrain.Authorization
     ],
     relay_ids?: true

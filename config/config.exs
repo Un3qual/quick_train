@@ -4,7 +4,7 @@ config :quick_train,
   ash_domains: [
     QuickTrain.Accounts,
     QuickTrain.Authorization,
-    QuickTrain.EnterpriseIdentity.Domain,
+    QuickTrain.EnterpriseIdentity,
     QuickTrain.Organizations
   ],
   ecto_repos: [QuickTrain.Repo],

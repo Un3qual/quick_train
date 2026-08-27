@@ -12,6 +12,8 @@ config :quick_train, QuickTrain.Repo,
   pool_size: System.schedulers_online() * 2,
   log: false
 
+config :ash, :disable_async?, true
+
 config :quick_train, QuickTrainWeb.Endpoint,
   http: [ip: {127, 0, 0, 1}, port: 4002],
   secret_key_base: "pM86mIBn3Bgbc4DH0ixmGqZz1YqN/1PYnNFbh5+hurSMBaA94okFGYiIOvLJhoMW",

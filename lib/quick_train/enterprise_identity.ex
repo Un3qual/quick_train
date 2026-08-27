@@ -1,49 +1,44 @@
 defmodule QuickTrain.EnterpriseIdentity do
   @moduledoc "Provider-neutral enterprise SSO and directory synchronization boundaries."
 
-  alias QuickTrain.EnterpriseIdentity.{EnterpriseConnection, DirectoryUser}
-  alias QuickTrain.Organizations
-  alias QuickTrain.Organizations.Membership
+  use Ash.Domain,
+    otp_app: :quick_train,
+    extensions: [AshGraphql.Domain]
 
-  def create_connection(organization_id, provider, external_id) do
-    EnterpriseConnection
-    |> Ash.Changeset.for_create(:create, %{
-      organization_id: organization_id,
-      provider: provider,
-      external_id: external_id
-    })
-    |> Ash.create(authorize?: false)
-  end
+  resources do
+    resource QuickTrain.EnterpriseIdentity.EnterpriseConnection do
+      define :create_connection,
+        action: :create,
+        args: [:organization_id, :provider, :external_id]
 
-  def link_directory_user(connection_id, membership_id, user_id, external_id) do
-    with {:ok, %EnterpriseConnection{organization_id: organization_id}} <-
-           Ash.get(EnterpriseConnection, connection_id, authorize?: false),
-         {:ok,
-          %Membership{
-            organization_id: ^organization_id,
-            user_id: ^user_id,
-            status: "active"
-          }} <- Ash.get(Membership, membership_id, authorize?: false) do
-      DirectoryUser
-      |> Ash.Changeset.for_create(:link, %{
-        connection_id: connection_id,
-        membership_id: membership_id,
-        user_id: user_id,
-        external_id: external_id
-      })
-      |> Ash.create(authorize?: false)
-    else
-      _mismatched_scope -> {:error, :identity_scope_mismatch}
+      define :get_enterprise_connection, action: :read, get_by: [:id]
     end
-  end
 
-  def deprovision_directory_user(directory_user_id) do
-    with {:ok, directory_user} <- Ash.get(DirectoryUser, directory_user_id, authorize?: false),
-         {:ok, _directory_user} <-
-           directory_user
-           |> Ash.Changeset.for_update(:set_status, %{status: "inactive"})
-           |> Ash.update(authorize?: false) do
-      Organizations.deactivate_membership(directory_user.membership_id)
+    resource QuickTrain.EnterpriseIdentity.Directory do
+      define :create_directory, action: :create, args: [:enterprise_connection_id, :external_id]
     end
+
+    resource QuickTrain.EnterpriseIdentity.DirectoryUser do
+      define :link_directory_user,
+        action: :link,
+        args: [:enterprise_connection_id, :membership_id, :user_id, :external_id]
+
+      define :get_directory_user, action: :read, get_by: [:id]
+      define :deprovision_directory_user, action: :deprovision
+    end
+
+    resource QuickTrain.EnterpriseIdentity.DirectoryGroup do
+      define :create_directory_group,
+        action: :create,
+        args: [:directory_id, :external_id, :name]
+    end
+
+    resource QuickTrain.EnterpriseIdentity.DirectoryMembership do
+      define :add_directory_user_to_group,
+        action: :create,
+        args: [:directory_user_id, :directory_group_id]
+    end
+
+    resource QuickTrain.EnterpriseIdentity.ExternalGroupRoleMapping
   end
 end

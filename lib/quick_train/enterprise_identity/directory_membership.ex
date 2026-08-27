@@ -2,7 +2,7 @@ defmodule QuickTrain.EnterpriseIdentity.DirectoryMembership do
   @moduledoc false
 
   use Ash.Resource,
-    domain: QuickTrain.EnterpriseIdentity.Domain,
+    domain: QuickTrain.EnterpriseIdentity,
     data_layer: AshPostgres.DataLayer,
     extensions: [AshGraphql.Resource]
 
@@ -17,7 +17,7 @@ defmodule QuickTrain.EnterpriseIdentity.DirectoryMembership do
     ]
   end
 
-   graphql do
+  graphql do
     type :directory_membership
   end
 
@@ -37,7 +37,11 @@ defmodule QuickTrain.EnterpriseIdentity.DirectoryMembership do
   end
 
   actions do
-    defaults [:read, :create, :destroy]
+    defaults [:read, :destroy]
+
+    create :create do
+      accept [:directory_user_id, :directory_group_id]
+    end
   end
 
   identities do

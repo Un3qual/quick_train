@@ -2,7 +2,7 @@ defmodule QuickTrain.EnterpriseIdentity.EnterpriseConnection do
   @moduledoc "An organization-owned enterprise SSO or directory connection."
 
   use Ash.Resource,
-    domain: QuickTrain.EnterpriseIdentity.Domain,
+    domain: QuickTrain.EnterpriseIdentity,
     data_layer: AshPostgres.DataLayer,
     extensions: [AshGraphql.Resource]
 

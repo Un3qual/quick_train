@@ -43,8 +43,10 @@ defmodule QuickTrain.Accounts.User do
     has_many :authentication_events, AuthenticationEvent, public?: true
     many_to_many :organizations, Organization, through: Membership, public?: true
 
+    has_many :directory_users, DirectoryUser, public?: true
+
     has_many :directory_memberships, DirectoryMembership,
-      destination_attribute: :directory_user_id,
+      through: [:directory_users, :directory_memberships],
       public?: true
 
     many_to_many :enterprise_connections, EnterpriseConnection,
@@ -52,7 +54,7 @@ defmodule QuickTrain.Accounts.User do
       public?: true
 
     has_many :directory_groups, DirectoryGroup,
-      through: [:directory_memberships, :directory_group],
+      through: [:directory_users, :directory_groups],
       public?: true
   end
 

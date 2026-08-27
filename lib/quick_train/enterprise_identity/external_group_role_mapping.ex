@@ -2,7 +2,7 @@ defmodule QuickTrain.EnterpriseIdentity.ExternalGroupRoleMapping do
   @moduledoc "Maps a directory group to an organization role."
 
   use Ash.Resource,
-    domain: QuickTrain.EnterpriseIdentity.Domain,
+    domain: QuickTrain.EnterpriseIdentity,
     data_layer: AshPostgres.DataLayer,
     extensions: [AshGraphql.Resource]
 
