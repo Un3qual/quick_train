@@ -13,12 +13,17 @@ defmodule QuickTrain.AuthorizationTest do
     {:ok, _grant} = Authorization.grant_capability(role.id, capability.id)
     {:ok, _assignment} = Authorization.assign_role(organization.id, user.id, role.id)
 
-    assert {:error, %Ash.Error.Forbidden{}} =
+    assert {:error, %Ash.Error.Invalid{}} =
              Authorization.assign_role(
                organization.id,
                Ecto.UUID.generate(),
                role.id
              )
+
+    {:ok, outsider} = Accounts.register_user("outsider@example.com", "Outsider")
+
+    assert {:error, %Ash.Error.Forbidden{}} =
+             Authorization.assign_role(organization.id, outsider.id, role.id)
 
     {:ok, _other_membership} = Organizations.add_member(other_organization.id, user.id)
 

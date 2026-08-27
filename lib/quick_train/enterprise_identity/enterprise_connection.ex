@@ -13,9 +13,7 @@ defmodule QuickTrain.EnterpriseIdentity.EnterpriseConnection do
     table "enterprise_connections"
     repo QuickTrain.Repo
 
-    unique_index_names [
-      {[:provider, :external_id], "enterprise_connections_provider_external_index"}
-    ]
+    identity_index_names provider_external: "enterprise_connections_provider_external_index"
   end
 
   graphql do

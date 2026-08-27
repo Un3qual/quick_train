@@ -7,8 +7,8 @@ defmodule QuickTrain.Organizations.Organization do
     extensions: [AshGraphql.Resource]
 
   alias QuickTrain.Accounts.User
-  alias QuickTrain.Organizations.Membership
   alias QuickTrain.EnterpriseIdentity.{Directory, EnterpriseConnection}
+  alias QuickTrain.Organizations.Membership
 
   postgres do
     table "organizations"

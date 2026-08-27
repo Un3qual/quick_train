@@ -9,10 +9,8 @@ defmodule QuickTrain.Accounts.ExternalIdentity do
     table "external_identities"
     repo QuickTrain.Repo
 
-    unique_index_names [
-      {[:provider, :subject], "external_identities_provider_subject_index"},
-      {[:user_id, :provider], "external_identities_user_provider_index"}
-    ]
+    identity_index_names provider_subject: "external_identities_provider_subject_index",
+                         user_provider: "external_identities_user_provider_index"
   end
 
   attributes do

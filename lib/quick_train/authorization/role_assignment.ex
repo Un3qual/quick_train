@@ -8,16 +8,14 @@ defmodule QuickTrain.Authorization.RoleAssignment do
     extensions: [AshGraphql.Resource]
 
   alias QuickTrain.Accounts.User
-  alias QuickTrain.Organizations.{Organization, Membership}
   alias QuickTrain.Authorization.Role
+  alias QuickTrain.Organizations.{Membership, Organization}
 
   postgres do
     table "role_assignments"
     repo QuickTrain.Repo
 
-    unique_index_names [
-      {[:organization_id, :user_id, :role_id], "role_assignments_organization_user_role_index"}
-    ]
+    identity_index_names organization_user_role: "role_assignments_organization_user_role_index"
   end
 
   graphql do

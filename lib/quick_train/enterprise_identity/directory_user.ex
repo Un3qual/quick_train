@@ -20,10 +20,8 @@ defmodule QuickTrain.EnterpriseIdentity.DirectoryUser do
     table "directory_users"
     repo QuickTrain.Repo
 
-    unique_index_names [
-      {[:enterprise_connection_id, :external_id],
-       "directory_users_enterprise_connection_external_index"}
-    ]
+    identity_index_names connection_external:
+                           "directory_users_enterprise_connection_external_index"
   end
 
   graphql do

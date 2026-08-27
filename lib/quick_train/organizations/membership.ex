@@ -13,9 +13,7 @@ defmodule QuickTrain.Organizations.Membership do
     table "organization_memberships"
     repo QuickTrain.Repo
 
-    unique_index_names [
-      {[:organization_id, :user_id], "organization_memberships_organization_user_index"}
-    ]
+    identity_index_names organization_user: "organization_memberships_organization_user_index"
   end
 
   graphql do

@@ -73,11 +73,11 @@ are documented in `.env.example`.
 ## Verification
 
 `mise run verify` runs formatting, boundary and dependency-cycle checks, static analysis,
-Dialyzer, Hex's retired-package audit, a production compile, and the test suite. Create ordinary
-Ecto migrations for resource schema changes:
+Dialyzer, Hex's retired-package audit, a production compile, and the test suite. Generate migrations
+and resource snapshots after changing Ash resources:
 
 ```sh
-mix ecto.gen.migration describe_the_change
+mix ash.codegen describe_the_change
 ```
 
 Review migrations before applying them.

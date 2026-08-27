@@ -3,7 +3,7 @@ defmodule QuickTrain.Authorization.RoleAssignment.Actions.Allowed do
 
   use Ash.Resource.Actions.Implementation
 
-  alias QuickTrain.Authorization.{Capability, RoleAssignment, RoleCapability}
+  alias QuickTrain.Authorization.{Capability, RoleCapability}
   alias QuickTrain.Organizations
 
   require Ash.Query
@@ -15,13 +15,13 @@ defmodule QuickTrain.Authorization.RoleAssignment.Actions.Allowed do
 
     allowed? =
       Organizations.member?(organization_id, user_id) and
-        roles_allow?(user_id, organization_id, capability_key)
+        roles_allow?(input.resource, user_id, organization_id, capability_key)
 
     {:ok, allowed?}
   end
 
-  defp roles_allow?(user_id, organization_id, capability_key) do
-    with {:ok, role_ids} <- role_ids(user_id, organization_id),
+  defp roles_allow?(resource, user_id, organization_id, capability_key) do
+    with {:ok, role_ids} <- role_ids(resource, user_id, organization_id),
          false <- Enum.empty?(role_ids),
          {:ok, capability_ids} <- capability_ids(capability_key),
          false <- Enum.empty?(capability_ids) do
@@ -31,8 +31,8 @@ defmodule QuickTrain.Authorization.RoleAssignment.Actions.Allowed do
     end
   end
 
-  defp role_ids(user_id, organization_id) do
-    RoleAssignment
+  defp role_ids(resource, user_id, organization_id) do
+    resource
     |> Ash.Query.for_read(:read, %{}, authorize?: false)
     |> Ash.Query.filter(user_id == ^user_id and organization_id == ^organization_id)
     |> Ash.read()

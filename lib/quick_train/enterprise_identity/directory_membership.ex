@@ -6,15 +6,13 @@ defmodule QuickTrain.EnterpriseIdentity.DirectoryMembership do
     data_layer: AshPostgres.DataLayer,
     extensions: [AshGraphql.Resource]
 
-  alias QuickTrain.EnterpriseIdentity.{DirectoryUser, DirectoryGroup}
+  alias QuickTrain.EnterpriseIdentity.{DirectoryGroup, DirectoryUser}
 
   postgres do
     table "directory_memberships"
     repo QuickTrain.Repo
 
-    unique_index_names [
-      {[:directory_user_id, :directory_group_id], "directory_memberships_user_group_index"}
-    ]
+    identity_index_names user_group: "directory_memberships_user_group_index"
   end
 
   graphql do

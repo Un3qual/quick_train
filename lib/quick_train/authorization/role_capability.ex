@@ -6,12 +6,12 @@ defmodule QuickTrain.Authorization.RoleCapability do
     data_layer: AshPostgres.DataLayer,
     extensions: [AshGraphql.Resource]
 
-  alias QuickTrain.Authorization.{Role, Capability}
+  alias QuickTrain.Authorization.{Capability, Role}
 
   postgres do
     table "role_capabilities"
     repo QuickTrain.Repo
-    unique_index_names [{[:role_id, :capability_id], "role_capabilities_role_capability_index"}]
+    identity_index_names role_capability: "role_capabilities_role_capability_index"
   end
 
   graphql do

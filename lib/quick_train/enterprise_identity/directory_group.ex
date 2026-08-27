@@ -13,9 +13,7 @@ defmodule QuickTrain.EnterpriseIdentity.DirectoryGroup do
     table "directory_groups"
     repo QuickTrain.Repo
 
-    unique_index_names [
-      {[:directory_id, :external_id], "directory_groups_directory_external_index"}
-    ]
+    identity_index_names directory_external: "directory_groups_directory_external_index"
   end
 
   graphql do

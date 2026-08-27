@@ -6,16 +6,14 @@ defmodule QuickTrain.EnterpriseIdentity.ExternalGroupRoleMapping do
     data_layer: AshPostgres.DataLayer,
     extensions: [AshGraphql.Resource]
 
-  alias QuickTrain.EnterpriseIdentity.DirectoryGroup
   alias QuickTrain.Authorization.Role
+  alias QuickTrain.EnterpriseIdentity.DirectoryGroup
 
   postgres do
     table "external_group_role_mappings"
     repo QuickTrain.Repo
 
-    unique_index_names [
-      {[:directory_group_id, :role_id], "external_group_role_mappings_group_role_index"}
-    ]
+    identity_index_names group_role: "external_group_role_mappings_group_role_index"
   end
 
   graphql do

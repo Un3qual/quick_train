@@ -9,13 +9,13 @@ defmodule QuickTrain.Accounts.User do
   alias QuickTrain.Accounts.AuthenticationEvent
 
   alias QuickTrain.EnterpriseIdentity.{
-    EnterpriseConnection,
     DirectoryGroup,
     DirectoryMembership,
-    DirectoryUser
+    DirectoryUser,
+    EnterpriseConnection
   }
 
-  alias QuickTrain.Organizations.{Organization, Membership}
+  alias QuickTrain.Organizations.{Membership, Organization}
 
   postgres do
     table "users"

@@ -11,7 +11,7 @@ defmodule QuickTrain.Authorization.Role do
   postgres do
     table "roles"
     repo QuickTrain.Repo
-    unique_index_names [{[:organization_id, :key], "roles_organization_key_index"}]
+    identity_index_names organization_key: "roles_organization_key_index"
   end
 
   graphql do

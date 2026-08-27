@@ -3,13 +3,11 @@ defmodule QuickTrain.Organizations.Membership.Actions.Member do
 
   use Ash.Resource.Actions.Implementation
 
-  alias QuickTrain.Organizations.Membership
-
   require Ash.Query
 
   @impl true
   def run(input, _opts, _context) do
-    Membership
+    input.resource
     |> Ash.Query.for_read(:read, %{}, authorize?: false)
     |> Ash.Query.filter(
       organization_id == ^input.arguments.organization_id and
