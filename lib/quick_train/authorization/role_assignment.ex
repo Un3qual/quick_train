@@ -3,7 +3,13 @@ defmodule QuickTrain.Authorization.RoleAssignment do
 
   use Ash.Resource,
     domain: QuickTrain.Authorization.Domain,
-    data_layer: AshPostgres.DataLayer
+    data_layer: AshPostgres.DataLayer,
+    authorizers: [Ash.Policy.Authorizer],
+    extensions: [AshGraphql.Resource]
+
+  alias QuickTrain.Accounts.User
+  alias QuickTrain.Organizations.{Organization, Membership}
+  alias QuickTrain.Authorization.Role
 
   postgres do
     table "role_assignments"
@@ -14,23 +20,46 @@ defmodule QuickTrain.Authorization.RoleAssignment do
     ]
   end
 
+  graphql do
+    type :role_assignment
+  end
+
   attributes do
     uuid_primary_key :id
-    attribute :organization_id, :uuid, allow_nil?: false, public?: true
-    attribute :user_id, :uuid, allow_nil?: false, public?: true
-    attribute :role_id, :uuid, allow_nil?: false, public?: true
     create_timestamp :inserted_at, public?: true
+  end
+
+  relationships do
+    belongs_to :organization, Organization,
+      allow_nil?: false,
+      attribute_public?: true
+    belongs_to :user, User,
+      allow_nil?: false,
+      attribute_public?: true
+    belongs_to :role, Role,
+      allow_nil?: false,
+      attribute_public?: true
   end
 
   actions do
     defaults [:read]
 
+
     create :assign do
       accept [:organization_id, :user_id, :role_id]
-      upsert? true
-      upsert_identity :organization_user_role
-      upsert_fields []
-      return_skipped_upsert? true
+
+
+    end
+  end
+
+  policies do
+    policy action_type(:create) do
+      forbid_unless expr(exists(Membership,
+        organization_id == parent(organization_id) and user_id == ^actor(:id) and status == "active"))
+
+      forbid_unless expr(exists(Role, id == parent(role_id) and organization_id == parent(organization_id)))
+
+      authorize_if always()
     end
   end
 

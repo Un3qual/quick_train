@@ -5,6 +5,9 @@ defmodule QuickTrain.Accounts.Session do
     domain: QuickTrain.Accounts.Domain,
     data_layer: AshPostgres.DataLayer
 
+  alias QuickTrain.Accounts.User
+  alias QuickTrain.Organizations.Organization
+
   postgres do
     table "sessions"
     repo QuickTrain.Repo
@@ -12,9 +15,10 @@ defmodule QuickTrain.Accounts.Session do
 
   attributes do
     uuid_primary_key :id
-    attribute :organization_id, :uuid, public?: true
+
     attribute :authentication_method, :string, allow_nil?: false, public?: true, default: "oidc"
     attribute :token_hash, :string, public?: true, sensitive?: true
+
     attribute :issued_at, :utc_datetime_usec, allow_nil?: false, public?: true
     attribute :expires_at, :utc_datetime_usec, allow_nil?: false, public?: true
     attribute :revoked_at, :utc_datetime_usec, public?: true
@@ -23,10 +27,13 @@ defmodule QuickTrain.Accounts.Session do
   end
 
   relationships do
-    belongs_to :user, QuickTrain.Accounts.User do
-      allow_nil? false
-      attribute_public? true
-    end
+    belongs_to :user, User,
+      allow_nil?: false,
+      attribute_public?: true
+
+    belongs_to :organization, Organization,
+      allow_nil?: true,
+      attribute_public?: true
   end
 
   actions do
@@ -41,6 +48,11 @@ defmodule QuickTrain.Accounts.Session do
         :issued_at,
         :expires_at
       ]
+
+      change relate_actor(:user)
+      change set_attribute(:issued_at, &DateTime.utc_now/0)
+      change set_attribute(:authentication_method, "oidc", new?: true)
+      # change set_attribute(:expires_at, DateTime.add(DateTime.utc_now/0, 8, :hour))
     end
 
     update :revoke do

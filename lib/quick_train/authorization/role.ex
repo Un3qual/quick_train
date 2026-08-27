@@ -3,7 +3,10 @@ defmodule QuickTrain.Authorization.Role do
 
   use Ash.Resource,
     domain: QuickTrain.Authorization.Domain,
-    data_layer: AshPostgres.DataLayer
+    data_layer: AshPostgres.DataLayer,
+    extensions: [AshGraphql.Resource]
+
+  alias QuickTrain.Organizations.Organization
 
   postgres do
     table "roles"
@@ -11,13 +14,24 @@ defmodule QuickTrain.Authorization.Role do
     unique_index_names [{[:organization_id, :key], "roles_organization_key_index"}]
   end
 
+  graphql do
+    type :role
+  end
+
   attributes do
     uuid_primary_key :id
-    attribute :organization_id, :uuid, allow_nil?: false, public?: true
+
     attribute :key, :string, allow_nil?: false, public?: true
     attribute :name, :string, allow_nil?: false, public?: true
+
     create_timestamp :inserted_at, public?: true
     update_timestamp :updated_at, public?: true
+  end
+
+  relationships do
+    belongs_to :organization, Organization,
+      allow_nil?: false,
+      attribute_public?: true
   end
 
   actions do
@@ -25,10 +39,7 @@ defmodule QuickTrain.Authorization.Role do
 
     create :create do
       accept [:organization_id, :key, :name]
-      upsert? true
-      upsert_identity :organization_key
-      upsert_fields [:name]
-      return_skipped_upsert? true
+
     end
   end
 

@@ -3,9 +3,18 @@ defmodule QuickTrainWeb.GraphQL.Schema do
 
   use Absinthe.Schema
 
+  use AshGraphql,
+    domains: [QuickTrain.Organizations.Domain, QuickTrain.Accounts.Domain, QuickTrain.EnterpriseIdentity.Domain, QuickTrain.Authorization.Domain],
+    relay_ids?: true
+
   query do
-    field :health, non_null(:string) do
-      resolve(fn _parent, _args, _resolution -> {:ok, "ok"} end)
-    end
+    # field :health, non_null(:string) do
+    #   resolve(fn _parent, _args, _resolution -> {:ok, "ok"} end)
+    # end
   end
+
+  mutation do
+
+  end
+
 end

@@ -5,44 +5,44 @@ defmodule QuickTrain.Authorization do
   alias QuickTrain.Organizations
   require Ash.Query
 
-  def create_role(organization_id, key, name) do
-    Role
-    |> Ash.Changeset.for_create(:create, %{organization_id: organization_id, key: key, name: name})
-    |> Ash.create(authorize?: false)
-  end
+  # def create_role(organization_id, key, name) do
+  #   Role
+  #   |> Ash.Changeset.for_create(:create, %{organization_id: organization_id, key: key, name: name})
+  #   |> Ash.create(authorize?: false)
+  # end
 
-  def create_capability(key, description) do
-    Capability
-    |> Ash.Changeset.for_create(:create, %{key: key, description: description})
-    |> Ash.create(authorize?: false)
-  end
+  # def create_capability(key, description) do
+  #   Capability
+  #   |> Ash.Changeset.for_create(:create, %{key: key, description: description})
+  #   |> Ash.create(authorize?: false)
+  # end
 
-  def grant_capability(role_id, capability_id) do
-    RoleCapability
-    |> Ash.Changeset.for_create(:grant, %{role_id: role_id, capability_id: capability_id})
-    |> Ash.create(authorize?: false)
-    |> ok()
-  end
+  # def grant_capability(role_id, capability_id) do
+  #   RoleCapability
+  #   |> Ash.Changeset.for_create(:grant, %{role_id: role_id, capability_id: capability_id})
+  #   |> Ash.create(authorize?: false)
+  #   |> ok()
+  # end
 
-  def assign_role(organization_id, user_id, role_id) do
-    cond do
-      not Organizations.member?(organization_id, user_id) ->
-        {:error, :membership_required}
+  # def assign_role(organization_id, user_id, role_id) do
+  #   cond do
+  #     not Organizations.member?(organization_id, user_id) ->
+  #       {:error, :membership_required}
 
-      not role_in_organization?(role_id, organization_id) ->
-        {:error, :role_scope_mismatch}
+  #     not role_in_organization?(role_id, organization_id) ->
+  #       {:error, :role_scope_mismatch}
 
-      true ->
-        RoleAssignment
-        |> Ash.Changeset.for_create(:assign, %{
-          organization_id: organization_id,
-          user_id: user_id,
-          role_id: role_id
-        })
-        |> Ash.create(authorize?: false)
-        |> ok()
-    end
-  end
+  #     true ->
+  #       RoleAssignment
+  #       |> Ash.Changeset.for_create(:assign, %{
+  #         organization_id: organization_id,
+  #         user_id: user_id,
+  #         role_id: role_id
+  #       })
+  #       |> Ash.create(authorize?: false)
+  #       |> ok()
+  #   end
+  # end
 
   def allowed?(user_id, organization_id, capability_key) do
     Organizations.member?(organization_id, user_id) and
@@ -79,14 +79,4 @@ defmodule QuickTrain.Authorization do
       {:error, _error} -> []
     end
   end
-
-  defp role_in_organization?(role_id, organization_id) do
-    match?(
-      {:ok, %Role{organization_id: ^organization_id}},
-      Ash.get(Role, role_id, authorize?: false)
-    )
-  end
-
-  defp ok({:ok, _record}), do: :ok
-  defp ok({:error, error}), do: {:error, error}
 end

@@ -3,12 +3,17 @@ defmodule QuickTrain.Authorization.Capability do
 
   use Ash.Resource,
     domain: QuickTrain.Authorization.Domain,
-    data_layer: AshPostgres.DataLayer
+    data_layer: AshPostgres.DataLayer,
+    extensions: [AshGraphql.Resource]
 
   postgres do
     table "capabilities"
     repo QuickTrain.Repo
     identity_index_names key: "capabilities_key_index"
+  end
+
+  graphql do
+    type :capability
   end
 
   attributes do
@@ -23,10 +28,6 @@ defmodule QuickTrain.Authorization.Capability do
 
     create :create do
       accept [:key, :description]
-      upsert? true
-      upsert_identity :key
-      upsert_fields [:description]
-      return_skipped_upsert? true
     end
   end
 

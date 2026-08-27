@@ -3,7 +3,10 @@ defmodule QuickTrain.Authorization.RoleCapability do
 
   use Ash.Resource,
     domain: QuickTrain.Authorization.Domain,
-    data_layer: AshPostgres.DataLayer
+    data_layer: AshPostgres.DataLayer,
+    extensions: [AshGraphql.Resource]
+
+  alias QuickTrain.Authorization.{Role, Capability}
 
   postgres do
     table "role_capabilities"
@@ -11,11 +14,23 @@ defmodule QuickTrain.Authorization.RoleCapability do
     unique_index_names [{[:role_id, :capability_id], "role_capabilities_role_capability_index"}]
   end
 
+  graphql do
+    type :role_capability
+  end
+
   attributes do
     uuid_primary_key :id
-    attribute :role_id, :uuid, allow_nil?: false, public?: true
-    attribute :capability_id, :uuid, allow_nil?: false, public?: true
+
     create_timestamp :inserted_at, public?: true
+  end
+
+  relationships do
+    belongs_to :role, Role,
+      allow_nil?: false,
+      attribute_public?: true
+    belongs_to :capability, Capability,
+      allow_nil?: false,
+      attribute_public?: true
   end
 
   actions do
@@ -23,10 +38,6 @@ defmodule QuickTrain.Authorization.RoleCapability do
 
     create :grant do
       accept [:role_id, :capability_id]
-      upsert? true
-      upsert_identity :role_capability
-      upsert_fields []
-      return_skipped_upsert? true
     end
   end
 

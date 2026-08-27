@@ -3,7 +3,11 @@ defmodule QuickTrain.Organizations.Membership do
 
   use Ash.Resource,
     domain: QuickTrain.Organizations.Domain,
-    data_layer: AshPostgres.DataLayer
+    data_layer: AshPostgres.DataLayer,
+    extensions: [AshGraphql.Resource]
+
+  alias QuickTrain.Accounts.User
+  alias QuickTrain.Organizations.Organization
 
   postgres do
     table "organization_memberships"
@@ -14,6 +18,11 @@ defmodule QuickTrain.Organizations.Membership do
     ]
   end
 
+  graphql do
+    derive_filter? false
+    type :organization_membership
+  end
+
   attributes do
     uuid_primary_key :id
     attribute :status, :string, allow_nil?: false, public?: true, default: "active"
@@ -22,30 +31,34 @@ defmodule QuickTrain.Organizations.Membership do
   end
 
   relationships do
-    belongs_to :organization, QuickTrain.Organizations.Organization do
-      allow_nil? false
-      attribute_public? true
-    end
+    belongs_to :organization, Organization,
+      allow_nil?: false,
+      public?: true
 
-    belongs_to :user, QuickTrain.Accounts.User do
-      allow_nil? false
-      attribute_public? true
-    end
+    belongs_to :user, User,
+      allow_nil?: false,
+      public?: true
   end
 
   actions do
     defaults [:read]
 
-    create :add do
-      accept [:organization_id, :user_id, :status]
-      upsert? true
-      upsert_identity :organization_user
-      upsert_fields [:status]
-      return_skipped_upsert? true
+    read :member? do
+      argument :organization_id, :uuid, allow_nil?: false
+      argument :user_id, :uuid, allow_nil?: false
+      filter expr(organization_id == ^arg(:organization_id) and user_id == ^arg(:user_id) and status == "active")
+      get? true
     end
 
-    update :set_status do
-      accept [:status]
+    create :add do
+      accept [:organization_id, :user_id, :status]
+    end
+
+    update :deactivate_membership do
+      argument :organization_id, :uuid, allow_nil?: false
+      argument :user_id, :uuid, allow_nil?: false
+      filter expr(organization_id == ^arg(:organization_id) and user_id == ^arg(:user_id) and status == "active")
+      change set_attribute(:status, "inactive")
     end
   end
 

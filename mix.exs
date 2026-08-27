@@ -16,7 +16,8 @@ defmodule QuickTrain.MixProject do
         plt_add_apps: [:ex_unit],
         flags: [:error_handling, :underspecs]
       ],
-      listeners: [Phoenix.CodeReloader]
+      listeners: [Phoenix.CodeReloader],
+      usage_rules: usage_rules()
     ]
   end
 
@@ -53,7 +54,7 @@ defmodule QuickTrain.MixProject do
       {:postgrex, "== 0.22.4"},
       {:ash, "== 3.31.3"},
       {:ash_postgres, "== 2.11.0"},
-      {:ash_graphql, "== 1.10.0"},
+      {:ash_graphql, "== 1.10.1"},
       {:absinthe, "== 1.11.0"},
       {:absinthe_relay, "== 1.6.0"},
       {:absinthe_plug, "== 1.5.10"},
@@ -70,7 +71,12 @@ defmodule QuickTrain.MixProject do
       {:jason, "== 1.4.5"},
       {:dns_cluster, "== 0.2.0"},
       {:bandit, "== 1.12.4"},
-      {:ecto_dev_logger, "== 0.15.0", only: :dev}
+      {:ecto_dev_logger, "== 0.15.0", only: :dev},
+      {:ash_diagram, "~> 0.2.2"},
+      {:ex_cmd, "~> 0.18.0"},
+      {:usage_rules, "~> 1.2", only: [:dev]},
+      {:igniter, "~> 0.8.3", only: [:dev]},
+      {:picosat_elixir, "~> 0.2.3"}
     ]
   end
 
@@ -101,6 +107,13 @@ defmodule QuickTrain.MixProject do
         "test"
       ],
       precommit: ["verify"]
+    ]
+  end
+
+  defp usage_rules do
+    [
+      file: "AGENTS.md",
+      usage_rules: :all
     ]
   end
 end

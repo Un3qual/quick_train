@@ -238,7 +238,7 @@ defmodule QuickTrain.Repo.Migrations.InitialDomainFoundations do
 
     create table(:directory_users, primary_key: false) do
       add :id, :uuid, null: false, default: fragment("gen_random_uuid()"), primary_key: true
-      add :connection_id, :uuid, null: false
+      add :enterprise_connection_id, :uuid, null: false
       add :membership_id, :uuid, null: false
       add :user_id, :uuid, null: false
       add :external_id, :text, null: false
@@ -254,8 +254,8 @@ defmodule QuickTrain.Repo.Migrations.InitialDomainFoundations do
         default: fragment("(now() AT TIME ZONE 'utc')")
     end
 
-    create unique_index(:directory_users, [:connection_id, :external_id],
-             name: "directory_users_connection_external_index"
+    create unique_index(:directory_users, [:enterprise_connection_id, :external_id],
+             name: "directory_users_enterprise_connection_external_index"
            )
 
     create table(:directory_memberships, primary_key: false) do
@@ -294,7 +294,7 @@ defmodule QuickTrain.Repo.Migrations.InitialDomainFoundations do
 
     create table(:directories, primary_key: false) do
       add :id, :uuid, null: false, default: fragment("gen_random_uuid()"), primary_key: true
-      add :connection_id, :uuid, null: false
+      add :enterprise_connection_id, :uuid, null: false
       add :external_id, :text, null: false
       add :status, :text, null: false, default: "active"
       add :last_synced_at, :utc_datetime_usec
@@ -308,8 +308,8 @@ defmodule QuickTrain.Repo.Migrations.InitialDomainFoundations do
         default: fragment("(now() AT TIME ZONE 'utc')")
     end
 
-    create unique_index(:directories, [:connection_id, :external_id],
-             name: "directories_connection_external_index"
+    create unique_index(:directories, [:enterprise_connection_id, :external_id],
+             name: "directories_enterprise_connection_external_index"
            )
 
     create table(:capabilities, primary_key: false) do
@@ -362,8 +362,8 @@ defmodule QuickTrain.Repo.Migrations.InitialDomainFoundations do
 
     drop table(:capabilities)
 
-    drop_if_exists unique_index(:directories, [:connection_id, :external_id],
-                     name: "directories_connection_external_index"
+    drop_if_exists unique_index(:directories, [:enterprise_connection_id, :external_id],
+                     name: "directories_enterprise_connection_external_index"
                    )
 
     drop table(:directories)
@@ -380,8 +380,8 @@ defmodule QuickTrain.Repo.Migrations.InitialDomainFoundations do
 
     drop table(:directory_memberships)
 
-    drop_if_exists unique_index(:directory_users, [:connection_id, :external_id],
-                     name: "directory_users_connection_external_index"
+    drop_if_exists unique_index(:directory_users, [:enterprise_connection_id, :external_id],
+                     name: "directory_users_enterprise_connection_external_index"
                    )
 
     drop table(:directory_users)

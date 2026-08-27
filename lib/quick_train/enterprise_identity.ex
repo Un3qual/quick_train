@@ -1,12 +1,12 @@
 defmodule QuickTrain.EnterpriseIdentity do
   @moduledoc "Provider-neutral enterprise SSO and directory synchronization boundaries."
 
-  alias QuickTrain.EnterpriseIdentity.{Connection, DirectoryUser}
+  alias QuickTrain.EnterpriseIdentity.{EnterpriseConnection, DirectoryUser}
   alias QuickTrain.Organizations
   alias QuickTrain.Organizations.Membership
 
   def create_connection(organization_id, provider, external_id) do
-    Connection
+    EnterpriseConnection
     |> Ash.Changeset.for_create(:create, %{
       organization_id: organization_id,
       provider: provider,
@@ -16,8 +16,8 @@ defmodule QuickTrain.EnterpriseIdentity do
   end
 
   def link_directory_user(connection_id, membership_id, user_id, external_id) do
-    with {:ok, %Connection{organization_id: organization_id}} <-
-           Ash.get(Connection, connection_id, authorize?: false),
+    with {:ok, %EnterpriseConnection{organization_id: organization_id}} <-
+           Ash.get(EnterpriseConnection, connection_id, authorize?: false),
          {:ok,
           %Membership{
             organization_id: ^organization_id,
