@@ -2,7 +2,7 @@ defmodule QuickTrain.Authorization.RoleCapability do
   @moduledoc false
 
   use Ash.Resource,
-    domain: QuickTrain.Authorization.Domain,
+    domain: QuickTrain.Authorization,
     data_layer: AshPostgres.DataLayer,
     extensions: [AshGraphql.Resource]
 
@@ -28,6 +28,7 @@ defmodule QuickTrain.Authorization.RoleCapability do
     belongs_to :role, Role,
       allow_nil?: false,
       attribute_public?: true
+
     belongs_to :capability, Capability,
       allow_nil?: false,
       attribute_public?: true

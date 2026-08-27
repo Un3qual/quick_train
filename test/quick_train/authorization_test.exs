@@ -10,12 +10,19 @@ defmodule QuickTrain.AuthorizationTest do
     {:ok, _membership} = Organizations.add_member(organization.id, user.id)
     {:ok, role} = Authorization.create_role(organization.id, "owner", "Owner")
     {:ok, capability} = Authorization.create_capability("forms.manage", "Manage forms")
-    :ok = Authorization.grant_capability(role.id, capability.id)
-    :ok = Authorization.assign_role(organization.id, user.id, role.id)
+    {:ok, _grant} = Authorization.grant_capability(role.id, capability.id)
+    {:ok, _assignment} = Authorization.assign_role(organization.id, user.id, role.id)
+
+    assert {:error, %Ash.Error.Forbidden{}} =
+             Authorization.assign_role(
+               organization.id,
+               Ecto.UUID.generate(),
+               role.id
+             )
 
     {:ok, _other_membership} = Organizations.add_member(other_organization.id, user.id)
 
-    assert {:error, :role_scope_mismatch} =
+    assert {:error, %Ash.Error.Forbidden{}} =
              Authorization.assign_role(other_organization.id, user.id, role.id)
 
     assert Authorization.allowed?(user.id, organization.id, "forms.manage")

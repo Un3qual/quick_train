@@ -3,7 +3,7 @@ import Config
 config :quick_train,
   ash_domains: [
     QuickTrain.Accounts,
-    QuickTrain.Authorization.Domain,
+    QuickTrain.Authorization,
     QuickTrain.EnterpriseIdentity.Domain,
     QuickTrain.Organizations
   ],

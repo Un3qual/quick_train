@@ -2,7 +2,7 @@ defmodule QuickTrain.Authorization.Capability do
   @moduledoc "A stable, product-defined permission key."
 
   use Ash.Resource,
-    domain: QuickTrain.Authorization.Domain,
+    domain: QuickTrain.Authorization,
     data_layer: AshPostgres.DataLayer,
     extensions: [AshGraphql.Resource]
 

@@ -2,7 +2,7 @@ defmodule QuickTrain.Authorization.Role do
   @moduledoc "An organization-scoped collection of capabilities."
 
   use Ash.Resource,
-    domain: QuickTrain.Authorization.Domain,
+    domain: QuickTrain.Authorization,
     data_layer: AshPostgres.DataLayer,
     extensions: [AshGraphql.Resource]
 
@@ -39,7 +39,6 @@ defmodule QuickTrain.Authorization.Role do
 
     create :create do
       accept [:organization_id, :key, :name]
-
     end
   end
 

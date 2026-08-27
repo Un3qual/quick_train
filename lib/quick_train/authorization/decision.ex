@@ -2,7 +2,7 @@ defmodule QuickTrain.Authorization.Decision do
   @moduledoc "Optional append-only authorization decision evidence."
 
   use Ash.Resource,
-    domain: QuickTrain.Authorization.Domain,
+    domain: QuickTrain.Authorization,
     data_layer: AshPostgres.DataLayer,
     extensions: [AshGraphql.Resource]
 
@@ -33,6 +33,7 @@ defmodule QuickTrain.Authorization.Decision do
     belongs_to :user, User,
       allow_nil?: false,
       attribute_public?: true
+
     belongs_to :organization, Organization,
       allow_nil?: false,
       attribute_public?: true
