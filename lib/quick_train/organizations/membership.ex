@@ -2,7 +2,7 @@ defmodule QuickTrain.Organizations.Membership do
   @moduledoc "Relates a global user to an organization without changing the user's account type."
 
   use Ash.Resource,
-    domain: QuickTrain.Organizations.Domain,
+    domain: QuickTrain.Organizations,
     data_layer: AshPostgres.DataLayer,
     extensions: [AshGraphql.Resource]
 
@@ -43,21 +43,23 @@ defmodule QuickTrain.Organizations.Membership do
   actions do
     defaults [:read]
 
-    read :member? do
+    action :member?, :boolean do
       argument :organization_id, :uuid, allow_nil?: false
       argument :user_id, :uuid, allow_nil?: false
-      filter expr(organization_id == ^arg(:organization_id) and user_id == ^arg(:user_id) and status == "active")
-      get? true
+
+      run QuickTrain.Organizations.Membership.Actions.Member
     end
 
     create :add do
       accept [:organization_id, :user_id, :status]
+      upsert? true
+      upsert_identity :organization_user
+      upsert_fields [:status]
+      return_skipped_upsert? true
     end
 
-    update :deactivate_membership do
-      argument :organization_id, :uuid, allow_nil?: false
-      argument :user_id, :uuid, allow_nil?: false
-      filter expr(organization_id == ^arg(:organization_id) and user_id == ^arg(:user_id) and status == "active")
+    update :deactivate do
+      accept []
       change set_attribute(:status, "inactive")
     end
   end

@@ -4,7 +4,12 @@ defmodule QuickTrainWeb.GraphQL.Schema do
   use Absinthe.Schema
 
   use AshGraphql,
-    domains: [QuickTrain.Organizations.Domain, QuickTrain.Accounts.Domain, QuickTrain.EnterpriseIdentity.Domain, QuickTrain.Authorization.Domain],
+    domains: [
+      QuickTrain.Organizations,
+      QuickTrain.Accounts,
+      QuickTrain.EnterpriseIdentity.Domain,
+      QuickTrain.Authorization.Domain
+    ],
     relay_ids?: true
 
   query do
@@ -14,7 +19,5 @@ defmodule QuickTrainWeb.GraphQL.Schema do
   end
 
   mutation do
-
   end
-
 end

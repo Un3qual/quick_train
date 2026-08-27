@@ -2,7 +2,7 @@ defmodule QuickTrain.Accounts.ExternalIdentity do
   @moduledoc "Links an OIDC provider subject to a global user account."
 
   use Ash.Resource,
-    domain: QuickTrain.Accounts.Domain,
+    domain: QuickTrain.Accounts,
     data_layer: AshPostgres.DataLayer
 
   postgres do

@@ -1,32 +1,37 @@
 defmodule QuickTrain.Accounts do
   @moduledoc "Global user accounts, external identities, and account-required sessions."
 
-  # alias QuickTrain.Accounts.{Session, User}
-  # alias QuickTrain.Organizations
+  use Ash.Domain,
+    otp_app: :quick_train,
+    extensions: [AshGraphql.Domain]
 
-  # def issue_session(user_id, attrs) when is_map(attrs) do
-  #   with {:ok, %User{status: "active"}} <- active_user(user_id),
-  #        :ok <- validate_scope(user_id, Map.get(attrs, :organization_id)) do
-  #     now = DateTime.utc_now()
+  graphql do
+    authorize? false
 
-  #     Session
-  #     |> Ash.Changeset.for_create(:issue, %{
-  #       user_id: user_id,
-  #       organization_id: Map.get(attrs, :organization_id),
-  #       authentication_method: Map.get(attrs, :authentication_method, "oidc"),
-  #       token_hash: Map.get(attrs, :token_hash),
-  #       issued_at: now,
-  #       expires_at: Map.get(attrs, :expires_at, DateTime.add(now, 8, :hour))
-  #     })
-  #     |> Ash.create(authorize?: false)
-  #   end
-  # end
+    queries do
+      list QuickTrain.Accounts.User, :all_users, :list_active, relay?: true
+      read_one QuickTrain.Accounts.User, :get_user, :read
+    end
 
-  # defp validate_scope(_user_id, nil), do: :ok
+    mutations do
+      create QuickTrain.Accounts.User, :create_user, :register
+    end
+  end
 
-  # defp validate_scope(user_id, organization_id) do
-  #   if Organizations.member?(organization_id, user_id),
-  #     do: :ok,
-  #     else: {:error, :membership_required}
-  # end
+  resources do
+    resource QuickTrain.Accounts.User do
+      define :register_user, action: :register, args: [:email, :display_name]
+      define :list_active_users, action: :list_active
+      define :get_user, action: :read, get_by: [:id]
+    end
+
+    resource QuickTrain.Accounts.Session do
+      define :issue_session, action: :issue, args: [:user_id]
+      define :revoke_session, action: :revoke
+    end
+
+    resource QuickTrain.Accounts.ExternalIdentity
+    resource QuickTrain.Accounts.OidcLoginTransaction
+    resource QuickTrain.Accounts.AuthenticationEvent
+  end
 end

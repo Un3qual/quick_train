@@ -2,7 +2,7 @@ defmodule QuickTrain.Organizations.Organization do
   @moduledoc "An enterprise tenant that owns and manages application content."
 
   use Ash.Resource,
-    domain: QuickTrain.Organizations.Domain,
+    domain: QuickTrain.Organizations,
     data_layer: AshPostgres.DataLayer,
     extensions: [AshGraphql.Resource]
 
@@ -38,7 +38,9 @@ defmodule QuickTrain.Organizations.Organization do
 
     has_many :enterprise_connections, EnterpriseConnection, public?: true
 
-    has_many :directories, Directory, through: [:enterprise_connections, :directories], public?: true
+    has_many :directories, Directory,
+      through: [:enterprise_connections, :directories],
+      public?: true
   end
 
   actions do
@@ -46,10 +48,13 @@ defmodule QuickTrain.Organizations.Organization do
 
     create :create do
       primary? true
-      accept [:name]
+      accept [:name, :slug]
 
-      change set_attribute(:status, "active")
-      change set_attribute(:slug, &String.trim/1)
+      change update_change(:name, &String.trim/1)
+
+      change update_change(:slug, fn slug ->
+               slug |> String.trim() |> String.downcase()
+             end)
     end
 
     update :update do

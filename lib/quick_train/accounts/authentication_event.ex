@@ -2,7 +2,7 @@ defmodule QuickTrain.Accounts.AuthenticationEvent do
   @moduledoc "Append-only authentication telemetry without credentials or tokens."
 
   use Ash.Resource,
-    domain: QuickTrain.Accounts.Domain,
+    domain: QuickTrain.Accounts,
     data_layer: AshPostgres.DataLayer
 
   alias QuickTrain.Accounts.User
@@ -26,6 +26,7 @@ defmodule QuickTrain.Accounts.AuthenticationEvent do
     belongs_to :user, User,
       allow_nil?: true,
       attribute_public?: true
+
     belongs_to :organization, Organization,
       allow_nil?: true,
       attribute_public?: true

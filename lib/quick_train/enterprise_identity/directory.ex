@@ -7,12 +7,16 @@ defmodule QuickTrain.EnterpriseIdentity.Directory do
     extensions: [AshGraphql.Resource]
 
   alias QuickTrain.Accounts.User
-  alias QuickTrain.EnterpriseIdentity.{DirectoryMembership, EnterpriseConnection, DirectoryGroup}
+  alias QuickTrain.EnterpriseIdentity.{DirectoryGroup, EnterpriseConnection}
 
   postgres do
     table "directories"
     repo QuickTrain.Repo
-    unique_index_names [{[:enterprise_connection_id, :external_id], "directories_enterprise_connection_external_index"}]
+
+    unique_index_names [
+      {[:enterprise_connection_id, :external_id],
+       "directories_enterprise_connection_external_index"}
+    ]
   end
 
   graphql do

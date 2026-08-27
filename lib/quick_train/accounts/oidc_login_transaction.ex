@@ -2,7 +2,7 @@ defmodule QuickTrain.Accounts.OidcLoginTransaction do
   @moduledoc "Short-lived server-side OIDC state and PKCE material."
 
   use Ash.Resource,
-    domain: QuickTrain.Accounts.Domain,
+    domain: QuickTrain.Accounts,
     data_layer: AshPostgres.DataLayer
 
   postgres do

@@ -1,7 +1,7 @@
 defmodule QuickTrain.Authorization do
   @moduledoc "Fail-closed, organization-scoped role and capability checks."
 
-  alias QuickTrain.Authorization.{Capability, Role, RoleAssignment, RoleCapability}
+  alias QuickTrain.Authorization.{Capability, RoleAssignment, RoleCapability}
   alias QuickTrain.Organizations
   require Ash.Query
 

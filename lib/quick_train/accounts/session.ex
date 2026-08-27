@@ -2,7 +2,7 @@ defmodule QuickTrain.Accounts.Session do
   @moduledoc "An account-required session, optionally scoped to an organization."
 
   use Ash.Resource,
-    domain: QuickTrain.Accounts.Domain,
+    domain: QuickTrain.Accounts,
     data_layer: AshPostgres.DataLayer
 
   alias QuickTrain.Accounts.User
@@ -44,15 +44,12 @@ defmodule QuickTrain.Accounts.Session do
         :user_id,
         :organization_id,
         :authentication_method,
-        :token_hash,
-        :issued_at,
-        :expires_at
+        :token_hash
       ]
 
-      change relate_actor(:user)
-      change set_attribute(:issued_at, &DateTime.utc_now/0)
-      change set_attribute(:authentication_method, "oidc", new?: true)
-      # change set_attribute(:expires_at, DateTime.add(DateTime.utc_now/0, 8, :hour))
+      change QuickTrain.Accounts.Session.Changes.SetTimestamps
+      validate QuickTrain.Accounts.Session.Validations.ActiveUser
+      validate QuickTrain.Accounts.Session.Validations.ActiveOrganizationMembership
     end
 
     update :revoke do

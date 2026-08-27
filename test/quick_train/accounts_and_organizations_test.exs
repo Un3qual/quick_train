@@ -13,8 +13,10 @@ defmodule QuickTrain.AccountsAndOrganizationsTest do
   end
 
   test "all sessions require a registered user" do
-    assert {:error, :account_required} =
+    assert {:error, %Ash.Error.Invalid{} = error} =
              Accounts.issue_session(Ecto.UUID.generate(), %{authentication_method: "oidc"})
+
+    assert Exception.message(error) =~ "account required"
   end
 
   test "the same user can be an organization member and a consumer" do
@@ -32,8 +34,10 @@ defmodule QuickTrain.AccountsAndOrganizationsTest do
     assert {:ok, user} = Accounts.register_user("scoped@example.com", "Scoped")
     assert {:ok, organization} = Organizations.create_organization("Acme", "acme")
 
-    assert {:error, :membership_required} =
+    assert {:error, %Ash.Error.Invalid{} = error} =
              Accounts.issue_session(user.id, %{organization_id: organization.id})
+
+    assert Exception.message(error) =~ "active membership required"
 
     assert {:ok, _membership} = Organizations.add_member(organization.id, user.id)
     assert {:ok, session} = Accounts.issue_session(user.id, %{organization_id: organization.id})

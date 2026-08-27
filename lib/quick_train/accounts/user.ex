@@ -2,13 +2,19 @@ defmodule QuickTrain.Accounts.User do
   @moduledoc "A global human account; organization access is modeled separately."
 
   use Ash.Resource,
-    domain: QuickTrain.Accounts.Domain,
+    domain: QuickTrain.Accounts,
     data_layer: AshPostgres.DataLayer,
     extensions: [AshGraphql.Resource]
 
-  alias QuickTrain.Accounts.{AuthenticationEvent, Session}
-  alias QuickTrain.Authorization.{Role}
-  alias QuickTrain.EnterpriseIdentity.{EnterpriseConnection, DirectoryGroup, DirectoryMembership, DirectoryUser}
+  alias QuickTrain.Accounts.AuthenticationEvent
+
+  alias QuickTrain.EnterpriseIdentity.{
+    EnterpriseConnection,
+    DirectoryGroup,
+    DirectoryMembership,
+    DirectoryUser
+  }
+
   alias QuickTrain.Organizations.{Organization, Membership}
 
   postgres do
@@ -19,7 +25,7 @@ defmodule QuickTrain.Accounts.User do
 
   graphql do
     type :user
-    paginate_relationship_with [directory_groups: :relay]
+    paginate_relationship_with directory_groups: :relay
   end
 
   attributes do
@@ -37,16 +43,18 @@ defmodule QuickTrain.Accounts.User do
     has_many :authentication_events, AuthenticationEvent, public?: true
     many_to_many :organizations, Organization, through: Membership, public?: true
 
-    has_many :directory_memberships, DirectoryMembership, destination_attribute: :directory_user_id, public?: true
+    has_many :directory_memberships, DirectoryMembership,
+      destination_attribute: :directory_user_id,
+      public?: true
 
     many_to_many :enterprise_connections, EnterpriseConnection,
-      through: DirectoryUser, public?: true
+      through: DirectoryUser,
+      public?: true
 
     has_many :directory_groups, DirectoryGroup,
-      through: [:directory_memberships, :directory_group], public?: true
-
+      through: [:directory_memberships, :directory_group],
+      public?: true
   end
-
 
   actions do
     defaults [:read]
@@ -58,10 +66,16 @@ defmodule QuickTrain.Accounts.User do
 
     create :register do
       accept [:email, :display_name, :status]
+      upsert? true
+      upsert_identity :email
+      upsert_fields [:display_name]
       return_skipped_upsert? true
       validate one_of(:status, ~w(active disabled))
-      change set_attribute(:display_name, &String.trim/1)
-      change set_attribute(:email, &__MODULE__.normalize_email/1)
+      change update_change(:display_name, &String.trim/1)
+
+      change update_change(:email, fn email ->
+               email |> String.trim() |> String.downcase()
+             end)
     end
 
     update :set_status do
@@ -72,9 +86,5 @@ defmodule QuickTrain.Accounts.User do
 
   identities do
     identity :email, [:email]
-  end
-
-  def normalize_email(email) do
-    email |> String.trim() |> String.downcase()
   end
 end
