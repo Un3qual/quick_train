@@ -22,7 +22,18 @@ defmodule QuickTrain.Accounts.OidcLoginTransaction do
   end
 
   actions do
-    defaults [:read, :create, :update, :destroy]
+    defaults [:read]
+
+    create :begin do
+      accept [:state_hash, :code_verifier, :return_to, :expires_at]
+    end
+
+    update :consume do
+      accept []
+      change atomic_update(:consumed_at, expr(now()))
+    end
+
+    destroy :discard
   end
 
   identities do

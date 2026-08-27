@@ -33,6 +33,10 @@ defmodule QuickTrain.Accounts.AuthenticationEvent do
   end
 
   actions do
-    defaults [:read, :create]
+    defaults [:read]
+
+    create :record do
+      accept [:user_id, :organization_id, :event, :result, :reason, :metadata]
+    end
   end
 end

@@ -33,7 +33,19 @@ defmodule QuickTrain.Accounts.ExternalIdentity do
   end
 
   actions do
-    defaults [:read, :create, :update]
+    defaults [:read]
+
+    create :link do
+      accept [:user_id, :provider, :subject, :status, :claims]
+      upsert? true
+      upsert_identity :provider_subject
+      upsert_fields [:user_id, :status, :claims]
+      return_skipped_upsert? true
+    end
+
+    update :refresh do
+      accept [:status, :claims]
+    end
   end
 
   identities do

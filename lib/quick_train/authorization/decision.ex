@@ -40,6 +40,10 @@ defmodule QuickTrain.Authorization.Decision do
   end
 
   actions do
-    defaults [:read, :create]
+    defaults [:read]
+
+    create :record do
+      accept [:user_id, :organization_id, :capability, :allowed, :reason, :metadata]
+    end
   end
 end

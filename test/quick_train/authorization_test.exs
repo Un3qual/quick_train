@@ -29,5 +29,17 @@ defmodule QuickTrain.AuthorizationTest do
     refute Authorization.allowed?(user.id, other_organization.id, "forms.manage")
     refute Authorization.allowed?(user.id, organization.id, "unknown.capability")
     refute Authorization.allowed?(Ecto.UUID.generate(), organization.id, "forms.manage")
+
+    assert {:ok, decision} =
+             Authorization.record_decision(
+               user.id,
+               organization.id,
+               "forms.manage",
+               true,
+               "role capability granted"
+             )
+
+    assert decision.user_id == user.id
+    assert decision.organization_id == organization.id
   end
 end

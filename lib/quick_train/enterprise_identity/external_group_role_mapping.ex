@@ -39,7 +39,18 @@ defmodule QuickTrain.EnterpriseIdentity.ExternalGroupRoleMapping do
   end
 
   actions do
-    defaults [:read, :create, :destroy]
+    defaults [:read]
+
+    create :map do
+      accept [:directory_group_id, :role_id]
+      upsert? true
+      upsert_identity :group_role
+      upsert_fields []
+      return_skipped_upsert? true
+      validate QuickTrain.EnterpriseIdentity.ExternalGroupRoleMapping.Validations.MappingScope
+    end
+
+    destroy :unmap
   end
 
   identities do

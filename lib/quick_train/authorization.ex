@@ -21,6 +21,7 @@ defmodule QuickTrain.Authorization do
 
     resource QuickTrain.Authorization.Role do
       define :create_role, action: :create, args: [:organization_id, :key, :name]
+      define :get_role, action: :read, get_by: [:id]
     end
 
     resource QuickTrain.Authorization.RoleCapability do
@@ -32,6 +33,10 @@ defmodule QuickTrain.Authorization do
       define :allowed?, action: :allowed?, args: [:user_id, :organization_id, :capability_key]
     end
 
-    resource QuickTrain.Authorization.Decision
+    resource QuickTrain.Authorization.Decision do
+      define :record_decision,
+        action: :record,
+        args: [:user_id, :organization_id, :capability, :allowed, :reason]
+    end
   end
 end

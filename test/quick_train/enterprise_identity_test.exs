@@ -1,7 +1,7 @@
 defmodule QuickTrain.EnterpriseIdentityTest do
   use QuickTrain.DataCase, async: true
 
-  alias QuickTrain.{Accounts, EnterpriseIdentity, Organizations}
+  alias QuickTrain.{Accounts, Authorization, EnterpriseIdentity, Organizations}
 
   test "directory deprovisioning removes enterprise access without deleting the user" do
     {:ok, user} = Accounts.register_user("employee@example.com", "Employee")
@@ -42,6 +42,28 @@ defmodule QuickTrain.EnterpriseIdentityTest do
 
     {:ok, _directory_membership} =
       EnterpriseIdentity.add_directory_user_to_group(directory_user.id, directory_group.id)
+
+    {:ok, role} = Authorization.create_role(organization.id, "reviewer", "Reviewer")
+
+    assert {:ok, group_role_mapping} =
+             EnterpriseIdentity.map_directory_group_role(directory_group.id, role.id)
+
+    assert group_role_mapping.directory_group_id == directory_group.id
+    assert group_role_mapping.role_id == role.id
+
+    {:ok, unrelated_organization} =
+      Organizations.create_organization("Unrelated", "unrelated")
+
+    {:ok, unrelated_role} =
+      Authorization.create_role(unrelated_organization.id, "reviewer", "Reviewer")
+
+    assert {:error, %Ash.Error.Invalid{} = mapping_error} =
+             EnterpriseIdentity.map_directory_group_role(
+               directory_group.id,
+               unrelated_role.id
+             )
+
+    assert Exception.message(mapping_error) =~ "mapping scope mismatch"
 
     assert {:ok, loaded_user} =
              Accounts.get_user(user.id, load: [:directory_users, :directory_groups])

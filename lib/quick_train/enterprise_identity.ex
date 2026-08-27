@@ -31,6 +31,8 @@ defmodule QuickTrain.EnterpriseIdentity do
       define :create_directory_group,
         action: :create,
         args: [:directory_id, :external_id, :name]
+
+      define :get_directory_group, action: :read, get_by: [:id]
     end
 
     resource QuickTrain.EnterpriseIdentity.DirectoryMembership do
@@ -39,6 +41,12 @@ defmodule QuickTrain.EnterpriseIdentity do
         args: [:directory_user_id, :directory_group_id]
     end
 
-    resource QuickTrain.EnterpriseIdentity.ExternalGroupRoleMapping
+    resource QuickTrain.EnterpriseIdentity.ExternalGroupRoleMapping do
+      define :map_directory_group_role,
+        action: :map,
+        args: [:directory_group_id, :role_id]
+
+      define :unmap_directory_group_role, action: :unmap
+    end
   end
 end

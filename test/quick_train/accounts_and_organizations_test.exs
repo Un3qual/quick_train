@@ -43,4 +43,38 @@ defmodule QuickTrain.AccountsAndOrganizationsTest do
     assert {:ok, session} = Accounts.issue_session(user.id, %{organization_id: organization.id})
     assert session.organization_id == organization.id
   end
+
+  test "authentication support records are managed through account actions" do
+    assert {:ok, user} = Accounts.register_user("identity@example.com", "Identity")
+
+    assert {:ok, identity} =
+             Accounts.link_external_identity(user.id, "oidc", "provider-subject", %{
+               claims: %{"email_verified" => true}
+             })
+
+    assert identity.user_id == user.id
+
+    assert {:ok, persisted_identity} =
+             Accounts.get_external_identity("oidc", "provider-subject")
+
+    assert persisted_identity.id == identity.id
+
+    expires_at = DateTime.add(DateTime.utc_now(), 5, :minute)
+
+    assert {:ok, transaction} =
+             Accounts.begin_oidc_login("state-hash", "code-verifier", expires_at, %{
+               return_to: "/forms"
+             })
+
+    assert transaction.return_to == "/forms"
+    assert {:ok, consumed_transaction} = Accounts.consume_oidc_login(transaction)
+    assert %DateTime{} = consumed_transaction.consumed_at
+
+    assert {:ok, event} =
+             Accounts.record_authentication_event("oidc.callback", "succeeded", %{
+               user_id: user.id
+             })
+
+    assert event.user_id == user.id
+  end
 end
