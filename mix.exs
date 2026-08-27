@@ -114,7 +114,52 @@ defmodule QuickTrain.MixProject do
   defp usage_rules do
     [
       file: "AGENTS.md",
-      usage_rules: :all
+      usage_rules: [],
+      skills: [
+        location: ".agents/skills",
+        build: [
+          ash: [
+            description:
+              "Use when editing Ash.Resource or Ash.Domain modules, actions, changes, validations, policies, queries, relationships, calculations, aggregates, migrations, or Ash tests.",
+            usage_rules: [:ash]
+          ],
+          "ash-postgres": [
+            description:
+              "Use when configuring AshPostgres data layers, repositories, migrations, constraints, indexes, custom SQL, multitenancy, or PostgreSQL-backed Ash resources.",
+            usage_rules: [:ash_postgres]
+          ],
+          "ash-graphql": [
+            description:
+              "Use when configuring AshGraphql domains or resources, GraphQL queries or mutations, custom GraphQL types, or the Ash and Absinthe API boundary.",
+            usage_rules: [:ash_graphql, :absinthe, :absinthe_relay, :absinthe_plug]
+          ],
+          phoenix: [
+            description:
+              "Use when editing Phoenix endpoints, routers, plugs, controllers, channels, HTML components, LiveView, or Phoenix and Ecto integration.",
+            usage_rules: [:phoenix, :phoenix_ecto]
+          ],
+          elixir: [
+            description:
+              "Use when writing or reviewing Elixir code, Mix tasks, tests, pattern matching, data structures, or error handling.",
+            usage_rules: [{:usage_rules, main: false, sub_rules: ["elixir"]}]
+          ],
+          otp: [
+            description:
+              "Use when working with OTP processes, GenServer, supervisors, Task, process communication, fault tolerance, or application supervision trees.",
+            usage_rules: [{:usage_rules, main: false, sub_rules: ["otp"]}]
+          ],
+          igniter: [
+            description:
+              "Use when writing or running Igniter installers, generators, project rewrites, or Igniter Mix tasks.",
+            usage_rules: [:igniter]
+          ],
+          "usage-rules": [
+            description:
+              "Use when configuring, synchronizing, or troubleshooting usage_rules, generated AGENTS.md sections, dependency documentation search, or dependency-derived skills.",
+            usage_rules: [{:usage_rules, sub_rules: []}]
+          ]
+        ]
+      ]
     ]
   end
 end
