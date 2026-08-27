@@ -88,7 +88,7 @@ defmodule QuickTrain.EnterpriseIdentity.DirectoryUser do
     update :deprovision do
       accept []
       change set_attribute(:status, "inactive")
-      change QuickTrain.EnterpriseIdentity.DirectoryUser.Changes.DeactivateMembership
+      change cascade_update(:membership, action: :deactivate)
     end
   end
 

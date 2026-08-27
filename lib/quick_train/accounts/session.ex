@@ -47,7 +47,8 @@ defmodule QuickTrain.Accounts.Session do
         :token_hash
       ]
 
-      change QuickTrain.Accounts.Session.Changes.SetTimestamps
+      change atomic_set(:issued_at, expr(now()))
+      change atomic_set(:expires_at, expr(datetime_add(now(), 8, :hour)))
       validate QuickTrain.Accounts.Session.Validations.ActiveUser
       validate QuickTrain.Accounts.Session.Validations.ActiveOrganizationMembership
     end
