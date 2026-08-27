@@ -6,6 +6,7 @@ defmodule QuickTrain.Authorization.Role do
     data_layer: AshPostgres.DataLayer,
     extensions: [AshGraphql.Resource]
 
+  alias QuickTrain.Authorization.RoleCapability
   alias QuickTrain.Organizations.Organization
 
   postgres do
@@ -32,6 +33,8 @@ defmodule QuickTrain.Authorization.Role do
     belongs_to :organization, Organization,
       allow_nil?: false,
       attribute_public?: true
+
+    has_many :role_capabilities, RoleCapability
   end
 
   actions do

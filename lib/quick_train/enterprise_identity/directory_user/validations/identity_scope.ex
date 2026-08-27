@@ -23,13 +23,7 @@ defmodule QuickTrain.EnterpriseIdentity.DirectoryUser.Validations.IdentityScope 
   def batch_validate(changesets, _opts, _context) do
     case load_scopes(changesets) do
       {:ok, scopes} ->
-        Enum.map(changesets, fn changeset ->
-          if valid_scope?(changeset, scopes) do
-            changeset
-          else
-            Ash.Changeset.add_error(changeset, scope_error())
-          end
-        end)
+        Enum.map(changesets, &validate_changeset(&1, scopes))
 
       {:error, error} ->
         Enum.map(changesets, &Ash.Changeset.add_error(&1, error))
@@ -61,6 +55,14 @@ defmodule QuickTrain.EnterpriseIdentity.DirectoryUser.Validations.IdentityScope 
     |> Enum.map(&Ash.Changeset.get_attribute(&1, attribute))
     |> Enum.reject(&is_nil/1)
     |> Enum.uniq()
+  end
+
+  defp validate_changeset(changeset, scopes) do
+    if valid_scope?(changeset, scopes) do
+      changeset
+    else
+      Ash.Changeset.add_error(changeset, scope_error())
+    end
   end
 
   defp valid_scope?(changeset, scopes) do

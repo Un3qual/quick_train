@@ -6,6 +6,7 @@ defmodule QuickTrain.Accounts.Session do
     data_layer: AshPostgres.DataLayer
 
   alias QuickTrain.Accounts.User
+  alias QuickTrain.Organizations
   alias QuickTrain.Organizations.Organization
 
   postgres do
@@ -29,7 +30,8 @@ defmodule QuickTrain.Accounts.Session do
   relationships do
     belongs_to :user, User,
       allow_nil?: false,
-      attribute_public?: true
+      attribute_public?: true,
+      filter: expr(status == "active")
 
     belongs_to :organization, Organization,
       allow_nil?: true,
@@ -40,17 +42,33 @@ defmodule QuickTrain.Accounts.Session do
     defaults [:read]
 
     create :issue do
+      argument :user_id, :uuid, allow_nil?: false
+
       accept [
-        :user_id,
         :organization_id,
         :authentication_method,
         :token_hash
       ]
 
-      change atomic_set(:issued_at, expr(now()))
-      change atomic_set(:expires_at, expr(datetime_add(now(), 8, :hour)))
-      validate QuickTrain.Accounts.Session.Validations.ActiveUser
-      validate QuickTrain.Accounts.Session.Validations.ActiveOrganizationMembership
+      change manage_relationship(:user_id, :user,
+               type: :append,
+               value_is_key: :id,
+               authorize?: false,
+               error_path: :user_id
+             )
+
+      change QuickTrain.Accounts.Session.Changes.SetTimestamps
+
+      validate fn changeset, _context ->
+        organization_id = Ash.Changeset.get_attribute(changeset, :organization_id)
+        user_id = Ash.Changeset.get_argument(changeset, :user_id)
+
+        if is_nil(organization_id) or Organizations.member?(organization_id, user_id) do
+          :ok
+        else
+          {:error, field: :organization_id, message: "active membership required"}
+        end
+      end
     end
 
     update :revoke do

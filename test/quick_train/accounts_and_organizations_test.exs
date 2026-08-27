@@ -13,10 +13,19 @@ defmodule QuickTrain.AccountsAndOrganizationsTest do
   end
 
   test "all sessions require a registered user" do
-    assert {:error, %Ash.Error.Invalid{} = error} =
+    assert {:error, %Ash.Error.Invalid{}} =
              Accounts.issue_session(Ecto.UUID.generate(), %{authentication_method: "oidc"})
+  end
 
-    assert Exception.message(error) =~ "account required"
+  test "disabled accounts cannot start sessions" do
+    assert {:ok, user} = Accounts.register_user("disabled@example.com", "Disabled")
+
+    user =
+      user
+      |> Ash.Changeset.for_update(:set_status, %{status: "disabled"}, authorize?: false)
+      |> Ash.update!()
+
+    assert {:error, %Ash.Error.Invalid{}} = Accounts.issue_session(user.id, %{})
   end
 
   test "the same user can be an organization member and a consumer" do
@@ -42,6 +51,21 @@ defmodule QuickTrain.AccountsAndOrganizationsTest do
     assert {:ok, _membership} = Organizations.add_member(organization.id, user.id)
     assert {:ok, session} = Accounts.issue_session(user.id, %{organization_id: organization.id})
     assert session.organization_id == organization.id
+  end
+
+  test "inactive memberships do not authorize organization sessions" do
+    assert {:ok, user} = Accounts.register_user("inactive-member@example.com", "Inactive")
+    assert {:ok, organization} = Organizations.create_organization("Dormant", "dormant")
+    assert {:ok, membership} = Organizations.add_member(organization.id, user.id)
+    assert Organizations.member?(organization.id, user.id)
+
+    assert {:ok, _membership} = Organizations.deactivate_membership(membership)
+    refute Organizations.member?(organization.id, user.id)
+
+    assert {:error, %Ash.Error.Invalid{} = error} =
+             Accounts.issue_session(user.id, %{organization_id: organization.id})
+
+    assert Exception.message(error) =~ "active membership required"
   end
 
   test "authentication support records are managed through account actions" do

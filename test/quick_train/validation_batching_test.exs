@@ -8,6 +8,24 @@ defmodule QuickTrain.ValidationBatchingTest do
 
   alias QuickTrain.EnterpriseIdentity.ExternalGroupRoleMapping.Validations.MappingScope
 
+  test "authorization decisions use one filterable existence query" do
+    {:ok, user} = Accounts.register_user("query-user@example.com", "Query User")
+    {:ok, organization} = Organizations.create_organization("Query Org", "query-org")
+    {:ok, _membership} = Organizations.add_member(organization.id, user.id)
+    {:ok, role} = Authorization.create_role(organization.id, "query-role", "Query Role")
+    {:ok, capability} = Authorization.create_capability("queries.run", "Run queries")
+    {:ok, _grant} = Authorization.grant_capability(role.id, capability.id)
+    {:ok, _assignment} = Authorization.assign_role(organization.id, user.id, role.id)
+
+    {allowed?, query_count} =
+      count_repo_queries(fn ->
+        Authorization.allowed?(user.id, organization.id, capability.key)
+      end)
+
+    assert allowed?
+    assert query_count == 1
+  end
+
   test "directory-user scope validation batches related-record reads" do
     {:ok, user} = Accounts.register_user("batch-user@example.com", "Batch User")
     {:ok, organization} = Organizations.create_organization("Batch Org", "batch-org")
@@ -106,9 +124,7 @@ defmodule QuickTrain.ValidationBatchingTest do
       :telemetry.attach(
         handler_id,
         [:quick_train, :repo, :query],
-        fn _event, _measurements, _metadata, {test_process, query_reference} ->
-          send(test_process, {:repo_query, query_reference})
-        end,
+        &__MODULE__.handle_repo_query/4,
         {self(), reference}
       )
 
@@ -126,5 +142,9 @@ defmodule QuickTrain.ValidationBatchingTest do
     after
       0 -> count
     end
+  end
+
+  def handle_repo_query(_event, _measurements, _metadata, {test_process, query_reference}) do
+    send(test_process, {:repo_query, query_reference})
   end
 end

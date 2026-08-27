@@ -9,6 +9,8 @@ defmodule QuickTrain.Organizations.Membership do
   alias QuickTrain.Accounts.User
   alias QuickTrain.Organizations.Organization
 
+  require Ash.Query
+
   postgres do
     table "organization_memberships"
     repo QuickTrain.Repo
@@ -45,7 +47,14 @@ defmodule QuickTrain.Organizations.Membership do
       argument :organization_id, :uuid, allow_nil?: false
       argument :user_id, :uuid, allow_nil?: false
 
-      run QuickTrain.Organizations.Membership.Actions.Member
+      run fn input, _context ->
+        input.resource
+        |> Ash.Query.filter(
+          organization_id == ^input.arguments.organization_id and
+            user_id == ^input.arguments.user_id and status == "active"
+        )
+        |> Ash.exists(authorize?: false)
+      end
     end
 
     create :add do
