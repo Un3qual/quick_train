@@ -4,12 +4,12 @@ QuickTrain cannot define reusable forms or collect paid task responses until org
 
 ## What Changes
 
-- Add immutable, content-addressed asset metadata and a provider-neutral storage boundary that separates writable upload staging from sealed read objects and expires abandoned staging content for imported images and future generated mask assets.
+- Add immutable, content-addressed asset metadata and a provider-neutral storage boundary that atomically verifies and seals one pinned object version, separates writable upload staging from sealed read objects, and expires abandoned staging content for imported images and future generated mask assets.
 - Add organization-owned datasets with race-safe immutable schema versions, record types, typed field definitions, and stable dataset-item identities.
 - Add immutable dataset-item revisions backed by normalized records, value occurrences, and typed scalar or asset values; no dataset content is stored in JSONB columns.
 - Add import batches with atomic batch and row idempotency, relationally staged normalized records, source provenance, append/finalization sealing, lease-fenced row outcomes, crash recovery, and stable customer external keys.
-- Complete the OIDC-to-bearer-session handshake with bounded login-state retention and indexed one-way bearer-token resolution, then add deliberate GraphQL actions for dataset/schema creation, programmatic batch ingestion, asset registration/finalization, and organization-scoped reads.
-- Keep authorization fail-closed: managers require an active organization membership and explicit dataset capabilities; no dataset content is publicly browsable.
+- Complete the OIDC-to-bearer-session handshake with server-generated proof material, fail-closed issuer/subject account linking, periodically enforced bounded login-state retention, and indexed one-way bearer-token resolution, then add deliberate GraphQL actions for dataset/schema creation, programmatic batch ingestion, asset registration/finalization, and organization-scoped reads.
+- Keep authorization fail-closed: managers require an active organization, active organization membership, and explicit dataset capabilities; no dataset content is publicly browsable. Provide an operator-only bootstrap path for the first organization manager instead of exposing unauthenticated organization mutations.
 - Preserve a forward-compatible record envelope: the first release accepts flat typed records, while ordinals and record types leave repeated and nested record values additive later.
 
 Explicit non-goals for this change:
@@ -37,9 +37,9 @@ None.
 
 ## Impact
 
-- Hardens the existing Accounts session and OIDC login-transaction resources, migrations, and API pipeline with one-time exchange, bounded retention, and required uniquely indexed bearer-token hashes.
+- Hardens the existing Accounts session and OIDC login-transaction resources, migrations, configuration, and API pipeline with cryptographically generated state and PKCE, one-time exchange, immutable issuer/subject linking, scheduled bounded retention, and required uniquely indexed bearer-token hashes.
 - Adds new Ash domains and resources under `QuickTrain.Assets` and `QuickTrain.Datasets`, exported through the top-level boundary.
 - Adds AshPostgres tables, constraints, indexes, migrations, and resource snapshots for authentication hardening, assets, dataset definitions, item revisions, records, typed values, and imports, plus the supported Oban jobs-table migration.
-- Extends the GraphQL schema with the OIDC begin/exchange handshake plus authenticated, capability-scoped dataset and asset actions; no other GraphQL behavior remains unauthenticated.
+- Extends the GraphQL schema with the OIDC begin/exchange handshake plus authenticated, active-organization, capability-scoped dataset and asset actions; no other GraphQL behavior remains unauthenticated. Adds a responsibility-named operator command for first-manager bootstrap outside GraphQL.
 - Adds a configurable asset-storage adapter plus a deterministic test implementation; no production vendor is selected here.
 - Establishes typed value-family conventions that later Forms and Tasks changes can share in code without sharing persistence tables.

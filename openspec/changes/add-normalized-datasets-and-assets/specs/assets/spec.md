@@ -5,18 +5,22 @@ Provide immutable, organization-owned media assets that dataset values and futur
 ## ADDED Requirements
 
 ### Requirement: Organization-scoped asset management
-The system SHALL require an active authenticated account, an active membership in the owning organization, and the appropriate asset capability for every asset-management action. Asset reads SHALL fail closed unless the actor is authorized through the owning organization or a future explicitly authorized product relationship.
+The system SHALL require an active authenticated account, an active owning organization, an active membership in that organization, and the appropriate asset capability for every caller-initiated asset-management action. Asset reads SHALL fail closed unless the organization is active and the actor is authorized through it or a future explicitly authorized product relationship.
 
 #### Scenario: Authorized manager registers an asset
-- **WHEN** an active organization member with the asset-management capability registers an asset for that organization
+- **WHEN** an active member of an active organization with the asset-management capability registers an asset for that organization
 - **THEN** the system creates a pending organization-owned asset and returns the provider-neutral information required to upload its content
 
 #### Scenario: Non-member cannot inspect an asset
 - **WHEN** an authenticated user without an authorized relationship requests an organization's asset or storage location
 - **THEN** the system returns a fail-closed authorization error without exposing asset metadata or content location
 
+#### Scenario: Inactive organization cannot access assets
+- **WHEN** a member retains an active membership and asset capability in an organization that is inactive
+- **THEN** caller-initiated asset management and reads are denied without exposing asset metadata or storage access
+
 ### Requirement: Immutable content-addressed assets
-The system SHALL identify ready asset content by a cryptographic hash, byte size, and media type. Upload access SHALL target a unique writable staging object. Before the ready transition, the storage adapter SHALL verify the staged content and idempotently promote or seal it at an immutable key or provider version that no issued upload descriptor can modify. Reads SHALL target only that sealed object. The system SHALL reject finalization when uploaded content does not match the registered facts, and it SHALL prevent the content identity of a ready asset from being changed.
+The system SHALL identify ready asset content by a cryptographic hash, byte size, and media type. Upload access SHALL target a unique writable staging object. Before the ready transition, the storage adapter SHALL idempotently pin a staging version or conditionally fence further writes, seal exactly those bytes at an immutable key or provider version that no issued upload descriptor can modify, and return verified facts computed from that same sealed object. When a provider cannot pin staging, it SHALL irrevocably fence writes before sealing and SHALL verify the sealed object afterward. The system SHALL NOT make an asset ready from facts observed before an unguarded copy or promotion. Reads SHALL target only the sealed object. The system SHALL reject finalization when sealed content does not match the registered facts, and it SHALL prevent the content identity of a ready asset from being changed.
 
 #### Scenario: Matching upload is finalized
 - **WHEN** the storage adapter verifies that pending content matches the registered hash, byte size, and supported media type
@@ -25,6 +29,10 @@ The system SHALL identify ready asset content by a cryptographic hash, byte size
 #### Scenario: Unexpired upload access cannot replace ready content
 - **WHEN** a client reuses a still-valid upload descriptor after the asset becomes ready
 - **THEN** it can affect only the abandoned staging location and authorized reads continue returning the sealed verified bytes
+
+#### Scenario: Concurrent staging overwrite cannot change sealed facts
+- **WHEN** a client attempts to overwrite the writable staging object while finalization is verifying and sealing it
+- **THEN** finalization either seals and verifies one pinned version or fails without readiness, and it never records a hash, size, media type, or dimensions from bytes other than the immutable object later served
 
 #### Scenario: Mismatched upload is rejected
 - **WHEN** uploaded content has a different hash, byte size, or unsupported media type

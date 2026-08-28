@@ -5,10 +5,10 @@ Provide provenance-preserving, idempotent programmatic imports that create or re
 ## ADDED Requirements
 
 ### Requirement: Organization-scoped import authorization
-The system SHALL require an active authenticated account, an active membership in the dataset's organization, and the appropriate dataset-import capability for every caller-initiated open, append, finalize, or inspect action. Finalization SHALL authorize and create a durable organization-owned processing command pinned to that batch's organization, dataset, and schema version. Internal retries SHALL advance only that accepted scope and SHALL NOT gain access to other organization data.
+The system SHALL require an active authenticated account, an active dataset-owning organization, an active membership in that organization, and the appropriate dataset-import capability for every caller-initiated open, append, finalize, or inspect action. Finalization SHALL authorize and create a durable organization-owned processing command pinned to that batch's organization, dataset, and schema version. Internal retries SHALL advance only that accepted immutable scope and SHALL NOT reauthorize the initiating user's later account, membership, capability, or the organization's later active state. Organization deactivation SHALL deny all new caller actions and inspection but SHALL NOT implicitly cancel an already finalized import or grant access to other organization data.
 
 #### Scenario: Authorized importer starts a batch
-- **WHEN** an active organization member with the import capability starts an import against an organization-owned dataset and published schema version
+- **WHEN** an active member of an active organization with the import capability starts an import against that organization's dataset and published schema version
 - **THEN** the system creates an import batch scoped to that dataset, organization, actor, and a schema version that belongs to that dataset
 
 #### Scenario: Cross-organization import is denied
@@ -18,6 +18,10 @@ The system SHALL require an active authenticated account, an active membership i
 #### Scenario: Revocation blocks new actions without rewriting accepted work
 - **WHEN** the initiating actor loses account, membership, or capability access after an authorized import has been finalized
 - **THEN** subsequent caller actions are denied, while the internal worker may finish only the already accepted organization-scoped rows without consulting or exposing any broader data
+
+#### Scenario: Organization deactivation suspends access but not accepted work
+- **WHEN** an organization becomes inactive after one of its imports was authorized and finalized
+- **THEN** private processing may advance only that already pinned import while every caller-initiated import action and outcome inspection is denied until the organization is active again
 
 ### Requirement: Idempotent import batches
 The system SHALL accept a caller-supplied idempotency key for each import batch and SHALL associate it with a request fingerprint covering the schema version and immutable open parameters. A database identity SHALL uniquely constrain organization, dataset, and idempotency key. Batch creation SHALL use an atomic create-or-return operation so matching concurrent requests return the same batch, while reusing the identity for a different fingerprint fails with an idempotency conflict.

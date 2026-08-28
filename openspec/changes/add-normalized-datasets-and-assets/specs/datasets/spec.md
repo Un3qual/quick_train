@@ -5,15 +5,19 @@ Provide organization-owned datasets whose schemas, items, revisions, records, an
 ## ADDED Requirements
 
 ### Requirement: Organization-scoped datasets
-The system SHALL require an active authenticated account, an active membership in the owning organization, and the appropriate dataset capability for every dataset-management action. Dataset definitions, items, revisions, and values SHALL fail closed to unauthorized actors.
+The system SHALL require an active authenticated account, an active owning organization, an active membership in that organization, and the appropriate dataset capability for every caller-initiated dataset-management action. Dataset definitions, items, revisions, and values SHALL fail closed when the owning organization is inactive or the actor is unauthorized.
 
 #### Scenario: Authorized manager creates a dataset
-- **WHEN** an active organization member with the dataset-management capability creates a dataset
+- **WHEN** an active member of an active organization with the dataset-management capability creates a dataset
 - **THEN** the system creates the dataset under that organization
 
 #### Scenario: Cross-organization read is denied
 - **WHEN** a member of another organization requests dataset content without another explicit authorized relationship
 - **THEN** the system denies the request without revealing the dataset's schema, items, or values
+
+#### Scenario: Inactive organization cannot access datasets
+- **WHEN** a member retains an active membership and dataset capability in an organization that is inactive
+- **THEN** caller-initiated dataset management and reads are denied without revealing schema, item, revision, or value data
 
 ### Requirement: Versioned normalized dataset schemas
 The system SHALL represent a dataset schema through immutable published schema versions containing record types and typed field definitions. Publication and every record-type or field create, update, or delete action SHALL lock and recheck the same parent schema-version row in its transaction, so no child edit can commit after the version becomes published. Field keys SHALL be unique within a record type, and every field SHALL declare its value family and cardinality. The only permitted first-release cardinality SHALL be `single`; a separate required flag SHALL determine whether its valid occurrence count is exactly one or zero-or-one.
