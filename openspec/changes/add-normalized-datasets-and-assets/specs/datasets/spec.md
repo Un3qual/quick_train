@@ -20,7 +20,7 @@ The system SHALL require an active authenticated account, an active owning organ
 - **THEN** caller-initiated dataset management and reads are denied without revealing schema, item, revision, or value data
 
 ### Requirement: Versioned normalized dataset schemas
-The system SHALL represent a dataset schema through immutable published schema versions containing record types and typed field definitions. Publication and every record-type or field create, update, or delete action SHALL lock and recheck the same parent schema-version row in its transaction, so no child edit can commit after the version becomes published. Field keys SHALL be unique within a record type, and every field SHALL declare its value family and cardinality. The only permitted first-release cardinality SHALL be `single`; a separate required flag SHALL determine whether its valid occurrence count is exactly one or zero-or-one.
+The system SHALL represent a dataset schema through immutable published schema versions containing record types and typed field definitions. Each published first-release schema version SHALL designate exactly one of its own record types as the root, backed by same-schema relational constraints. Publication and every record-type or field create, update, or delete action SHALL lock and recheck the same parent schema-version row in its transaction, so no child edit can commit after the version becomes published. Field keys SHALL be unique within a record type, and every field SHALL declare its value family and cardinality. The only permitted first-release cardinality SHALL be `single`; a separate required flag SHALL determine whether its valid occurrence count is exactly one or zero-or-one.
 
 #### Scenario: Valid schema version is published
 - **WHEN** a draft schema version contains a root record type and valid uniquely keyed field definitions
@@ -39,7 +39,7 @@ The system SHALL represent a dataset schema through immutable published schema v
 - **THEN** the edit rechecks the now-published state under that same lock and fails without changing the published graph
 
 ### Requirement: Stable items and immutable revisions
-The system SHALL give each dataset item a stable identity within its dataset and SHALL store content changes as immutable, monotonically ordered item revisions. Every revision SHALL pin one published schema version belonging to the same dataset and one root record. Its deterministic fingerprint SHALL cover both the schema-version identity and normalized record values, so identical values under a different schema create a distinct revision. Ash actions and database constraints SHALL prevent dataset, item, revision, and schema relationships from crossing dataset or organization boundaries.
+The system SHALL give each dataset item a stable identity within its dataset and SHALL store content changes as immutable, monotonically ordered item revisions. Every revision SHALL pin one published schema version belonging to the same dataset and one root record whose record type is exactly that schema version's designated root type. Its deterministic fingerprint SHALL cover both the schema-version identity and normalized record values, so identical values under a different schema create a distinct revision. Ash actions and composite database identities and foreign keys SHALL prevent dataset, item, revision, schema, record, and designated-root-type relationships from crossing dataset, organization, schema version, or record-type boundaries.
 
 #### Scenario: First revision is created
 - **WHEN** valid content is added under a new customer external key
@@ -52,6 +52,10 @@ The system SHALL give each dataset item a stable identity within its dataset and
 #### Scenario: Schema from another dataset is rejected
 - **WHEN** a caller attempts to create an item revision using a schema version that belongs to another dataset or organization
 - **THEN** the system rejects the relationship without exposing the foreign schema or persisting a partial revision
+
+#### Scenario: Non-root record cannot back a revision
+- **WHEN** a candidate record belongs to a non-root record type in the revision's published schema version
+- **THEN** the system rejects the revision through the Ash workflow and relational constraints without persisting a partial revision
 
 #### Scenario: Changed content creates a revision
 - **WHEN** valid changed content is accepted for an existing external key
@@ -66,7 +70,7 @@ The system SHALL give each dataset item a stable identity within its dataset and
 - **THEN** the system creates a new revision pinned to that schema instead of returning the older revision as unchanged
 
 ### Requirement: Normalized typed record values
-The system SHALL store each item revision as a root dataset record containing field-associated value occurrences and normalized typed values. Dataset content SHALL NOT be stored in JSONB columns, and each value occurrence SHALL contain exactly one representation compatible with its field definition. The canonical record-construction workflow SHALL validate every field's occurrence count in the same transaction: required single fields SHALL have exactly one value, optional single fields SHALL have zero or one, and multiple occurrences SHALL be rejected atomically.
+The system SHALL store each item revision as a root dataset record containing field-associated value occurrences and normalized typed values. Every value's field definition SHALL belong to its owning record's exact `DatasetRecordType`, not merely to another type in the same published schema, and first-release revision candidates SHALL use the schema version's designated root type. Ash construction and composite record/type and field/type database constraints SHALL enforce those relationships. Dataset content SHALL NOT be stored in JSONB columns, and each value occurrence SHALL contain exactly one representation compatible with its field definition. The canonical record-construction workflow SHALL validate every field's occurrence count in the same transaction: required single fields SHALL have exactly one value, optional single fields SHALL have zero or one, and multiple occurrences SHALL be rejected atomically.
 
 #### Scenario: Flat typed record is accepted
 - **WHEN** a record supplies valid text, integer, decimal, boolean, date-time, or ready asset values for its schema fields
@@ -79,6 +83,10 @@ The system SHALL store each item revision as a root dataset record containing fi
 #### Scenario: Unknown field is rejected
 - **WHEN** a record supplies a value for a field outside its pinned schema version
 - **THEN** the system rejects the record without persisting a partial revision
+
+#### Scenario: Field from another record type is rejected
+- **WHEN** a record supplies a field that exists in its pinned schema version but belongs to a different record type
+- **THEN** the Ash workflow and database constraints reject the value without persisting a partial record or revision
 
 #### Scenario: Required field is missing
 - **WHEN** a record omits a required field occurrence

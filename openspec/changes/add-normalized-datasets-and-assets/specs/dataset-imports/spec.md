@@ -41,7 +41,7 @@ The system SHALL accept a caller-supplied idempotency key for each import batch 
 ### Requirement: Provenance-preserving row processing
 The system SHALL persist a caller-stable row key, customer external key, unique source position, request fingerprint, and terminal outcome directly on every accepted import row. The request fingerprint SHALL cover the external key, source position, normalized content, and every other immutable row parameter. The import and row key SHALL form a database identity, import plus source position SHALL be unique, and import plus non-null external key SHALL form a partial database identity. A matching append retry SHALL return the already accepted row without reconstructing or reprocessing it; reuse of either idempotency identity with a changed external key, normalized content, or other immutable parameter SHALL fail with an idempotency conflict. Once one append commits an external-key identity, any different row attempting that external key in the same import SHALL be rejected with `duplicate_external_key` before acceptance, regardless of worker scheduling.
 
-For valid input, the append action SHALL transactionally persist an immutable normalized candidate `DatasetRecord` and typed value graph referenced by the import row. The worker SHALL consume those relational records by identity and SHALL NOT place dataset content in an opaque payload column or Oban job argument. For invalid input, the system SHALL persist the failed import-row outcome and sanitized validation error without persisting a partial candidate record or item revision.
+For valid input, the append action SHALL transactionally persist an immutable normalized candidate `DatasetRecord` using the pinned schema version's designated root record type and a typed value graph whose fields belong to that exact record type, referenced by the import row. The worker SHALL consume those relational records by identity and SHALL NOT place dataset content in an opaque payload column or Oban job argument. For invalid input, the system SHALL persist the failed import-row outcome and sanitized validation error without persisting a partial candidate record or item revision.
 
 #### Scenario: Identical row append returns the accepted row
 - **WHEN** a caller repeats an append with the same import, row key, external key, source position, and request fingerprint
@@ -70,6 +70,10 @@ For valid input, the append action SHALL transactionally persist an immutable no
 #### Scenario: Invalid row records failure
 - **WHEN** a row contains a missing required value, type mismatch, unknown field, unsupported structure, or unauthorized asset reference
 - **THEN** that row retains its customer external key and records a sanitized failure without creating a partial item revision
+
+#### Scenario: Sibling record-type field is rejected
+- **WHEN** a row for the schema's designated root type supplies a field that belongs only to another record type in the same schema version
+- **THEN** the row records a sanitized invalid-field failure without creating a candidate record graph or item revision
 
 ### Requirement: Finalization seals the accepted row set
 The system SHALL create every import in the `open` state. It SHALL serialize append and finalization actions by locking the same import row and rechecking its lifecycle state. Append SHALL persist a row only while the locked import is `open`. Finalization SHALL atomically seal the import out of `open` before enqueuing processing, and no later append SHALL be accepted. The sealed import SHALL immediately expose the post-finalization state derived by the batch lifecycle rules.

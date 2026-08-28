@@ -24,11 +24,15 @@ The system SHALL begin OIDC login by generating state, nonce, and a PKCE verifie
 - **THEN** a later request cannot return that transaction to pending or reuse it to issue a session
 
 ### Requirement: OIDC account linking fails closed
-The system SHALL support only the `issuer_subject_only` account-linking policy in the first release and SHALL reject missing or unknown policy configuration before login proceeds. It SHALL use the canonical verified issuer URI plus subject as the external identity, after validating the provider response signature, issuer, audience, nonce, and expiry. An existing external identity's user relationship SHALL be immutable. A new identity SHALL require a non-empty provider-verified email to create a new global user, but email SHALL NOT select, link, merge, or reassign an existing user. Email collisions and every issuer, subject, or user relationship conflict SHALL fail with `account_linking_conflict` and SHALL NOT issue a session.
+The system SHALL support only the `issuer_subject_only` account-linking policy in the first release and SHALL reject missing or unknown policy configuration before login proceeds. It SHALL use the canonical verified issuer URI plus subject as the external identity, after validating the provider response signature, issuer, audience, nonce, and expiry. An existing external identity's user relationship SHALL be immutable, and exchange SHALL lock and require that identity's lifecycle status to be exactly `active` in the transaction that issues the session and consumes the login transaction. Provider claim refresh SHALL NOT change lifecycle status or reactivate a disabled identity. A new identity SHALL begin active and require a non-empty provider-verified email to create a new global user, but email SHALL NOT select, link, merge, or reassign an existing user. A disabled or unknown identity status SHALL fail closed with a non-disclosing authentication error and SHALL NOT issue a session. Email collisions and every issuer, subject, or user relationship conflict SHALL fail with `account_linking_conflict` and SHALL NOT issue a session.
 
 #### Scenario: Existing issuer and subject resolve immutably
 - **WHEN** a verified provider response contains an issuer and subject already linked to a global user
 - **THEN** exchange resolves that user without changing the identity's `user_id`, even when refreshable profile claims changed
+
+#### Scenario: Disabled external identity cannot log in
+- **WHEN** a verified provider response matches an external identity whose status is disabled or otherwise not active while its global user remains active
+- **THEN** exchange fails closed without refreshing the identity to active or issuing a bearer token, and the claimed login transaction remains unusable under the one-time exchange rules
 
 #### Scenario: Existing email is not an implicit link
 - **WHEN** a verified issuer and subject are new but their verified email already belongs to another global user

@@ -58,11 +58,15 @@ The system SHALL enforce organization-scoped content-hash uniqueness only for re
 - **THEN** the system rejects canonical reuse with an asset-identity conflict and does not return metadata that contradicts the request
 
 ### Requirement: Abandoned staging content expires
-The system SHALL assign every writable staging object an expiry and SHALL remove expired staging content idempotently after a fixed safety grace period when its registration is pending, failed, in the `duplicate_content` terminal state, or already sealed. Cleanup SHALL NOT delete or mutate sealed read objects.
+The system SHALL assign every writable staging object an expiry and SHALL remove expired staging content idempotently after a fixed safety grace period when its registration is pending, failed, in the `duplicate_content` terminal state, or already sealed. The responsibility-named cleanup worker SHALL be registered with Oban's supported periodic scheduler at a fixed interval, SHALL scan the indexed expiry boundary, and SHALL use job uniqueness to prevent overlapping scheduled runs so cleanup occurs without registration finalization or manual invocation. Cleanup SHALL NOT delete or mutate sealed read objects.
 
 #### Scenario: Pending upload is abandoned
 - **WHEN** a pending registration remains unfinalized beyond its staging expiry and cleanup grace period
 - **THEN** the responsibility-named cleanup path removes its writable staging object and leaves the registration unable to become ready without a new upload
+
+#### Scenario: Periodic scheduling cleans an unfinalized upload
+- **WHEN** the application runs beyond the configured cleanup interval with a pending registration past its staging expiry and grace period
+- **THEN** Oban enqueues cleanup without a caller finalizing the asset or an operator invoking the worker, and overlapping schedule ticks do not create concurrent duplicate cleanup jobs
 
 #### Scenario: Duplicate staging object is removed
 - **WHEN** a losing concurrent finalization is in the `duplicate_content` terminal state beyond its staging expiry and cleanup grace period
