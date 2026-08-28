@@ -5,7 +5,7 @@ Provide a one-time OIDC-to-bearer handshake and fail-closed API actor boundary b
 ## ADDED Requirements
 
 ### Requirement: OIDC exchange is one-time
-The system SHALL begin OIDC login by generating state, nonce, and a PKCE verifier server-side with a cryptographically secure random generator and at least 256 bits of entropy each. It SHALL persist a unique collision-checked hash of the state, a hash of the nonce, server-side verifier material, an expiry, and a retention cutoff; derive only an S256 challenge; and reject caller-supplied state, nonce, verifier, or challenge material. Exchange SHALL atomically claim only an unexpired transaction in the `pending` state through a one-way transition to `exchanging` before contacting the provider. Only the winning claimant SHALL verify the provider response, including the nonce, resolve or create the global user and external identity under the configured linking policy, and issue a bearer session. Session issuance and the final `consumed` transition SHALL commit together. A concurrent, later, failed, or interrupted claimant SHALL NOT make the state reusable.
+The system SHALL begin OIDC login by generating state, nonce, and a PKCE verifier server-side with a cryptographically secure random generator and at least 256 bits of entropy each. It SHALL persist a unique collision-checked hash of the state, a hash of the nonce, server-side verifier material, the selected trusted callback-configuration identity and exact callback URI, an expiry, and a retention cutoff; derive only an S256 challenge; and reject caller-supplied state, nonce, verifier, challenge, or callback URI material. Callback URIs SHALL come only from trusted server configuration, and exchange SHALL reload and send the exact callback persisted by begin. Exchange SHALL atomically claim only an unexpired transaction in the `pending` state through a one-way transition to `exchanging` before contacting the provider. Only the winning claimant SHALL verify the provider response, including the nonce, resolve or create the global user and external identity under the configured linking policy, and issue a bearer session. Session issuance and the final `consumed` transition SHALL commit together. A concurrent, later, failed, or interrupted claimant SHALL NOT make the state reusable.
 
 #### Scenario: Login proof material is unpredictable
 - **WHEN** an unauthenticated client begins OIDC login
@@ -14,6 +14,10 @@ The system SHALL begin OIDC login by generating state, nonce, and a PKCE verifie
 #### Scenario: Successful exchange issues one session
 - **WHEN** a client exchanges a valid provider response for an unexpired pending login transaction
 - **THEN** the system consumes the transaction and returns exactly one newly issued opaque bearer token
+
+#### Scenario: Callback selection is server pinned
+- **WHEN** a client begins or exchanges login while attempting to supply a callback URI or alter the callback selected at begin
+- **THEN** the system rejects caller callback material and uses only the exact trusted configured callback persisted on the login transaction for both authorization and exchange
 
 #### Scenario: Concurrent exchanges are fenced
 - **WHEN** two independent requests simultaneously exchange the same valid OIDC state
@@ -55,7 +59,7 @@ The system SHALL support only the `issuer_subject_only` account-linking policy i
 - **THEN** OIDC login cannot proceed and no identity, user, or session is created or changed
 
 ### Requirement: Bearer sessions use indexed one-way token identity
-The system SHALL generate a high-entropy opaque bearer token, return its raw value only at issuance, and persist only its SHA-256 hash with required session metadata. Before enforcing non-null uniqueness, a staged data migration SHALL revoke every legacy session with a null token hash and assign each a distinct reserved `legacy-revoked:<session-id>` value that bearer-token hashing cannot produce. Every issued session SHALL then have a non-null token hash protected by a unique database identity and index. Authentication SHALL hash the presented token and resolve at most one matching session through that indexed identity.
+The system SHALL generate a high-entropy opaque bearer token, return its raw value only at issuance, and persist only its SHA-256 hash with required session metadata. A bearer session SHALL authenticate the global account only and SHALL NOT carry or grant organization authority. Before enforcing global-account bearer resolution and non-null uniqueness, a staged data migration SHALL revoke every legacy session with a null token hash and assign each a distinct reserved `legacy-revoked:<session-id>` value that bearer-token hashing cannot produce, and SHALL revoke every legacy session with a non-null organization relationship. New issuance SHALL never set an organization relationship, and a database constraint SHALL permit a retained non-null legacy `organization_id` only when the session is revoked. Every issued session SHALL then have a non-null token hash protected by a unique database identity and index. Authentication SHALL hash the presented token and resolve at most one matching session through that indexed identity.
 
 #### Scenario: Issued token is not persisted raw
 - **WHEN** the system issues a bearer session
@@ -69,8 +73,12 @@ The system SHALL generate a high-entropy opaque bearer token, return its raw val
 - **WHEN** the token-hash constraint is introduced on a database containing legacy sessions with null hashes
 - **THEN** each legacy row is revoked and receives a unique reserved non-authenticating value before the non-null unique constraint is applied
 
+#### Scenario: Legacy organization-scoped session cannot widen
+- **WHEN** global-account bearer resolution is enabled on a database containing a non-null legacy session organization
+- **THEN** that session is revoked before the resolver is enabled, its organization fact may remain only as revoked audit data, and no active or newly issued session can retain an organization relationship
+
 ### Requirement: Authenticated GraphQL resolves a fail-closed actor
-The system SHALL accept only an unexpired and unrevoked session belonging to an active global user. It SHALL set that user as both the GraphQL and Ash actor. Every caller-initiated organization-scoped action SHALL additionally require the target organization itself to be active, an active membership in that organization, and the explicit capability for that action. Missing, malformed, unknown, expired, revoked, or inactive credentials or organization scope SHALL fail closed without exposing organization data.
+The system SHALL accept only an unexpired and unrevoked global-account session belonging to an active global user. It SHALL set that user as both the GraphQL and Ash actor. Session metadata SHALL NOT select or authorize an organization; every caller-initiated organization-scoped action SHALL derive the target organization from the protected resource or explicit action relationship and additionally require that organization itself to be active, an active membership in that organization, and the explicit capability for that action. Missing, malformed, unknown, expired, revoked, or inactive credentials or organization scope SHALL fail closed without exposing organization data.
 
 #### Scenario: Active bearer session supplies the actor
 - **WHEN** a request presents a valid bearer token for an active unrevoked session and active user
@@ -83,6 +91,10 @@ The system SHALL accept only an unexpired and unrevoked session belonging to an 
 #### Scenario: Membership and capability remain required
 - **WHEN** an authenticated user lacks an active membership or the required capability for the target organization
 - **THEN** the organization-scoped product action is denied without disclosing the protected resource
+
+#### Scenario: Session does not grant organization scope
+- **WHEN** an active global-account session calls an organization-scoped action
+- **THEN** the action ignores any legacy session organization fact and authorizes only the organization derived from the protected resource or action relationship through current active membership and capability checks
 
 #### Scenario: Inactive organization is denied
 - **WHEN** an authenticated user retains an active membership and capability grant in an organization that is inactive
