@@ -5,224 +5,171 @@ Provide provenance-preserving, idempotent programmatic imports that create or re
 ## ADDED Requirements
 
 ### Requirement: Organization-scoped import authorization
-The system SHALL require an active authenticated account, an active dataset-owning organization, an active membership in that organization, and the appropriate dataset-import capability for every caller-initiated open, append, finalize, or inspect action. Finalization SHALL authorize and create a durable organization-owned processing command pinned to that batch's organization, dataset, and schema version. Internal retries SHALL advance only that accepted immutable scope and SHALL NOT reauthorize the initiating user's later account, membership, capability, or the organization's later active state. Organization deactivation SHALL deny all new caller actions and inspection but SHALL NOT implicitly cancel an already finalized import or grant access to other organization data.
+The system SHALL require an active authenticated account, an active dataset-owning organization, an active membership in that organization, and the dataset-import capability for every caller-initiated open, append, finalize, or inspect action. Finalization SHALL authorize a durable command pinned to the accepted import's organization, dataset, and schema version. Internal retries SHALL advance only that immutable scope and SHALL NOT grant access to any other organization data.
 
 #### Scenario: Authorized importer starts a batch
 - **WHEN** an active member of an active organization with the import capability starts an import against that organization's dataset and published schema version
-- **THEN** the system creates an import batch scoped to that dataset, organization, actor, and a schema version that belongs to that dataset
+- **THEN** the system creates an import scoped to that organization, dataset, actor, and same-dataset schema version
 
 #### Scenario: Cross-organization import is denied
 - **WHEN** an actor attempts to import into a dataset outside an authorized organization scope
-- **THEN** the system rejects the action without accepting rows or revealing prior import details
+- **THEN** the system rejects the action without accepting rows or revealing import details
 
 #### Scenario: Revocation blocks new actions without rewriting accepted work
-- **WHEN** the initiating actor loses account, membership, or capability access after an authorized import has been finalized
-- **THEN** subsequent caller actions are denied, while the internal worker may finish only the already accepted organization-scoped rows without consulting or exposing any broader data
-
-#### Scenario: Organization deactivation suspends access but not accepted work
-- **WHEN** an organization becomes inactive after one of its imports was authorized and finalized
-- **THEN** private processing may advance only that already pinned import while every caller-initiated import action and outcome inspection is denied until the organization is active again
+- **WHEN** the initiating actor later loses account, membership, or capability access after an import is finalized
+- **THEN** caller actions are denied while internal retries may finish only the already accepted organization-scoped rows
 
 ### Requirement: Idempotent import batches
-The system SHALL accept a caller-supplied idempotency key for each import batch and SHALL associate it with a request fingerprint covering the schema version and immutable open parameters. A database identity SHALL uniquely constrain organization, dataset, and idempotency key. Batch creation SHALL use an atomic create-or-return operation so matching concurrent requests return the same batch, while reusing the identity for a different fingerprint fails with an idempotency conflict.
+The system SHALL accept a caller-supplied idempotency key and associate it with a fingerprint of the schema version and immutable open parameters. Organization, dataset, and idempotency key SHALL form a unique identity. Matching sequential or concurrent requests SHALL return one import, while reusing that identity for changed parameters SHALL fail with `idempotency_conflict`.
 
-#### Scenario: Identical retry returns existing batch
-- **WHEN** a caller repeats an import request with the same organization, dataset, idempotency key, and request fingerprint
-- **THEN** the system returns the original batch and does not duplicate item revisions
-
-#### Scenario: Concurrent identical starts converge
-- **WHEN** matching requests concurrently open a batch under the same organization, dataset, and idempotency key
-- **THEN** exactly one batch is created and every caller receives that batch
+#### Scenario: Identical retry returns one batch
+- **WHEN** a caller repeats an open request with the same organization, dataset, idempotency key, and immutable parameters
+- **THEN** the system returns the original import and creates no duplicate batch
 
 #### Scenario: Conflicting retry is rejected
-- **WHEN** a caller reuses an import idempotency key with a different request fingerprint
-- **THEN** the system rejects the request with an idempotency-conflict error
+- **WHEN** a caller reuses the batch identity with a different schema version or immutable parameter
+- **THEN** the system rejects the request with `idempotency_conflict`
 
-### Requirement: Provenance-preserving row processing
-The system SHALL persist a caller-stable row key, optional customer external key, unique source position, request fingerprint, and terminal outcome directly on every accepted import row. It SHALL calculate the request fingerprint before schema validation from the complete bounded append input through a versioned, domain-separated, length-prefixed canonical encoding. That encoding SHALL include schema/root identities, explicit null/present and omitted/null markers, the row key, external key, source position, every other immutable row parameter, every supplied field key and value-family selector, duplicate occurrences, and every scalar or unsupported nested structure. Object members SHALL sort by exact UTF-8 key bytes. Top-level field occurrences SHALL sort by exact UTF-8 field-key bytes, then selector tag, then complete canonical value bytes while retaining multiplicity; nested list order SHALL be preserved; supported syntactically valid typed scalars SHALL use the revision encoder's canonical family bytes; and malformed or unsupported values SHALL use a total type-tagged recursive representation that preserves the complete parsed kind, bytes, and structure. The system SHALL persist only the resulting hash, not an opaque request tree. The import and row key SHALL form a database identity, import plus source position SHALL be unique, and import plus non-null external key SHALL form a partial database identity. A matching append retry SHALL return the already accepted row without reconstructing or reprocessing it; reuse of either idempotency identity with any changed valid or invalid input SHALL fail with an idempotency conflict. Once one append commits an external-key identity, any different row attempting that external key in the same import SHALL be rejected with `duplicate_external_key` before acceptance, regardless of worker scheduling.
+### Requirement: Structurally accepted rows preserve provenance
+The append API SHALL accept only a bounded flat row structure composed of a row key, optional customer external key, source position, and typed field entries. Malformed scalar representations, unsupported value shapes, and nested records SHALL fail request validation before an import row or row idempotency identity is accepted. For every structurally accepted row, the system SHALL persist its row key, optional external key, unique source position, deterministic request fingerprint, and outcome. The fingerprint SHALL cover the pinned schema and every immutable accepted row parameter and SHALL be independent of field order and equivalent decimal or UTC date-time representations.
 
-For valid input, the append action SHALL transactionally persist an immutable normalized candidate `DatasetRecord` using the pinned schema version's designated root record type and a typed value graph whose fields belong to that exact record type, referenced by the import row. The worker SHALL consume those relational records by identity and SHALL NOT place dataset content in an opaque payload column or Oban job argument. For invalid input, the system SHALL persist the failed import-row outcome and sanitized validation error without persisting a partial candidate record or item revision.
+The import and row key SHALL form a unique identity, import plus source position SHALL be unique, and import plus non-null external key SHALL permit only one accepted row. A matching retry SHALL return the accepted row without reconstructing or reprocessing it. Reusing the row key or source position for changed accepted input SHALL fail with `idempotency_conflict`. A second row targeting an already accepted external key in the same import SHALL fail with `duplicate_external_key` before persistence.
 
-For a valid row with no external key, the system SHALL use that persisted `DatasetImportRow` UUID as the target `DatasetItem` UUID. Processing SHALL create or lock that exact item and commit its revision, result reference, and fenced row outcome atomically. Retrying or reclaiming the row SHALL therefore target the same item, while append alone SHALL NOT create an empty item.
+#### Scenario: Identical row retry returns the accepted row
+- **WHEN** a caller repeats a structurally accepted append with the same immutable row input
+- **THEN** the system returns the original row without staging or processing the content again
 
-#### Scenario: Identical row append returns the accepted row
-- **WHEN** a caller repeats an append with the same import, row key, external key, source position, and request fingerprint
-- **THEN** the system returns the original row and does not validate, stage, or process the content again
-
-#### Scenario: Conflicting row append is rejected
-- **WHEN** a caller reuses an import-scoped row key or source position with a different external key, normalized content, or other immutable parameter
-- **THEN** the system rejects the append with an idempotency-conflict error
+#### Scenario: Conflicting row retry is rejected
+- **WHEN** a caller reuses an import-scoped row key or source position for changed accepted input
+- **THEN** the system rejects the append with `idempotency_conflict`
 
 #### Scenario: Duplicate external key is rejected
-- **WHEN** another row attempts to reserve an external key already accepted by the same import
-- **THEN** the append fails with `duplicate_external_key`, no second row or candidate record is accepted, and the accepted row remains the only row allowed to revise that item
+- **WHEN** another row attempts an external key already accepted by the same import
+- **THEN** the append fails with `duplicate_external_key` before creating a second row or candidate record
+
+#### Scenario: Malformed input is rejected before acceptance
+- **WHEN** append input contains a malformed scalar representation, unsupported value shape, or nested record
+- **THEN** request validation fails without reserving a row key or source position and without persisting an import row or opaque payload
+
+#### Scenario: Equivalent accepted input converges
+- **WHEN** a retry differs only in field order, equivalent decimal scale, or equivalent UTC date-time offset
+- **THEN** it has the same request identity and returns the accepted row
+
+### Requirement: Accepted rows stage normalized candidates or terminal validation failures
+For a structurally accepted row, the append action SHALL validate field keys, value-family selectors, cardinality, required values, and asset relationships against the pinned published schema. Valid input SHALL transactionally persist an immutable normalized candidate `DatasetRecord` and typed values referenced by a pending import row. Domain-invalid input SHALL persist a failed row outcome and sanitized validation errors without persisting a partial candidate record or item revision. The system SHALL NOT retain an opaque request payload.
+
+For a valid row without an external key, the persisted import-row UUID SHALL be its target dataset-item UUID. Processing SHALL create or lock that exact item and commit its revision and row outcome atomically; append alone SHALL NOT create an empty item.
 
 #### Scenario: Valid new row creates an item
-- **WHEN** a row supplies a new external key and a complete normalized record valid for the pinned schema version
-- **THEN** the append stores the normalized candidate record and processing records success referencing the created item and first revision
+- **WHEN** a pending row contains a complete normalized record under a new external key
+- **THEN** processing creates one stable item and records success with its first immutable revision
 
-#### Scenario: Valid changed row creates a revision
-- **WHEN** a row supplies an existing external key with changed valid content
-- **THEN** the row records success and references the newly created immutable item revision
+#### Scenario: Changed row creates a revision
+- **WHEN** a pending row targets an existing external key with changed valid content
+- **THEN** processing records success and references the new immutable revision
 
-#### Scenario: Unchanged retry does not create a revision
-- **WHEN** a row supplies an existing external key with content and schema version identical to the latest revision
-- **THEN** the row records an unchanged outcome and references the existing latest revision
+#### Scenario: Unchanged row reuses the latest revision
+- **WHEN** a pending row targets an existing item with content and schema identical to its latest revision
+- **THEN** processing records `unchanged` and references that revision without creating another
 
-#### Scenario: Invalid row records failure
-- **WHEN** a row contains a missing required value, type mismatch, unknown field, unsupported structure, or unauthorized asset reference
-- **THEN** that row retains its customer external key and records a sanitized failure without creating a partial item revision
+#### Scenario: Domain-invalid row records failure
+- **WHEN** structurally accepted input has a missing required value, type mismatch, unknown field, duplicate single-cardinality field, or unauthorized asset reference
+- **THEN** the row records a sanitized terminal failure without a partial candidate graph or item revision
 
-#### Scenario: Changed invalid retry is rejected
-- **WHEN** an accepted invalid row is retried with a changed unknown field, malformed scalar, duplicate occurrence, or unsupported nested structure under the same row key or source position
-- **THEN** its complete pre-validation request fingerprint differs and the append fails with an idempotency conflict without retaining an opaque payload
-
-#### Scenario: Keyless row recovery targets one item
-- **WHEN** a valid row omits its external key and processing is reclaimed after a crash
-- **THEN** every attempt uses the persisted import-row UUID as the same target item UUID and at most one item and revision outcome commit for that row
+#### Scenario: Keyless retry targets one item
+- **WHEN** processing a valid keyless row is retried after a worker failure
+- **THEN** every attempt targets the row-derived item UUID and at most one item and revision outcome commit
 
 #### Scenario: Sibling record-type field is rejected
-- **WHEN** a row for the schema's designated root type supplies a field that belongs only to another record type in the same schema version
-- **THEN** the row records a sanitized invalid-field failure without creating a candidate record graph or item revision
-
-#### Scenario: Equivalent row requests converge
-- **WHEN** retry input differs only in field order, equivalent decimal scale, equivalent UTC date-time offset, or caller occurrence order while every immutable row parameter is unchanged
-- **THEN** the shared canonical encoder produces the same row request fingerprint and append returns the accepted row without reprocessing
+- **WHEN** a row for the designated root type supplies a field that belongs to another record type in the same schema
+- **THEN** the row records a sanitized field failure without creating a candidate graph or revision
 
 ### Requirement: Finalization seals the accepted row set
-The system SHALL create every import with persisted phase `open`. It SHALL serialize append and finalization actions by locking the same import row and rechecking its phase and immutable `open_expires_at`. Append SHALL persist a row only while the locked import is open and unexpired. The first authorized finalization SHALL likewise require an open, unexpired import, atomically change its persisted phase to `sealed` while inserting one import-identity-unique processing job, and prevent every later append. An expired still-open import SHALL reject append and first finalization with `import_expired` and remain eligible for cleanup. An authorized identical sequential or concurrent finalization against an already sealed import SHALL return that current import without reapplying its former open expiry or inserting another job. The sealed import SHALL immediately expose the post-finalization lifecycle derived by the batch lifecycle rules.
+Every import SHALL begin in persisted phase `open` with a server-calculated immutable expiry. Append and finalization SHALL lock the same import and recheck its phase and expiry. The first valid finalization SHALL atomically change the phase to `sealed` and insert one import-identity-unique processing job. A sealed import SHALL accept no later row. An expired open import SHALL reject append and first finalization with `import_expired`. Matching sequential or concurrent finalization retries SHALL return the same sealed import and SHALL not enqueue duplicate processing.
 
 #### Scenario: Append races finalization
-- **WHEN** an append begins against an open import but finalization acquires the import lock and seals the batch first
-- **THEN** the append observes that the import is no longer open, fails with `import_not_open`, and cannot add an unprocessed row to the sealed batch
-
-#### Scenario: Open import remains appendable
-- **WHEN** an authorized caller appends a unique row before finalization
-- **THEN** the import remains `open`, accepts the row, and does not begin worker processing
-
-#### Scenario: Expired open import rejects new work
-- **WHEN** append or first finalization locks an import whose immutable open expiry has passed
-- **THEN** the action fails with `import_expired`, accepts no row or processing job, and leaves the still-open import eligible for cleanup
+- **WHEN** finalization seals the import before a concurrent append acquires its lock
+- **THEN** the append fails with `import_not_open` and adds no row
 
 #### Scenario: Lost finalization response is retry safe
-- **WHEN** finalization commits but its response is lost and the authorized caller retries the same import
-- **THEN** the retry returns the already sealed current import even if its former open-expiry time has passed, and exactly one durable processing job exists
+- **WHEN** finalization commits but its response is lost
+- **THEN** a retry returns the sealed import and exactly one batch-processing job exists
 
-#### Scenario: Concurrent finalizations converge
-- **WHEN** two authorized requests concurrently finalize the same open import
-- **THEN** both resolve to the same sealed import and the transactional uniqueness boundary permits only one processing job
+#### Scenario: Expired open import rejects work
+- **WHEN** append or first finalization locks an open import after its expiry
+- **THEN** it fails with `import_expired` and creates no row or processing job
 
 ### Requirement: Abandoned open imports expire
-The system SHALL assign every new import an immutable server-calculated `open_expires_at` that append traffic cannot extend. A responsibility-named worker SHALL run on a fixed unique periodic schedule, scan an index over imports whose state is `open` and expiry has passed, lock the same import row used by append and finalization, recheck both facts, and delete that abandoned import together with its unprocessed rows and normalized candidate record graphs. It SHALL never delete a sealed import or finalized provenance, and successful cleanup SHALL release the abandoned idempotency identity.
+Automatic cleanup SHALL scan expired open imports, lock the same import row used by append and finalization, recheck both facts, and delete only that abandoned import with its unprocessed rows and candidate records. Cleanup SHALL never delete a sealed import or finalized provenance. Successful cleanup SHALL release the abandoned batch idempotency identity.
 
-#### Scenario: Abandoned open import is cleaned
-- **WHEN** an import remains open beyond its configured lifetime without finalization
-- **THEN** periodic cleanup removes its rows and candidate graphs and releases its batch identity without creating or deleting a dataset item revision
+#### Scenario: Abandoned import is cleaned
+- **WHEN** an import remains open beyond its lifetime
+- **THEN** automatic cleanup removes its rows and candidate records without creating or deleting a dataset item revision
 
-#### Scenario: Cleanup races finalization
-- **WHEN** finalization locks and verifies an import before expiry while an expiry cleanup attempt subsequently waits for the same row
-- **THEN** finalization may seal the import and cleanup skips that sealed provenance after it acquires the lock
+#### Scenario: Cleanup loses to valid finalization
+- **WHEN** finalization locks and verifies an import before expiry while cleanup later waits for the same row
+- **THEN** finalization may seal it and cleanup skips the sealed provenance
 
-#### Scenario: Finalization reaches the lock only after expiry
-- **WHEN** finalization and cleanup both first reach an import after its open expiry has passed
-- **THEN** finalization returns `import_expired` and leaves the import open, while cleanup may delete it after acquiring the same lock and rechecking that it is still expired and open
+#### Scenario: Finalization reaches an expired import
+- **WHEN** finalization first locks the import after expiry
+- **THEN** it returns `import_expired` and leaves the open import eligible for cleanup
 
-### Requirement: Partial batch completion
-The system SHALL process each import row atomically and SHALL allow valid rows to succeed when other rows in the batch are invalid. It SHALL persist exact counters derived from rows: `row_count` is the total number of persisted `DatasetImportRow` records; `pending`, `processing`, `succeeded`, `unchanged`, and `failed` are mutually exclusive outcome counts whose sum equals `row_count`; and `failed` includes append-validation and processing failures. Every append, claim, reclaim, and terminal-outcome transaction SHALL lock the parent import before the affected row, recompute the exact counters from rows while holding that serialization lock, and persist the counter snapshot before commit. A `duplicate_external_key` rejection occurs before persistence and SHALL NOT increment `row_count` or `failed`. The import SHALL persist only its `open` or `sealed` phase. For an open import, the public lifecycle SHALL be `open` regardless of row outcomes. For a sealed import, the system SHALL calculate lifecycle at read time from current row outcomes, lease timestamps, and the database clock using the following precedence so exactly one state applies:
+### Requirement: Row processing is idempotent and retryable
+Finalization SHALL cause every pending row to receive a unique durable processing job. A row job SHALL lock the row, return without work when it is already terminal, and atomically commit its item revision reference and terminal `succeeded`, `unchanged`, or `failed` outcome. A worker or enqueue failure before that commit SHALL leave the row pending so standard job retry can try again. A retry after the commit SHALL observe the terminal row and SHALL not duplicate an item revision. No custom row-processing lease, attempt fence, or per-attempt recovery job is required.
 
-| Sealed row condition | Batch state |
-| --- | --- |
-| At least one processing row has an unexpired lease | `processing` |
-| Otherwise, at least one pending row or processing row with an expired lease exists | `pending` |
-| No nonterminal rows exist and `row_count` is zero or the failed count is zero | `completed` |
-| No nonterminal rows exist and every persisted row failed | `failed` |
-| No nonterminal rows exist and failures coexist with succeeded or unchanged rows | `partially_failed` |
+#### Scenario: Batch enqueue is retried safely
+- **WHEN** the batch worker stops after enqueueing only some pending rows
+- **THEN** its retry uses job uniqueness to enqueue every remaining row without duplicating row jobs
 
-A processing row SHALL remain included in the processing outcome count after lease expiry even though the current-clock lifecycle calculation makes the batch `pending` and reclaimable. The calculated lifecycle SHALL therefore become `pending` as soon as the lease is expired when inspected, even if its scheduled recovery job is delayed and no transition transaction has run. A processing claim SHALL record a start time, lease expiry, and incremented attempt count under the import-then-row lock order, SHALL return that attempt as a fencing token, and SHALL transactionally insert one unique row-and-attempt recovery job scheduled for the same lease expiry. The recovery job SHALL exit when that attempt is terminal or no longer current and otherwise reclaim the expired row even when the original worker remains alive or never reaches an exit path. Terminal writes SHALL succeed only while the row is still processing under the same attempt. Retries SHALL skip terminal rows and unexpired leases and SHALL reclaim expired processing leases safely without allowing an older worker to overwrite the reclaiming attempt.
+#### Scenario: Row worker fails before commit
+- **WHEN** a row worker raises or exits before its atomic terminal transaction commits
+- **THEN** the row remains pending and Oban may retry the same row job
 
-#### Scenario: Empty finalized batch completes
-- **WHEN** an open import with zero accepted rows is finalized
-- **THEN** it becomes `completed` with every row count equal to zero
+#### Scenario: Row worker loses success acknowledgement
+- **WHEN** a row transaction commits but the job attempt is retried before Oban records success
+- **THEN** the retry observes the terminal row and exits without creating another revision
 
-#### Scenario: All successful rows complete
-- **WHEN** every accepted row reaches a succeeded or unchanged terminal outcome
-- **THEN** the batch becomes `completed` with zero pending, processing, and failed rows
+### Requirement: Batch progress is derived from rows
+An import SHALL persist only its `open` or `sealed` phase. It SHALL NOT persist aggregate outcome counters or a separate processing lifecycle. Queries SHALL derive `row_count`, `pending`, `succeeded`, `unchanged`, and `failed` from current import rows. These mutually exclusive counts SHALL sum to `row_count`. An open import's lifecycle SHALL be `open`; a sealed import with any pending row SHALL be `pending`; a sealed import with no pending rows SHALL be `completed` when no row failed, `failed` when every nonempty row set failed, and `partially_failed` when failures coexist with succeeded or unchanged rows. An empty sealed import SHALL be `completed`.
 
-#### Scenario: All failed rows fail the batch
-- **WHEN** every accepted row reaches a failed terminal outcome
-- **THEN** the batch becomes `failed` with failed count equal to `row_count`
+#### Scenario: Empty sealed batch completes
+- **WHEN** an import with no accepted rows is finalized
+- **THEN** it is `completed` and every derived count is zero
 
 #### Scenario: Mixed batch completes partially
-- **WHEN** a batch contains both valid and invalid rows
-- **THEN** valid item revisions commit, invalid item revisions and partial record graphs remain non-persistent, failed import-row outcomes remain stored, and the batch finishes in a partially failed state with accurate counts
+- **WHEN** valid rows succeed or remain unchanged and other rows fail
+- **THEN** the batch is `partially_failed` with counts derived from the retained row outcomes
 
-#### Scenario: Rejected duplicate does not alter row counts
-- **WHEN** an append is rejected with `duplicate_external_key` before a second row is persisted
-- **THEN** `row_count` and failed count remain derived only from the already persisted rows
+#### Scenario: Pending row keeps batch pending
+- **WHEN** a sealed import contains at least one row without a terminal outcome
+- **THEN** its lifecycle is `pending` regardless of other terminal rows
 
-#### Scenario: Active lease keeps the batch processing
-- **WHEN** a sealed batch has an unexpired processing lease even if other rows are terminal or pending
-- **THEN** the batch state is `processing` and the claim transaction has already scheduled a unique recovery wake-up for that row and attempt at lease expiry
-
-#### Scenario: Expired lease makes the batch pending
-- **WHEN** a sealed batch is inspected after its only processing lease expired but before a delayed recovery job executes
-- **THEN** the read-time lifecycle is `pending` while the persisted processing outcome count remains unchanged until a worker automatically reclaims that row
-
-#### Scenario: Unexpected processor failure is retryable
-- **WHEN** processing stops because of an unexpected transient failure
-- **THEN** completed row outcomes remain idempotent and unfinished rows can be retried without duplicating revisions
-
-#### Scenario: Worker crash leaves a reclaimable row
-- **WHEN** a worker crashes after claiming a row but before recording its terminal outcome
-- **THEN** the recovery job committed with the claim waits through the active lease, later reclaims it automatically, and safely processes the persisted normalized candidate without duplicating a revision
-
-#### Scenario: Hanging sole worker is recovered
-- **WHEN** the only processing worker remains alive but hangs indefinitely after claiming a row
-- **THEN** the independently scheduled claim-time recovery job reclaims the row after lease expiry and the older attempt remains fenced from committing
-
-#### Scenario: Simultaneous completions preserve counters
-- **WHEN** independent workers complete different rows of one import concurrently
-- **THEN** parent-import serialization makes both row outcomes visible in the final persisted counts and prevents a premature or stale batch lifecycle
-
-#### Scenario: Stalled worker resumes after reclamation
-- **WHEN** an older worker resumes after its lease expired and another worker reclaimed the row with a higher attempt number
-- **THEN** the older worker's terminal write is rejected by the attempt fence and cannot overwrite the current attempt's outcome
+#### Scenario: Concurrent completions remain visible
+- **WHEN** independent workers complete different rows concurrently
+- **THEN** later progress queries derive both committed outcomes without relying on a serialized counter snapshot
 
 ### Requirement: Concurrent revisions remain ordered
-The system SHALL atomically get or create the stable dataset item for a supplied dataset-scoped external key and SHALL serialize revision creation on that authoritative item so that at most one next revision is created for a given content change and revision numbers remain monotonic.
-
-For a row without an external key, the system SHALL instead use the persisted import-row UUID as the stable item UUID and SHALL serialize creation and revision outcome on that exact identity.
+The system SHALL atomically get or create the stable dataset item for a supplied dataset-scoped external key and SHALL serialize revision creation on that item so revision numbers remain monotonic and one content change does not produce duplicate revisions. Keyless rows SHALL use and lock their row-derived item identity.
 
 #### Scenario: Concurrent updates target one item
-- **WHEN** two import workers concurrently process changed rows for the same dataset item
-- **THEN** the system locks the authoritative item state, creates revisions in a valid order, and prevents duplicate revision identities
+- **WHEN** workers concurrently process changed rows for the same dataset item
+- **THEN** they lock the authoritative item, create revisions in a valid order, and preserve unique revision identities
 
 #### Scenario: Concurrent rows target an unseen external key
-- **WHEN** two import workers concurrently process rows for the same previously unseen dataset-scoped external key
-- **THEN** both converge on one atomically created item before revision comparison and return valid changed or unchanged outcomes without exposing a uniqueness failure
+- **WHEN** workers first encounter the same dataset-scoped external key concurrently
+- **THEN** they converge on one atomically created item before revision comparison
 
-#### Scenario: Reclaimed keyless row retains identity
-- **WHEN** a keyless row is processed again after its prior attempt expired or lost its response
-- **THEN** it targets the same row-derived item UUID and cannot create a second stable item
+### Requirement: Import schemas and assets stay in scope
+The system SHALL require an import schema to be published and belong to the import's dataset. It SHALL accept an asset value only when the asset is ready, belongs to the dataset's organization, and has passed sealed-byte media verification. Cross-dataset schemas and pending, failed, active-format, falsely declared, or cross-organization assets SHALL fail without exposing restricted metadata or creating partial records.
 
-### Requirement: Import schemas belong to their dataset
-The system SHALL resolve an import's published schema version through its dataset and SHALL enforce the shared dataset identity in Ash actions and database constraints for imports, items, revisions, records, and fields.
-
-#### Scenario: Foreign schema version is rejected
-- **WHEN** an actor who can access multiple datasets attempts to open or process an import using a schema version from a different dataset
-- **THEN** the system rejects the request without accepting rows, exposing foreign schema metadata, or creating cross-dataset references
-
-### Requirement: Asset references are validated
-The system SHALL accept an asset value only when the referenced asset is ready, belongs to the same organization as the dataset, and passed sealed-byte media verification. Active document formats including HTML, XHTML, and SVG and declared/actual media-type mismatches SHALL be rejected during asset finalization and SHALL never become importable ready assets. In the first release, every remaining ready same-organization asset is compatible with a field whose value family is `asset`; form-specific media-type and dimension restrictions are deferred to later form bindings.
+#### Scenario: Foreign schema is rejected
+- **WHEN** an actor opens or processes an import with a schema from another dataset
+- **THEN** the system rejects it without accepting rows or creating cross-dataset references
 
 #### Scenario: Ready organization asset is imported
-- **WHEN** a normalized row references a ready compatible asset owned by the dataset's organization
-- **THEN** the item revision stores a relational asset value referencing that asset
+- **WHEN** a valid row references a ready asset owned by the dataset's organization
+- **THEN** the candidate record stores a relational asset value referencing it
 
 #### Scenario: Invalid asset reference is rejected
-- **WHEN** a row references a pending, failed, or cross-organization asset, or references an asset from a non-asset field
-- **THEN** the row fails without exposing restricted asset metadata or creating a partial item revision
-
-#### Scenario: Active or falsely declared asset is not importable
-- **WHEN** a row references HTML, XHTML, SVG, or content whose declared media type did not match its sealed bytes
-- **THEN** the asset cannot be ready and the row receives the same sanitized invalid-reference failure without restricted metadata exposure or a partial item revision
+- **WHEN** a row references a pending, failed, unsupported, or cross-organization asset
+- **THEN** the row records a sanitized failure without exposing asset metadata or creating a partial revision

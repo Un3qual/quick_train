@@ -1,0 +1,84 @@
+## Context
+
+See `proposal.md` for motivation and `specs/api-authentication/spec.md` for behavioral requirements.
+
+QuickTrain already has Ash resources for users, external identities, sessions, and OIDC login transactions, plus provider helpers. The current GraphQL pipeline does not resolve a bearer session into an actor, sessions still carry template-era organization scope, and policy-disabled foundation operations remain in the public schema. This repository is a pre-product backend template with no production-data migration obligation, so the change can establish the intended model directly and require a clean local database.
+
+## Goals / Non-Goals
+
+**Goals:**
+
+- Establish one reusable authentication boundary before any product domain is exposed.
+- Keep one global `User` and make organization authority relational and action-specific.
+- Make OIDC exchange one-time, bound to the initiating client, and fail closed on identity conflicts or inactive accounts.
+- Keep bearer lookup one-way and indexed.
+
+**Non-Goals:**
+
+- Preserve or transform legacy local users, provider keys, null-hash sessions, or organization-scoped sessions.
+- Add passwords, refresh tokens, frontend login UI, provider selection, or configurable account-linking policies.
+- Implement datasets, assets, or any other product domain.
+
+## Decisions
+
+### 1. Implement authentication as a prerequisite change
+
+`add-api-authentication` is implemented and verified before product GraphQL operations are exposed. The dataset/assets change references this boundary instead of duplicating its resources, migrations, tests, or task list.
+
+Alternative rejected: implementing authentication inside the first product change made unrelated review findings expand the dataset/import design and obscured which work was reusable foundation work.
+
+### 2. Bind one-time exchange with server-owned proof material
+
+Begin generates state, nonce, a standards-compliant PKCE verifier, and a distinct redemption secret from at least 256 bits of CSPRNG entropy each. It persists only a collision-checked state hash, nonce hash, verifier material needed for provider exchange, redemption-secret hash, the trusted callback configuration identity and exact URI, lifecycle state, expiry, and retention cutoff. The raw redemption secret is returned only to the initiating client and never enters provider parameters, callback material, logs, or persistence. Only S256 is supported.
+
+Exchange hashes the presented redemption secret and compares it in constant time before provider contact. It atomically changes one unexpired transaction from `pending` to `exchanging`; only that claimant may redeem the provider response. The provider signature, issuer, audience, nonce, expiry, and exact persisted callback are then validated. Session creation and the final `consumed` transition commit together. A failure after the claim leaves the transaction unusable rather than reopening a replay window.
+
+Alternative rejected: state and PKCE alone protect the provider flow but do not bind QuickTrain's API exchange to the client that initiated login when another client obtains the callback and state.
+
+### 3. Link only by verified issuer and subject
+
+The verified canonical issuer URI and subject are the immutable external identity. Exchange locks and rechecks the matched identity and global user before session issuance. Provider refresh can update nonidentity profile claims but cannot change lifecycle status or `user_id`.
+
+A new identity requires a verified nonempty email. Display name uses the first nonblank trimmed `name` or `preferred_username`, falling back to the normalized email local part. Neither email nor display name participates in linking. Any email or identity conflict returns a nondisclosing `account_linking_conflict`.
+
+The implementation does not inventory or migrate legacy users. Local databases created from the older template are reset rather than receiving a production migration framework.
+
+Alternative rejected: email linking can merge unrelated accounts and makes provider claim changes an authority boundary.
+
+### 4. Make bearer sessions global-account credentials only
+
+Issuance returns a high-entropy opaque token once and stores its SHA-256 hash, user, expiry, revocation metadata, and authentication method. The hash has an Ash identity and database unique index for one-row lookup. The target Session schema has no organization authority; product actions derive the organization from their own resource or explicit relationship.
+
+The migration is written for a clean database and may remove template-era organization scope or strengthen non-null constraints without a legacy backfill. Authentication hashes the presented token, resolves an unexpired and unrevoked session, rechecks the global user is active, and installs that user as both Absinthe and Ash actor.
+
+Alternative rejected: session-carried organization scope can silently widen or stale while membership and organization state change.
+
+### 5. Keep public GraphQL deliberate
+
+OIDC begin and exchange are the only unauthenticated GraphQL actions. `/healthz` remains operational and outside GraphQL. GraphiQL is compiled or routed only in development. Broad policy-disabled foundation fields are removed from domain GraphQL exposure; internal Ash actions remain available only to trusted code and tests.
+
+An operator-only Mix task bootstraps the first manager from an exact active user and transactionally creates or resolves the organization, membership, manager assignment, and initial grants. It uses responsibility-named Ash actions and is never reachable through GraphQL.
+
+### 6. Use Oban only for bounded retention
+
+Select and exactly pin a stable GA Oban release and generate its supported jobs-table migration. A responsibility-named Accounts worker periodically deletes login transactions past their retention cutoff. Scheduler uniqueness avoids overlapping runs; the cleanup action remains independently idempotent and preserves unexpired transactions.
+
+QuickTrain does not recreate generic operations, event delivery, audit, or integration domains. Later product changes may add their own responsibility-specific workers using the same dependency.
+
+## Risks / Trade-offs
+
+- **[A claimed provider exchange cannot be retried]** -> Favor replay resistance; the client starts a new login after any failed claimed exchange.
+- **[Clean-database migration discards local template data]** -> State the reset requirement before implementation and revisit this decision only if real production data exists before rollout.
+- **[Bearer tokens are replayable until expiry or revocation]** -> Keep tokens high entropy, store only hashes, use short bounded lifetimes, and require encrypted transport.
+- **[First-manager setup is not self-service]** -> Keep the narrow operator command until an authenticated administration workflow exists.
+
+## Migration Plan
+
+1. Select the exact stable Oban release, update `.mise.toml`, `mix.exs`, and `mix.lock` together, and generate the supported jobs migration.
+2. Refine OIDC login transactions for server-owned proof material, one-way claims, trusted callbacks, and retention.
+3. Refine external identity and session resources for issuer/subject-only linking, global-account sessions, and indexed token hashes; generate Ash snapshots and migrations for a clean database.
+4. Add bearer resolution to the Phoenix/Absinthe pipeline and remove non-deliberate GraphQL foundation fields.
+5. Add first-manager bootstrap and periodic login-state cleanup.
+6. Verify the handshake, identity conflicts, inactive states, one-time concurrency, actor propagation, organization authorization, schema exposure, cleanup, and production routing.
+
+Rollback before product data exists removes the new authentication migrations after revoking issued credentials. Once product domains rely on bearer sessions, rollback requires a deliberate replacement-authentication migration and is not an automatic schema downgrade.
