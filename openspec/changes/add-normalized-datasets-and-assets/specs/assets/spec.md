@@ -20,11 +20,15 @@ The system SHALL require an active authenticated account, an active owning organ
 - **THEN** caller-initiated asset management and reads are denied without exposing asset metadata or storage access
 
 ### Requirement: Immutable content-addressed assets
-The system SHALL identify ready asset content by a SHA-256 hash represented at registration, persistence, deduplication, and the storage-adapter boundary as exactly 64 lowercase hexadecimal characters, together with byte size and media type. Upload access SHALL target a unique writable staging object. Before the ready transition, the storage adapter SHALL idempotently pin a staging version or conditionally fence further writes, seal exactly those bytes at an immutable key or provider version that no issued upload descriptor can modify, and return verified facts computed from that same sealed object. When a provider cannot pin staging, it SHALL irrevocably fence writes before sealing and SHALL verify the sealed object afterward. The system SHALL NOT make an asset ready from facts observed before an unguarded copy or promotion. Reads SHALL target only the sealed object. The system SHALL identify or safely sniff the actual media type from the sealed bytes rather than trusting the declaration, SHALL reject declared/actual mismatches and active document formats including HTML, XHTML, and SVG, and SHALL prevent the content identity of a ready asset from being changed.
+The system SHALL identify ready asset content by a SHA-256 hash represented at registration, persistence, deduplication, and the storage-adapter boundary as exactly 64 lowercase hexadecimal characters, together with byte size and media type. It SHALL reject a declared byte size over a configured positive maximum before issuing upload access and SHALL cap the writable staging object at that size when the provider supports upload limits. Before reading full content, finalization SHALL obtain the sealed object's actual size through bounded metadata and reject a size over that maximum. Before the ready transition, the storage adapter SHALL idempotently pin a staging version or conditionally fence further writes, seal exactly those bytes at the organization-and-hash canonical immutable location that no issued upload descriptor can modify, and return verified facts computed from that same sealed object. Concurrent identical sealing SHALL conditionally create or verify and reuse that one canonical location rather than leaving per-registration sealed copies. When a provider cannot pin staging, it SHALL irrevocably fence writes before sealing and SHALL verify the canonical sealed object afterward. The system SHALL NOT make an asset ready from facts observed before an unguarded copy or promotion. Reads SHALL target only the sealed object. The system SHALL identify or safely sniff the actual media type from the sealed bytes rather than trusting the declaration, SHALL reject declared/actual mismatches and active document formats including HTML, XHTML, and SVG, and SHALL prevent the content identity of a ready asset from being changed.
 
 #### Scenario: Matching upload is finalized
 - **WHEN** the storage adapter verifies that pending content matches the registered hash, byte size, and supported media type
 - **THEN** the adapter seals the verified bytes outside the writable staging location and the asset becomes ready only after recording that immutable content location
+
+#### Scenario: Oversized registration is rejected early
+- **WHEN** a registration declares a byte size above the configured maximum
+- **THEN** the system rejects it before creating staging content or returning upload access
 
 #### Scenario: Unexpired upload access cannot replace ready content
 - **WHEN** a client reuses a still-valid upload descriptor after the asset becomes ready
@@ -55,18 +59,22 @@ The system SHALL enforce organization-scoped content-hash uniqueness only for re
 
 #### Scenario: Concurrent identical uploads converge
 - **WHEN** two pending assets in one organization concurrently finalize with the same verified hash, byte size, and media type
-- **THEN** one becomes the canonical ready asset, the other records a sanitized `duplicate_content` terminal outcome, and both callers receive or can resolve the canonical ready asset
+- **THEN** one becomes the canonical ready asset, both operations converge on its one canonical sealed object, the other records a sanitized `duplicate_content` terminal outcome with no sealed copy of its own, and both callers receive or can resolve the canonical ready asset
 
 #### Scenario: Existing hash has different registered facts
 - **WHEN** an organization registers a hash that already has a canonical ready asset but supplies a different byte size or media type
 - **THEN** the system rejects canonical reuse with an asset-identity conflict and does not return metadata that contradicts the request
 
 ### Requirement: Abandoned staging content expires
-The system SHALL assign every writable staging object an expiry and a nullable cleanup-completion timestamp and SHALL remove expired staging content idempotently after a fixed safety grace period when its registration is pending, failed, in the `duplicate_content` terminal state, or already sealed. The responsibility-named cleanup worker SHALL be registered with Oban's supported periodic scheduler at a fixed interval, SHALL scan the indexed boundary of expired rows whose cleanup timestamp is null, and SHALL use job uniqueness to prevent overlapping scheduled runs so cleanup occurs without registration finalization or manual invocation. After the adapter confirms deletion or absence, the cleanup action SHALL lock the asset and record completion so later scans exclude it; retrying before that marker is committed SHALL remain safe. Cleanup SHALL NOT delete or mutate sealed read objects.
+The system SHALL assign every writable staging object an expiry and a nullable cleanup-completion timestamp and SHALL remove expired staging content idempotently after a fixed safety grace period when its registration is pending, failed, in the `duplicate_content` terminal state, or already sealed. The responsibility-named cleanup worker SHALL be registered with Oban's supported periodic scheduler at a fixed interval, SHALL scan the indexed boundary of expired rows whose cleanup timestamp is null, and SHALL use job uniqueness to prevent overlapping scheduled runs so cleanup occurs without registration finalization or manual invocation. Before a destructive adapter call, the cleanup action SHALL acquire the same asset lock as finalization, recheck lifecycle and expiry, and hold the lock through deletion or absence confirmation and the cleanup-marker commit. Finalization SHALL hold that lock through sealed-byte verification and its terminal transition. Retrying before the marker is committed SHALL remain safe. Cleanup SHALL NOT delete or mutate sealed read objects.
 
 #### Scenario: Pending upload is abandoned
 - **WHEN** a pending registration remains unfinalized beyond its staging expiry and cleanup grace period
 - **THEN** the responsibility-named cleanup path removes its writable staging object and leaves the registration unable to become ready without a new upload
+
+#### Scenario: Cleanup waits for in-flight finalization
+- **WHEN** finalization holds the asset lock while verifying and sealing staging content
+- **THEN** cleanup cannot delete that staging object and rechecks the terminal asset facts after acquiring the lock
 
 #### Scenario: Periodic scheduling cleans an unfinalized upload
 - **WHEN** the application runs beyond the configured cleanup interval with a pending registration past its staging expiry and grace period
@@ -85,7 +93,7 @@ The system SHALL assign every writable staging object an expiry and a nullable c
 - **THEN** the indexed scan excludes that asset and does not issue another provider deletion for it
 
 ### Requirement: Image metadata and compatibility
-The system SHALL record validated image dimensions for image assets and SHALL expose enough metadata for later form bindings and spatial answers to verify source compatibility.
+The system SHALL record validated image dimensions for image assets and SHALL expose enough metadata for later form bindings and spatial answers to verify source compatibility. It SHALL enforce configured positive maximum width, height, and total pixel count by parsing bounded image metadata before full decode and SHALL reject excessive dimensions as a sanitized validation failure.
 
 #### Scenario: Image dimensions are recorded
 - **WHEN** a supported image asset is finalized successfully
@@ -94,6 +102,10 @@ The system SHALL record validated image dimensions for image assets and SHALL ex
 #### Scenario: Invalid image metadata is rejected
 - **WHEN** content claims to be an image but valid dimensions cannot be determined
 - **THEN** the system leaves the asset unusable and reports a sanitized validation failure
+
+#### Scenario: Excessive image dimensions are rejected before decode
+- **WHEN** sealed image headers declare a width, height, or pixel count over a configured maximum
+- **THEN** finalization rejects the asset before full image decode and does not make the content ready
 
 ### Requirement: Provider-neutral authorized access
 The system SHALL keep storage locations private and SHALL obtain upload or download access through a configurable asset-storage adapter. Returned access SHALL be short-lived, scoped to the authorized asset operation, delivered only through authenticated encrypted transport such as HTTPS, and marked to prevent caching and referrer propagation. Access handling SHALL reject insecure or adapter-unapproved destinations and SHALL prevent storage credentials from being disclosed to them, including through redirects.

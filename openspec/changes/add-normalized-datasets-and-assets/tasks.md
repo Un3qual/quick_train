@@ -2,22 +2,22 @@
 
 - [ ] 1.1 Confirm `add-api-authentication` is implemented and verified so product GraphQL operations have an authenticated Ash actor and the shared Oban dependency is available.
 - [ ] 1.2 Use Igniter and the available Ash generators to add the `QuickTrain.Assets` and `QuickTrain.Datasets` domain skeletons, retaining only product-specific generated structure.
-- [ ] 1.3 Add asset and dataset read, management, and import capability keys plus shared fail-closed policy checks for active organization, active membership, and explicit capability.
+- [ ] 1.3 Add exact capability keys `assets.read`, `assets.manage`, `datasets.read`, `datasets.manage`, and `dataset_imports.manage`; extend the deterministic manager bootstrap manifest with those grants; and add shared fail-closed policy checks for active organization, active membership, and explicit capability.
 - [ ] 1.4 Export the product domains and storage behavior through the top-level `QuickTrain` boundary without adding generic service, operation, audit, or integration layers.
 
 ## 2. Immutable Asset Domain
 
-- [ ] 2.1 Generate the Asset resource, snapshot, and migration, then refine organization ownership, lifecycle, canonical SHA-256, size, media type, image dimensions, staging and sealed keys, staging expiry, cleanup completion, ready-only uniqueness, constraints, and indexes.
-- [ ] 2.2 Define `QuickTrain.Assets.Storage` and deterministic development and test adapters for staging access, atomic verify-and-seal, staging cleanup, redundant-object cleanup, and short-lived sealed reads.
+- [ ] 2.1 Generate the Asset resource, snapshot, and migration, then refine organization ownership, lifecycle, canonical SHA-256, configured byte and image bounds, size, media type, image dimensions, staging and canonical sealed keys, staging expiry, cleanup completion, ready-only uniqueness, constraints, and indexes.
+- [ ] 2.2 Define `QuickTrain.Assets.Storage` and deterministic development and test adapters for bounded staging access, canonical-key conditional sealing, staging cleanup, and short-lived sealed reads without per-registration sealed copies.
 - [ ] 2.3 Enforce encrypted approved destinations and credential-safe redirect handling in storage access descriptors without exposing persistent storage keys or credentials through GraphQL.
 - [ ] 2.4 Implement authorized asset registration with canonical ready-asset reuse only when hash, byte size, and media type all match.
-- [ ] 2.5 Implement idempotent asset finalization from one pinned or fenced sealed object, including actual-media detection, active-format rejection, image dimensions, sanitized failures, and immutable ready transition.
-- [ ] 2.6 Implement concurrent ready-content convergence and `duplicate_content` handling while preserving organization-scoped authorization and exact metadata agreement.
+- [ ] 2.5 Implement asset-locked idempotent finalization from one pinned or fenced canonical sealed object, including pre-read byte checks, bounded header parsing, actual-media detection, active-format rejection, image-dimension limits, sanitized failures, and immutable ready transition.
+- [ ] 2.6 Implement concurrent ready-content and sealed-object convergence plus canonical-asset-linked `duplicate_content` handling while preserving organization-scoped authorization and exact metadata agreement.
 - [ ] 2.7 Implement the responsibility-named verification worker with idempotent enqueue and resource-identity-only job arguments.
-- [ ] 2.8 Implement periodic staging cleanup over the expired-and-not-cleaned index, recording completion only after provider deletion or confirmed absence and never deleting sealed reads.
+- [ ] 2.8 Implement periodic staging cleanup over the expired-and-not-cleaned index, acquiring and holding the finalization lock across the eligibility recheck, provider deletion or absence confirmation, and cleanup marker while never deleting sealed reads.
 - [ ] 2.9 Expose only registration, finalization, authorized access, and scoped read operations through authenticated GraphQL.
-- [ ] 2.10 Add focused adapter and resource tests for immutable sealing, overwrite races, active-format rejection, deduplication, metadata conflicts, secure access, and cross-organization denial.
-- [ ] 2.11 Add focused worker tests for verification retry, abandoned and duplicate staging cleanup, cleanup-marker retry, scan exclusion, overlap prevention, and sealed-object preservation.
+- [ ] 2.10 Add focused adapter and resource tests for byte and decompression-bomb limits, immutable canonical sealing, overwrite races, active-format rejection, deduplication without sealed-copy leaks, metadata conflicts, secure access, and cross-organization denial.
+- [ ] 2.11 Add focused worker tests for verification retry, finalization/cleanup serialization, abandoned and duplicate staging cleanup, cleanup-marker retry, scan exclusion, overlap prevention, and sealed-object preservation.
 
 ## 3. Versioned Dataset Schemas
 
@@ -43,16 +43,17 @@
 
 - [ ] 5.1 Generate DatasetImport and DatasetImportRow resources with snapshots and migrations for `open` or `sealed` phase, expiry, idempotency identities, source provenance, pending or terminal row outcomes, candidate-record references, and progress-query indexes.
 - [ ] 5.2 Implement atomic import open-or-return behavior over organization, dataset, idempotency key, immutable parameters, and a same-dataset published schema.
-- [ ] 5.3 Define the bounded flat GraphQL row input so malformed scalar shapes, unsupported structures, and nested records fail before row acceptance.
-- [ ] 5.4 Implement canonical fingerprints for structurally accepted rows plus atomic row-key and source-position retry handling and pre-persistence duplicate-external-key rejection.
+- [ ] 5.3 Define the one-row flat GraphQL input and safe default request, import-row, field-count, scalar-byte, and text-byte limits so oversized input, malformed scalar shapes, unsupported structures, and nesting fail before canonicalization or row acceptance.
+- [ ] 5.4 Implement canonical fingerprints for structurally accepted rows, including the external-key presence marker and persisted value, plus atomic row-key and source-position retry handling and pre-persistence duplicate-external-key rejection.
 - [ ] 5.5 Implement append-time schema validation that stores valid normalized candidates as pending rows and domain-invalid inputs as terminal failed provenance without opaque payloads or partial graphs.
 - [ ] 5.6 Use the import-row UUID as the stable target item UUID for keyless valid rows without creating an item during append.
 - [ ] 5.7 Implement import-locked finalization that seals the accepted row set and inserts one unique batch fan-out job, with safe concurrent and lost-response retries.
-- [ ] 5.8 Implement idempotent batch fan-out and unique row jobs that use terminal-row checks and atomic item-revision/outcome commits, relying on standard Oban retry rather than leases, fences, or recovery jobs.
-- [ ] 5.9 Implement automatic expired-open-import cleanup under the same import lock while preserving every sealed import and finalized provenance row.
-- [ ] 5.10 Implement derived batch counts and lifecycle queries over indexed row outcomes without persisted aggregate counters or a separate processing state.
-- [ ] 5.11 Add focused import tests for batch and row idempotency, structurally rejected input, domain-invalid provenance, equivalent fingerprints, duplicate external keys, keyless identity, partial completion, and schema or asset scope.
-- [ ] 5.12 Add focused concurrency and worker tests for append/finalize and finalize/cleanup races, fan-out retry, row failure before commit, retry after terminal commit, concurrent item revisions, derived progress, and cross-organization denial.
+- [ ] 5.8 Implement idempotent batch fan-out and unique bounded-retry row jobs with terminal-row checks and atomic item-revision/outcome commits, without leases, fences, or persisted row attempt counters.
+- [ ] 5.9 Implement the fixed-schedule unique terminalizer that scans discarded or cancelled row jobs in bounded pages, configure terminal-job retention beyond its maximum interval, and convert only pending rows with no runnable attempt into sanitized failed provenance before pruning.
+- [ ] 5.10 Implement automatic expired-open-import cleanup under the same import lock while preserving every sealed import and finalized provenance row.
+- [ ] 5.11 Implement derived batch counts and lifecycle queries over indexed row outcomes without persisted aggregate counters or a separate processing state.
+- [ ] 5.12 Add focused import tests for batch and row idempotency, structurally rejected input, domain-invalid provenance, equivalent fingerprints, duplicate external keys, keyless identity, partial completion, and schema or asset scope.
+- [ ] 5.13 Add focused concurrency and worker tests for append/finalize and finalize/cleanup races, fan-out retry, row failure before commit, retry after terminal commit, retry-exhaustion terminalization races, concurrent item revisions, derived progress, and cross-organization denial.
 
 ## 6. Integration and Verification
 

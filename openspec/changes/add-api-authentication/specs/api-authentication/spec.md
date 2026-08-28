@@ -23,6 +23,17 @@ The system SHALL begin OIDC login with fresh server-generated state, nonce, PKCE
 - **WHEN** an exchange fails or is interrupted after winning the one-time claim
 - **THEN** a later request cannot return the transaction to a reusable state or issue a session from it
 
+### Requirement: OIDC transport and unauthenticated admission are bounded
+The system SHALL accept production OIDC begin, exchange, and provider callback requests only through authenticated encrypted transport after honoring forwarded scheme information solely from configured trusted proxies. Production callback configuration SHALL use HTTPS; exact loopback HTTP callbacks MAY be enabled only in development and test. Before persisting login state or contacting a provider, unauthenticated begin SHALL enforce configurable global and per-network-source request limits plus a cap on outstanding unexpired login transactions. Network-source identity SHALL use the direct peer or addresses supplied only by a configured trusted proxy, never an untrusted forwarding header.
+
+#### Scenario: Insecure production flow is rejected
+- **WHEN** a production begin, exchange, callback request, or configured non-loopback callback URI uses cleartext transport
+- **THEN** the system redirects or rejects it before exposing proof material, contacting the provider, or issuing a session
+
+#### Scenario: Sustained begin traffic is bounded
+- **WHEN** unauthenticated begin traffic exceeds a configured request or outstanding-transaction limit
+- **THEN** the system rejects excess requests before creating another login transaction or contacting the provider
+
 ### Requirement: OIDC account linking fails closed
 The system SHALL link an external identity only by a verified canonical issuer and subject. It SHALL validate the provider response and require an existing external identity and its linked global user to be active before issuing a session. A new global user SHALL require a nonempty provider-verified email and SHALL receive a deterministic display name from nonblank provider name claims or the normalized email local part. Email and presentation claims SHALL NOT select, merge, reassign, or reactivate an existing account. Identity, email, status, or relationship conflicts SHALL fail closed without issuing a session.
 
@@ -43,7 +54,7 @@ The system SHALL link an external identity only by a verified canonical issuer a
 - **THEN** exchange reports an account-linking conflict without linking, merging, reassigning, or issuing a session
 
 ### Requirement: Bearer sessions use one-way global-account identity
-The system SHALL generate a high-entropy opaque bearer token, return its raw value only at issuance, and persist only a unique indexed one-way hash with required session metadata. Every session SHALL belong to an active global `User`; it SHALL authenticate only that account and SHALL NOT carry or grant organization authority. Authentication SHALL hash the presented token and resolve at most one unexpired, unrevoked session.
+The system SHALL generate a high-entropy opaque bearer token, return its raw value only at issuance, and persist only a unique indexed one-way hash with required session metadata. Every session SHALL belong to an active global `User`; it SHALL authenticate only that account and SHALL NOT carry or grant organization authority. Authentication SHALL hash the presented token and resolve at most one unexpired, unrevoked session. Session expiry SHALL NOT exceed a configured maximum lifetime.
 
 #### Scenario: Issued token is not persisted raw
 - **WHEN** the system issues a bearer session
@@ -56,6 +67,17 @@ The system SHALL generate a high-entropy opaque bearer token, return its raw val
 #### Scenario: Invalid session is denied
 - **WHEN** a request presents a missing, malformed, unknown, expired, revoked, or user-inactive bearer token
 - **THEN** authentication fails without selecting an organization or exposing protected data
+
+### Requirement: Inactive session retention is bounded
+The system SHALL automatically and idempotently delete expired or revoked session credential rows only after the later applicable expiry or revocation time plus a fixed retention interval. Cleanup SHALL preserve every unexpired and unrevoked session and SHALL NOT delete separately retained authentication-event evidence.
+
+#### Scenario: Expired and revoked credentials are eventually removed
+- **WHEN** inactive sessions pass their retention boundary
+- **THEN** automatic cleanup removes their indexed token hashes without operator invocation
+
+#### Scenario: Active credentials survive cleanup
+- **WHEN** cleanup examines an unexpired and unrevoked session
+- **THEN** it preserves the session and its bearer token remains eligible for ordinary authentication checks
 
 ### Requirement: Authenticated GraphQL resolves a fail-closed actor
 The system SHALL set the active global user resolved from a valid bearer session as both the GraphQL and Ash actor. Every organization-scoped product action SHALL derive its target organization from the protected resource or explicit action relationship and separately require that organization to be active, the actor to have an active membership, and the actor to have the action's explicit capability. Missing scope or authorization SHALL fail closed without disclosing organization data.
@@ -73,7 +95,7 @@ The system SHALL set the active global user resolved from a valid bearer session
 - **THEN** every caller-initiated organization-scoped action is denied without exposing protected data
 
 ### Requirement: Public GraphQL surface is minimal and authorized
-The system SHALL expose only OIDC begin and exchange as unauthenticated GraphQL behavior. Operational health SHALL remain available only at `/healthz`, GraphQL SHALL NOT expose a health field, and GraphiQL SHALL be restricted to development. Policy-disabled foundation fields, including broad user list, read, and creation operations, SHALL be absent from the public GraphQL schema rather than becoming available to every bearer-authenticated account.
+The system SHALL define an explicit public GraphQL allowlist. At this prerequisite stage it SHALL expose only OIDC begin and exchange root fields, both unauthenticated. `Session`, `OidcLoginTransaction`, and `ExternalIdentity` resources and credential or PII fields including token hashes, OIDC proof or verifier material, provider subjects, and raw provider claims SHALL be absent from public schema introspection and reads rather than relying only on sensitive-field metadata. Operational health SHALL remain available only at `/healthz`, GraphQL SHALL NOT expose a health field, and GraphiQL SHALL be restricted to development. Policy-disabled foundation fields, including broad user list, read, and creation operations, SHALL be absent rather than becoming available to every bearer-authenticated account.
 
 #### Scenario: Unauthenticated schema has no bypass
 - **WHEN** an unauthenticated client queries the GraphQL schema
@@ -83,16 +105,24 @@ The system SHALL expose only OIDC begin and exchange as unauthenticated GraphQL 
 - **WHEN** an ordinary authenticated account attempts a former policy-disabled foundation operation
 - **THEN** the field is absent and the account gains no global administration authority
 
+#### Scenario: Authentication persistence is not introspectable
+- **WHEN** any client introspects or directly queries public GraphQL
+- **THEN** authentication resources and credential or PII fields are absent even when the request has a valid bearer token
+
 #### Scenario: Operational health remains separate
 - **WHEN** infrastructure requests `/healthz` outside development
 - **THEN** health responds without exposing GraphQL data, while GraphiQL remains unavailable
 
 ### Requirement: First-manager bootstrap is operator-only
-The system SHALL provide a responsibility-named operator command outside GraphQL that bootstraps the first organization manager from an exact existing active global user. In one transaction it SHALL idempotently create or resolve the active organization, active membership, manager role assignment, and initial capability grants. Conflicts SHALL fail without leaving a partial authorization graph.
+The system SHALL provide a responsibility-named operator command outside GraphQL that bootstraps the first organization manager from an exact active global-user UUID and normalized organization slug and name. In one transaction it SHALL create or resolve the active organization, active membership, organization role key `manager`, role assignment, and exact initial capability grants `organizations.manage_memberships` and `authorization.manage_roles`. Repetition SHALL be idempotent only for the same authorization graph. Existing inactive facts, identity ownership mismatches, or conflicting organization or role facts SHALL fail without reactivation, reassignment, wildcard authority, or a partial graph. Concurrent identical invocations SHALL converge on the same graph.
 
 #### Scenario: Operator bootstraps a fresh installation
 - **WHEN** an operator invokes the command with one exact active user and nonconflicting organization facts
-- **THEN** it establishes one active manager authorization graph that can begin authenticated product workflows
+- **THEN** it establishes one active manager authorization graph with only the two named foundation capabilities
+
+#### Scenario: Matching bootstrap is repeatable
+- **WHEN** sequential or concurrent invocations supply the same user UUID, organization identity, and fixed manager graph
+- **THEN** they resolve one organization, membership, role, assignment, and set of grants without duplicates
 
 #### Scenario: Bootstrap conflict is atomic
 - **WHEN** the requested user, organization, membership, role, or grants conflict with existing facts

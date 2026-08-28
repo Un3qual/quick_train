@@ -99,7 +99,7 @@ A planned project pins:
 - coverage settings; and
 - when Finance is implemented, a rate and funding configuration.
 
-Project lifecycle is `draft -> active <-> paused -> completed -> archived`. Activation validates and freezes configuration. New dataset imports never silently enter an active project; managers explicitly enroll item revisions in a later cohort or batch.
+Project lifecycle permits `draft -> active`, `active <-> paused`, either `active -> completed` or `paused -> completed`, and `completed -> archived`. Completion does not require an otherwise unnecessary pause. Activation validates and freezes configuration. New dataset imports never silently enter an active project; managers explicitly enroll item revisions in a later cohort or batch.
 
 ### E. Both worker audiences and allocation modes are first-class
 

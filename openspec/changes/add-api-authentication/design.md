@@ -12,6 +12,7 @@ QuickTrain already has Ash resources for users, external identities, sessions, a
 - Keep one global `User` and make organization authority relational and action-specific.
 - Make OIDC exchange one-time, bound to the initiating client, and fail closed on identity conflicts or inactive accounts.
 - Keep bearer lookup one-way and indexed.
+- Require encrypted production transport and bound unauthenticated login admission before persistence or provider work.
 
 **Non-Goals:**
 
@@ -31,6 +32,8 @@ Alternative rejected: implementing authentication inside the first product chang
 
 Begin generates state, nonce, a standards-compliant PKCE verifier, and a distinct redemption secret from at least 256 bits of CSPRNG entropy each. It persists only a collision-checked state hash, nonce hash, verifier material needed for provider exchange, redemption-secret hash, the trusted callback configuration identity and exact URI, lifecycle state, expiry, and retention cutoff. The raw redemption secret is returned only to the initiating client and never enters provider parameters, callback material, logs, or persistence. Only S256 is supported.
 
+Before creating that state or contacting a provider, a standard web-boundary limiter enforces configurable global and per-network-source request rates plus a cap on outstanding unexpired login transactions. Network source uses the direct peer unless forwarded addresses come from a configured trusted proxy, so caller-controlled forwarding headers cannot bypass the limit. The limiter rejects excess work without persisting another transaction. Production begin, exchange, and callback requests require HTTPS after resolving the scheme only through configured trusted proxies; production callback configuration must also be HTTPS. Exact loopback HTTP callbacks are permitted only in development and test.
+
 Exchange hashes the presented redemption secret and compares it in constant time before provider contact. It atomically changes one unexpired transaction from `pending` to `exchanging`; only that claimant may redeem the provider response. The provider signature, issuer, audience, nonce, expiry, and exact persisted callback are then validated. Session creation and the final `consumed` transition commit together. A failure after the claim leaves the transaction unusable rather than reopening a replay window.
 
 Alternative rejected: state and PKCE alone protect the provider flow but do not bind QuickTrain's API exchange to the client that initiated login when another client obtains the callback and state.
@@ -47,7 +50,7 @@ Alternative rejected: email linking can merge unrelated accounts and makes provi
 
 ### 4. Make bearer sessions global-account credentials only
 
-Issuance returns a high-entropy opaque token once and stores its SHA-256 hash, user, expiry, revocation metadata, and authentication method. The hash has an Ash identity and database unique index for one-row lookup. The target Session schema has no organization authority; product actions derive the organization from their own resource or explicit relationship.
+Issuance returns a high-entropy opaque token once and stores its SHA-256 hash, user, expiry, revocation metadata, and authentication method. The hash has an Ash identity and database unique index for one-row lookup. The target Session schema has no organization authority; product actions derive the organization from their own resource or explicit relationship. Issuance caps expiry to the configured maximum session lifetime. Automatic retention deletes only expired or revoked sessions after the later applicable timestamp plus a fixed retention interval; separate authentication-event evidence is not deleted with the credential row.
 
 The migration is written for a clean database and may remove template-era organization scope or strengthen non-null constraints without a legacy backfill. Authentication hashes the presented token, resolves an unexpired and unrevoked session, rechecks the global user is active, and installs that user as both Absinthe and Ash actor.
 
@@ -55,13 +58,23 @@ Alternative rejected: session-carried organization scope can silently widen or s
 
 ### 5. Keep public GraphQL deliberate
 
-OIDC begin and exchange are the only unauthenticated GraphQL actions. `/healthz` remains operational and outside GraphQL. GraphiQL is compiled or routed only in development. Broad policy-disabled foundation fields are removed from domain GraphQL exposure; internal Ash actions remain available only to trusted code and tests.
+OIDC begin and exchange are the only unauthenticated GraphQL actions. At this prerequisite stage they are also the only public root fields. `/healthz` remains operational and outside GraphQL. GraphiQL is compiled or routed only in development. `Session`, `OidcLoginTransaction`, and `ExternalIdentity` resources and credential or PII attributes such as token hashes, provider subjects, proof hashes, verifier material, and raw provider claims are absent from public schema introspection. Broad policy-disabled foundation fields are removed from domain GraphQL exposure; internal Ash actions remain available only to trusted code and tests. Later product changes add only their deliberate authorized operations to this allowlist.
 
-An operator-only Mix task bootstraps the first manager from an exact active user and transactionally creates or resolves the organization, membership, manager assignment, and initial grants. It uses responsibility-named Ash actions and is never reachable through GraphQL.
+An operator-only Mix task accepts an exact global user UUID plus a normalized organization slug and name. It resolves these immutable authorization identities:
 
-### 6. Use Oban only for bounded retention
+- the supplied active user UUID;
+- the organization slug;
+- the organization-and-user membership pair;
+- role key `manager` in that organization;
+- global capability keys `organizations.manage_memberships` and `authorization.manage_roles`;
+- each role-and-capability grant; and
+- the organization, user, and role assignment.
 
-Select and exactly pin a stable GA Oban release and generate its supported jobs-table migration. A responsibility-named Accounts worker periodically deletes login transactions past their retention cutoff. Scheduler uniqueness avoids overlapping runs; the cleanup action remains independently idempotent and preserves unexpired transactions.
+The role name is `Manager`; capability descriptions are presentation metadata and do not affect identity. The transaction creates missing facts and succeeds idempotently only when every existing fact belongs to the same active graph. An inactive user, organization, or membership; a slug/name or role-name mismatch; a role owned by another organization; or an assignment/grant mismatch is a conflict and leaves no partial changes. Concurrent identical invocations converge through the same identities and re-read the winning graph after uniqueness contention. Product changes extend the bootstrap manifest with their own exact capability keys rather than giving this role wildcard authority. The command uses responsibility-named Ash actions and is never reachable through GraphQL.
+
+### 6. Use Oban only for bounded authentication retention
+
+Select and exactly pin a stable GA Oban release and generate its supported jobs-table migration. A responsibility-named Accounts worker periodically deletes login transactions past their retention cutoff and inactive sessions past their retention boundary. Scheduler uniqueness avoids overlapping runs; each cleanup action remains independently idempotent and preserves unexpired transactions and active sessions.
 
 QuickTrain does not recreate generic operations, event delivery, audit, or integration domains. Later product changes may add their own responsibility-specific workers using the same dependency.
 
@@ -70,15 +83,16 @@ QuickTrain does not recreate generic operations, event delivery, audit, or integ
 - **[A claimed provider exchange cannot be retried]** -> Favor replay resistance; the client starts a new login after any failed claimed exchange.
 - **[Clean-database migration discards local template data]** -> State the reset requirement before implementation and revisit this decision only if real production data exists before rollout.
 - **[Bearer tokens are replayable until expiry or revocation]** -> Keep tokens high entropy, store only hashes, use short bounded lifetimes, and require encrypted transport.
+- **[Unauthenticated begin can consume persistence]** -> Enforce global, network-source, and outstanding-state admission limits before transaction creation.
 - **[First-manager setup is not self-service]** -> Keep the narrow operator command until an authenticated administration workflow exists.
 
 ## Migration Plan
 
 1. Select the exact stable Oban release, update `.mise.toml`, `mix.exs`, and `mix.lock` together, and generate the supported jobs migration.
-2. Refine OIDC login transactions for server-owned proof material, one-way claims, trusted callbacks, and retention.
-3. Refine external identity and session resources for issuer/subject-only linking, global-account sessions, and indexed token hashes; generate Ash snapshots and migrations for a clean database.
-4. Add bearer resolution to the Phoenix/Absinthe pipeline and remove non-deliberate GraphQL foundation fields.
-5. Add first-manager bootstrap and periodic login-state cleanup.
-6. Verify the handshake, identity conflicts, inactive states, one-time concurrency, actor propagation, organization authorization, schema exposure, cleanup, and production routing.
+2. Refine OIDC login transactions for server-owned proof material, one-way claims, trusted callbacks, admission limits, and retention.
+3. Refine external identity and session resources for issuer/subject-only linking, global-account sessions, indexed token hashes, and bounded inactive-session retention; generate Ash snapshots and migrations for a clean database.
+4. Add HTTPS enforcement and bearer resolution to the Phoenix/Absinthe pipeline, then replace the generated schema with the explicit public allowlist.
+5. Add deterministic first-manager bootstrap and periodic authentication-state cleanup.
+6. Verify the handshake, admission and transport controls, identity conflicts, inactive states, one-time concurrency, actor propagation, organization authorization, schema exposure, cleanup, and production routing.
 
 Rollback before product data exists removes the new authentication migrations after revoking issued credentials. Once product domains rely on bearer sessions, rollback requires a deliberate replacement-authentication migration and is not an automatic schema downgrade.

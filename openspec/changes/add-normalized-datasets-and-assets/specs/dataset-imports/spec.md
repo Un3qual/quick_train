@@ -31,7 +31,7 @@ The system SHALL accept a caller-supplied idempotency key and associate it with 
 - **THEN** the system rejects the request with `idempotency_conflict`
 
 ### Requirement: Structurally accepted rows preserve provenance
-The append API SHALL accept only a bounded flat row structure composed of a row key, optional customer external key, source position, and typed field entries. Malformed scalar representations, unsupported value shapes, and nested records SHALL fail request validation before an import row or row idempotency identity is accepted. For every structurally accepted row, the system SHALL persist its row key, optional external key, unique source position, deterministic request fingerprint, and outcome. The fingerprint SHALL cover the pinned schema and every immutable accepted row parameter and SHALL be independent of field order and equivalent decimal or UTC date-time representations.
+The append API SHALL accept exactly one bounded flat row per call, composed of a row key, optional customer external key, source position, and typed field entries. It SHALL enforce configured positive limits on accepted rows per import, field entries per row, total scalar bytes per row, individual text bytes, and GraphQL request bytes before canonicalization, sorting, hashing, candidate construction, or row-identity reservation. Its fixed input shape SHALL reject unsupported nesting. Malformed scalar representations and unsupported value shapes SHALL likewise fail request validation before an import row or row idempotency identity is accepted. For every structurally accepted row, the system SHALL persist its row key, optional external key, unique source position, deterministic request fingerprint, and outcome. The fingerprint SHALL cover the pinned schema and every immutable accepted row parameter, including an external-key presence marker and the length-prefixed persisted external-key value when present, and SHALL be independent of field order and equivalent decimal or UTC date-time representations.
 
 The import and row key SHALL form a unique identity, import plus source position SHALL be unique, and import plus non-null external key SHALL permit only one accepted row. A matching retry SHALL return the accepted row without reconstructing or reprocessing it. Reusing the row key or source position for changed accepted input SHALL fail with `idempotency_conflict`. A second row targeting an already accepted external key in the same import SHALL fail with `duplicate_external_key` before persistence.
 
@@ -50,6 +50,10 @@ The import and row key SHALL form a unique identity, import plus source position
 #### Scenario: Malformed input is rejected before acceptance
 - **WHEN** append input contains a malformed scalar representation, unsupported value shape, or nested record
 - **THEN** request validation fails without reserving a row key or source position and without persisting an import row or opaque payload
+
+#### Scenario: Oversized input is rejected before canonicalization
+- **WHEN** an append or import exceeds a configured request, row, field, scalar-byte, or text-byte limit
+- **THEN** the system rejects it before sorting, fingerprinting, constructing a candidate, or reserving row provenance
 
 #### Scenario: Equivalent accepted input converges
 - **WHEN** a retry differs only in field order, equivalent decimal scale, or equivalent UTC date-time offset
@@ -115,7 +119,7 @@ Automatic cleanup SHALL scan expired open imports, lock the same import row used
 - **THEN** it returns `import_expired` and leaves the open import eligible for cleanup
 
 ### Requirement: Row processing is idempotent and retryable
-Finalization SHALL cause every pending row to receive a unique durable processing job. A row job SHALL lock the row, return without work when it is already terminal, and atomically commit its item revision reference and terminal `succeeded`, `unchanged`, or `failed` outcome. A worker or enqueue failure before that commit SHALL leave the row pending so standard job retry can try again. A retry after the commit SHALL observe the terminal row and SHALL not duplicate an item revision. No custom row-processing lease, attempt fence, or per-attempt recovery job is required.
+Finalization SHALL cause every pending row to receive a unique durable bounded-retry processing job. A row job SHALL lock the row, return without work when it is already terminal, and atomically commit its item revision reference and terminal `succeeded`, `unchanged`, or `failed` outcome. A worker or enqueue failure before that commit SHALL leave the row pending so standard job retry can try again. A retry after the commit SHALL observe the terminal row and SHALL not duplicate an item revision. After retry exhaustion or cancellation, an automatically scheduled responsibility-named terminalizer SHALL lock a still-pending row and atomically record sanitized `processing_retries_exhausted` failure only when its unique Oban row job is terminal and no runnable attempt remains. Terminal row-job evidence SHALL remain retained beyond the maximum terminalizer interval and SHALL NOT be pruned before this reconciliation. No custom row-processing lease, persisted row attempt counter, attempt fence, or per-attempt recovery job is required.
 
 #### Scenario: Batch enqueue is retried safely
 - **WHEN** the batch worker stops after enqueueing only some pending rows
@@ -128,6 +132,14 @@ Finalization SHALL cause every pending row to receive a unique durable processin
 #### Scenario: Row worker loses success acknowledgement
 - **WHEN** a row transaction commits but the job attempt is retried before Oban records success
 - **THEN** the retry observes the terminal row and exits without creating another revision
+
+#### Scenario: Retry exhaustion becomes terminal provenance
+- **WHEN** a unique row job exhausts its bounded attempts or is cancelled while its import row remains pending
+- **THEN** the terminalizer records one sanitized failed outcome after confirming that no runnable attempt remains, allowing the sealed batch to leave `pending`
+
+#### Scenario: Job pruning cannot erase exhaustion evidence early
+- **WHEN** a row job becomes discarded or cancelled before the next terminalizer run
+- **THEN** Oban retains that terminal job record until the terminalizer has had time to record the row's failed outcome
 
 ### Requirement: Batch progress is derived from rows
 An import SHALL persist only its `open` or `sealed` phase. It SHALL NOT persist aggregate outcome counters or a separate processing lifecycle. Queries SHALL derive `row_count`, `pending`, `succeeded`, `unchanged`, and `failed` from current import rows. These mutually exclusive counts SHALL sum to `row_count`. An open import's lifecycle SHALL be `open`; a sealed import with any pending row SHALL be `pending`; a sealed import with no pending rows SHALL be `completed` when no row failed, `failed` when every nonempty row set failed, and `partially_failed` when failures coexist with succeeded or unchanged rows. An empty sealed import SHALL be `completed`.

@@ -4,12 +4,12 @@ QuickTrain cannot safely expose organization-owned product data until GraphQL ca
 
 ## What Changes
 
-- Complete a one-time OIDC begin/exchange handshake with server-generated state, nonce, S256 PKCE, a client-bound exchange proof, and server-selected callbacks.
+- Complete a one-time OIDC begin/exchange handshake with server-generated state, nonce, S256 PKCE, a client-bound exchange proof, server-selected callbacks, encrypted production transport, and bounded unauthenticated admission.
 - Link accounts only by the verified issuer and subject, require active identities and users, and never link or reactivate an account by email.
-- Issue high-entropy opaque bearer sessions, persist only indexed one-way token hashes, and make sessions authenticate only the global `User` rather than carrying organization authority.
+- Issue high-entropy opaque bearer sessions, persist only indexed one-way token hashes, bound inactive-session retention, and make sessions authenticate only the global `User` rather than carrying organization authority.
 - Resolve the bearer session into both the GraphQL and Ash actor while requiring each organization-scoped action to derive and authorize its own active organization, membership, and capability.
-- Remove policy-disabled foundation operations from the public GraphQL schema, keep `/healthz` separate, restrict GraphiQL to development, and expose only OIDC begin/exchange without authentication.
-- Add an operator-only first-manager bootstrap and bounded cleanup of expired OIDC login transactions.
+- Define an explicit public GraphQL allowlist that excludes authentication persistence resources and credential or PII fields, keep `/healthz` separate, restrict GraphiQL to development, and expose only OIDC begin/exchange without authentication.
+- Add a deterministic operator-only first-manager bootstrap and bounded cleanup of expired OIDC login transactions and inactive sessions.
 
 Explicit non-goals:
 
@@ -21,7 +21,7 @@ Explicit non-goals:
 
 ### New Capabilities
 
-- `api-authentication`: One-time OIDC exchange, opaque bearer-session issuance and resolution, bounded login-state retention, and a fail-closed GraphQL actor boundary.
+- `api-authentication`: One-time OIDC exchange, opaque bearer-session issuance and resolution, bounded authentication-state retention, and a fail-closed GraphQL actor boundary.
 
 ### Modified Capabilities
 
@@ -31,5 +31,5 @@ None.
 
 - Refines the existing Accounts session, external-identity, and OIDC login-transaction resources, migrations, configuration, and API pipeline.
 - Changes the reusable backend template from authentication-ready scaffolding to an authenticated GraphQL foundation suitable for later organization-owned product domains.
-- Adds the durable-jobs dependency and supported jobs-table migration used by login-state cleanup and later responsibility-specific workers.
+- Adds the durable-jobs dependency and supported jobs-table migration used by authentication-state cleanup and later responsibility-specific workers.
 - Removes broad policy-disabled foundation fields from the public schema and adds responsibility-named operator bootstrap outside GraphQL.
