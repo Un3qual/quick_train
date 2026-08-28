@@ -90,7 +90,7 @@ For a valid row with no external key, the system SHALL use that persisted `Datas
 - **THEN** the shared canonical encoder produces the same row request fingerprint and append returns the accepted row without reprocessing
 
 ### Requirement: Finalization seals the accepted row set
-The system SHALL create every import in the `open` state. It SHALL serialize append and finalization actions by locking the same import row and rechecking its lifecycle state and immutable `open_expires_at`. Append SHALL persist a row only while the locked import is open and unexpired. The first authorized finalization SHALL likewise require an open, unexpired import, atomically seal it while inserting one import-identity-unique processing job, and prevent every later append. An expired still-open import SHALL reject append and first finalization with `import_expired` and remain eligible for cleanup. An authorized identical sequential or concurrent finalization against an already sealed processing or terminal import SHALL return that current import without reapplying its former open expiry or inserting another job. The sealed import SHALL immediately expose the post-finalization state derived by the batch lifecycle rules.
+The system SHALL create every import with persisted phase `open`. It SHALL serialize append and finalization actions by locking the same import row and rechecking its phase and immutable `open_expires_at`. Append SHALL persist a row only while the locked import is open and unexpired. The first authorized finalization SHALL likewise require an open, unexpired import, atomically change its persisted phase to `sealed` while inserting one import-identity-unique processing job, and prevent every later append. An expired still-open import SHALL reject append and first finalization with `import_expired` and remain eligible for cleanup. An authorized identical sequential or concurrent finalization against an already sealed import SHALL return that current import without reapplying its former open expiry or inserting another job. The sealed import SHALL immediately expose the post-finalization lifecycle derived by the batch lifecycle rules.
 
 #### Scenario: Append races finalization
 - **WHEN** an append begins against an open import but finalization acquires the import lock and seals the batch first
@@ -120,21 +120,25 @@ The system SHALL assign every new import an immutable server-calculated `open_ex
 - **THEN** periodic cleanup removes its rows and candidate graphs and releases its batch identity without creating or deleting a dataset item revision
 
 #### Scenario: Cleanup races finalization
-- **WHEN** cleanup and finalization contend for the same expired open import
-- **THEN** the import lock makes exactly one transition authoritative, so cleanup deletes only if the import is still open and finalization preserves the sealed import and its provenance if it wins
+- **WHEN** finalization locks and verifies an import before expiry while an expiry cleanup attempt subsequently waits for the same row
+- **THEN** finalization may seal the import and cleanup skips that sealed provenance after it acquires the lock
+
+#### Scenario: Finalization reaches the lock only after expiry
+- **WHEN** finalization and cleanup both first reach an import after its open expiry has passed
+- **THEN** finalization returns `import_expired` and leaves the import open, while cleanup may delete it after acquiring the same lock and rechecking that it is still expired and open
 
 ### Requirement: Partial batch completion
-The system SHALL process each import row atomically and SHALL allow valid rows to succeed when other rows in the batch are invalid. It SHALL expose persisted disjoint counts derived exactly from rows: `accepted` counts every persisted `DatasetImportRow`; `pending`, `processing`, `succeeded`, and `unchanged` count their exact row outcomes; and `failed` counts every persisted terminal failure, including append-validation and processing failures. Every append, claim, reclaim, and terminal-outcome transaction SHALL lock the parent import before the affected row, recompute the exact counts and derived lifecycle from rows while holding that serialization lock, and persist the aggregate snapshot before commit. A `duplicate_external_key` rejection occurs before persistence and SHALL NOT increment accepted or failed. An `open` import SHALL remain `open` regardless of its current row outcomes. After finalization, the batch lifecycle SHALL use the following precedence so exactly one state applies:
+The system SHALL process each import row atomically and SHALL allow valid rows to succeed when other rows in the batch are invalid. It SHALL persist exact counters derived from rows: `row_count` is the total number of persisted `DatasetImportRow` records; `pending`, `processing`, `succeeded`, `unchanged`, and `failed` are mutually exclusive outcome counts whose sum equals `row_count`; and `failed` includes append-validation and processing failures. Every append, claim, reclaim, and terminal-outcome transaction SHALL lock the parent import before the affected row, recompute the exact counters from rows while holding that serialization lock, and persist the counter snapshot before commit. A `duplicate_external_key` rejection occurs before persistence and SHALL NOT increment `row_count` or `failed`. The import SHALL persist only its `open` or `sealed` phase. For an open import, the public lifecycle SHALL be `open` regardless of row outcomes. For a sealed import, the system SHALL calculate lifecycle at read time from current row outcomes, lease timestamps, and the database clock using the following precedence so exactly one state applies:
 
 | Sealed row condition | Batch state |
 | --- | --- |
 | At least one processing row has an unexpired lease | `processing` |
 | Otherwise, at least one pending row or processing row with an expired lease exists | `pending` |
-| No nonterminal rows exist and the accepted count is zero or the failed count is zero | `completed` |
-| No nonterminal rows exist and every accepted row failed | `failed` |
+| No nonterminal rows exist and `row_count` is zero or the failed count is zero | `completed` |
+| No nonterminal rows exist and every persisted row failed | `failed` |
 | No nonterminal rows exist and failures coexist with succeeded or unchanged rows | `partially_failed` |
 
-A processing row SHALL remain included in the processing count after lease expiry even though the expired lease makes the batch lifecycle `pending` and reclaimable. A processing claim SHALL record a start time, lease expiry, and incremented attempt count under the import-then-row lock order, SHALL return that attempt as a fencing token, and SHALL transactionally insert one unique row-and-attempt recovery job scheduled for the same lease expiry. The recovery job SHALL exit when that attempt is terminal or no longer current and otherwise reclaim the expired row even when the original worker remains alive or never reaches an exit path. Terminal writes SHALL succeed only while the row is still processing under the same attempt. Retries SHALL skip terminal rows and unexpired leases and SHALL reclaim expired processing leases safely without allowing an older worker to overwrite the reclaiming attempt.
+A processing row SHALL remain included in the processing outcome count after lease expiry even though the current-clock lifecycle calculation makes the batch `pending` and reclaimable. The calculated lifecycle SHALL therefore become `pending` as soon as the lease is expired when inspected, even if its scheduled recovery job is delayed and no transition transaction has run. A processing claim SHALL record a start time, lease expiry, and incremented attempt count under the import-then-row lock order, SHALL return that attempt as a fencing token, and SHALL transactionally insert one unique row-and-attempt recovery job scheduled for the same lease expiry. The recovery job SHALL exit when that attempt is terminal or no longer current and otherwise reclaim the expired row even when the original worker remains alive or never reaches an exit path. Terminal writes SHALL succeed only while the row is still processing under the same attempt. Retries SHALL skip terminal rows and unexpired leases and SHALL reclaim expired processing leases safely without allowing an older worker to overwrite the reclaiming attempt.
 
 #### Scenario: Empty finalized batch completes
 - **WHEN** an open import with zero accepted rows is finalized
@@ -146,7 +150,7 @@ A processing row SHALL remain included in the processing count after lease expir
 
 #### Scenario: All failed rows fail the batch
 - **WHEN** every accepted row reaches a failed terminal outcome
-- **THEN** the batch becomes `failed` with failed count equal to accepted count
+- **THEN** the batch becomes `failed` with failed count equal to `row_count`
 
 #### Scenario: Mixed batch completes partially
 - **WHEN** a batch contains both valid and invalid rows
@@ -154,15 +158,15 @@ A processing row SHALL remain included in the processing count after lease expir
 
 #### Scenario: Rejected duplicate does not alter row counts
 - **WHEN** an append is rejected with `duplicate_external_key` before a second row is persisted
-- **THEN** accepted and failed counts remain derived only from the already persisted rows
+- **THEN** `row_count` and failed count remain derived only from the already persisted rows
 
 #### Scenario: Active lease keeps the batch processing
 - **WHEN** a sealed batch has an unexpired processing lease even if other rows are terminal or pending
 - **THEN** the batch state is `processing` and the claim transaction has already scheduled a unique recovery wake-up for that row and attempt at lease expiry
 
 #### Scenario: Expired lease makes the batch pending
-- **WHEN** a sealed batch has no active lease and contains a processing row whose lease expired
-- **THEN** the batch state is `pending` until a worker automatically reclaims that row
+- **WHEN** a sealed batch is inspected after its only processing lease expired but before a delayed recovery job executes
+- **THEN** the read-time lifecycle is `pending` while the persisted processing outcome count remains unchanged until a worker automatically reclaims that row
 
 #### Scenario: Unexpected processor failure is retryable
 - **WHEN** processing stops because of an unexpected transient failure

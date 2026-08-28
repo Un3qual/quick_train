@@ -96,7 +96,7 @@ The system SHALL record validated image dimensions for image assets and SHALL ex
 - **THEN** the system leaves the asset unusable and reports a sanitized validation failure
 
 ### Requirement: Provider-neutral authorized access
-The system SHALL keep storage locations private and SHALL obtain upload or download access through a configurable asset-storage adapter. Returned access SHALL be short-lived, scoped to the authorized asset operation, delivered only through authenticated encrypted transport such as HTTPS, and marked to prevent caching and referrer propagation. The system SHALL reject any credential-bearing descriptor or redirect chain that uses an insecure transport or escapes the adapter-approved secure destination.
+The system SHALL keep storage locations private and SHALL obtain upload or download access through a configurable asset-storage adapter. Returned access SHALL be short-lived, scoped to the authorized asset operation, delivered only through authenticated encrypted transport such as HTTPS, and marked to prevent caching and referrer propagation. The system SHALL NOT automatically follow a redirect with credential-bearing headers or query parameters. Before issuing each redirected request, it SHALL validate that target's encrypted scheme and adapter-approved destination and SHALL reject any insecure or unapproved hop without forwarding credentials to it.
 
 #### Scenario: Authorized access is short-lived
 - **WHEN** an authorized actor requests access to a ready asset
@@ -105,6 +105,10 @@ The system SHALL keep storage locations private and SHALL obtain upload or downl
 #### Scenario: Insecure access descriptor is rejected
 - **WHEN** an adapter returns a credential-bearing descriptor or redirect that uses cleartext transport or an unapproved destination
 - **THEN** the system rejects the descriptor without returning credentials or changing asset state
+
+#### Scenario: Rejected redirect receives no credentials
+- **WHEN** an approved credential-bearing request receives a redirect to an insecure or adapter-unapproved target
+- **THEN** the client or adapter rejects the hop before issuing the redirected request and sends no credential-bearing header or query parameter to that target
 
 #### Scenario: Storage adapter failure is contained
 - **WHEN** the configured storage adapter cannot produce authorized access

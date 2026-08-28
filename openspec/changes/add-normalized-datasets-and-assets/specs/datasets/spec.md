@@ -70,7 +70,7 @@ The system SHALL give each dataset item a stable identity within its dataset and
 - **THEN** the system creates a new revision pinned to that schema instead of returning the older revision as unchanged
 
 #### Scenario: Equivalent normalized inputs converge
-- **WHEN** two inputs differ only in field order, equivalent decimal scale, equivalent UTC date-time offset, or caller occurrence order
+- **WHEN** two accepted first-release single-cardinality inputs differ only in field order, equivalent decimal scale, or equivalent UTC date-time offset
 - **THEN** the canonical encoder emits the same bytes and revision fingerprint for both
 
 #### Scenario: Actual content changes diverge

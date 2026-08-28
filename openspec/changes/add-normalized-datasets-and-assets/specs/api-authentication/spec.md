@@ -5,11 +5,11 @@ Provide a one-time OIDC-to-bearer handshake and fail-closed API actor boundary b
 ## ADDED Requirements
 
 ### Requirement: OIDC exchange is one-time
-The system SHALL begin OIDC login by generating state, nonce, and a PKCE verifier server-side with a cryptographically secure random generator and at least 256 bits of entropy each. It SHALL persist a unique collision-checked hash of the state, a hash of the nonce, server-side verifier material, the selected trusted callback-configuration identity and exact callback URI, an expiry, and a retention cutoff; derive only an S256 challenge; and reject caller-supplied state, nonce, verifier, challenge, or callback URI material. Callback URIs SHALL come only from trusted server configuration, and exchange SHALL reload and send the exact callback persisted by begin. Exchange SHALL atomically claim only an unexpired transaction in the `pending` state through a one-way transition to `exchanging` before contacting the provider. Only the winning claimant SHALL verify the provider response, including the nonce, resolve or create the global user and external identity under the configured linking policy, and issue a bearer session. Session issuance and the final `consumed` transition SHALL commit together. A concurrent, later, failed, or interrupted claimant SHALL NOT make the state reusable.
+The system SHALL begin OIDC login by generating state, nonce, a PKCE verifier, and a separate client-bound redemption secret server-side with a cryptographically secure random generator and at least 256 bits of entropy each. It SHALL persist a unique collision-checked hash of the state, a hash of the nonce, server-side verifier material, only a hash of the redemption secret, the selected trusted callback-configuration identity and exact callback URI, an expiry, and a retention cutoff; return the raw redemption secret only to the initiating client; never place that secret in the provider authorization request, callback URI, logs, or persistent state; derive only an S256 challenge; and reject caller-supplied state, nonce, verifier, challenge, redemption-secret, or callback URI material at begin. Callback URIs SHALL come only from trusted server configuration, and exchange SHALL reload and send the exact callback persisted by begin. Exchange SHALL require the initiating client's redemption secret and atomically claim only an unexpired transaction in the `pending` state whose redemption-secret hash matches in constant time, through a one-way transition to `exchanging` before contacting the provider. A missing or mismatched secret SHALL fail before provider exchange or session issuance. Only the winning claimant SHALL verify the provider response, including the nonce, resolve or create the global user and external identity under the configured linking policy, and issue a bearer session. Session issuance and the final `consumed` transition SHALL commit together. A concurrent, later, failed, or interrupted claimant SHALL NOT make the state reusable.
 
 #### Scenario: Login proof material is unpredictable
 - **WHEN** an unauthenticated client begins OIDC login
-- **THEN** the server returns fresh unpredictable state and an authorization request containing its server-generated nonce and server-derived S256 challenge without accepting caller-selected proof material
+- **THEN** the server returns fresh unpredictable state and a separate redemption secret to that client plus an authorization request containing its server-generated nonce and server-derived S256 challenge, without accepting caller-selected proof material
 
 #### Scenario: Successful exchange issues one session
 - **WHEN** a client exchanges a valid provider response for an unexpired pending login transaction
@@ -18,6 +18,10 @@ The system SHALL begin OIDC login by generating state, nonce, and a PKCE verifie
 #### Scenario: Callback selection is server pinned
 - **WHEN** a client begins or exchanges login while attempting to supply a callback URI or alter the callback selected at begin
 - **THEN** the system rejects caller callback material and uses only the exact trusted configured callback persisted on the login transaction for both authorization and exchange
+
+#### Scenario: Login redemption is bound to the initiating client
+- **WHEN** another client obtains a valid provider callback and state but does not possess the separate redemption secret returned only at begin
+- **THEN** exchange rejects that client before contacting the provider or issuing a session, while never accepting caller-selected redemption proof at begin
 
 #### Scenario: Concurrent exchanges are fenced
 - **WHEN** two independent requests simultaneously exchange the same valid OIDC state
@@ -57,6 +61,17 @@ The system SHALL support only the `issuer_subject_only` account-linking policy i
 #### Scenario: Missing or unknown linking policy is rejected
 - **WHEN** account-linking policy configuration is absent or is not `issuer_subject_only`
 - **THEN** OIDC login cannot proceed and no identity, user, or session is created or changed
+
+### Requirement: Legacy local accounts have an explicit identity transition
+Before issuer/subject-only login becomes the account entry point, the system SHALL inventory every global user that has no external identity and SHALL provide a responsibility-named operator-only command outside GraphQL for reviewed legacy linking. The command SHALL consume an explicit mapping from an exact active global-user UUID to the configured canonical issuer URI and exact provider subject, SHALL lock the target user and identity uniqueness boundaries, SHALL be idempotent only when the same relationship already exists, and SHALL fail atomically when the user is missing or inactive, the issuer/subject belongs to another user, or the target user has a conflicting canonical identity. It SHALL NOT discover, select, merge, or reassign a user by email. Unmapped users and email collisions SHALL continue to fail closed under the ordinary OIDC exchange rules.
+
+#### Scenario: Operator links an exact legacy user
+- **WHEN** an operator supplies a reviewed mapping from one exact active legacy user UUID to an unclaimed canonical issuer and subject
+- **THEN** the command creates or returns only that immutable active external-identity relationship without exposing a linking API through GraphQL
+
+#### Scenario: Ambiguous legacy mapping is rejected
+- **WHEN** a mapping targets an inactive or missing user, a subject owned by another user, or a user with a conflicting canonical identity
+- **THEN** the command aborts without partially linking or changing any user and ordinary login continues to reject the conflict
 
 ### Requirement: Bearer sessions use indexed one-way token identity
 The system SHALL generate a high-entropy opaque bearer token, return its raw value only at issuance, and persist only its SHA-256 hash with required session metadata. A bearer session SHALL authenticate the global account only and SHALL NOT carry or grant organization authority. Before enforcing global-account bearer resolution and non-null uniqueness, a staged data migration SHALL revoke every legacy session with a null token hash and assign each a distinct reserved `legacy-revoked:<session-id>` value that bearer-token hashing cannot produce, and SHALL revoke every legacy session with a non-null organization relationship. New issuance SHALL never set an organization relationship, and a database constraint SHALL permit a retained non-null legacy `organization_id` only when the session is revoked. Every issued session SHALL then have a non-null token hash protected by a unique database identity and index. Authentication SHALL hash the presented token and resolve at most one matching session through that indexed identity.
@@ -111,12 +126,16 @@ The system SHALL provide a responsibility-named operator command, outside GraphQ
 - **WHEN** the requested slug, user identity, membership, role, or grants conflict with existing facts
 - **THEN** the command reports the conflict without partially creating or reassigning organization access
 
-### Requirement: Unauthenticated API surface is minimal
-The system SHALL expose only OIDC begin and exchange as unauthenticated GraphQL behavior. Operational health SHALL remain available only at `/healthz`; GraphQL SHALL NOT expose a health field. GraphiQL SHALL be restricted to development, and policy-disabled foundation operations SHALL NOT be reachable as unauthenticated alternatives.
+### Requirement: Public GraphQL surface is minimal and authorized
+The system SHALL expose only OIDC begin and exchange as unauthenticated GraphQL behavior. Operational health SHALL remain available only at `/healthz`; GraphQL SHALL NOT expose a health field. GraphiQL SHALL be restricted to development. Existing policy-disabled foundation fields, including broad user list, read, and creation operations, SHALL be removed from the public GraphQL schema rather than merely placed behind bearer authentication; they MAY remain internal Ash actions for tests and trusted operator workflows. No ordinary authenticated global account SHALL gain foundation administration authority merely by holding a bearer session.
 
 #### Scenario: Health is not a GraphQL bypass
 - **WHEN** an unauthenticated client queries the GraphQL schema
 - **THEN** no GraphQL health field or non-handshake product or foundation operation is available
+
+#### Scenario: Authenticated account lacks implicit foundation administration
+- **WHEN** an ordinary authenticated global account attempts to list, read, or create users through a former policy-disabled foundation field
+- **THEN** the field is absent from the public schema and the account cannot inspect global users or reserve another user's email
 
 #### Scenario: Operational health remains separate
 - **WHEN** infrastructure requests `/healthz`
