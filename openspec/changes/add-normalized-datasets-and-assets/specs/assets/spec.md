@@ -16,11 +16,15 @@ The system SHALL require an active authenticated account, an active membership i
 - **THEN** the system returns a fail-closed authorization error without exposing asset metadata or content location
 
 ### Requirement: Immutable content-addressed assets
-The system SHALL identify ready asset content by a cryptographic hash, byte size, and media type. It SHALL reject finalization when uploaded content does not match the registered facts, and it SHALL prevent the content identity of a ready asset from being changed.
+The system SHALL identify ready asset content by a cryptographic hash, byte size, and media type. Upload access SHALL target a unique writable staging object. Before the ready transition, the storage adapter SHALL verify the staged content and idempotently promote or seal it at an immutable key or provider version that no issued upload descriptor can modify. Reads SHALL target only that sealed object. The system SHALL reject finalization when uploaded content does not match the registered facts, and it SHALL prevent the content identity of a ready asset from being changed.
 
 #### Scenario: Matching upload is finalized
 - **WHEN** the storage adapter verifies that pending content matches the registered hash, byte size, and supported media type
-- **THEN** the asset becomes ready and its content identity becomes immutable
+- **THEN** the adapter seals the verified bytes outside the writable staging location and the asset becomes ready only after recording that immutable content location
+
+#### Scenario: Unexpired upload access cannot replace ready content
+- **WHEN** a client reuses a still-valid upload descriptor after the asset becomes ready
+- **THEN** it can affect only the abandoned staging location and authorized reads continue returning the sealed verified bytes
 
 #### Scenario: Mismatched upload is rejected
 - **WHEN** uploaded content has a different hash, byte size, or unsupported media type
@@ -29,6 +33,17 @@ The system SHALL identify ready asset content by a cryptographic hash, byte size
 #### Scenario: Ready content cannot be replaced
 - **WHEN** an actor attempts to replace the content or content identity of a ready asset
 - **THEN** the system rejects the mutation and requires registration of a new asset
+
+### Requirement: Ready-content deduplication is recoverable
+The system SHALL enforce organization-scoped content-hash uniqueness only for ready assets. Failed uploads SHALL NOT reserve that ready identity permanently. Concurrent finalization of identical content SHALL select one canonical ready asset deterministically and SHALL not expose a mutable or ambiguous content reference.
+
+#### Scenario: Correct upload follows a failed upload
+- **WHEN** an organization registers a new upload for content whose earlier pending asset failed verification
+- **THEN** the system accepts a new pending asset because the failed asset does not occupy the ready-content identity
+
+#### Scenario: Concurrent identical uploads converge
+- **WHEN** two pending assets in one organization concurrently finalize with the same verified content hash
+- **THEN** one becomes the canonical ready asset, the other records a sanitized duplicate-content terminal outcome, and both callers receive or can resolve the canonical ready asset
 
 ### Requirement: Image metadata and compatibility
 The system SHALL record validated image dimensions for image assets and SHALL expose enough metadata for later form bindings and spatial answers to verify source compatibility.

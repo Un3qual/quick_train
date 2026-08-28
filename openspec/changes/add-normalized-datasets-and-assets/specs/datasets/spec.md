@@ -16,7 +16,7 @@ The system SHALL require an active authenticated account, an active membership i
 - **THEN** the system denies the request without revealing the dataset's schema, items, or values
 
 ### Requirement: Versioned normalized dataset schemas
-The system SHALL represent a dataset schema through immutable published schema versions containing record types and typed field definitions. Field keys SHALL be unique within a record type, and every field SHALL declare its value family and cardinality.
+The system SHALL represent a dataset schema through immutable published schema versions containing record types and typed field definitions. Field keys SHALL be unique within a record type, and every field SHALL declare its value family and cardinality. The only permitted first-release cardinality SHALL be `single`; a separate required flag SHALL determine whether its valid occurrence count is exactly one or zero-or-one.
 
 #### Scenario: Valid schema version is published
 - **WHEN** a draft schema version contains a root record type and valid uniquely keyed field definitions
@@ -31,11 +31,19 @@ The system SHALL represent a dataset schema through immutable published schema v
 - **THEN** it creates and publishes a new schema version while existing item revisions retain the previous version
 
 ### Requirement: Stable items and immutable revisions
-The system SHALL give each dataset item a stable identity within its dataset and SHALL store content changes as immutable, monotonically ordered item revisions. Every revision SHALL pin one published schema version and one root record.
+The system SHALL give each dataset item a stable identity within its dataset and SHALL store content changes as immutable, monotonically ordered item revisions. Every revision SHALL pin one published schema version belonging to the same dataset and one root record. Ash actions and database constraints SHALL prevent dataset, item, revision, and schema relationships from crossing dataset or organization boundaries.
 
 #### Scenario: First revision is created
 - **WHEN** valid content is added under a new customer external key
 - **THEN** the system creates one stable item and its first immutable revision
+
+#### Scenario: Concurrent first revisions converge on one item
+- **WHEN** concurrent requests add content under the same previously unseen dataset-scoped external key
+- **THEN** the system atomically obtains one stable item, serializes revision creation on it, and returns valid changed or unchanged outcomes without surfacing a uniqueness failure
+
+#### Scenario: Schema from another dataset is rejected
+- **WHEN** a caller attempts to create an item revision using a schema version that belongs to another dataset or organization
+- **THEN** the system rejects the relationship without exposing the foreign schema or persisting a partial revision
 
 #### Scenario: Changed content creates a revision
 - **WHEN** valid changed content is accepted for an existing external key
@@ -46,7 +54,7 @@ The system SHALL give each dataset item a stable identity within its dataset and
 - **THEN** reads of every older revision return the same schema version, record, and typed values as before
 
 ### Requirement: Normalized typed record values
-The system SHALL store each item revision as a root dataset record containing field-associated value occurrences and normalized typed values. Dataset content SHALL NOT be stored in JSONB columns, and each value occurrence SHALL contain exactly one representation compatible with its field definition.
+The system SHALL store each item revision as a root dataset record containing field-associated value occurrences and normalized typed values. Dataset content SHALL NOT be stored in JSONB columns, and each value occurrence SHALL contain exactly one representation compatible with its field definition. The canonical record-construction workflow SHALL validate every field's occurrence count in the same transaction: required single fields SHALL have exactly one value, optional single fields SHALL have zero or one, and multiple occurrences SHALL be rejected atomically.
 
 #### Scenario: Flat typed record is accepted
 - **WHEN** a record supplies valid text, integer, decimal, boolean, date-time, or ready asset values for its schema fields
@@ -64,12 +72,16 @@ The system SHALL store each item revision as a root dataset record containing fi
 - **WHEN** a record omits a required field occurrence
 - **THEN** the system rejects the record with a field-specific validation error
 
+#### Scenario: Single-valued field is repeated
+- **WHEN** a record supplies more than one occurrence for a first-release field
+- **THEN** the system rejects the entire record and containing item revision without persisting any occurrence
+
 ### Requirement: Forward-compatible record envelope
 The system SHALL assign stable identity and ordinal position to value occurrences so that repeated values and record-valued fields can be introduced additively. The first release SHALL accept only flat records and SHALL reject unsupported nested record input explicitly.
 
 #### Scenario: Flat value has a stable occurrence
 - **WHEN** a flat record value is created
-- **THEN** it receives a stable value-occurrence identity and an ordinal compatible with future repeated values
+- **THEN** it receives a stable value-occurrence identity and ordinal zero, preserving an additive path to future repeated values
 
 #### Scenario: Nested value is not silently flattened
 - **WHEN** a caller supplies a nested record value before nested records are supported
