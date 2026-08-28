@@ -4,10 +4,10 @@ QuickTrain cannot define reusable forms or collect paid task responses until org
 
 ## What Changes
 
-- Add immutable, content-addressed asset metadata and a provider-neutral storage boundary that separates writable upload staging from sealed read objects for imported images and future generated mask assets.
-- Add organization-owned datasets with immutable schema versions, record types, typed field definitions, and stable dataset-item identities.
+- Add immutable, content-addressed asset metadata and a provider-neutral storage boundary that separates writable upload staging from sealed read objects and expires abandoned staging content for imported images and future generated mask assets.
+- Add organization-owned datasets with race-safe immutable schema versions, record types, typed field definitions, and stable dataset-item identities.
 - Add immutable dataset-item revisions backed by normalized records, value occurrences, and typed scalar or asset values; no dataset content is stored in JSONB columns.
-- Add import batches with atomic batch and row idempotency, relationally staged normalized records, source provenance, row-level outcomes, crash recovery, and stable customer external keys.
+- Add import batches with atomic batch and row idempotency, relationally staged normalized records, source provenance, append/finalization sealing, lease-fenced row outcomes, crash recovery, and stable customer external keys.
 - Complete the OIDC-to-bearer-session handshake, then add deliberate GraphQL actions for dataset/schema creation, programmatic batch ingestion, asset registration/finalization, and organization-scoped reads.
 - Keep authorization fail-closed: managers require an active organization membership and explicit dataset capabilities; no dataset content is publicly browsable.
 - Preserve a forward-compatible record envelope: the first release accepts flat typed records, while ordinals and record types leave repeated and nested record values additive later.

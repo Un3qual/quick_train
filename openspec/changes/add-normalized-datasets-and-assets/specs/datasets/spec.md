@@ -16,7 +16,7 @@ The system SHALL require an active authenticated account, an active membership i
 - **THEN** the system denies the request without revealing the dataset's schema, items, or values
 
 ### Requirement: Versioned normalized dataset schemas
-The system SHALL represent a dataset schema through immutable published schema versions containing record types and typed field definitions. Field keys SHALL be unique within a record type, and every field SHALL declare its value family and cardinality. The only permitted first-release cardinality SHALL be `single`; a separate required flag SHALL determine whether its valid occurrence count is exactly one or zero-or-one.
+The system SHALL represent a dataset schema through immutable published schema versions containing record types and typed field definitions. Publication and every record-type or field create, update, or delete action SHALL lock and recheck the same parent schema-version row in its transaction, so no child edit can commit after the version becomes published. Field keys SHALL be unique within a record type, and every field SHALL declare its value family and cardinality. The only permitted first-release cardinality SHALL be `single`; a separate required flag SHALL determine whether its valid occurrence count is exactly one or zero-or-one.
 
 #### Scenario: Valid schema version is published
 - **WHEN** a draft schema version contains a root record type and valid uniquely keyed field definitions
@@ -30,8 +30,12 @@ The system SHALL represent a dataset schema through immutable published schema v
 - **WHEN** an organization needs to change a published dataset schema
 - **THEN** it creates and publishes a new schema version while existing item revisions retain the previous version
 
+#### Scenario: Draft edit races publication
+- **WHEN** a record-type or field edit begins while a schema version is draft and publication acquires the version lock first
+- **THEN** the edit rechecks the now-published state under that same lock and fails without changing the published graph
+
 ### Requirement: Stable items and immutable revisions
-The system SHALL give each dataset item a stable identity within its dataset and SHALL store content changes as immutable, monotonically ordered item revisions. Every revision SHALL pin one published schema version belonging to the same dataset and one root record. Ash actions and database constraints SHALL prevent dataset, item, revision, and schema relationships from crossing dataset or organization boundaries.
+The system SHALL give each dataset item a stable identity within its dataset and SHALL store content changes as immutable, monotonically ordered item revisions. Every revision SHALL pin one published schema version belonging to the same dataset and one root record. Its deterministic fingerprint SHALL cover both the schema-version identity and normalized record values, so identical values under a different schema create a distinct revision. Ash actions and database constraints SHALL prevent dataset, item, revision, and schema relationships from crossing dataset or organization boundaries.
 
 #### Scenario: First revision is created
 - **WHEN** valid content is added under a new customer external key
@@ -52,6 +56,10 @@ The system SHALL give each dataset item a stable identity within its dataset and
 #### Scenario: Historical revision remains unchanged
 - **WHEN** a newer revision is created
 - **THEN** reads of every older revision return the same schema version, record, and typed values as before
+
+#### Scenario: Identical values use a new schema version
+- **WHEN** an existing item's normalized values are accepted unchanged under a different published schema version from the same dataset
+- **THEN** the system creates a new revision pinned to that schema instead of returning the older revision as unchanged
 
 ### Requirement: Normalized typed record values
 The system SHALL store each item revision as a root dataset record containing field-associated value occurrences and normalized typed values. Dataset content SHALL NOT be stored in JSONB columns, and each value occurrence SHALL contain exactly one representation compatible with its field definition. The canonical record-construction workflow SHALL validate every field's occurrence count in the same transaction: required single fields SHALL have exactly one value, optional single fields SHALL have zero or one, and multiple occurrences SHALL be rejected atomically.

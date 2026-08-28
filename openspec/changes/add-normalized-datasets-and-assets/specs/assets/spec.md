@@ -35,15 +35,30 @@ The system SHALL identify ready asset content by a cryptographic hash, byte size
 - **THEN** the system rejects the mutation and requires registration of a new asset
 
 ### Requirement: Ready-content deduplication is recoverable
-The system SHALL enforce organization-scoped content-hash uniqueness only for ready assets. Failed uploads SHALL NOT reserve that ready identity permanently. Concurrent finalization of identical content SHALL select one canonical ready asset deterministically and SHALL not expose a mutable or ambiguous content reference.
+The system SHALL enforce organization-scoped content-hash uniqueness only for ready assets. Failed uploads SHALL NOT reserve that ready identity permanently. Reuse of a canonical ready asset SHALL require the registering hash, byte size, and media type to match its immutable facts exactly; the system SHALL return an asset-identity conflict rather than silently returning a canonical asset with different facts. Concurrent finalization of identical content SHALL select one canonical ready asset deterministically and SHALL not expose a mutable or ambiguous content reference.
 
 #### Scenario: Correct upload follows a failed upload
 - **WHEN** an organization registers a new upload for content whose earlier pending asset failed verification
 - **THEN** the system accepts a new pending asset because the failed asset does not occupy the ready-content identity
 
 #### Scenario: Concurrent identical uploads converge
-- **WHEN** two pending assets in one organization concurrently finalize with the same verified content hash
+- **WHEN** two pending assets in one organization concurrently finalize with the same verified hash, byte size, and media type
 - **THEN** one becomes the canonical ready asset, the other records a sanitized duplicate-content terminal outcome, and both callers receive or can resolve the canonical ready asset
+
+#### Scenario: Existing hash has different registered facts
+- **WHEN** an organization registers a hash that already has a canonical ready asset but supplies a different byte size or media type
+- **THEN** the system rejects canonical reuse with an asset-identity conflict and does not return metadata that contradicts the request
+
+### Requirement: Abandoned staging content expires
+The system SHALL assign every writable staging object an expiry and SHALL remove expired staging content idempotently after a fixed safety grace period when its registration is pending, failed, duplicated, or already sealed. Cleanup SHALL NOT delete or mutate sealed read objects.
+
+#### Scenario: Pending upload is abandoned
+- **WHEN** a pending registration remains unfinalized beyond its staging expiry and cleanup grace period
+- **THEN** the responsibility-named cleanup path removes its writable staging object and leaves the registration unable to become ready without a new upload
+
+#### Scenario: Cleanup preserves ready content
+- **WHEN** cleanup processes a registration whose content has already been sealed
+- **THEN** it may remove only the obsolete staging object and authorized reads continue returning the immutable sealed object
 
 ### Requirement: Image metadata and compatibility
 The system SHALL record validated image dimensions for image assets and SHALL expose enough metadata for later form bindings and spatial answers to verify source compatibility.

@@ -52,11 +52,11 @@ Alternatives rejected:
 
 ### 2. Use immutable, content-addressed asset metadata with a provider-neutral adapter
 
-`Asset` contains organization ownership, lifecycle state, SHA-256 content hash, byte size, media type, optional image width and height, an internal storage key, and timestamps. Ready assets are immutable. A partial unique identity on organization and content hash applies only to ready assets, so a failed upload does not prevent a later correct registration. Registration returns an upload descriptor for a unique staging object. Finalization verifies that object, promotes it to a sealed content-addressed object or immutable provider version that the upload descriptor cannot modify, and records the sealed key before the asset becomes ready.
+`Asset` contains organization ownership, lifecycle state, SHA-256 content hash, byte size, media type, optional image width and height, internal staging and sealed storage keys, a staging expiry, and timestamps. Ready assets are immutable. A partial unique identity on organization and content hash applies only to ready assets, so a failed upload does not prevent a later correct registration. Registration returns an upload descriptor for a unique staging object. Finalization verifies that object, promotes it to a sealed content-addressed object or immutable provider version that the upload descriptor cannot modify, and records the sealed key before the asset becomes ready.
 
-If concurrent finalizations produce the same ready identity, the uniqueness conflict resolves to the canonical ready asset; the losing pending asset records a sanitized duplicate-content terminal state and its redundant object is eligible for cleanup. Registering content that is already ready returns the canonical asset without creating another upload. Cross-organization content never shares authorization even if the bytes match.
+If concurrent finalizations produce the same ready identity, the uniqueness conflict resolves to the canonical ready asset only when its byte size and media type exactly match the new registration; otherwise the caller receives an asset-identity conflict. The losing matching pending asset records a sanitized duplicate-content terminal state and its redundant object is eligible for cleanup. Registering content that is already ready likewise returns the canonical asset without creating another upload only after exact metadata agreement. Cross-organization content never shares authorization even if the bytes match.
 
-`QuickTrain.Assets.Storage` is a narrow behavior for staging upload access, verification, idempotent promotion or sealing, redundant-object cleanup, and short-lived read access. Development and tests use a deterministic filesystem/test adapter. Production configuration must select an adapter; this change does not choose S3 or another vendor. Reads only target sealed keys, never writable staging keys, so an unexpired upload descriptor cannot change ready content.
+`QuickTrain.Assets.Storage` is a narrow behavior for staging upload access, verification, idempotent promotion or sealing, redundant-object cleanup, expired-staging cleanup, and short-lived read access. A responsibility-named cleanup worker removes staging objects after their descriptor/registration expiry plus a fixed safety grace period when the asset is still pending, failed, or already sealed; it never deletes a sealed read object. Development and tests use a deterministic filesystem/test adapter. Production configuration must select an adapter; this change does not choose S3 or another vendor. Reads only target sealed keys, never writable staging keys, so an unexpired upload descriptor cannot change ready content.
 
 Storage credentials and persistent object locations are never GraphQL fields. GraphQL returns only short-lived adapter-produced access descriptors after an Ash authorization action succeeds.
 
@@ -77,7 +77,7 @@ Dataset
         └── DatasetFieldDefinition
 ```
 
-`Dataset` is a stable organization-owned container. A schema version begins as draft and becomes immutable when published. A version has one root record type in the first release. Field definitions have a stable key, display name, value family, required flag, and cardinality. Field keys are unique within a record type.
+`Dataset` is a stable organization-owned container. A schema version begins as draft and becomes immutable when published. Every record-type or field create, update, or delete action locks its parent schema-version row and rechecks that it is still draft inside the write transaction. Publication takes the same lock before validating the complete graph and changing state, so an edit that began against a draft cannot commit after publication. A version has one root record type in the first release. Field definitions have a stable key, display name, value family, required flag, and cardinality. Field keys are unique within a record type.
 
 Initial value families are text, integer, decimal, boolean, UTC date-time, and asset. The only first-release cardinality is `single`; required fields contain exactly one occurrence and optional fields contain zero or one. The canonical record-construction action rejects a second occurrence atomically. Cardinality and occurrence ordinals are persisted now so repeated scalar values can be enabled without replacing existing tables or rewriting existing records.
 
@@ -97,11 +97,11 @@ DatasetItem
             └── exactly one typed value child
 ```
 
-`DatasetItem` is identified by a UUID and, when supplied, a customer external key unique within its dataset. `DatasetItemRevision` pins a published schema version from that same dataset, an immutable root record, a monotonically increasing revision number, and a content fingerprint. Dataset/schema consistency is enforced in public and private Ash actions and backed by composite database identities and foreign keys on the dataset, schema version, item, revision, and import relationships.
+`DatasetItem` is identified by a UUID and, when supplied, a customer external key unique within its dataset. `DatasetItemRevision` pins a published schema version from that same dataset, an immutable root record, a monotonically increasing revision number, and a content fingerprint computed from the schema-version identity plus the normalized record values. Dataset/schema consistency is enforced in public and private Ash actions and backed by composite database identities and foreign keys on the dataset, schema version, item, revision, and import relationships.
 
 Corrections create new revisions. Existing projects will later pin exact item revisions, so source text, images, boxes, masks, polygons, and spans cannot change underneath historical responses.
 
-For a supplied external key, revision creation first performs an atomic get-or-create by the dataset-scoped item identity and reloads the winning row after a uniqueness conflict. It then locks that authoritative item row before comparing the latest fingerprint and assigning the next revision number. This covers both first-revision races and later revision races; database identities backstop external-key and revision-number uniqueness.
+For a supplied external key, revision creation first performs an atomic get-or-create by the dataset-scoped item identity and reloads the winning row after a uniqueness conflict. It then locks that authoritative item row before comparing the latest schema-aware fingerprint and assigning the next revision number. Identical values validated under a different published schema therefore create a new historical revision rather than reusing a revision pinned to the wrong schema. This covers both first-revision races and later revision races; database identities backstop external-key and revision-number uniqueness.
 
 ### 5. Use a typed record envelope rather than JSONB or a generic tree
 
@@ -138,11 +138,13 @@ An authorized manager opens an import against one dataset and a published schema
 
 Batch identity is unique on organization, dataset, and caller-supplied idempotency key. The request fingerprint includes the pinned schema version and other immutable open parameters. Opening a batch uses an atomic create-or-return operation: concurrent matching requests return the same batch, while a changed request under the same identity fails with `idempotency_conflict`.
 
-Every appended row supplies a caller-stable row key unique within the import, a unique source position, and a fingerprint of its normalized input and immutable row parameters. Append uses the same atomic create-or-return rule. A matching retry returns the already accepted row without reconstructing or reprocessing it; reuse of the row key or source position for changed content fails with `idempotency_conflict`.
+Every appended row supplies and persists a caller-stable row key unique within the import, a customer external key, a unique source position, and a fingerprint of its normalized input plus all immutable row parameters, including that external key. Append uses the same atomic create-or-return rule. A matching retry returns the already accepted row without reconstructing or reprocessing it; reuse of the row key or source position for changed content or a changed external key fails with `idempotency_conflict`.
 
 Rows commit independently so a large batch can finish partially. Failed `DatasetImportRow` outcomes remain stored even though no invalid item revision or partial record graph is persisted, allowing lifecycle counts and paginated provenance to remain accurate. The batch state and counts derive from row outcomes.
 
-Workers claim pending rows or processing rows whose lease has expired, recording `processing_started_at`, `lease_expires_at`, and an attempt count under a row lock. A retry skips terminal rows and active leases but safely reclaims stale processing rows. Rows targeting the same stable item serialize on its row lock after the atomic item get-or-create step.
+Appending and finalizing serialize on the same locked `DatasetImport` row. Append rechecks that the locked import is open before it persists a row; finalization locks that row and atomically transitions the import out of open before it enqueues processing. The worker therefore sees a sealed row set, and an append that loses the race is rejected with `import_not_open` rather than appearing after completion.
+
+Workers claim pending rows or processing rows whose lease has expired, recording `processing_started_at`, `lease_expires_at`, and an incremented attempt count under a row lock. The returned attempt number is a fencing token: a terminal update succeeds only when the row is still processing under that exact attempt. A retry skips terminal rows and active leases but safely reclaims stale processing rows; a stalled older attempt cannot overwrite a newer attempt's outcome after resuming. Rows targeting the same stable item serialize on its row lock after the atomic item get-or-create step.
 
 Authorization is checked when a caller opens, appends to, finalizes, or inspects an import. Successful finalization creates a durable organization-owned command pinned to the already authorized organization, dataset, and schema version. The internal worker advances only that immutable scope through private actions; it does not reauthorize the initiating user's mutable membership on every attempt. Later account or capability revocation blocks new caller actions but does not retroactively cancel accepted work.
 
@@ -150,7 +152,7 @@ Source-file format adapters are later additions. A future CSV or archive import 
 
 ### 7. Make authorization actor-aware and fail closed before exposing product data
 
-The existing OIDC helpers and login-transaction resource do not yet complete a client authentication handshake. This change adds unauthenticated begin/exchange actions that create and consume state plus PKCE material, verify the OIDC exchange and claims, resolve or create the global `User` and external identity under the configured linking policy, and issue a high-entropy opaque bearer token exactly once. Only its SHA-256 hash, expiry, method, and user relationship are stored in `Session`.
+The existing OIDC helpers and login-transaction resource do not yet complete a client authentication handshake. This change adds unauthenticated begin/exchange actions that create state plus PKCE material and atomically claim an unexpired, unconsumed login transaction before any exchange request may continue. Only the request that wins the conditional pending-to-exchanging transition may verify the provider response and claims, resolve or create the global `User` and external identity under the configured linking policy, and issue a high-entropy opaque bearer token exactly once; every concurrent or later claimant is rejected, and a failed or interrupted claimant cannot make the state reusable. Session creation and the final consumed transition commit together. Only the token's SHA-256 hash, expiry, method, and user relationship are stored in `Session`.
 
 The API pipeline hashes a presented bearer token, resolves a live session and active global `User`, and sets that user as both the Absinthe and Ash actor. Product actions require:
 
@@ -173,17 +175,17 @@ Public actions cover:
 - opening, appending normalized rows to, finalizing, and inspecting imports; and
 - paginated typed reads of items and revisions.
 
-There are no public generic update/delete actions for published schema versions, ready asset content, item revisions, records, or typed values. GraphQL errors use stable codes such as `forbidden`, `invalid_schema`, `invalid_value`, `asset_not_ready`, `idempotency_conflict`, and `import_not_open`.
+There are no public generic update/delete actions for published schema versions, ready asset content, item revisions, records, or typed values. GraphQL errors use stable codes such as `forbidden`, `invalid_schema`, `invalid_value`, `asset_not_ready`, `asset_identity_conflict`, `idempotency_conflict`, and `import_not_open`.
 
 ### 9. Use Ash transactions and row locks for related-data correctness
 
-Publishing a schema locks the draft version and validates its complete field graph before the state transition. Creating a revision atomically obtains the dataset-scoped item, locks it, and then compares the latest content fingerprint and assigns the revision number. Every typed value validates its field, cardinality, dataset, schema, and asset relationships inside the same transaction that creates the candidate record or revision. In the first release, every ready same-organization asset is compatible with an asset-family field; media-type or dimension constraints are deferred to later form bindings.
+Publishing a schema and every draft child edit lock the same schema-version row and recheck its lifecycle state before validating or writing. Creating a revision atomically obtains the dataset-scoped item, locks it, and then compares the latest schema-aware content fingerprint and assigns the revision number. Appending rows and sealing an import likewise lock the same import row before rechecking or changing its lifecycle state. Every typed value validates its field, cardinality, dataset, schema, and asset relationships inside the same transaction that creates the candidate record or revision. In the first release, every ready same-organization asset is compatible with an asset-family field; media-type or dimension constraints are deferred to later form bindings.
 
 Ash actions, `Ash.DataLayer.transaction/5`, query locks, atomic changes, and `get_and_lock_for_update` are the default. `FOR UPDATE SKIP LOCKED` is reserved for later task allocation; imports targeting a known item use ordinary row locks. Direct SQL is limited to generated constraints/triggers that AshPostgres cannot express declaratively.
 
 ### 10. Reintroduce durable jobs only for product-specific asynchronous work
 
-Oban is added at the stable GA version selected during implementation and pinned exactly with the rest of the dependency set. Its supported migration generator creates the jobs-table migration before workers are enabled. Initial workers are responsibility-named, for example `QuickTrain.Assets.VerifyWorker` and `QuickTrain.Datasets.ImportWorker`. Job insertion is idempotent and, when coupled to a state transition, occurs transactionally with the application record.
+Oban is added at the stable GA version selected during implementation and pinned exactly while `.mise.toml`, `mix.exs`, and `mix.lock` are updated together. Its supported migration generator creates the jobs-table migration before workers are enabled. Initial workers are responsibility-named, for example `QuickTrain.Assets.VerifyWorker`, `QuickTrain.Assets.CleanupStagingWorker`, and `QuickTrain.Datasets.ImportWorker`. Job insertion is idempotent and, when coupled to a state transition, occurs transactionally with the application record.
 
 QuickTrain does not recreate generic Operations, Integrations, Audit, or DurableDelivery domains. The authoritative asset/import resources contain the product state; jobs only advance those state machines.
 
@@ -192,14 +194,15 @@ QuickTrain does not recreate generic Operations, Integrations, Audit, or Durable
 - **[More rows and joins than JSONB]** → Keep GraphQL reads explicit, add indexes on record/field/ordinal and latest-item revision paths, and benchmark representative imports before optimizing.
 - **[Typed-child invariant crosses tables]** → Use a deferred PostgreSQL constraint trigger plus Ash transactional construction and tests that attempt invalid direct database states.
 - **[Asset provider remains unselected]** → Keep the adapter narrow, ship deterministic development/test behavior, and fail startup or asset actions clearly when production storage is not configured.
-- **[Partial imports complicate client recovery]** → Give every row a terminal outcome, stable idempotency identity, normalized candidate-record reference when valid, and a recoverable processing lease.
+- **[Partial imports complicate client recovery]** → Give every row a terminal outcome, stable idempotency identity, normalized candidate-record reference when valid, a sealed batch boundary, and a recoverable attempt-fenced processing lease.
+- **[Writable staging can outlive abandoned uploads]** → Persist staging expiry, apply a fixed cleanup grace period, and remove only staging objects through an idempotent responsibility-named worker.
 - **[Row locking can serialize hot external keys]** → Atomically get or create the item, lock only the targeted stable item, and keep revision transactions short; unrelated items remain concurrent.
 - **[The actor pipeline expands foundation scope]** → Implement it before product GraphQL actions, cover unauthenticated and cross-organization access, and avoid exposing broad foundation reads.
 - **[Record envelope appears abstract for flat data]** → Keep its public API concrete and typed; the extra relationship buys an additive path to repeated and nested records that the product explicitly requires.
 
 ## Migration Plan
 
-1. Add the exact stable Oban dependency, supported jobs-table migration, and configuration required for product jobs, updating dependency files together.
+1. Add the exact stable Oban dependency, supported jobs-table migration, and configuration required for product jobs, updating `.mise.toml`, `mix.exs`, and `mix.lock` together.
 2. Complete the OIDC-to-bearer-session handshake, add the authenticated GraphQL actor pipeline and capability definitions, remove unauthenticated GraphQL health, and add fail-closed tests before registering product domains in the schema.
 3. Generate the Assets and Datasets Ash domains/resources, then deliberately refine attributes, actions, policies, relationships, identities, and GraphQL exposure.
 4. Generate AshPostgres migrations and snapshots, including dataset/schema composite constraints, ready-asset partial uniqueness, import idempotency and lease constraints, the deferred typed-child constraint trigger, and required indexes.

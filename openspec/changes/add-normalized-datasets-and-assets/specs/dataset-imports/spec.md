@@ -35,16 +35,16 @@ The system SHALL accept a caller-supplied idempotency key for each import batch 
 - **THEN** the system rejects the request with an idempotency-conflict error
 
 ### Requirement: Provenance-preserving row processing
-The system SHALL record a caller-stable row key, customer external key, unique source position, request fingerprint, and terminal outcome for every accepted import row. The import and row key SHALL form a database identity, and import plus source position SHALL also be unique. A matching append retry SHALL return the already accepted row without reconstructing or reprocessing it; reuse of either identity for changed normalized content SHALL fail with an idempotency conflict.
+The system SHALL persist a caller-stable row key, customer external key, unique source position, request fingerprint, and terminal outcome directly on every accepted import row. The request fingerprint SHALL cover the external key, source position, normalized content, and every other immutable row parameter. The import and row key SHALL form a database identity, and import plus source position SHALL also be unique. A matching append retry SHALL return the already accepted row without reconstructing or reprocessing it; reuse of either identity with a changed external key, normalized content, or other immutable parameter SHALL fail with an idempotency conflict.
 
 For valid input, the append action SHALL transactionally persist an immutable normalized candidate `DatasetRecord` and typed value graph referenced by the import row. The worker SHALL consume those relational records by identity and SHALL NOT place dataset content in an opaque payload column or Oban job argument. For invalid input, the system SHALL persist the failed import-row outcome and sanitized validation error without persisting a partial candidate record or item revision.
 
 #### Scenario: Identical row append returns the accepted row
-- **WHEN** a caller repeats an append with the same import, row key, source position, and normalized-content fingerprint
+- **WHEN** a caller repeats an append with the same import, row key, external key, source position, and request fingerprint
 - **THEN** the system returns the original row and does not validate, stage, or process the content again
 
 #### Scenario: Conflicting row append is rejected
-- **WHEN** a caller reuses an import-scoped row key or source position for a different normalized-content fingerprint
+- **WHEN** a caller reuses an import-scoped row key or source position with a different external key, normalized content, or other immutable parameter
 - **THEN** the system rejects the append with an idempotency-conflict error
 
 #### Scenario: Valid new row creates an item
@@ -56,15 +56,22 @@ For valid input, the append action SHALL transactionally persist an immutable no
 - **THEN** the row records success and references the newly created immutable item revision
 
 #### Scenario: Unchanged retry does not create a revision
-- **WHEN** a row supplies an existing external key with content identical to the latest revision
+- **WHEN** a row supplies an existing external key with content and schema version identical to the latest revision
 - **THEN** the row records an unchanged outcome and references the existing latest revision
 
 #### Scenario: Invalid row records failure
 - **WHEN** a row contains a missing required value, type mismatch, unknown field, unsupported structure, or unauthorized asset reference
-- **THEN** that row records a sanitized failure and does not create a partial item revision
+- **THEN** that row retains its customer external key and records a sanitized failure without creating a partial item revision
+
+### Requirement: Finalization seals the accepted row set
+The system SHALL serialize append and finalization actions by locking the same import row and rechecking its lifecycle state. Append SHALL persist a row only while the locked import is open. Finalization SHALL atomically transition the locked import out of open before enqueuing processing, and no later append SHALL be accepted.
+
+#### Scenario: Append races finalization
+- **WHEN** an append begins against an open import but finalization acquires the import lock and seals the batch first
+- **THEN** the append observes that the import is no longer open, fails with `import_not_open`, and cannot add an unprocessed row to the sealed batch
 
 ### Requirement: Partial batch completion
-The system SHALL process each import row atomically and SHALL allow valid rows to succeed when other rows in the batch are invalid. The batch SHALL expose pending, processing, completed, partially failed, or failed lifecycle states derived from its persisted row outcomes. A processing claim SHALL record a start time, lease expiry, and attempt count under a row lock. Retries SHALL skip terminal rows and unexpired leases and SHALL reclaim expired processing leases safely.
+The system SHALL process each import row atomically and SHALL allow valid rows to succeed when other rows in the batch are invalid. The batch SHALL expose pending, processing, completed, partially failed, or failed lifecycle states derived from its persisted row outcomes. A processing claim SHALL record a start time, lease expiry, and incremented attempt count under a row lock, and SHALL return that attempt as a fencing token. Terminal writes SHALL succeed only while the row is still processing under the same attempt. Retries SHALL skip terminal rows and unexpired leases and SHALL reclaim expired processing leases safely without allowing an older worker to overwrite the reclaiming attempt.
 
 #### Scenario: Mixed batch completes partially
 - **WHEN** a batch contains both valid and invalid rows
@@ -77,6 +84,10 @@ The system SHALL process each import row atomically and SHALL allow valid rows t
 #### Scenario: Worker crash leaves a reclaimable row
 - **WHEN** a worker crashes after claiming a row but before recording its terminal outcome
 - **THEN** another worker leaves the active lease untouched, later reclaims it after expiry, and safely processes the persisted normalized candidate without duplicating a revision
+
+#### Scenario: Stalled worker resumes after reclamation
+- **WHEN** an older worker resumes after its lease expired and another worker reclaimed the row with a higher attempt number
+- **THEN** the older worker's terminal write is rejected by the attempt fence and cannot overwrite the current attempt's outcome
 
 ### Requirement: Concurrent revisions remain ordered
 The system SHALL atomically get or create the stable dataset item for a supplied dataset-scoped external key and SHALL serialize revision creation on that authoritative item so that at most one next revision is created for a given content change and revision numbers remain monotonic.
