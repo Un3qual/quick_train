@@ -39,7 +39,7 @@ The system SHALL accept a caller-supplied idempotency key for each import batch 
 - **THEN** the system rejects the request with an idempotency-conflict error
 
 ### Requirement: Provenance-preserving row processing
-The system SHALL persist a caller-stable row key, customer external key, unique source position, request fingerprint, and terminal outcome directly on every accepted import row. The request fingerprint SHALL cover the external key, source position, normalized content, and every other immutable row parameter. The import and row key SHALL form a database identity, import plus source position SHALL be unique, and import plus non-null external key SHALL form a partial database identity. A matching append retry SHALL return the already accepted row without reconstructing or reprocessing it; reuse of either idempotency identity with a changed external key, normalized content, or other immutable parameter SHALL fail with an idempotency conflict. Once one append commits an external-key identity, any different row attempting that external key in the same import SHALL be rejected with `duplicate_external_key` before acceptance, regardless of worker scheduling.
+The system SHALL persist a caller-stable row key, customer external key, unique source position, request fingerprint, and terminal outcome directly on every accepted import row. The request fingerprint SHALL use a versioned, domain-separated, length-prefixed canonical encoding with explicit null/present markers and canonical representations for the row key, external key, source position, and every other immutable row parameter, and SHALL embed the same canonical typed record stream used by item-revision fingerprints. The import and row key SHALL form a database identity, import plus source position SHALL be unique, and import plus non-null external key SHALL form a partial database identity. A matching append retry SHALL return the already accepted row without reconstructing or reprocessing it; reuse of either idempotency identity with a changed external key, normalized content, or other immutable parameter SHALL fail with an idempotency conflict. Once one append commits an external-key identity, any different row attempting that external key in the same import SHALL be rejected with `duplicate_external_key` before acceptance, regardless of worker scheduling.
 
 For valid input, the append action SHALL transactionally persist an immutable normalized candidate `DatasetRecord` using the pinned schema version's designated root record type and a typed value graph whose fields belong to that exact record type, referenced by the import row. The worker SHALL consume those relational records by identity and SHALL NOT place dataset content in an opaque payload column or Oban job argument. For invalid input, the system SHALL persist the failed import-row outcome and sanitized validation error without persisting a partial candidate record or item revision.
 
@@ -75,6 +75,10 @@ For valid input, the append action SHALL transactionally persist an immutable no
 - **WHEN** a row for the schema's designated root type supplies a field that belongs only to another record type in the same schema version
 - **THEN** the row records a sanitized invalid-field failure without creating a candidate record graph or item revision
 
+#### Scenario: Equivalent row requests converge
+- **WHEN** retry input differs only in field order, equivalent decimal scale, equivalent UTC date-time offset, or caller occurrence order while every immutable row parameter is unchanged
+- **THEN** the shared canonical encoder produces the same row request fingerprint and append returns the accepted row without reprocessing
+
 ### Requirement: Finalization seals the accepted row set
 The system SHALL create every import in the `open` state. It SHALL serialize append and finalization actions by locking the same import row and rechecking its lifecycle state. Append SHALL persist a row only while the locked import is `open`. Finalization SHALL atomically seal the import out of `open` before enqueuing processing, and no later append SHALL be accepted. The sealed import SHALL immediately expose the post-finalization state derived by the batch lifecycle rules.
 
@@ -87,7 +91,7 @@ The system SHALL create every import in the `open` state. It SHALL serialize app
 - **THEN** the import remains `open`, accepts the row, and does not begin worker processing
 
 ### Requirement: Partial batch completion
-The system SHALL process each import row atomically and SHALL allow valid rows to succeed when other rows in the batch are invalid. It SHALL expose accepted, pending, processing, succeeded, unchanged, and failed counts derived directly from persisted rows. An `open` import SHALL remain `open` regardless of its current row outcomes. After finalization, the batch lifecycle SHALL use the following precedence so exactly one state applies:
+The system SHALL process each import row atomically and SHALL allow valid rows to succeed when other rows in the batch are invalid. It SHALL expose disjoint counts derived directly from persisted rows: `accepted` counts every persisted `DatasetImportRow`; `pending`, `processing`, `succeeded`, and `unchanged` count their exact row outcomes; and `failed` counts every persisted terminal failure, including append-validation and processing failures. A `duplicate_external_key` rejection occurs before persistence and SHALL NOT increment accepted or failed. An `open` import SHALL remain `open` regardless of its current row outcomes. After finalization, the batch lifecycle SHALL use the following precedence so exactly one state applies:
 
 | Sealed row condition | Batch state |
 | --- | --- |
@@ -114,6 +118,10 @@ A processing row SHALL remain included in the processing count after lease expir
 #### Scenario: Mixed batch completes partially
 - **WHEN** a batch contains both valid and invalid rows
 - **THEN** valid item revisions commit, invalid item revisions and partial record graphs remain non-persistent, failed import-row outcomes remain stored, and the batch finishes in a partially failed state with accurate counts
+
+#### Scenario: Rejected duplicate does not alter row counts
+- **WHEN** an append is rejected with `duplicate_external_key` before a second row is persisted
+- **THEN** accepted and failed counts remain derived only from the already persisted rows
 
 #### Scenario: Active lease keeps the batch processing
 - **WHEN** a sealed batch has an unexpired processing lease even if other rows are terminal or pending
@@ -154,7 +162,7 @@ The system SHALL resolve an import's published schema version through its datase
 - **THEN** the system rejects the request without accepting rows, exposing foreign schema metadata, or creating cross-dataset references
 
 ### Requirement: Asset references are validated
-The system SHALL accept an asset value only when the referenced asset is ready and belongs to the same organization as the dataset. In the first release, every such asset is compatible with a field whose value family is `asset`; media-type and dimension restrictions are deferred to later form bindings.
+The system SHALL accept an asset value only when the referenced asset is ready, belongs to the same organization as the dataset, and passed sealed-byte media verification. Active document formats including HTML, XHTML, and SVG and declared/actual media-type mismatches SHALL be rejected during asset finalization and SHALL never become importable ready assets. In the first release, every remaining ready same-organization asset is compatible with a field whose value family is `asset`; form-specific media-type and dimension restrictions are deferred to later form bindings.
 
 #### Scenario: Ready organization asset is imported
 - **WHEN** a normalized row references a ready compatible asset owned by the dataset's organization
@@ -163,3 +171,7 @@ The system SHALL accept an asset value only when the referenced asset is ready a
 #### Scenario: Invalid asset reference is rejected
 - **WHEN** a row references a pending, failed, or cross-organization asset, or references an asset from a non-asset field
 - **THEN** the row fails without exposing restricted asset metadata or creating a partial item revision
+
+#### Scenario: Active or falsely declared asset is not importable
+- **WHEN** a row references HTML, XHTML, SVG, or content whose declared media type did not match its sealed bytes
+- **THEN** the asset cannot be ready and the row receives the same sanitized invalid-reference failure without restricted metadata exposure or a partial item revision

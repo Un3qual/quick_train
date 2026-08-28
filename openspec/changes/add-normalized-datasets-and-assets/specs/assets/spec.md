@@ -20,7 +20,7 @@ The system SHALL require an active authenticated account, an active owning organ
 - **THEN** caller-initiated asset management and reads are denied without exposing asset metadata or storage access
 
 ### Requirement: Immutable content-addressed assets
-The system SHALL identify ready asset content by a cryptographic hash, byte size, and media type. Upload access SHALL target a unique writable staging object. Before the ready transition, the storage adapter SHALL idempotently pin a staging version or conditionally fence further writes, seal exactly those bytes at an immutable key or provider version that no issued upload descriptor can modify, and return verified facts computed from that same sealed object. When a provider cannot pin staging, it SHALL irrevocably fence writes before sealing and SHALL verify the sealed object afterward. The system SHALL NOT make an asset ready from facts observed before an unguarded copy or promotion. Reads SHALL target only the sealed object. The system SHALL reject finalization when sealed content does not match the registered facts, and it SHALL prevent the content identity of a ready asset from being changed.
+The system SHALL identify ready asset content by a SHA-256 hash represented at registration, persistence, deduplication, and the storage-adapter boundary as exactly 64 lowercase hexadecimal characters, together with byte size and media type. Upload access SHALL target a unique writable staging object. Before the ready transition, the storage adapter SHALL idempotently pin a staging version or conditionally fence further writes, seal exactly those bytes at an immutable key or provider version that no issued upload descriptor can modify, and return verified facts computed from that same sealed object. When a provider cannot pin staging, it SHALL irrevocably fence writes before sealing and SHALL verify the sealed object afterward. The system SHALL NOT make an asset ready from facts observed before an unguarded copy or promotion. Reads SHALL target only the sealed object. The system SHALL identify or safely sniff the actual media type from the sealed bytes rather than trusting the declaration, SHALL reject declared/actual mismatches and active document formats including HTML, XHTML, and SVG, and SHALL prevent the content identity of a ready asset from being changed.
 
 #### Scenario: Matching upload is finalized
 - **WHEN** the storage adapter verifies that pending content matches the registered hash, byte size, and supported media type
@@ -37,6 +37,10 @@ The system SHALL identify ready asset content by a cryptographic hash, byte size
 #### Scenario: Mismatched upload is rejected
 - **WHEN** uploaded content has a different hash, byte size, or unsupported media type
 - **THEN** the asset does not become ready and the system records a sanitized failure state
+
+#### Scenario: Active or falsely declared content is rejected
+- **WHEN** sealed bytes contain HTML, XHTML, SVG, or another unsupported active format, including when registered under a benign media type
+- **THEN** finalization rejects the asset without issuing ready-content access or exposing storage metadata
 
 #### Scenario: Ready content cannot be replaced
 - **WHEN** an actor attempts to replace the content or content identity of a ready asset
@@ -58,7 +62,7 @@ The system SHALL enforce organization-scoped content-hash uniqueness only for re
 - **THEN** the system rejects canonical reuse with an asset-identity conflict and does not return metadata that contradicts the request
 
 ### Requirement: Abandoned staging content expires
-The system SHALL assign every writable staging object an expiry and SHALL remove expired staging content idempotently after a fixed safety grace period when its registration is pending, failed, in the `duplicate_content` terminal state, or already sealed. The responsibility-named cleanup worker SHALL be registered with Oban's supported periodic scheduler at a fixed interval, SHALL scan the indexed expiry boundary, and SHALL use job uniqueness to prevent overlapping scheduled runs so cleanup occurs without registration finalization or manual invocation. Cleanup SHALL NOT delete or mutate sealed read objects.
+The system SHALL assign every writable staging object an expiry and a nullable cleanup-completion timestamp and SHALL remove expired staging content idempotently after a fixed safety grace period when its registration is pending, failed, in the `duplicate_content` terminal state, or already sealed. The responsibility-named cleanup worker SHALL be registered with Oban's supported periodic scheduler at a fixed interval, SHALL scan the indexed boundary of expired rows whose cleanup timestamp is null, and SHALL use job uniqueness to prevent overlapping scheduled runs so cleanup occurs without registration finalization or manual invocation. After the adapter confirms deletion or absence, the cleanup action SHALL lock the asset and record completion so later scans exclude it; retrying before that marker is committed SHALL remain safe. Cleanup SHALL NOT delete or mutate sealed read objects.
 
 #### Scenario: Pending upload is abandoned
 - **WHEN** a pending registration remains unfinalized beyond its staging expiry and cleanup grace period
@@ -75,6 +79,10 @@ The system SHALL assign every writable staging object an expiry and SHALL remove
 #### Scenario: Cleanup preserves ready content
 - **WHEN** cleanup processes a registration whose content has already been sealed
 - **THEN** it may remove only the obsolete staging object and authorized reads continue returning the immutable sealed object
+
+#### Scenario: Completed staging cleanup is not rescanned
+- **WHEN** a later periodic run scans after an asset's staging object was deleted and cleanup completion was recorded
+- **THEN** the indexed scan excludes that asset and does not issue another provider deletion for it
 
 ### Requirement: Image metadata and compatibility
 The system SHALL record validated image dimensions for image assets and SHALL expose enough metadata for later form bindings and spatial answers to verify source compatibility.

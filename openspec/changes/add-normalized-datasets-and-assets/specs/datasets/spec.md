@@ -39,7 +39,7 @@ The system SHALL represent a dataset schema through immutable published schema v
 - **THEN** the edit rechecks the now-published state under that same lock and fails without changing the published graph
 
 ### Requirement: Stable items and immutable revisions
-The system SHALL give each dataset item a stable identity within its dataset and SHALL store content changes as immutable, monotonically ordered item revisions. Every revision SHALL pin one published schema version belonging to the same dataset and one root record whose record type is exactly that schema version's designated root type. Its deterministic fingerprint SHALL cover both the schema-version identity and normalized record values, so identical values under a different schema create a distinct revision. Ash actions and composite database identities and foreign keys SHALL prevent dataset, item, revision, schema, record, and designated-root-type relationships from crossing dataset, organization, schema version, or record-type boundaries.
+The system SHALL give each dataset item a stable identity within its dataset and SHALL store content changes as immutable, monotonically ordered item revisions. Every revision SHALL pin one published schema version belonging to the same dataset and one root record whose record type is exactly that schema version's designated root type. Its deterministic SHA-256 fingerprint SHALL use a versioned, domain-separated, length-prefixed canonical byte encoding that includes the schema-version and root-record-type identities and orders occurrences by field-definition identity then ordinal. Each occurrence SHALL include its field identity, family, ordinal, and canonical typed bytes: exact validated UTF-8 text, minimal signed base-10 integers, normalized non-exponent decimals without insignificant trailing zeroes or negative zero, one-byte booleans, signed UTC Unix microseconds, or immutable asset identity. The hash SHALL be represented as 64 lowercase hexadecimal characters. Identical values under a different schema SHALL therefore create a distinct revision. Ash actions and composite database identities and foreign keys SHALL prevent dataset, item, revision, schema, record, and designated-root-type relationships from crossing dataset, organization, schema version, or record-type boundaries.
 
 #### Scenario: First revision is created
 - **WHEN** valid content is added under a new customer external key
@@ -68,6 +68,14 @@ The system SHALL give each dataset item a stable identity within its dataset and
 #### Scenario: Identical values use a new schema version
 - **WHEN** an existing item's normalized values are accepted unchanged under a different published schema version from the same dataset
 - **THEN** the system creates a new revision pinned to that schema instead of returning the older revision as unchanged
+
+#### Scenario: Equivalent normalized inputs converge
+- **WHEN** two inputs differ only in field order, equivalent decimal scale, equivalent UTC date-time offset, or caller occurrence order
+- **THEN** the canonical encoder emits the same bytes and revision fingerprint for both
+
+#### Scenario: Actual content changes diverge
+- **WHEN** the schema, root type, field, ordinal, value family, or canonical typed value changes
+- **THEN** the canonical encoder produces a different fingerprint input and unchanged detection does not collapse the change
 
 ### Requirement: Normalized typed record values
 The system SHALL store each item revision as a root dataset record containing field-associated value occurrences and normalized typed values. Every value's field definition SHALL belong to its owning record's exact `DatasetRecordType`, not merely to another type in the same published schema, and first-release revision candidates SHALL use the schema version's designated root type. Ash construction and composite record/type and field/type database constraints SHALL enforce those relationships. Dataset content SHALL NOT be stored in JSONB columns, and each value occurrence SHALL contain exactly one representation compatible with its field definition. The canonical record-construction workflow SHALL validate every field's occurrence count in the same transaction: required single fields SHALL have exactly one value, optional single fields SHALL have zero or one, and multiple occurrences SHALL be rejected atomically.

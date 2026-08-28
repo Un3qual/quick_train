@@ -24,7 +24,7 @@ The system SHALL begin OIDC login by generating state, nonce, and a PKCE verifie
 - **THEN** a later request cannot return that transaction to pending or reuse it to issue a session
 
 ### Requirement: OIDC account linking fails closed
-The system SHALL support only the `issuer_subject_only` account-linking policy in the first release and SHALL reject missing or unknown policy configuration before login proceeds. It SHALL use the canonical verified issuer URI plus subject as the external identity, after validating the provider response signature, issuer, audience, nonce, and expiry. An existing external identity's user relationship SHALL be immutable, and exchange SHALL lock and require that identity's lifecycle status to be exactly `active` in the transaction that issues the session and consumes the login transaction. Provider claim refresh SHALL NOT change lifecycle status or reactivate a disabled identity. A new identity SHALL begin active and require a non-empty provider-verified email to create a new global user, but email SHALL NOT select, link, merge, or reassign an existing user. A disabled or unknown identity status SHALL fail closed with a non-disclosing authentication error and SHALL NOT issue a session. Email collisions and every issuer, subject, or user relationship conflict SHALL fail with `account_linking_conflict` and SHALL NOT issue a session.
+The system SHALL support only the `issuer_subject_only` account-linking policy in the first release and SHALL reject missing or unknown policy configuration before login proceeds. It SHALL use the canonical verified issuer URI plus subject as the external identity, after validating the provider response signature, issuer, audience, nonce, and expiry. Before enabling canonical issuer-only lookup, the system SHALL migrate every legacy identity whose provider key is `oidc` to the one configured canonical issuer URI and SHALL abort without changing ambiguous or conflicting identities when configuration or issuer/subject relationships cannot be resolved uniquely. An existing external identity's user relationship SHALL be immutable, and exchange SHALL lock and require both that identity's lifecycle status and its linked global user's status to be exactly `active` in the same transaction that issues the session and consumes the login transaction. Provider claim refresh SHALL NOT change lifecycle status or reactivate a disabled identity or user. A new identity and global user SHALL begin active and require a non-empty provider-verified email. The new user's required display name SHALL use the first nonblank trimmed `name` or `preferred_username` claim and otherwise the normalized verified email's nonempty local part; that presentation value SHALL NOT participate in linking. Email SHALL NOT select, link, merge, or reassign an existing user. A disabled or unknown identity or user status SHALL fail closed with a non-disclosing authentication error and SHALL NOT issue a session. Email collisions and every issuer, subject, or user relationship conflict SHALL fail with `account_linking_conflict` and SHALL NOT issue a session.
 
 #### Scenario: Existing issuer and subject resolve immutably
 - **WHEN** a verified provider response contains an issuer and subject already linked to a global user
@@ -33,6 +33,18 @@ The system SHALL support only the `issuer_subject_only` account-linking policy i
 #### Scenario: Disabled external identity cannot log in
 - **WHEN** a verified provider response matches an external identity whose status is disabled or otherwise not active while its global user remains active
 - **THEN** exchange fails closed without refreshing the identity to active or issuing a bearer token, and the claimed login transaction remains unusable under the one-time exchange rules
+
+#### Scenario: Disabled global user cannot receive a session
+- **WHEN** a verified provider response matches an active external identity whose linked global user is disabled or otherwise not active
+- **THEN** exchange fails closed without issuing a bearer token, and later reactivation cannot make a credential from that failed exchange usable
+
+#### Scenario: Verified-email-only user gets a deterministic display name
+- **WHEN** a new verified identity supplies a nonempty verified email but no nonblank `name` or `preferred_username` claim
+- **THEN** exchange creates the active global user with the normalized email local part as its display name without using that value to link another account
+
+#### Scenario: Legacy provider key migration is conflict safe
+- **WHEN** an existing identity uses the legacy `oidc` provider key before canonical issuer-only lookup is enabled
+- **THEN** the staged migration rewrites it only to the one configured verified issuer and aborts rather than guessing when configuration or identity relationships conflict
 
 #### Scenario: Existing email is not an implicit link
 - **WHEN** a verified issuer and subject are new but their verified email already belongs to another global user
@@ -43,7 +55,7 @@ The system SHALL support only the `issuer_subject_only` account-linking policy i
 - **THEN** OIDC login cannot proceed and no identity, user, or session is created or changed
 
 ### Requirement: Bearer sessions use indexed one-way token identity
-The system SHALL generate a high-entropy opaque bearer token, return its raw value only at issuance, and persist only its SHA-256 hash with required session metadata. Every issued session SHALL have a non-null token hash protected by a unique database identity and index. Authentication SHALL hash the presented token and resolve at most one matching session through that indexed identity.
+The system SHALL generate a high-entropy opaque bearer token, return its raw value only at issuance, and persist only its SHA-256 hash with required session metadata. Before enforcing non-null uniqueness, a staged data migration SHALL revoke every legacy session with a null token hash and assign each a distinct reserved `legacy-revoked:<session-id>` value that bearer-token hashing cannot produce. Every issued session SHALL then have a non-null token hash protected by a unique database identity and index. Authentication SHALL hash the presented token and resolve at most one matching session through that indexed identity.
 
 #### Scenario: Issued token is not persisted raw
 - **WHEN** the system issues a bearer session
@@ -52,6 +64,10 @@ The system SHALL generate a high-entropy opaque bearer token, return its raw val
 #### Scenario: Duplicate token hash is rejected
 - **WHEN** session issuance attempts to persist a token hash already owned by another session
 - **THEN** the unique identity rejects the write and the system does not expose an ambiguous bearer credential
+
+#### Scenario: Legacy null-hash sessions migrate safely
+- **WHEN** the token-hash constraint is introduced on a database containing legacy sessions with null hashes
+- **THEN** each legacy row is revoked and receives a unique reserved non-authenticating value before the non-null unique constraint is applied
 
 ### Requirement: Authenticated GraphQL resolves a fail-closed actor
 The system SHALL accept only an unexpired and unrevoked session belonging to an active global user. It SHALL set that user as both the GraphQL and Ash actor. Every caller-initiated organization-scoped action SHALL additionally require the target organization itself to be active, an active membership in that organization, and the explicit capability for that action. Missing, malformed, unknown, expired, revoked, or inactive credentials or organization scope SHALL fail closed without exposing organization data.
@@ -93,6 +109,10 @@ The system SHALL expose only OIDC begin and exchange as unauthenticated GraphQL 
 #### Scenario: Operational health remains separate
 - **WHEN** infrastructure requests `/healthz`
 - **THEN** the operational health endpoint responds without exposing GraphQL data or creating an application actor
+
+#### Scenario: GraphiQL is absent outside development
+- **WHEN** the router runs in a test or production environment
+- **THEN** `/graphiql` is omitted or denied while `/healthz` remains available as the separate operational endpoint
 
 ### Requirement: OIDC login-state retention is bounded
 The system SHALL reject expired or missing OIDC state and SHALL retain each login transaction through its expiry plus a fixed replay-rejection interval. A responsibility-named cleanup path SHALL idempotently delete consumed, expired, and abandoned transactions only after their retention cutoff. Cleanup SHALL NOT remove any unexpired pending or exchanging transaction. The cleanup worker SHALL be registered with Oban's supported periodic scheduler at a fixed interval, and scheduled jobs SHALL be unique for an interval so retention occurs without manual invocation or overlapping cleanup runs.
