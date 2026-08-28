@@ -8,7 +8,7 @@ QuickTrain cannot define reusable forms or collect paid task responses until org
 - Add organization-owned datasets with race-safe immutable schema versions, record types, typed field definitions, and stable dataset-item identities.
 - Add immutable dataset-item revisions backed by normalized records, value occurrences, and typed scalar or asset values; no dataset content is stored in JSONB columns.
 - Add import batches with atomic batch and row idempotency, relationally staged normalized records, source provenance, append/finalization sealing, lease-fenced row outcomes, crash recovery, and stable customer external keys.
-- Complete the OIDC-to-bearer-session handshake, then add deliberate GraphQL actions for dataset/schema creation, programmatic batch ingestion, asset registration/finalization, and organization-scoped reads.
+- Complete the OIDC-to-bearer-session handshake with bounded login-state retention and indexed one-way bearer-token resolution, then add deliberate GraphQL actions for dataset/schema creation, programmatic batch ingestion, asset registration/finalization, and organization-scoped reads.
 - Keep authorization fail-closed: managers require an active organization membership and explicit dataset capabilities; no dataset content is publicly browsable.
 - Preserve a forward-compatible record envelope: the first release accepts flat typed records, while ordinals and record types leave repeated and nested record values additive later.
 
@@ -26,6 +26,7 @@ This intentionally moves QuickTrain beyond a reusable backend template by adding
 
 ### New Capabilities
 
+- `api-authentication`: One-time OIDC exchange, opaque bearer-session issuance and resolution, bounded login-state retention, and a fail-closed GraphQL authentication boundary.
 - `assets`: Immutable, content-addressed, organization-scoped asset registration, storage lifecycle, metadata, and authorized access.
 - `datasets`: Versioned normalized dataset schemas, stable items, immutable item revisions, record envelopes, typed field values, and organization-scoped querying.
 - `dataset-imports`: Idempotent, provenance-preserving programmatic import batches that create or revise dataset items from normalized typed input.
@@ -36,8 +37,9 @@ None.
 
 ## Impact
 
+- Hardens the existing Accounts session and OIDC login-transaction resources, migrations, and API pipeline with one-time exchange, bounded retention, and required uniquely indexed bearer-token hashes.
 - Adds new Ash domains and resources under `QuickTrain.Assets` and `QuickTrain.Datasets`, exported through the top-level boundary.
-- Adds AshPostgres tables, constraints, indexes, migrations, and resource snapshots for assets, dataset definitions, item revisions, records, typed values, and imports, plus the supported Oban jobs-table migration.
-- Extends the GraphQL schema with authenticated, capability-scoped dataset and asset actions.
+- Adds AshPostgres tables, constraints, indexes, migrations, and resource snapshots for authentication hardening, assets, dataset definitions, item revisions, records, typed values, and imports, plus the supported Oban jobs-table migration.
+- Extends the GraphQL schema with the OIDC begin/exchange handshake plus authenticated, capability-scoped dataset and asset actions; no other GraphQL behavior remains unauthenticated.
 - Adds a configurable asset-storage adapter plus a deterministic test implementation; no production vendor is selected here.
 - Establishes typed value-family conventions that later Forms and Tasks changes can share in code without sharing persistence tables.

@@ -43,18 +43,22 @@ The system SHALL enforce organization-scoped content-hash uniqueness only for re
 
 #### Scenario: Concurrent identical uploads converge
 - **WHEN** two pending assets in one organization concurrently finalize with the same verified hash, byte size, and media type
-- **THEN** one becomes the canonical ready asset, the other records a sanitized duplicate-content terminal outcome, and both callers receive or can resolve the canonical ready asset
+- **THEN** one becomes the canonical ready asset, the other records a sanitized `duplicate_content` terminal outcome, and both callers receive or can resolve the canonical ready asset
 
 #### Scenario: Existing hash has different registered facts
 - **WHEN** an organization registers a hash that already has a canonical ready asset but supplies a different byte size or media type
 - **THEN** the system rejects canonical reuse with an asset-identity conflict and does not return metadata that contradicts the request
 
 ### Requirement: Abandoned staging content expires
-The system SHALL assign every writable staging object an expiry and SHALL remove expired staging content idempotently after a fixed safety grace period when its registration is pending, failed, duplicated, or already sealed. Cleanup SHALL NOT delete or mutate sealed read objects.
+The system SHALL assign every writable staging object an expiry and SHALL remove expired staging content idempotently after a fixed safety grace period when its registration is pending, failed, in the `duplicate_content` terminal state, or already sealed. Cleanup SHALL NOT delete or mutate sealed read objects.
 
 #### Scenario: Pending upload is abandoned
 - **WHEN** a pending registration remains unfinalized beyond its staging expiry and cleanup grace period
 - **THEN** the responsibility-named cleanup path removes its writable staging object and leaves the registration unable to become ready without a new upload
+
+#### Scenario: Duplicate staging object is removed
+- **WHEN** a losing concurrent finalization is in the `duplicate_content` terminal state beyond its staging expiry and cleanup grace period
+- **THEN** cleanup removes that registration's redundant writable staging object without changing the canonical ready asset
 
 #### Scenario: Cleanup preserves ready content
 - **WHEN** cleanup processes a registration whose content has already been sealed
@@ -72,11 +76,15 @@ The system SHALL record validated image dimensions for image assets and SHALL ex
 - **THEN** the system leaves the asset unusable and reports a sanitized validation failure
 
 ### Requirement: Provider-neutral authorized access
-The system SHALL keep storage locations private and SHALL obtain upload or download access through a configurable asset-storage adapter. Returned access SHALL be short-lived and scoped to the authorized asset operation.
+The system SHALL keep storage locations private and SHALL obtain upload or download access through a configurable asset-storage adapter. Returned access SHALL be short-lived, scoped to the authorized asset operation, delivered only through authenticated encrypted transport such as HTTPS, and marked to prevent caching and referrer propagation. The system SHALL reject any credential-bearing descriptor or redirect chain that uses an insecure transport or escapes the adapter-approved secure destination.
 
 #### Scenario: Authorized access is short-lived
 - **WHEN** an authorized actor requests access to a ready asset
-- **THEN** the system returns a time-limited access descriptor without exposing persistent storage credentials
+- **THEN** the system returns a time-limited encrypted-transport access descriptor without exposing persistent storage credentials and with no-store/no-referrer handling
+
+#### Scenario: Insecure access descriptor is rejected
+- **WHEN** an adapter returns a credential-bearing descriptor or redirect that uses cleartext transport or an unapproved destination
+- **THEN** the system rejects the descriptor without returning credentials or changing asset state
 
 #### Scenario: Storage adapter failure is contained
 - **WHEN** the configured storage adapter cannot produce authorized access
