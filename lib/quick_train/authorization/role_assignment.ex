@@ -48,6 +48,10 @@ defmodule QuickTrain.Authorization.RoleAssignment do
       accept [:organization_id, :user_id, :role_id]
     end
 
+    create :bootstrap_first_manager_assignment do
+      accept [:organization_id, :user_id, :role_id]
+    end
+
     action :allowed?, :boolean do
       argument :user_id, :uuid, allow_nil?: false
       argument :organization_id, :uuid, allow_nil?: false

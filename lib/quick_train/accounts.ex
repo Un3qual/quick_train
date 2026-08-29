@@ -22,6 +22,11 @@ defmodule QuickTrain.Accounts do
     resource QuickTrain.Accounts.User do
       define :register_user, action: :register, args: [:email, :display_name]
       define :create_oidc_user, action: :create_from_oidc
+
+      define :bootstrap_first_manager,
+        action: :bootstrap_first_manager,
+        args: [:user_id, :organization_slug, :organization_name]
+
       define :list_active_users, action: :list_active
       define :get_user, action: :read, get_by: [:id]
     end

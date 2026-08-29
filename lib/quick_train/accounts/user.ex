@@ -90,6 +90,14 @@ defmodule QuickTrain.Accounts.User do
              end)
     end
 
+    action :bootstrap_first_manager, :map do
+      argument :user_id, :uuid, allow_nil?: false
+      argument :organization_slug, :string, allow_nil?: false
+      argument :organization_name, :string, allow_nil?: false
+
+      run QuickTrain.Accounts.User.Actions.BootstrapFirstManager
+    end
+
     update :set_status do
       accept [:status]
       validate one_of(:status, ~w(active disabled))

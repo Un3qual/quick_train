@@ -65,6 +65,11 @@ defmodule QuickTrain.Organizations.Membership do
       return_skipped_upsert? true
     end
 
+    create :bootstrap_first_manager_membership do
+      accept [:organization_id, :user_id]
+      change set_attribute(:status, "active")
+    end
+
     update :deactivate do
       accept []
       change set_attribute(:status, "inactive")

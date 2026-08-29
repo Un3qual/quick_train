@@ -43,6 +43,12 @@ defmodule QuickTrain.Authorization.Role do
     create :create do
       accept [:organization_id, :key, :name]
     end
+
+    create :bootstrap_first_manager_role do
+      accept [:organization_id]
+      change set_attribute(:key, "manager")
+      change set_attribute(:name, "Manager")
+    end
   end
 
   identities do

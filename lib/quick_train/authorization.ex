@@ -21,6 +21,11 @@ defmodule QuickTrain.Authorization do
 
     resource QuickTrain.Authorization.Role do
       define :create_role, action: :create, args: [:organization_id, :key, :name]
+
+      define :bootstrap_first_manager_role,
+        action: :bootstrap_first_manager_role,
+        args: [:organization_id]
+
       define :get_role, action: :read, get_by: [:id]
     end
 
@@ -30,6 +35,11 @@ defmodule QuickTrain.Authorization do
 
     resource QuickTrain.Authorization.RoleAssignment do
       define :assign_role, action: :assign, args: [:organization_id, :user_id, :role_id]
+
+      define :bootstrap_first_manager_assignment,
+        action: :bootstrap_first_manager_assignment,
+        args: [:organization_id, :user_id, :role_id]
+
       define :allowed?, action: :allowed?, args: [:user_id, :organization_id, :capability_key]
     end
 
