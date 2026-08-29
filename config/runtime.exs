@@ -10,9 +10,48 @@ config :quick_train, QuickTrainWeb.Endpoint,
 config :quick_train, :human_oidc,
   issuer: System.get_env("OIDC_ISSUER"),
   client_id: System.get_env("OIDC_CLIENT_ID"),
-  client_secret: System.get_env("OIDC_CLIENT_SECRET"),
-  account_linking_policy: System.get_env("OIDC_ACCOUNT_LINKING_POLICY"),
-  session_ttl_seconds: System.get_env("HUMAN_SESSION_TTL_SECONDS")
+  client_secret: System.get_env("OIDC_CLIENT_SECRET")
+
+oidc_callbacks =
+  case System.get_env("OIDC_CALLBACKS_JSON") do
+    nil ->
+      []
+
+    callbacks_json ->
+      callbacks_json
+      |> Jason.decode!()
+      |> Enum.map(fn {key, uri} -> {key, uri} end)
+  end
+
+trusted_proxy_ips =
+  System.get_env("TRUSTED_PROXY_IPS", "")
+  |> String.split(",", trim: true)
+  |> Enum.map(&String.trim/1)
+
+parse_positive_integer = fn name, default ->
+  case System.get_env(name) do
+    nil ->
+      default
+
+    value ->
+      case Integer.parse(value) do
+        {integer, ""} when integer > 0 -> integer
+        _invalid -> raise "#{name} must be a positive integer"
+      end
+  end
+end
+
+config :quick_train, :authentication,
+  oidc_callbacks: oidc_callbacks,
+  trusted_proxy_ips: trusted_proxy_ips,
+  oidc_begin_window_ms: parse_positive_integer.("OIDC_BEGIN_WINDOW_MS", 60_000),
+  oidc_begin_global_limit: parse_positive_integer.("OIDC_BEGIN_GLOBAL_LIMIT", 300),
+  oidc_begin_network_limit: parse_positive_integer.("OIDC_BEGIN_NETWORK_LIMIT", 20),
+  oidc_outstanding_limit: parse_positive_integer.("OIDC_OUTSTANDING_LIMIT", 10_000),
+  oidc_transaction_ttl_seconds: parse_positive_integer.("OIDC_TRANSACTION_TTL_SECONDS", 300),
+  oidc_replay_retention_seconds: parse_positive_integer.("OIDC_REPLAY_RETENTION_SECONDS", 86_400),
+  session_max_lifetime_seconds:
+    parse_positive_integer.("HUMAN_SESSION_MAX_LIFETIME_SECONDS", 8 * 60 * 60)
 
 if config_env() == :prod do
   database_url =

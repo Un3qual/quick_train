@@ -8,7 +8,17 @@ config :quick_train, Oban,
   pruner: [max_age: {1, :day}],
   repo: QuickTrain.Repo
 
-config :quick_train, :authentication, session_max_lifetime_seconds: 8 * 60 * 60
+config :quick_train, :authentication,
+  enforce_https?: false,
+  trusted_proxy_ips: [],
+  oidc_callbacks: [],
+  oidc_begin_window_ms: 60_000,
+  oidc_begin_global_limit: 300,
+  oidc_begin_network_limit: 20,
+  oidc_outstanding_limit: 10_000,
+  oidc_transaction_ttl_seconds: 300,
+  oidc_replay_retention_seconds: 86_400,
+  session_max_lifetime_seconds: 8 * 60 * 60
 
 config :quick_train,
   ash_domains: [

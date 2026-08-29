@@ -5,8 +5,6 @@ defmodule QuickTrain.Application do
 
   use Application
 
-  alias QuickTrain.Accounts.Oidc
-
   @impl true
   def start(_type, _args) do
     maybe_install_ecto_dev_logger()
@@ -18,10 +16,9 @@ defmodule QuickTrain.Application do
         {DNSCluster, query: Application.get_env(:quick_train, :dns_cluster_query) || :ignore},
         {Oban, Application.fetch_env!(:quick_train, Oban)},
         {Phoenix.PubSub, name: QuickTrain.PubSub},
-        {QuickTrain.Accounts.OidcBeginLimiter, clean_period: :timer.minutes(10)}
-      ] ++
-        Oidc.children() ++
-        [QuickTrainWeb.Endpoint]
+        {QuickTrain.Accounts.OidcBeginLimiter, clean_period: :timer.minutes(10)},
+        QuickTrainWeb.Endpoint
+      ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html
     # for other strategies and supported options

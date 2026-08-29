@@ -1,0 +1,126 @@
+defmodule QuickTrainWeb.AuthenticationBoundaryTest do
+  use QuickTrain.ConnCase, async: false
+
+  alias QuickTrain.Accounts
+  alias QuickTrainWeb.Authentication.{BearerAuthentication, RequestSecurity}
+
+  setup do
+    original_authentication = Application.get_env(:quick_train, :authentication)
+
+    on_exit(fn -> restore_env(:authentication, original_authentication) end)
+
+    :ok
+  end
+
+  test "cleartext GraphQL and bearer traffic is rejected before parsing or lookup", %{conn: conn} do
+    configure_authentication(enforce_https?: true, trusted_proxy_ips: [])
+
+    malformed_conn =
+      conn
+      |> put_req_header("content-type", "application/json")
+      |> put_req_header("x-forwarded-proto", "https")
+      |> post("/graphql", "{")
+
+    assert malformed_conn.status == 426
+    assert malformed_conn.halted
+
+    bearer_conn =
+      conn
+      |> put_req_header("authorization", "Bearer definitely-not-a-token")
+      |> get("/healthz")
+
+    assert bearer_conn.status == 426
+    assert bearer_conn.halted
+  end
+
+  test "only a configured direct proxy can supply scheme and network source", %{conn: conn} do
+    configure_authentication(enforce_https?: true, trusted_proxy_ips: ["10.0.0.1"])
+
+    trusted_conn =
+      conn
+      |> Map.put(:remote_ip, {10, 0, 0, 1})
+      |> put_req_header("x-forwarded-proto", "https")
+      |> put_req_header("x-forwarded-for", "198.51.100.30, 10.0.0.1")
+      |> RequestSecurity.call([])
+
+    refute trusted_conn.halted
+    assert trusted_conn.assigns.authentication_network_source == "198.51.100.30"
+    assert trusted_conn.private.absinthe.context.authentication_network_source == "198.51.100.30"
+
+    untrusted_conn =
+      Phoenix.ConnTest.build_conn(:post, "/graphql", nil)
+      |> Map.put(:remote_ip, {192, 0, 2, 40})
+      |> put_req_header("x-forwarded-proto", "https")
+      |> put_req_header("x-forwarded-for", "198.51.100.99")
+      |> RequestSecurity.call([])
+
+    assert untrusted_conn.status == 426
+    assert untrusted_conn.assigns.authentication_network_source == "192.0.2.40"
+  end
+
+  test "a valid bearer installs the active global user as Ash and Absinthe actor", %{conn: conn} do
+    configure_authentication(enforce_https?: false)
+
+    user =
+      Accounts.register_user!(
+        "actor-#{System.unique_integer([:positive])}@example.test",
+        "Actor"
+      )
+
+    issued = Accounts.issue_bearer_session!(user.id)
+
+    authenticated_conn =
+      conn
+      |> put_req_header("authorization", "Bearer #{issued.token}")
+      |> RequestSecurity.call([])
+      |> BearerAuthentication.call([])
+      |> AshGraphql.Plug.call([])
+
+    assert Ash.PlugHelpers.get_actor(authenticated_conn).id == user.id
+    assert authenticated_conn.private.absinthe.context.actor.id == user.id
+    refute Map.has_key?(authenticated_conn.private.absinthe.context, :organization_id)
+  end
+
+  test "invalid and disabled-user bearer credentials fail closed", %{conn: conn} do
+    configure_authentication(enforce_https?: false)
+
+    invalid_conn =
+      conn
+      |> put_req_header("authorization", "Bearer malformed")
+      |> RequestSecurity.call([])
+      |> BearerAuthentication.call([])
+
+    assert invalid_conn.status == 401
+    assert invalid_conn.halted
+
+    user =
+      Accounts.register_user!(
+        "disabled-actor-#{System.unique_integer([:positive])}@example.test",
+        "Disabled Actor"
+      )
+
+    issued = Accounts.issue_bearer_session!(user.id)
+
+    _disabled_user =
+      user
+      |> Ash.Changeset.for_update(:set_status, %{status: "disabled"}, authorize?: false)
+      |> Ash.update!()
+
+    disabled_conn =
+      Phoenix.ConnTest.build_conn()
+      |> put_req_header("authorization", "Bearer #{issued.token}")
+      |> RequestSecurity.call([])
+      |> BearerAuthentication.call([])
+
+    assert disabled_conn.status == 401
+    assert disabled_conn.halted
+  end
+
+  defp configure_authentication(overrides) do
+    current = Application.get_env(:quick_train, :authentication, [])
+    Application.put_env(:quick_train, :authentication, Keyword.merge(current, overrides))
+  end
+
+  defp restore_env(key, nil), do: Application.delete_env(:quick_train, key)
+  defp restore_env(key, value), do: Application.put_env(:quick_train, key, value)
+end

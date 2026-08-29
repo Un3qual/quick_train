@@ -1,47 +1,8 @@
-defmodule QuickTrain.TestOidcProvider do
-  @moduledoc false
-
-  @behaviour QuickTrain.Accounts.OidcProvider
-
-  def authorization_url(options) do
-    send(test_pid(), {:oidc_authorization, options})
-
-    query =
-      URI.encode_query(%{
-        "redirect_uri" => options.redirect_uri,
-        "state" => options.state,
-        "nonce" => options.nonce,
-        "code_challenge" => options.code_challenge,
-        "code_challenge_method" => "S256"
-      })
-
-    {:ok, "https://issuer.example.test/authorize?#{query}"}
-  end
-
-  def exchange_code(code, options) do
-    send(test_pid(), {:oidc_exchange, code, options})
-
-    Application.get_env(
-      :quick_train,
-      :oidc_test_exchange_result,
-      {:ok,
-       %{
-         "iss" => "https://issuer.example.test",
-         "sub" => "subject-1",
-         "email" => "New.User@Example.test",
-         "email_verified" => true,
-         "name" => "  New User  "
-       }}
-    )
-  end
-
-  defp test_pid, do: Application.fetch_env!(:quick_train, :oidc_test_pid)
-end
-
 defmodule QuickTrain.OidcLoginTest do
   use QuickTrain.DataCase, async: false
 
   alias QuickTrain.Accounts
+  alias QuickTrain.Accounts.OidccProvider
 
   setup do
     original_authentication = Application.get_env(:quick_train, :authentication)
@@ -371,6 +332,35 @@ defmodule QuickTrain.OidcLoginTest do
 
     success_count = Enum.count(results, &match?({:ok, _result}, &1))
     assert Ash.count!(QuickTrain.Accounts.Session, authorize?: false) == success_count
+  end
+
+  test "provider discovery endpoints must all be HTTPS before they are used" do
+    secure_configuration = %Oidcc.ProviderConfiguration{
+      issuer: "https://issuer.example.test",
+      authorization_endpoint: "https://issuer.example.test/authorize",
+      token_endpoint: "https://issuer.example.test/token",
+      jwks_uri: "https://issuer.example.test/jwks",
+      userinfo_endpoint: "https://issuer.example.test/userinfo",
+      pushed_authorization_request_endpoint: :undefined,
+      mtls_endpoint_aliases: %{}
+    }
+
+    assert OidccProvider.secure_provider_configuration?(secure_configuration)
+
+    refute OidccProvider.secure_provider_configuration?(%{
+             secure_configuration
+             | token_endpoint: "http://issuer.example.test/token"
+           })
+
+    refute OidccProvider.secure_provider_configuration?(%{
+             secure_configuration
+             | jwks_uri: "http://127.0.0.1/jwks"
+           })
+
+    refute OidccProvider.secure_provider_configuration?(%{
+             secure_configuration
+             | authorization_endpoint: "http://issuer.example.test/authorize"
+           })
   end
 
   defp restore_env(key, nil), do: Application.delete_env(:quick_train, key)

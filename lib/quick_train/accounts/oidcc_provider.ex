@@ -4,36 +4,85 @@ defmodule QuickTrain.Accounts.OidccProvider do
   @behaviour QuickTrain.Accounts.OidcProvider
 
   alias QuickTrain.Accounts.Oidc
+  alias Oidcc.{Authorization, ClientContext, ProviderConfiguration, Token}
 
   @impl true
   def authorization_url(options) do
-    with {:ok, client_id, client_secret} <- Oidc.client_credentials() do
-      options = Map.drop(options, [:code_challenge])
-
-      Oidcc.create_redirect_url(
-        Oidc.provider_name(),
-        client_id,
-        client_secret,
-        options
-      )
+    with {:ok, client_context} <- client_context(),
+         {:ok, authorization_uri} <-
+           Authorization.create_redirect_url(
+             client_context,
+             Map.drop(options, [:code_challenge])
+           ),
+         true <- secure_endpoint?(authorization_uri) do
+      {:ok, authorization_uri}
+    else
+      false -> {:error, :insecure_provider_endpoint}
+      {:error, error} -> {:error, error}
     end
   end
 
   @impl true
   def exchange_code(code, options) do
-    with {:ok, client_id, client_secret} <- Oidc.client_credentials(),
+    with {:ok, client_context} <- client_context(),
          {:ok, %Oidcc.Token{id: %Oidcc.Token.Id{claims: claims}}} <-
-           Oidcc.retrieve_token(
-             code,
-             Oidc.provider_name(),
-             client_id,
-             client_secret,
-             options
-           ) do
+           Token.retrieve(code, client_context, options) do
       {:ok, claims}
     else
       {:ok, %Oidcc.Token{}} -> {:error, :missing_id_token}
       {:error, error} -> {:error, error}
     end
   end
+
+  def secure_provider_configuration?(%ProviderConfiguration{} = configuration) do
+    required_endpoints = [
+      configuration.issuer,
+      configuration.authorization_endpoint,
+      configuration.token_endpoint,
+      configuration.jwks_uri
+    ]
+
+    optional_endpoints = [
+      configuration.userinfo_endpoint,
+      configuration.pushed_authorization_request_endpoint
+    ]
+
+    mtls_endpoints = Map.values(configuration.mtls_endpoint_aliases || %{})
+
+    configuration.issuer == Oidc.issuer() and
+      Enum.all?(required_endpoints, &secure_endpoint?/1) and
+      Enum.all?(optional_endpoints, &secure_optional_endpoint?/1) and
+      Enum.all?(mtls_endpoints, &secure_endpoint?/1)
+  end
+
+  def secure_provider_configuration?(_configuration), do: false
+
+  defp client_context do
+    with {:ok, client_id, client_secret} <- Oidc.client_credentials(),
+         issuer when is_binary(issuer) <- Oidc.issuer(),
+         true <- secure_endpoint?(issuer),
+         {:ok, {configuration, _configuration_expiry}} <-
+           ProviderConfiguration.load_configuration(issuer),
+         true <- secure_provider_configuration?(configuration),
+         {:ok, {jwks, _jwks_expiry}} <-
+           ProviderConfiguration.load_jwks(configuration.jwks_uri) do
+      {:ok, ClientContext.from_manual(configuration, jwks, client_id, client_secret)}
+    else
+      false -> {:error, :insecure_provider_endpoint}
+      nil -> {:error, :oidc_not_configured}
+      {:error, error} -> {:error, error}
+    end
+  end
+
+  defp secure_optional_endpoint?(endpoint) when endpoint in [nil, :undefined], do: true
+  defp secure_optional_endpoint?(endpoint), do: secure_endpoint?(endpoint)
+
+  defp secure_endpoint?(endpoint) when is_binary(endpoint) do
+    case URI.parse(endpoint) do
+      %URI{scheme: "https", host: host} when is_binary(host) and host != "" -> true
+      _uri -> false
+    end
+  end
+
+  defp secure_endpoint?(_endpoint), do: false
 end

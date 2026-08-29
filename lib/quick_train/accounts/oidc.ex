@@ -1,20 +1,6 @@
 defmodule QuickTrain.Accounts.Oidc do
   @moduledoc "OIDC discovery, authorization-code redirects, and verified token exchange through oidcc."
 
-  @provider QuickTrain.Accounts.OidcProvider
-
-  def provider_name, do: @provider
-
-  def children do
-    case config()[:issuer] do
-      issuer when is_binary(issuer) and issuer != "" ->
-        [{Oidcc.ProviderConfiguration.Worker, %{issuer: issuer, name: @provider}}]
-
-      _missing ->
-        []
-    end
-  end
-
   def authorization_url(options), do: provider().authorization_url(options)
 
   def exchange_code(code, options), do: provider().exchange_code(code, options)
