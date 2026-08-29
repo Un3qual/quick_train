@@ -8,7 +8,7 @@ QuickTrain cannot safely expose organization-owned product data until GraphQL ca
 - Link accounts only by the verified issuer and subject, create each new user and external identity atomically, require active identities and users, and never link or reactivate an account by email.
 - Issue high-entropy opaque bearer sessions, persist only indexed one-way token hashes, bound inactive-session retention, and make sessions authenticate only the global `User` rather than carrying organization authority.
 - Resolve the bearer session into both the GraphQL and Ash actor without granting organization authority: organization-capability-authorized actions separately require an active organization, membership, and capability, while any later alternative authorization route must be explicitly owned by its product capability.
-- Define an explicit public GraphQL allowlist that excludes authentication persistence resources and credential or PII fields, keep `/healthz` separate, restrict GraphiQL to development, and expose only OIDC begin/exchange without authentication.
+- Define an explicit AshGraphQL-generated public allowlist that excludes authentication persistence resources and credential or PII fields, keep `/healthz` separate, restrict GraphiQL to development, expose OIDC begin/exchange as unauthenticated mutations, and provide only the scalar read-only API-version field required for a deliberate GraphQL query root.
 - Add a deterministic operator-only first-manager bootstrap and bounded cleanup of expired OIDC login transactions and inactive sessions.
 
 Explicit non-goals:
@@ -32,4 +32,4 @@ None.
 - Refines the existing Accounts session, external-identity, and OIDC login-transaction resources, migrations, configuration, and API pipeline.
 - Changes the reusable backend template from authentication-ready scaffolding to an authenticated GraphQL foundation suitable for later organization-owned product domains.
 - Adds the durable-jobs dependency and supported jobs-table migration used by authentication-state cleanup and later responsibility-specific workers.
-- Removes broad policy-disabled foundation fields from the public schema and adds responsibility-named operator bootstrap outside GraphQL.
+- Removes broad policy-disabled foundation fields and manual Absinthe authentication resolvers from the public schema, and adds responsibility-named operator bootstrap outside GraphQL.

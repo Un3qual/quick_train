@@ -17,6 +17,7 @@
 - [x] 3.2 Replace generated foundation exposure with an explicit GraphQL root-field allowlist for OIDC begin/exchange; exclude authentication persistence resources and credential or PII fields from introspection, remove health and broad account operations, keep `/healthz`, and restrict GraphiQL to development.
 - [x] 3.3 Add the responsibility-named operator-only first-manager Mix task using transactional Ash actions and the exact user, organization, membership, `manager` role, and assignment identities, including deterministic conflict and concurrent-idempotency handling without creating capability keys or grants.
 - [x] 3.4 Add the responsibility-named authentication-retention worker and fixed periodic Oban schedule with independently idempotent login-transaction and inactive-session cleanup plus overlap prevention.
+- [ ] 3.5 Replace the manual Absinthe authentication types, fields, and resolvers with an `AshGraphql` schema backed by a responsibility-named behavior resource: expose typed OIDC begin/exchange generic actions as mutations, carry trusted network source through Ash request context, remove broad account domain declarations, and add only the scalar read-only `apiVersion` query required for the GraphQL query root.
 
 ## 4. Focused Verification
 
