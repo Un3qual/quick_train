@@ -16,7 +16,7 @@ defmodule QuickTrainWeb.Authentication.RequestSecurity do
     conn =
       conn
       |> assign(:authentication_network_source, network_source)
-      |> Absinthe.Plug.assign_context(authentication_network_source: network_source)
+      |> Ash.PlugHelpers.set_context(%{authentication_network_source: network_source})
       |> maybe_prevent_graphql_caching()
 
     if encrypted_transport_required?(conn, settings) and not encrypted?(conn, settings) do

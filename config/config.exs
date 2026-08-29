@@ -28,6 +28,7 @@ config :quick_train, :authentication,
 
 config :quick_train,
   ash_domains: [
+    QuickTrain.Authentication,
     QuickTrain.Accounts,
     QuickTrain.Authorization,
     QuickTrain.EnterpriseIdentity,

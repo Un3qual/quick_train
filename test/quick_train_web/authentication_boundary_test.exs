@@ -37,7 +37,7 @@ defmodule QuickTrainWeb.AuthenticationBoundaryTest do
     configure_authentication(enforce_https?: true, trusted_proxy_ips: [])
 
     begin_query = """
-    query { beginOidcLogin(callbackKey: "desktop") { state clientProof } }
+    mutation { beginOidcLogin(callbackKey: "desktop") { state clientProof } }
     """
 
     begin_conn = post(conn, "/graphql", %{query: begin_query})
@@ -67,7 +67,9 @@ defmodule QuickTrainWeb.AuthenticationBoundaryTest do
 
     refute trusted_conn.halted
     assert trusted_conn.assigns.authentication_network_source == "198.51.100.30"
-    assert trusted_conn.private.absinthe.context.authentication_network_source == "198.51.100.30"
+
+    assert Ash.PlugHelpers.get_context(trusted_conn).authentication_network_source ==
+             "198.51.100.30"
 
     untrusted_conn =
       Phoenix.ConnTest.build_conn(:post, "/graphql", nil)

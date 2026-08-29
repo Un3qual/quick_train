@@ -7,15 +7,6 @@ defmodule QuickTrain.Accounts do
 
   graphql do
     authorize? false
-
-    queries do
-      list QuickTrain.Accounts.User, :all_users, :list_active, relay?: true
-      read_one QuickTrain.Accounts.User, :get_user, :read
-    end
-
-    mutations do
-      create QuickTrain.Accounts.User, :create_user, :register
-    end
   end
 
   resources do
@@ -46,12 +37,6 @@ defmodule QuickTrain.Accounts do
     end
 
     resource QuickTrain.Accounts.OidcLoginTransaction do
-      define :begin_oidc_login, action: :begin_login, args: [:callback_key, :network_source]
-
-      define :exchange_oidc_login,
-        action: :exchange_login,
-        args: [:code, :state, :client_proof]
-
       define :store_oidc_login, action: :begin
       define :get_oidc_login, action: :read, get_by: [:state_hash]
       define :claim_oidc_login, action: :claim

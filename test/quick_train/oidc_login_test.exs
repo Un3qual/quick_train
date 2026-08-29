@@ -3,6 +3,7 @@ defmodule QuickTrain.OidcLoginTest do
 
   alias QuickTrain.Accounts
   alias QuickTrain.Accounts.{Oidc, OidccProvider}
+  alias QuickTrain.Authentication
 
   setup do
     original_authentication = Application.get_env(:quick_train, :authentication)
@@ -43,7 +44,7 @@ defmodule QuickTrain.OidcLoginTest do
   end
 
   test "begin creates unpredictable client-bound material for a trusted callback" do
-    result = Accounts.begin_oidc_login!("desktop", "198.51.100.10")
+    result = begin_oidc_login!("desktop", "198.51.100.10")
 
     assert is_binary(result.state)
     assert is_binary(result.client_proof)
@@ -76,9 +77,9 @@ defmodule QuickTrain.OidcLoginTest do
   end
 
   test "independent begin requests never reuse state, proof, nonce, or PKCE material" do
-    first = Accounts.begin_oidc_login!("desktop", "198.51.100.13")
+    first = begin_oidc_login!("desktop", "198.51.100.13")
     assert_receive {:oidc_authorization, first_options}
-    second = Accounts.begin_oidc_login!("desktop", "198.51.100.14")
+    second = begin_oidc_login!("desktop", "198.51.100.14")
     assert_receive {:oidc_authorization, second_options}
 
     refute first.state == second.state
@@ -91,7 +92,7 @@ defmodule QuickTrain.OidcLoginTest do
   test "begin rejects untrusted callback keys before persistence or provider work" do
     before_count = Ash.count!(QuickTrain.Accounts.OidcLoginTransaction, authorize?: false)
 
-    assert {:error, error} = Accounts.begin_oidc_login("attacker", "198.51.100.11")
+    assert {:error, error} = begin_oidc_login("attacker", "198.51.100.11")
     assert Exception.message(error) =~ "untrusted_callback"
 
     assert Ash.count!(QuickTrain.Accounts.OidcLoginTransaction, authorize?: false) == before_count
@@ -107,11 +108,11 @@ defmodule QuickTrain.OidcLoginTest do
       Keyword.put(authentication, :oidc_begin_network_limit, 1)
     )
 
-    _first = Accounts.begin_oidc_login!("desktop", "198.51.100.12")
+    _first = begin_oidc_login!("desktop", "198.51.100.12")
     assert_receive {:oidc_authorization, _options}
     before_count = Ash.count!(QuickTrain.Accounts.OidcLoginTransaction, authorize?: false)
 
-    assert {:error, error} = Accounts.begin_oidc_login("desktop", "198.51.100.12")
+    assert {:error, error} = begin_oidc_login("desktop", "198.51.100.12")
     assert Exception.message(error) =~ "rate_limited"
 
     assert Ash.count!(QuickTrain.Accounts.OidcLoginTransaction, authorize?: false) == before_count
@@ -127,11 +128,11 @@ defmodule QuickTrain.OidcLoginTest do
       Keyword.put(authentication, :oidc_outstanding_limit, 1)
     )
 
-    _first = Accounts.begin_oidc_login!("desktop", "198.51.100.15")
+    _first = begin_oidc_login!("desktop", "198.51.100.15")
     assert_receive {:oidc_authorization, _options}
     before_count = Ash.count!(QuickTrain.Accounts.OidcLoginTransaction, authorize?: false)
 
-    assert {:error, error} = Accounts.begin_oidc_login("desktop", "198.51.100.16")
+    assert {:error, error} = begin_oidc_login("desktop", "198.51.100.16")
     assert Exception.message(error) =~ "outstanding_limit"
     assert Ash.count!(QuickTrain.Accounts.OidcLoginTransaction, authorize?: false) == before_count
     refute_receive {:oidc_authorization, _options}
@@ -157,7 +158,7 @@ defmodule QuickTrain.OidcLoginTest do
 
           receive do
             :begin ->
-              Accounts.begin_oidc_login("desktop", "198.51.100.#{attempt}")
+              begin_oidc_login("desktop", "198.51.100.#{attempt}")
           end
         end)
       end
@@ -177,11 +178,11 @@ defmodule QuickTrain.OidcLoginTest do
   end
 
   test "exchange verifies the separate client proof before provider contact" do
-    login = Accounts.begin_oidc_login!("desktop", "198.51.100.20")
+    login = begin_oidc_login!("desktop", "198.51.100.20")
     assert_receive {:oidc_authorization, _options}
 
     assert {:error, error} =
-             Accounts.exchange_oidc_login("provider-code", login.state, "wrong-proof")
+             Authentication.exchange_oidc_login("provider-code", login.state, "wrong-proof")
 
     assert Exception.message(error) =~ "invalid_oidc_exchange"
     refute_receive {:oidc_exchange, _code, _options}
@@ -191,11 +192,11 @@ defmodule QuickTrain.OidcLoginTest do
   end
 
   test "client callback handoff exchanges code and state into one bearer session" do
-    login = Accounts.begin_oidc_login!("desktop", "198.51.100.21")
+    login = begin_oidc_login!("desktop", "198.51.100.21")
     assert_receive {:oidc_authorization, begin_options}
 
     result =
-      Accounts.exchange_oidc_login!("provider-code", login.state, login.client_proof)
+      Authentication.exchange_oidc_login!("provider-code", login.state, login.client_proof)
 
     assert_receive {:oidc_exchange, "provider-code", exchange_options}
     assert exchange_options.redirect_uri == begin_options.redirect_uri
@@ -224,11 +225,11 @@ defmodule QuickTrain.OidcLoginTest do
   test "a provider failure leaves the winning claim permanently unusable" do
     Application.put_env(:quick_train, :oidc_test_exchange_result, {:error, :invalid_code})
 
-    login = Accounts.begin_oidc_login!("desktop", "198.51.100.22")
+    login = begin_oidc_login!("desktop", "198.51.100.22")
     assert_receive {:oidc_authorization, _options}
 
     assert {:error, first_error} =
-             Accounts.exchange_oidc_login("invalid-code", login.state, login.client_proof)
+             Authentication.exchange_oidc_login("invalid-code", login.state, login.client_proof)
 
     assert Exception.message(first_error) =~ "provider_exchange_failed"
     assert_receive {:oidc_exchange, "invalid-code", _options}
@@ -237,7 +238,7 @@ defmodule QuickTrain.OidcLoginTest do
     assert transaction.status == "exchanging"
 
     assert {:error, second_error} =
-             Accounts.exchange_oidc_login("invalid-code", login.state, login.client_proof)
+             Authentication.exchange_oidc_login("invalid-code", login.state, login.client_proof)
 
     assert Exception.message(second_error) =~ "invalid_oidc_exchange"
     refute_receive {:oidc_exchange, "invalid-code", _options}
@@ -267,10 +268,10 @@ defmodule QuickTrain.OidcLoginTest do
        }}
     )
 
-    login = Accounts.begin_oidc_login!("desktop", "198.51.100.23")
+    login = begin_oidc_login!("desktop", "198.51.100.23")
     assert_receive {:oidc_authorization, _options}
 
-    result = Accounts.exchange_oidc_login!("provider-code", login.state, login.client_proof)
+    result = Authentication.exchange_oidc_login!("provider-code", login.state, login.client_proof)
 
     assert result.user.id == user.id
     assert result.user.email == "original@example.test"
@@ -279,11 +280,11 @@ defmodule QuickTrain.OidcLoginTest do
 
   test "a new subject cannot link to an existing account by email" do
     existing_user = Accounts.register_user!("new.user@example.test", "Existing")
-    login = Accounts.begin_oidc_login!("desktop", "198.51.100.24")
+    login = begin_oidc_login!("desktop", "198.51.100.24")
     assert_receive {:oidc_authorization, _options}
 
     assert {:error, error} =
-             Accounts.exchange_oidc_login("provider-code", login.state, login.client_proof)
+             Authentication.exchange_oidc_login("provider-code", login.state, login.client_proof)
 
     assert Exception.message(error) =~ "account_linking_conflict"
     assert Ash.count!(QuickTrain.Accounts.User, authorize?: false) == 1
@@ -317,10 +318,10 @@ defmodule QuickTrain.OidcLoginTest do
        }}
     )
 
-    login = Accounts.begin_oidc_login!("desktop", "198.51.100.25")
+    login = begin_oidc_login!("desktop", "198.51.100.25")
     assert_receive {:oidc_authorization, _options}
 
-    result = Accounts.exchange_oidc_login!("provider-code", login.state, login.client_proof)
+    result = Authentication.exchange_oidc_login!("provider-code", login.state, login.client_proof)
 
     assert result.user.email == "fallback.name@example.test"
     assert result.user.display_name == "fallback.name"
@@ -342,11 +343,11 @@ defmodule QuickTrain.OidcLoginTest do
       |> Ash.Changeset.for_update(:set_status, %{status: "disabled"}, authorize?: false)
       |> Ash.update!()
 
-    login = Accounts.begin_oidc_login!("desktop", "198.51.100.26")
+    login = begin_oidc_login!("desktop", "198.51.100.26")
     assert_receive {:oidc_authorization, _options}
 
     assert {:error, error} =
-             Accounts.exchange_oidc_login("provider-code", login.state, login.client_proof)
+             Authentication.exchange_oidc_login("provider-code", login.state, login.client_proof)
 
     assert Exception.message(error) =~ "inactive_account"
     assert Ash.count!(QuickTrain.Accounts.Session, authorize?: false) == 0
@@ -369,11 +370,11 @@ defmodule QuickTrain.OidcLoginTest do
       |> Ash.Changeset.for_update(:set_status, %{status: "inactive"}, authorize?: false)
       |> Ash.update!()
 
-    login = Accounts.begin_oidc_login!("desktop", "198.51.100.31")
+    login = begin_oidc_login!("desktop", "198.51.100.31")
     assert_receive {:oidc_authorization, _options}
 
     assert {:error, error} =
-             Accounts.exchange_oidc_login("provider-code", login.state, login.client_proof)
+             Authentication.exchange_oidc_login("provider-code", login.state, login.client_proof)
 
     assert Exception.message(error) =~ "inactive_account"
     assert Ash.count!(QuickTrain.Accounts.Session, authorize?: false) == 0
@@ -398,11 +399,11 @@ defmodule QuickTrain.OidcLoginTest do
        }}
     )
 
-    login = Accounts.begin_oidc_login!("desktop", "198.51.100.32")
+    login = begin_oidc_login!("desktop", "198.51.100.32")
     assert_receive {:oidc_authorization, _options}
 
     assert {:error, error} =
-             Accounts.exchange_oidc_login("provider-code", login.state, login.client_proof)
+             Authentication.exchange_oidc_login("provider-code", login.state, login.client_proof)
 
     assert Exception.message(error) =~ "verified_email_required"
     assert Ash.count!(QuickTrain.Accounts.User, authorize?: false) == 0
@@ -423,25 +424,25 @@ defmodule QuickTrain.OidcLoginTest do
        }}
     )
 
-    login = Accounts.begin_oidc_login!("desktop", "198.51.100.33")
+    login = begin_oidc_login!("desktop", "198.51.100.33")
     assert_receive {:oidc_authorization, _options}
 
     assert {:error, error} =
-             Accounts.exchange_oidc_login("provider-code", login.state, login.client_proof)
+             Authentication.exchange_oidc_login("provider-code", login.state, login.client_proof)
 
     assert Exception.message(error) =~ "invalid_provider_identity"
     assert Ash.count!(QuickTrain.Accounts.Session, authorize?: false) == 0
   end
 
   test "concurrent exchanges claim one transaction before contacting the provider" do
-    login = Accounts.begin_oidc_login!("desktop", "198.51.100.27")
+    login = begin_oidc_login!("desktop", "198.51.100.27")
     assert_receive {:oidc_authorization, _options}
 
     results =
       1..2
       |> Enum.map(fn _attempt ->
         Task.async(fn ->
-          Accounts.exchange_oidc_login("provider-code", login.state, login.client_proof)
+          Authentication.exchange_oidc_login("provider-code", login.state, login.client_proof)
         end)
       end)
       |> Task.await_many()
@@ -457,8 +458,8 @@ defmodule QuickTrain.OidcLoginTest do
   end
 
   test "concurrent first logins leave one complete user and identity graph" do
-    first_login = Accounts.begin_oidc_login!("desktop", "198.51.100.28")
-    second_login = Accounts.begin_oidc_login!("desktop", "198.51.100.29")
+    first_login = begin_oidc_login!("desktop", "198.51.100.28")
+    second_login = begin_oidc_login!("desktop", "198.51.100.29")
     assert_receive {:oidc_authorization, _options}
     assert_receive {:oidc_authorization, _options}
 
@@ -466,7 +467,7 @@ defmodule QuickTrain.OidcLoginTest do
       [first_login, second_login]
       |> Enum.map(fn login ->
         Task.async(fn ->
-          Accounts.exchange_oidc_login("provider-code", login.state, login.client_proof)
+          Authentication.exchange_oidc_login("provider-code", login.state, login.client_proof)
         end)
       end)
       |> Task.await_many()
@@ -534,6 +535,18 @@ defmodule QuickTrain.OidcLoginTest do
                require_pkce: true,
                scopes: ["openid"]
              })
+  end
+
+  defp begin_oidc_login(callback_key, network_source) do
+    Authentication.begin_oidc_login(callback_key,
+      context: %{authentication_network_source: network_source}
+    )
+  end
+
+  defp begin_oidc_login!(callback_key, network_source) do
+    Authentication.begin_oidc_login!(callback_key,
+      context: %{authentication_network_source: network_source}
+    )
   end
 
   defp restore_env(key, nil), do: Application.delete_env(:quick_train, key)

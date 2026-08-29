@@ -1,4 +1,4 @@
-defmodule QuickTrain.Accounts.OidcLoginTransaction.Actions.ExchangeLogin do
+defmodule QuickTrain.Authentication.Api.Actions.ExchangeOidcLogin do
   @moduledoc false
 
   use Ash.Resource.Actions.Implementation
@@ -10,15 +10,22 @@ defmodule QuickTrain.Accounts.OidcLoginTransaction.Actions.ExchangeLogin do
   alias QuickTrain.Accounts.{
     ExternalIdentity,
     Oidc,
+    OidcLoginTransaction,
     Session,
     User
   }
+
+  alias QuickTrain.Authentication.{Error, OidcExchangeResult}
 
   @finalization_attempts 2
 
   @impl true
   def run(input, _opts, _context) do
-    resource = input.resource
+    Error.wrap(:exchange, exchange_login(input))
+  end
+
+  defp exchange_login(input) do
+    resource = OidcLoginTransaction
     code = input.arguments.code
     state = input.arguments.state
     client_proof = input.arguments.client_proof
@@ -172,7 +179,7 @@ defmodule QuickTrain.Accounts.OidcLoginTransaction.Actions.ExchangeLogin do
          {:ok, user} <- resolve_user(identity_claims),
          {:ok, issued} <- issue_bearer_session(user.id),
          {:ok, _consumed_transaction} <- consume_transaction(locked_transaction) do
-      %{
+      %OidcExchangeResult{
         token: issued.token,
         session_id: issued.session_id,
         expires_at: issued.expires_at,

@@ -1,12 +1,12 @@
-defmodule QuickTrain.Accounts.OidcLoginTransaction.Actions.BeginLogin do
+defmodule QuickTrain.Authentication.Api.Actions.BeginOidcLogin do
   @moduledoc false
 
   use Ash.Resource.Actions.Implementation
 
   require Ash.Query
 
-  alias QuickTrain.Accounts.Oidc
-  alias QuickTrain.Accounts.OidcBeginLimiter
+  alias QuickTrain.Accounts.{Oidc, OidcBeginLimiter, OidcLoginTransaction}
+  alias QuickTrain.Authentication.{Error, OidcBeginResult}
 
   @state_bytes 32
   @proof_bytes 32
@@ -23,9 +23,13 @@ defmodule QuickTrain.Accounts.OidcLoginTransaction.Actions.BeginLogin do
 
   @impl true
   def run(input, _opts, _context) do
-    resource = input.resource
+    Error.wrap(:begin, begin_login(input))
+  end
+
+  defp begin_login(input) do
+    resource = OidcLoginTransaction
     callback_key = input.arguments.callback_key
-    network_source = input.arguments.network_source
+    network_source = Map.get(input.context, :authentication_network_source)
 
     with {:ok, callback_uri} <- trusted_callback(callback_key),
          :ok <- admit(resource, network_source),
@@ -34,7 +38,7 @@ defmodule QuickTrain.Accounts.OidcLoginTransaction.Actions.BeginLogin do
          {:ok, authorization_uri} <-
            provider_authorization_url(transaction, material, callback_uri) do
       {:ok,
-       %{
+       %OidcBeginResult{
          authorization_uri: authorization_uri,
          state: material.state,
          client_proof: material.client_proof,

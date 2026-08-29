@@ -36,21 +36,6 @@ defmodule QuickTrain.Accounts.OidcLoginTransaction do
   actions do
     defaults [:read]
 
-    action :begin_login, :map do
-      argument :callback_key, :string, allow_nil?: false
-      argument :network_source, :string, allow_nil?: false
-
-      run QuickTrain.Accounts.OidcLoginTransaction.Actions.BeginLogin
-    end
-
-    action :exchange_login, :map do
-      argument :code, :string, allow_nil?: false
-      argument :state, :string, allow_nil?: false
-      argument :client_proof, :string, allow_nil?: false
-
-      run QuickTrain.Accounts.OidcLoginTransaction.Actions.ExchangeLogin
-    end
-
     action :cleanup_retained, :integer do
       argument :now, :utc_datetime_usec, allow_nil?: false
       run QuickTrain.Accounts.OidcLoginTransaction.Actions.CleanupRetained
