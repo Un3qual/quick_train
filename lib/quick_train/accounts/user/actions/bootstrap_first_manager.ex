@@ -5,10 +5,7 @@ defmodule QuickTrain.Accounts.User.Actions.BootstrapFirstManager do
 
   require Ash.Query
 
-  alias QuickTrain.Accounts.User
-  alias QuickTrain.Authorization
   alias QuickTrain.Authorization.{Role, RoleAssignment}
-  alias QuickTrain.Organizations
   alias QuickTrain.Organizations.{Membership, Organization}
 
   @manager_key "manager"
@@ -22,22 +19,24 @@ defmodule QuickTrain.Accounts.User.Actions.BootstrapFirstManager do
     name = String.trim(input.arguments.organization_name)
 
     if valid_slug?(slug) and name != "" do
-      bootstrap(user_id, slug, name, @attempts)
+      bootstrap(input.resource, user_id, slug, name, @attempts)
     else
       {:error, :bootstrap_conflict}
     end
   end
 
-  defp bootstrap(user_id, slug, name, attempts) do
-    resources = [User, Organization, Membership, Role, RoleAssignment]
+  defp bootstrap(user_resource, user_id, slug, name, attempts) do
+    resources = [user_resource, Organization, Membership, Role, RoleAssignment]
 
-    case Ash.transact(resources, fn -> bootstrap_in_transaction(user_id, slug, name) end) do
+    case Ash.transact(resources, fn ->
+           bootstrap_in_transaction(user_resource, user_id, slug, name)
+         end) do
       {:ok, graph} ->
         {:ok, graph}
 
       {:error, error} when attempts > 1 ->
         if uniqueness_conflict?(error) do
-          bootstrap(user_id, slug, name, attempts - 1)
+          bootstrap(user_resource, user_id, slug, name, attempts - 1)
         else
           {:error, :bootstrap_conflict}
         end
@@ -47,8 +46,8 @@ defmodule QuickTrain.Accounts.User.Actions.BootstrapFirstManager do
     end
   end
 
-  defp bootstrap_in_transaction(user_id, slug, name) do
-    with {:ok, user} <- active_user(user_id),
+  defp bootstrap_in_transaction(user_resource, user_id, slug, name) do
+    with {:ok, user} <- active_user(user_resource, user_id),
          {:ok, organization} <- organization(slug, name),
          {:ok, membership} <- membership(organization.id, user.id),
          {:ok, role} <- manager_role(organization.id),
@@ -63,15 +62,15 @@ defmodule QuickTrain.Accounts.User.Actions.BootstrapFirstManager do
     end
   end
 
-  defp active_user(user_id) do
+  defp active_user(resource, user_id) do
     user =
-      User
+      resource
       |> Ash.Query.filter(id == ^user_id)
       |> Ash.Query.lock(:for_update)
       |> Ash.read_one!(authorize?: false)
 
     case user do
-      %User{status: "active"} -> {:ok, user}
+      %{status: "active"} -> {:ok, user}
       _user -> {:error, :bootstrap_conflict}
     end
   end
@@ -85,12 +84,12 @@ defmodule QuickTrain.Accounts.User.Actions.BootstrapFirstManager do
 
     case existing do
       nil ->
-        Organizations.bootstrap_first_manager_organization(name, slug, authorize?: false)
+        create(Organization, :bootstrap_first_manager_organization, %{name: name, slug: slug})
 
-      %Organization{status: "active", name: ^name} = organization ->
+      %{status: "active", name: ^name} = organization ->
         {:ok, organization}
 
-      %Organization{} ->
+      %{} ->
         {:error, :bootstrap_conflict}
     end
   end
@@ -104,14 +103,15 @@ defmodule QuickTrain.Accounts.User.Actions.BootstrapFirstManager do
 
     case existing do
       nil ->
-        Organizations.bootstrap_first_manager_membership(organization_id, user_id,
-          authorize?: false
-        )
+        create(Membership, :bootstrap_first_manager_membership, %{
+          organization_id: organization_id,
+          user_id: user_id
+        })
 
-      %Membership{status: "active"} = membership ->
+      %{status: "active"} = membership ->
         {:ok, membership}
 
-      %Membership{} ->
+      %{} ->
         {:error, :bootstrap_conflict}
     end
   end
@@ -125,12 +125,12 @@ defmodule QuickTrain.Accounts.User.Actions.BootstrapFirstManager do
 
     case existing do
       nil ->
-        Authorization.bootstrap_first_manager_role(organization_id, authorize?: false)
+        create(Role, :bootstrap_first_manager_role, %{organization_id: organization_id})
 
-      %Role{name: @manager_name} = role ->
+      %{name: @manager_name} = role ->
         {:ok, role}
 
-      %Role{} ->
+      %{} ->
         {:error, :bootstrap_conflict}
     end
   end
@@ -144,14 +144,13 @@ defmodule QuickTrain.Accounts.User.Actions.BootstrapFirstManager do
 
     case assignments do
       [] ->
-        Authorization.bootstrap_first_manager_assignment(
-          organization_id,
-          user_id,
-          role_id,
-          authorize?: false
-        )
+        create(RoleAssignment, :bootstrap_first_manager_assignment, %{
+          organization_id: organization_id,
+          user_id: user_id,
+          role_id: role_id
+        })
 
-      [%RoleAssignment{user_id: ^user_id} = assignment] ->
+      [%{user_id: ^user_id} = assignment] ->
         {:ok, assignment}
 
       _conflict ->
@@ -172,6 +171,12 @@ defmodule QuickTrain.Accounts.User.Actions.BootstrapFirstManager do
         ],
         &String.contains?(message, &1)
       )
+  end
+
+  defp create(resource, action, attributes) do
+    resource
+    |> Ash.Changeset.for_create(action, attributes)
+    |> Ash.create(authorize?: false)
   end
 
   defp valid_slug?(slug), do: Regex.match?(~r/^[a-z0-9]+(?:-[a-z0-9]+)*$/, slug)

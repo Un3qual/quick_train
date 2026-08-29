@@ -2,7 +2,7 @@ defmodule QuickTrain.OidcLoginTest do
   use QuickTrain.DataCase, async: false
 
   alias QuickTrain.Accounts
-  alias QuickTrain.Accounts.OidccProvider
+  alias QuickTrain.Accounts.{Oidc, OidccProvider}
 
   setup do
     original_authentication = Application.get_env(:quick_train, :authentication)
@@ -75,6 +75,19 @@ defmodule QuickTrain.OidcLoginTest do
     refute Map.has_key?(result, :pkce_verifier)
   end
 
+  test "independent begin requests never reuse state, proof, nonce, or PKCE material" do
+    first = Accounts.begin_oidc_login!("desktop", "198.51.100.13")
+    assert_receive {:oidc_authorization, first_options}
+    second = Accounts.begin_oidc_login!("desktop", "198.51.100.14")
+    assert_receive {:oidc_authorization, second_options}
+
+    refute first.state == second.state
+    refute first.client_proof == second.client_proof
+    refute first_options.nonce == second_options.nonce
+    refute first_options.pkce_verifier == second_options.pkce_verifier
+    refute first_options.code_challenge == second_options.code_challenge
+  end
+
   test "begin rejects untrusted callback keys before persistence or provider work" do
     before_count = Ash.count!(QuickTrain.Accounts.OidcLoginTransaction, authorize?: false)
 
@@ -101,6 +114,25 @@ defmodule QuickTrain.OidcLoginTest do
     assert {:error, error} = Accounts.begin_oidc_login("desktop", "198.51.100.12")
     assert Exception.message(error) =~ "rate_limited"
 
+    assert Ash.count!(QuickTrain.Accounts.OidcLoginTransaction, authorize?: false) == before_count
+    refute_receive {:oidc_authorization, _options}
+  end
+
+  test "begin enforces the outstanding-state cap before provider work" do
+    authentication = Application.fetch_env!(:quick_train, :authentication)
+
+    Application.put_env(
+      :quick_train,
+      :authentication,
+      Keyword.put(authentication, :oidc_outstanding_limit, 1)
+    )
+
+    _first = Accounts.begin_oidc_login!("desktop", "198.51.100.15")
+    assert_receive {:oidc_authorization, _options}
+    before_count = Ash.count!(QuickTrain.Accounts.OidcLoginTransaction, authorize?: false)
+
+    assert {:error, error} = Accounts.begin_oidc_login("desktop", "198.51.100.16")
+    assert Exception.message(error) =~ "outstanding_limit"
     assert Ash.count!(QuickTrain.Accounts.OidcLoginTransaction, authorize?: false) == before_count
     refute_receive {:oidc_authorization, _options}
   end
@@ -282,6 +314,86 @@ defmodule QuickTrain.OidcLoginTest do
     assert Accounts.get_user!(disabled_user.id).status == "disabled"
   end
 
+  test "an inactive external identity is denied without implicit reactivation" do
+    user = Accounts.register_user!("inactive-identity@example.test", "Inactive Identity")
+
+    identity =
+      Accounts.create_external_identity!(%{
+        user_id: user.id,
+        issuer: "https://issuer.example.test",
+        subject: "subject-1",
+        claims: %{}
+      })
+
+    inactive_identity =
+      identity
+      |> Ash.Changeset.for_update(:set_status, %{status: "inactive"}, authorize?: false)
+      |> Ash.update!()
+
+    login = Accounts.begin_oidc_login!("desktop", "198.51.100.31")
+    assert_receive {:oidc_authorization, _options}
+
+    assert {:error, error} =
+             Accounts.exchange_oidc_login("provider-code", login.state, login.client_proof)
+
+    assert Exception.message(error) =~ "inactive_account"
+    assert Ash.count!(QuickTrain.Accounts.Session, authorize?: false) == 0
+
+    persisted =
+      Accounts.get_external_identity!("https://issuer.example.test", "subject-1")
+
+    assert persisted.id == inactive_identity.id
+    assert persisted.status == "inactive"
+  end
+
+  test "new identities require a nonempty provider-verified email" do
+    Application.put_env(
+      :quick_train,
+      :oidc_test_exchange_result,
+      {:ok,
+       %{
+         "iss" => "https://issuer.example.test",
+         "sub" => "subject-without-verified-email",
+         "email" => "unverified@example.test",
+         "email_verified" => false
+       }}
+    )
+
+    login = Accounts.begin_oidc_login!("desktop", "198.51.100.32")
+    assert_receive {:oidc_authorization, _options}
+
+    assert {:error, error} =
+             Accounts.exchange_oidc_login("provider-code", login.state, login.client_proof)
+
+    assert Exception.message(error) =~ "verified_email_required"
+    assert Ash.count!(QuickTrain.Accounts.User, authorize?: false) == 0
+    assert Ash.count!(QuickTrain.Accounts.ExternalIdentity, authorize?: false) == 0
+    assert Ash.count!(QuickTrain.Accounts.Session, authorize?: false) == 0
+  end
+
+  test "provider issuer must match the configured canonical issuer" do
+    Application.put_env(
+      :quick_train,
+      :oidc_test_exchange_result,
+      {:ok,
+       %{
+         "iss" => "https://other-issuer.example.test",
+         "sub" => "subject-1",
+         "email" => "wrong-issuer@example.test",
+         "email_verified" => true
+       }}
+    )
+
+    login = Accounts.begin_oidc_login!("desktop", "198.51.100.33")
+    assert_receive {:oidc_authorization, _options}
+
+    assert {:error, error} =
+             Accounts.exchange_oidc_login("provider-code", login.state, login.client_proof)
+
+    assert Exception.message(error) =~ "invalid_provider_identity"
+    assert Ash.count!(QuickTrain.Accounts.Session, authorize?: false) == 0
+  end
+
   test "concurrent exchanges claim one transaction before contacting the provider" do
     login = Accounts.begin_oidc_login!("desktop", "198.51.100.27")
     assert_receive {:oidc_authorization, _options}
@@ -361,6 +473,28 @@ defmodule QuickTrain.OidcLoginTest do
              secure_configuration
              | authorization_endpoint: "http://issuer.example.test/authorize"
            })
+  end
+
+  test "production callback and issuer policy rejects every cleartext endpoint" do
+    refute Oidc.secure_callback_uri?("http://client.example.test/callback", false)
+    refute Oidc.secure_callback_uri?("http://127.0.0.1/callback", false)
+    assert Oidc.secure_callback_uri?("https://client.example.test/callback", false)
+
+    Application.put_env(:quick_train, :human_oidc,
+      issuer: "http://issuer.example.test",
+      client_id: "client-id",
+      client_secret: "client-secret"
+    )
+
+    assert {:error, :insecure_provider_endpoint} =
+             OidccProvider.authorization_url(%{
+               redirect_uri: "https://client.example.test/callback",
+               state: "state",
+               nonce: "nonce",
+               pkce_verifier: String.duplicate("v", 43),
+               require_pkce: true,
+               scopes: ["openid"]
+             })
   end
 
   defp restore_env(key, nil), do: Application.delete_env(:quick_train, key)

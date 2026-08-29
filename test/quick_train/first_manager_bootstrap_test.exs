@@ -3,6 +3,7 @@ defmodule QuickTrain.FirstManagerBootstrapTest do
 
   import ExUnit.CaptureIO
 
+  alias Mix.Tasks.QuickTrain.BootstrapFirstManager
   alias QuickTrain.Accounts
   alias QuickTrain.Authorization.{Capability, Role, RoleAssignment, RoleCapability}
   alias QuickTrain.Organizations.{Membership, Organization}
@@ -95,7 +96,7 @@ defmodule QuickTrain.FirstManagerBootstrapTest do
 
     output =
       capture_io(fn ->
-        Mix.Tasks.QuickTrain.BootstrapFirstManager.run([
+        BootstrapFirstManager.run([
           "--user-id",
           user.id,
           "--organization-slug",

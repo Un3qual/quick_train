@@ -5,8 +5,6 @@ defmodule QuickTrain.Accounts.Session.Actions.CleanupRetained do
 
   require Ash.Query
 
-  alias QuickTrain.Accounts.Session
-
   @default_retention_seconds 86_400
 
   @impl true
@@ -14,7 +12,7 @@ defmodule QuickTrain.Accounts.Session.Actions.CleanupRetained do
     cutoff = DateTime.add(input.arguments.now, -retention_seconds(), :second)
 
     result =
-      Session
+      input.resource
       |> Ash.Query.filter(expires_at <= ^cutoff and (is_nil(revoked_at) or revoked_at <= ^cutoff))
       |> Ash.bulk_destroy(:delete_retained, %{},
         authorize?: false,

@@ -5,14 +5,12 @@ defmodule QuickTrain.Accounts.OidcLoginTransaction.Actions.CleanupRetained do
 
   require Ash.Query
 
-  alias QuickTrain.Accounts.OidcLoginTransaction
-
   @impl true
   def run(input, _opts, _context) do
     now = input.arguments.now
 
     result =
-      OidcLoginTransaction
+      input.resource
       |> Ash.Query.filter(retain_until <= ^now and (expires_at <= ^now or status == "consumed"))
       |> Ash.bulk_destroy(:delete_retained, %{},
         authorize?: false,

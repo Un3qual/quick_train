@@ -3,8 +3,8 @@ defmodule QuickTrain.Accounts.OidccProvider do
 
   @behaviour QuickTrain.Accounts.OidcProvider
 
-  alias QuickTrain.Accounts.Oidc
   alias Oidcc.{Authorization, ClientContext, ProviderConfiguration, Token}
+  alias QuickTrain.Accounts.Oidc
 
   @impl true
   def authorization_url(options) do
@@ -25,12 +25,18 @@ defmodule QuickTrain.Accounts.OidccProvider do
   @impl true
   def exchange_code(code, options) do
     with {:ok, client_context} <- client_context(),
-         {:ok, %Oidcc.Token{id: %Oidcc.Token.Id{claims: claims}}} <-
+         {:ok, token} <-
            Token.retrieve(code, client_context, options) do
-      {:ok, claims}
+      token_claims(token)
     else
-      {:ok, %Oidcc.Token{}} -> {:error, :missing_id_token}
       {:error, error} -> {:error, error}
+    end
+  end
+
+  defp token_claims(token) do
+    case Map.get(token, :id) do
+      %{claims: claims} when is_map(claims) -> {:ok, claims}
+      _missing_id_token -> {:error, :missing_id_token}
     end
   end
 
@@ -78,10 +84,10 @@ defmodule QuickTrain.Accounts.OidccProvider do
   defp secure_optional_endpoint?(endpoint), do: secure_endpoint?(endpoint)
 
   defp secure_endpoint?(endpoint) when is_binary(endpoint) do
-    case URI.parse(endpoint) do
-      %URI{scheme: "https", host: host} when is_binary(host) and host != "" -> true
-      _uri -> false
-    end
+    match?(
+      %URI{scheme: "https", host: host} when is_binary(host) and host != "",
+      URI.parse(endpoint)
+    )
   end
 
   defp secure_endpoint?(_endpoint), do: false

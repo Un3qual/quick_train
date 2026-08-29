@@ -33,6 +33,28 @@ defmodule QuickTrainWeb.AuthenticationBoundaryTest do
     assert bearer_conn.halted
   end
 
+  test "cleartext begin and exchange create no login or session material", %{conn: conn} do
+    configure_authentication(enforce_https?: true, trusted_proxy_ips: [])
+
+    begin_query = """
+    query { beginOidcLogin(callbackKey: "desktop") { state clientProof } }
+    """
+
+    begin_conn = post(conn, "/graphql", %{query: begin_query})
+    assert begin_conn.status == 426
+    assert Ash.count!(QuickTrain.Accounts.OidcLoginTransaction, authorize?: false) == 0
+
+    exchange_query = """
+    mutation {
+      exchangeOidcLogin(code: "code", state: "state", clientProof: "proof") { token }
+    }
+    """
+
+    exchange_conn = post(conn, "/graphql", %{query: exchange_query})
+    assert exchange_conn.status == 426
+    assert Ash.count!(QuickTrain.Accounts.Session, authorize?: false) == 0
+  end
+
   test "only a configured direct proxy can supply scheme and network source", %{conn: conn} do
     configure_authentication(enforce_https?: true, trusted_proxy_ips: ["10.0.0.1"])
 

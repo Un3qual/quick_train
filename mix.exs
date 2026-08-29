@@ -13,7 +13,7 @@ defmodule QuickTrain.MixProject do
       deps: deps(),
       dialyzer: [
         plt_add_deps: :app_tree,
-        plt_add_apps: [:ex_unit],
+        plt_add_apps: [:ex_unit, :mix],
         flags: [:error_handling, :underspecs]
       ],
       listeners: [Phoenix.CodeReloader],

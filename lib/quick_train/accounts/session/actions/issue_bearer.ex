@@ -3,8 +3,6 @@ defmodule QuickTrain.Accounts.Session.Actions.IssueBearer do
 
   use Ash.Resource.Actions.Implementation
 
-  alias QuickTrain.Accounts
-
   @token_bytes 32
   @default_max_lifetime_seconds 8 * 60 * 60
 
@@ -22,7 +20,12 @@ defmodule QuickTrain.Accounts.Session.Actions.IssueBearer do
       expires_at: DateTime.add(issued_at, lifetime_seconds, :second)
     }
 
-    case Accounts.persist_bearer_session(attributes, authorize?: false) do
+    result =
+      input.resource
+      |> Ash.Changeset.for_create(:persist, attributes)
+      |> Ash.create(authorize?: false)
+
+    case result do
       {:ok, session} ->
         {:ok, %{token: token, session_id: session.id, expires_at: session.expires_at}}
 

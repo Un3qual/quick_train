@@ -5,10 +5,8 @@ defmodule QuickTrain.Accounts.OidcLoginTransaction.Actions.BeginLogin do
 
   require Ash.Query
 
-  alias QuickTrain.Accounts
   alias QuickTrain.Accounts.Oidc
   alias QuickTrain.Accounts.OidcBeginLimiter
-  alias QuickTrain.Accounts.OidcLoginTransaction
 
   @state_bytes 32
   @proof_bytes 32
@@ -24,12 +22,14 @@ defmodule QuickTrain.Accounts.OidcLoginTransaction.Actions.BeginLogin do
 
   @impl true
   def run(input, _opts, _context) do
+    resource = input.resource
     callback_key = input.arguments.callback_key
     network_source = input.arguments.network_source
 
     with {:ok, callback_uri} <- trusted_callback(callback_key),
-         :ok <- admit(network_source),
-         {:ok, transaction, material} <- persist_fresh_transaction(callback_key, callback_uri),
+         :ok <- admit(resource, network_source),
+         {:ok, transaction, material} <-
+           persist_fresh_transaction(resource, callback_key, callback_uri),
          {:ok, authorization_uri} <-
            provider_authorization_url(transaction, material, callback_uri) do
       {:ok,
@@ -41,7 +41,7 @@ defmodule QuickTrain.Accounts.OidcLoginTransaction.Actions.BeginLogin do
        }}
     else
       {:provider_error, transaction} ->
-        _result = Accounts.discard_oidc_login(transaction, authorize?: false)
+        _result = Ash.destroy(transaction, action: :discard, authorize?: false)
         {:error, :provider_unavailable}
 
       {:error, reason} ->
@@ -59,22 +59,12 @@ defmodule QuickTrain.Accounts.OidcLoginTransaction.Actions.BeginLogin do
         if to_string(key) == callback_key, do: uri
       end)
 
-    if secure_callback?(callback), do: {:ok, callback}, else: {:error, :untrusted_callback}
+    if Oidc.secure_callback_uri?(callback, @allow_loopback_http),
+      do: {:ok, callback},
+      else: {:error, :untrusted_callback}
   end
 
-  defp secure_callback?(callback) when is_binary(callback) do
-    case URI.parse(callback) do
-      %URI{scheme: "https", host: host} when is_binary(host) and host != "" -> true
-      %URI{scheme: "http", host: host} when @allow_loopback_http -> loopback_host?(host)
-      _uri -> false
-    end
-  end
-
-  defp secure_callback?(_callback), do: false
-
-  defp loopback_host?(host), do: host in ["localhost", "127.0.0.1", "::1"]
-
-  defp admit(network_source) when is_binary(network_source) and network_source != "" do
+  defp admit(resource, network_source) when is_binary(network_source) and network_source != "" do
     settings = config()
     namespace = Keyword.get(settings, :oidc_begin_limiter_namespace, "oidc-begin")
     window_ms = Keyword.get(settings, :oidc_begin_window_ms, @default_window_ms)
@@ -85,7 +75,7 @@ defmodule QuickTrain.Accounts.OidcLoginTransaction.Actions.BeginLogin do
            OidcBeginLimiter.hit({namespace, :global}, window_ms, global_limit),
          {:allow, _count} <-
            OidcBeginLimiter.hit({namespace, :network, network_source}, window_ms, network_limit),
-         :ok <- admit_outstanding(settings) do
+         :ok <- admit_outstanding(resource, settings) do
       :ok
     else
       {:deny, _retry_after} -> {:error, :rate_limited}
@@ -93,26 +83,31 @@ defmodule QuickTrain.Accounts.OidcLoginTransaction.Actions.BeginLogin do
     end
   end
 
-  defp admit(_network_source), do: {:error, :invalid_network_source}
+  defp admit(_resource, _network_source), do: {:error, :invalid_network_source}
 
-  defp admit_outstanding(settings) do
+  defp admit_outstanding(resource, settings) do
     now = DateTime.utc_now()
     limit = Keyword.get(settings, :oidc_outstanding_limit, @default_outstanding_limit)
 
     count =
-      OidcLoginTransaction
+      resource
       |> Ash.Query.filter(status in ["pending", "exchanging"] and expires_at > ^now)
       |> Ash.count!(authorize?: false)
 
     if count < limit, do: :ok, else: {:error, :outstanding_limit}
   end
 
-  defp persist_fresh_transaction(callback_key, callback_uri, attempts \\ @collision_attempts)
+  defp persist_fresh_transaction(
+         resource,
+         callback_key,
+         callback_uri,
+         attempts \\ @collision_attempts
+       )
 
-  defp persist_fresh_transaction(_callback_key, _callback_uri, 0),
+  defp persist_fresh_transaction(_resource, _callback_key, _callback_uri, 0),
     do: {:error, :state_collision}
 
-  defp persist_fresh_transaction(callback_key, callback_uri, attempts) do
+  defp persist_fresh_transaction(resource, callback_key, callback_uri, attempts) do
     material = generate_material()
     state_hash = sha256(material.state)
     now = DateTime.utc_now()
@@ -147,26 +142,47 @@ defmodule QuickTrain.Accounts.OidcLoginTransaction.Actions.BeginLogin do
       retain_until: retain_until
     }
 
-    case Accounts.get_oidc_login(state_hash, authorize?: false, not_found_error?: false) do
+    case resource
+         |> Ash.Query.filter(state_hash == ^state_hash)
+         |> Ash.read_one(authorize?: false) do
       {:ok, nil} ->
-        create_transaction(attributes, material, callback_key, callback_uri, attempts)
+        create_transaction(
+          resource,
+          attributes,
+          material,
+          callback_key,
+          callback_uri,
+          attempts
+        )
 
       {:ok, _collision} ->
-        persist_fresh_transaction(callback_key, callback_uri, attempts - 1)
+        persist_fresh_transaction(resource, callback_key, callback_uri, attempts - 1)
 
       {:error, error} ->
         {:error, error}
     end
   end
 
-  defp create_transaction(attributes, material, callback_key, callback_uri, attempts) do
-    case Accounts.store_oidc_login(attributes, authorize?: false) do
+  defp create_transaction(
+         resource,
+         attributes,
+         material,
+         callback_key,
+         callback_uri,
+         attempts
+       ) do
+    result =
+      resource
+      |> Ash.Changeset.for_create(:begin, attributes)
+      |> Ash.create(authorize?: false)
+
+    case result do
       {:ok, transaction} ->
         {:ok, transaction, material}
 
       {:error, error} ->
         if state_collision?(error) do
-          persist_fresh_transaction(callback_key, callback_uri, attempts - 1)
+          persist_fresh_transaction(resource, callback_key, callback_uri, attempts - 1)
         else
           {:error, error}
         end

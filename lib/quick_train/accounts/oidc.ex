@@ -12,6 +12,21 @@ defmodule QuickTrain.Accounts.Oidc do
 
   def issuer, do: config()[:issuer]
 
+  def secure_callback_uri?(callback, allow_loopback_http?) when is_binary(callback) do
+    case URI.parse(callback) do
+      %URI{scheme: "https", host: host} when is_binary(host) and host != "" ->
+        true
+
+      %URI{scheme: "http", host: host} when allow_loopback_http? ->
+        host in ["localhost", "127.0.0.1", "::1"]
+
+      _uri ->
+        false
+    end
+  end
+
+  def secure_callback_uri?(_callback, _allow_loopback_http?), do: false
+
   def client_credentials do
     oidc_config = config()
 

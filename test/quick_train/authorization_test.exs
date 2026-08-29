@@ -35,6 +35,25 @@ defmodule QuickTrain.AuthorizationTest do
     refute Authorization.allowed?(user.id, organization.id, "unknown.capability")
     refute Authorization.allowed?(Ecto.UUID.generate(), organization.id, "forms.manage")
 
+    inactive_organization =
+      organization
+      |> Ash.Changeset.for_update(:update, %{status: "inactive"}, authorize?: false)
+      |> Ash.update!()
+
+    refute Authorization.allowed?(user.id, inactive_organization.id, "forms.manage")
+
+    _active_organization =
+      inactive_organization
+      |> Ash.Changeset.for_update(:update, %{status: "active"}, authorize?: false)
+      |> Ash.update!()
+
+    disabled_user =
+      user
+      |> Ash.Changeset.for_update(:set_status, %{status: "disabled"}, authorize?: false)
+      |> Ash.update!()
+
+    refute Authorization.allowed?(disabled_user.id, organization.id, "forms.manage")
+
     assert {:ok, decision} =
              Authorization.record_decision(
                user.id,
