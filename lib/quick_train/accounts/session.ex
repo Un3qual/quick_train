@@ -48,6 +48,11 @@ defmodule QuickTrain.Accounts.Session do
       run QuickTrain.Accounts.Session.Actions.IssueBearer
     end
 
+    action :cleanup_retained, :integer do
+      argument :now, :utc_datetime_usec, allow_nil?: false
+      run QuickTrain.Accounts.Session.Actions.CleanupRetained
+    end
+
     create :persist do
       argument :user_id, :uuid, allow_nil?: false
 
@@ -72,6 +77,8 @@ defmodule QuickTrain.Accounts.Session do
       accept []
       change set_attribute(:revoked_at, expr(now()))
     end
+
+    destroy :delete_retained
   end
 
   identities do

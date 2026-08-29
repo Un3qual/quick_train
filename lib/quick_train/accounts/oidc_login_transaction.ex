@@ -51,6 +51,11 @@ defmodule QuickTrain.Accounts.OidcLoginTransaction do
       run QuickTrain.Accounts.OidcLoginTransaction.Actions.ExchangeLogin
     end
 
+    action :cleanup_retained, :integer do
+      argument :now, :utc_datetime_usec, allow_nil?: false
+      run QuickTrain.Accounts.OidcLoginTransaction.Actions.CleanupRetained
+    end
+
     create :begin do
       accept [
         :state_hash,
@@ -80,6 +85,7 @@ defmodule QuickTrain.Accounts.OidcLoginTransaction do
     end
 
     destroy :discard
+    destroy :delete_retained
   end
 
   validations do

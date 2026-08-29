@@ -3,7 +3,12 @@ import Config
 config :quick_train, Oban,
   engine: Oban.Engines.Basic,
   notifier: Oban.Notifiers.Postgres,
-  queues: [default: 10],
+  queues: [default: 10, authentication: 1],
+  cron: [
+    crontab: [
+      {"17 * * * *", QuickTrain.Accounts.Workers.AuthenticationRetention}
+    ]
+  ],
   lifeline: [rescue_after: {2, :hours}],
   pruner: [max_age: {1, :day}],
   repo: QuickTrain.Repo
@@ -18,7 +23,8 @@ config :quick_train, :authentication,
   oidc_outstanding_limit: 10_000,
   oidc_transaction_ttl_seconds: 300,
   oidc_replay_retention_seconds: 86_400,
-  session_max_lifetime_seconds: 8 * 60 * 60
+  session_max_lifetime_seconds: 8 * 60 * 60,
+  session_retention_seconds: 86_400
 
 config :quick_train,
   ash_domains: [

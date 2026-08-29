@@ -51,7 +51,8 @@ config :quick_train, :authentication,
   oidc_transaction_ttl_seconds: parse_positive_integer.("OIDC_TRANSACTION_TTL_SECONDS", 300),
   oidc_replay_retention_seconds: parse_positive_integer.("OIDC_REPLAY_RETENTION_SECONDS", 86_400),
   session_max_lifetime_seconds:
-    parse_positive_integer.("HUMAN_SESSION_MAX_LIFETIME_SECONDS", 8 * 60 * 60)
+    parse_positive_integer.("HUMAN_SESSION_MAX_LIFETIME_SECONDS", 8 * 60 * 60),
+  session_retention_seconds: parse_positive_integer.("HUMAN_SESSION_RETENTION_SECONDS", 86_400)
 
 if config_env() == :prod do
   database_url =

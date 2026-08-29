@@ -36,6 +36,7 @@ defmodule QuickTrain.Accounts do
       define :persist_bearer_session, action: :persist
       define :get_session_by_token_hash, action: :read, get_by: [:token_hash]
       define :revoke_session, action: :revoke
+      define :cleanup_retained_sessions, action: :cleanup_retained, args: [:now]
     end
 
     resource QuickTrain.Accounts.ExternalIdentity do
@@ -56,6 +57,7 @@ defmodule QuickTrain.Accounts do
       define :claim_oidc_login, action: :claim
       define :consume_oidc_login, action: :consume
       define :discard_oidc_login, action: :discard
+      define :cleanup_retained_oidc_logins, action: :cleanup_retained, args: [:now]
     end
 
     resource QuickTrain.Accounts.AuthenticationEvent do

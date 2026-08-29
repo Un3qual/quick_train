@@ -16,7 +16,7 @@
 - [x] 3.1 Enforce trusted-proxy-aware authentication transport at the Phoenix boundary: permit only proof-free begin redirects before login-material creation; hard-reject cleartext exchange and bearer traffic without redirect and before provider, token, or GraphQL work; reject insecure client-callback and provider endpoints; expose no QuickTrain provider-callback route; mark credential-bearing responses `Cache-Control: no-store`; resolve bearer sessions by indexed hash; and install the active global user as both the Absinthe and Ash actor without selecting organization scope.
 - [x] 3.2 Replace generated foundation exposure with an explicit GraphQL root-field allowlist for OIDC begin/exchange; exclude authentication persistence resources and credential or PII fields from introspection, remove health and broad account operations, keep `/healthz`, and restrict GraphiQL to development.
 - [x] 3.3 Add the responsibility-named operator-only first-manager Mix task using transactional Ash actions and the exact user, organization, membership, `manager` role, and assignment identities, including deterministic conflict and concurrent-idempotency handling without creating capability keys or grants.
-- [ ] 3.4 Add the responsibility-named authentication-retention worker and fixed periodic Oban schedule with independently idempotent login-transaction and inactive-session cleanup plus overlap prevention.
+- [x] 3.4 Add the responsibility-named authentication-retention worker and fixed periodic Oban schedule with independently idempotent login-transaction and inactive-session cleanup plus overlap prevention.
 
 ## 4. Focused Verification
 
