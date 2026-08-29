@@ -1,8 +1,11 @@
 defmodule QuickTrain.OidcLoginTest do
   use QuickTrain.DataCase, async: false
 
+  require Ash.Query
+
+  alias Ecto.Adapters.SQL.Sandbox
   alias QuickTrain.Accounts
-  alias QuickTrain.Accounts.{Oidc, OidccProvider}
+  alias QuickTrain.Accounts.{Oidc, OidccProvider, OidcLoginTransaction}
   alias QuickTrain.Authentication
 
   setup do
@@ -138,43 +141,31 @@ defmodule QuickTrain.OidcLoginTest do
     refute_receive {:oidc_authorization, _options}
   end
 
-  test "concurrent begins reserve outstanding-state capacity atomically" do
+  @tag :unboxed_db
+  test "concurrent begins reserve outstanding-state capacity across database connections" do
     authentication = Application.fetch_env!(:quick_train, :authentication)
+    callback_key = "concurrent-#{System.unique_integer([:positive])}"
 
     Application.put_env(
       :quick_train,
       :authentication,
       authentication
+      |> Keyword.put(:oidc_callbacks, [
+        {callback_key, "http://127.0.0.1:4173/oidc/callback"}
+      ])
       |> Keyword.put(:oidc_outstanding_limit, 1)
       |> Keyword.put(:oidc_begin_network_limit, 100)
     )
 
-    parent = self()
+    try do
+      results = concurrent_begins(callback_key, 12)
 
-    tasks =
-      for attempt <- 1..12 do
-        Task.async(fn ->
-          send(parent, {:begin_ready, self()})
-
-          receive do
-            :begin ->
-              begin_oidc_login("desktop", "198.51.100.#{attempt}")
-          end
-        end)
-      end
-
-    task_pids =
-      for _attempt <- 1..12 do
-        assert_receive {:begin_ready, task_pid}
-        task_pid
-      end
-
-    Enum.each(task_pids, &send(&1, :begin))
-    results = Task.await_many(tasks, 15_000)
-
-    assert Enum.count(results, &match?({:ok, _result}, &1)) == 1
-    assert Enum.count(results, &match?({:error, _error}, &1)) == 11
-    assert Ash.count!(QuickTrain.Accounts.OidcLoginTransaction, authorize?: false) == 1
+      assert Enum.count(results, &match?({:ok, _result}, &1)) == 1
+      assert Enum.count(results, &match?({:error, _error}, &1)) == 11
+      assert count_non_expired_transactions(callback_key) == 1
+    after
+      delete_transactions(callback_key)
+    end
   end
 
   test "exchange verifies the separate client proof before provider contact" do
@@ -547,6 +538,63 @@ defmodule QuickTrain.OidcLoginTest do
     Authentication.begin_oidc_login!(callback_key,
       context: %{authentication_network_source: network_source}
     )
+  end
+
+  defp concurrent_begins(callback_key, count) do
+    parent = self()
+
+    tasks =
+      for attempt <- 1..count do
+        Task.async(fn -> await_concurrent_begin(parent, callback_key, attempt) end)
+      end
+
+    task_pids =
+      for _attempt <- 1..count do
+        assert_receive {:begin_ready, task_pid}
+        task_pid
+      end
+
+    Enum.each(task_pids, &send(&1, :begin))
+    Task.await_many(tasks, 15_000)
+  end
+
+  defp await_concurrent_begin(parent, callback_key, attempt) do
+    send(parent, {:begin_ready, self()})
+
+    receive do
+      :begin ->
+        Sandbox.unboxed_run(Repo, fn ->
+          begin_oidc_login(callback_key, "198.51.100.#{attempt}")
+        end)
+    end
+  end
+
+  defp count_non_expired_transactions(callback_key) do
+    now = DateTime.utc_now()
+
+    Sandbox.unboxed_run(Repo, fn ->
+      OidcLoginTransaction
+      |> Ash.Query.filter(callback_key == ^callback_key and expires_at > ^now)
+      |> Ash.count!(authorize?: false)
+    end)
+  end
+
+  defp delete_transactions(callback_key) do
+    Sandbox.unboxed_run(Repo, fn ->
+      result =
+        OidcLoginTransaction
+        |> Ash.Query.filter(callback_key == ^callback_key)
+        |> Ash.bulk_destroy(:discard, %{},
+          authorize?: false,
+          strategy: [:atomic],
+          return_errors?: true
+        )
+
+      case result do
+        %Ash.BulkResult{status: :success} -> :ok
+        %Ash.BulkResult{errors: errors} -> raise Ash.Error.to_error_class(errors)
+      end
+    end)
   end
 
   defp restore_env(key, nil), do: Application.delete_env(:quick_train, key)

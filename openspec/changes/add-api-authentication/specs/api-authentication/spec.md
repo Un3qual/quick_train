@@ -138,10 +138,12 @@ The system SHALL set the active global user resolved from a valid bearer session
 The system SHALL define an explicit public GraphQL allowlist through AshGraphQL. OIDC begin and exchange SHALL be unauthenticated GraphQL mutations generated from typed generic Ash actions; they SHALL NOT be manual Absinthe fields or resolvers. Trusted network-source identity SHALL enter the begin action through Ash request context and SHALL NOT be accepted as a public GraphQL input. Because GraphQL requires a query root, this prerequisite stage SHALL expose one scalar, read-only `apiVersion` query and no application read. `Session`, `OidcLoginTransaction`, and `ExternalIdentity` resources and credential or PII fields including token hashes, OIDC proof or verifier material, provider subjects, and raw provider claims SHALL be absent from public schema introspection and reads rather than relying only on sensitive-field metadata. Operational health SHALL remain available only at `/healthz`, GraphQL SHALL NOT expose a health field, and GraphiQL SHALL be restricted to development. Policy-disabled foundation fields, including broad user list, read, and creation operations, SHALL be absent rather than becoming available to every bearer-authenticated account.
 
 #### Scenario: Unauthenticated schema has no bypass
+
 - **WHEN** an unauthenticated client queries the GraphQL schema
 - **THEN** the query root contains only `apiVersion`, the mutation root contains only OIDC begin and exchange, and no health, product, account, or authentication-persistence operation is available
 
 #### Scenario: OIDC operations use mutation semantics
+
 - **WHEN** a client begins or exchanges an OIDC login through GraphQL
 - **THEN** it invokes a typed generic Ash action through the mutation root, with begin receiving its trusted network source only from Ash request context
 
