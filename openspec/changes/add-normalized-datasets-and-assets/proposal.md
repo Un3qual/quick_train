@@ -8,7 +8,7 @@ QuickTrain cannot define reusable forms or collect paid task responses until org
 - Add organization-owned datasets with race-safe immutable schema versions, record types, typed field definitions, and stable dataset-item identities.
 - Add immutable dataset-item revisions backed by normalized records, value occurrences, and typed scalar or asset values, with relational constraints that bind every revision to its schema's root record type and every value to its record's exact type.
 - Add idempotent import batches and rows with bounded normalized relational staging, stable keyless-item targeting, source provenance, partial completion, open-batch expiry, row-derived progress, and atomically scheduled retry-safe row processing with terminal retry-exhaustion outcomes but no custom processing leases or persisted aggregate counters.
-- Add deliberate GraphQL actions for dataset and schema lifecycle, programmatic import, asset registration and finalization, authorized asset access, and organization-scoped typed reads.
+- Add deliberate GraphQL actions for dataset and schema lifecycle, programmatic import with paginated row-outcome inspection, asset registration and finalization, authorized asset access, and organization-scoped typed reads.
 - Require the separate `add-api-authentication` change before exposing product GraphQL actions. Every product action remains fail-closed and requires an active organization, active membership, and explicit capability.
 - Preserve the additive record envelope: the first release accepts flat single-cardinality typed records, while stable occurrences and record types leave repeated and nested values additive later.
 

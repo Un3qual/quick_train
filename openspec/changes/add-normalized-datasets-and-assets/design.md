@@ -137,7 +137,7 @@ First finalization atomically seals the import and inserts one unique bounded-re
 
 Implementation first uses the simplest supported Oban worker or job-lifecycle mechanism that can prove this terminal outcome, without adding a periodic scanner, pruning coordination, a custom processing scheduler, persisted `processing` state, lease, row attempt counter, attempt fence, or per-attempt recovery job. If the selected stable Oban release cannot guarantee terminalization across its documented failure modes, implementation pauses and updates this design with that evidence before adding reconciliation machinery.
 
-Batch counts and lifecycle are query calculations over indexed rows, not mutable snapshots. The import query derives total, pending, succeeded, unchanged, and failed counts. A sealed import is pending while any row is pending; otherwise it is completed, failed, or partially failed from terminal outcomes. This removes parent-row serialization from independent row completion.
+Batch counts and lifecycle are query calculations over indexed rows, not mutable snapshots. The import query derives total, pending, succeeded, unchanged, and failed counts. Import inspection also returns a bounded cursor-paginated row-outcome connection over those existing rows, including row key, source position, current outcome, sanitized errors, and any resulting item-revision reference. A sealed import is pending while any row is pending; otherwise it is completed, failed, or partially failed from terminal outcomes. This removes parent-row serialization from independent row completion.
 
 Source-file adapters remain later additions. A future CSV or archive importer can register its source as an Asset and call the same row actions without creating another persistence model.
 
@@ -149,7 +149,7 @@ No product content is public. Cross-organization failures do not disclose whethe
 
 ### 8. Expose deliberate GraphQL lifecycle actions
 
-Public operations cover asset registration, finalization and authorized access; dataset and draft-schema lifecycle; import open, append, finalize and inspect; and paginated typed reads. There are no generic mutations for ready asset content, published schemas, item revisions, records, or typed values.
+Public operations cover asset registration, finalization and authorized access; dataset and draft-schema lifecycle; import open, append, finalize, derived progress, and bounded paginated row-outcome inspection; and paginated typed reads. There are no generic mutations for ready asset content, published schemas, item revisions, records, or typed values.
 
 Stable error codes include `forbidden`, `invalid_schema`, `invalid_value`, `asset_not_ready`, `asset_identity_conflict`, `idempotency_conflict`, `import_not_open`, and `import_expired`.
 

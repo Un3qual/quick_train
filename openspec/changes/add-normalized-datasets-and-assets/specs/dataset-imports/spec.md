@@ -138,7 +138,7 @@ Finalization SHALL atomically insert the complete set of unique durable bounded-
 - **THEN** the system records one sanitized failed outcome without manual intervention, allowing the sealed batch to leave `pending`
 
 ### Requirement: Batch progress is derived from rows
-An import SHALL persist only its `open` or `sealed` phase. It SHALL NOT persist aggregate outcome counters or a separate processing lifecycle. Queries SHALL derive `row_count`, `pending`, `succeeded`, `unchanged`, and `failed` from current import rows. These mutually exclusive counts SHALL sum to `row_count`. An open import's lifecycle SHALL be `open`; a sealed import with any pending row SHALL be `pending`; a sealed import with no pending rows SHALL be `completed` when no row failed, `failed` when every nonempty row set failed, and `partially_failed` when failures coexist with succeeded or unchanged rows. An empty sealed import SHALL be `completed`.
+An import SHALL persist only its `open` or `sealed` phase. It SHALL NOT persist aggregate outcome counters or a separate processing lifecycle. Queries SHALL derive `row_count`, `pending`, `succeeded`, `unchanged`, and `failed` from current import rows. These mutually exclusive counts SHALL sum to `row_count`. Authorized inspection SHALL also expose a bounded cursor-paginated read of the import's rows containing each row key, source position, current outcome, sanitized errors when present, and resulting item-revision reference when present. An open import's lifecycle SHALL be `open`; a sealed import with any pending row SHALL be `pending`; a sealed import with no pending rows SHALL be `completed` when no row failed, `failed` when every nonempty row set failed, and `partially_failed` when failures coexist with succeeded or unchanged rows. An empty sealed import SHALL be `completed`.
 
 #### Scenario: Empty sealed batch completes
 - **WHEN** an import with no accepted rows is finalized
@@ -155,6 +155,10 @@ An import SHALL persist only its `open` or `sealed` phase. It SHALL NOT persist 
 #### Scenario: Concurrent completions remain visible
 - **WHEN** independent workers complete different rows concurrently
 - **THEN** later progress queries derive both committed outcomes without relying on a serialized counter snapshot
+
+#### Scenario: Row outcomes are inspected through bounded pages
+- **WHEN** an authorized caller inspects an import whose accepted rows exceed one page
+- **THEN** the system returns a bounded cursor-paginated row-outcome connection whose entries expose provenance, sanitized failures, and resulting revision references without requiring append-request replay
 
 ### Requirement: Concurrent revisions remain ordered
 The system SHALL atomically get or create the stable dataset item for a supplied dataset-scoped external key and SHALL serialize revision creation on that item so revision numbers remain monotonic and one content change does not produce duplicate revisions. Keyless rows SHALL use and lock their row-derived item identity.
