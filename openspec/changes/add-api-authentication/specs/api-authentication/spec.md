@@ -24,11 +24,19 @@ The system SHALL begin OIDC login with fresh server-generated state, nonce, PKCE
 - **THEN** a later request cannot return the transaction to a reusable state or issue a session from it
 
 ### Requirement: OIDC transport and unauthenticated admission are bounded
-The system SHALL accept production OIDC begin, exchange, and provider callback requests only through authenticated encrypted transport after honoring forwarded scheme information solely from configured trusted proxies. Production callback configuration, the configured provider issuer, and every discovered authorization, token, or key endpoint used by the OIDC flow SHALL use HTTPS and SHALL be rejected before provider contact otherwise; exact loopback HTTP callbacks MAY be enabled only in development and test, but provider endpoints receive no such exception. Before persisting login state or contacting a provider, unauthenticated begin SHALL enforce configurable global and per-network-source request limits plus a cap on outstanding unexpired login transactions. Network-source identity SHALL use the direct peer or addresses supplied only by a configured trusted proxy, never an untrusted forwarding header.
+The system SHALL accept production OIDC begin, exchange, and provider callback requests only through authenticated encrypted transport after honoring forwarded scheme information solely from configured trusted proxies. It SHALL hard-reject cleartext exchange and callback requests before provider contact, proof exposure, or session issuance and SHALL NOT redirect them. A proof-free cleartext begin request MAY instead be redirected to encrypted transport, but only before creating or returning state, proof, or provider request material. Production callback configuration, the configured provider issuer, and every discovered authorization, token, or key endpoint used by the OIDC flow SHALL use HTTPS and SHALL be rejected before provider contact otherwise; exact loopback HTTP callbacks MAY be enabled only in development and test, but provider endpoints receive no such exception. Before persisting login state or contacting a provider, unauthenticated begin SHALL enforce configurable global and per-network-source request limits plus a cap on outstanding unexpired login transactions. Network-source identity SHALL use the direct peer or addresses supplied only by a configured trusted proxy, never an untrusted forwarding header.
 
-#### Scenario: Insecure production flow is rejected
-- **WHEN** a production begin, exchange, callback request, or configured non-loopback callback URI uses cleartext transport
-- **THEN** the system redirects or rejects it before exposing proof material, contacting the provider, or issuing a session
+#### Scenario: Cleartext exchange and callback are rejected
+- **WHEN** a production exchange or callback request uses cleartext transport
+- **THEN** the system rejects it without redirecting, contacting the provider, exposing proof material, or issuing a session
+
+#### Scenario: Cleartext begin exposes no login material
+- **WHEN** a production begin request uses cleartext transport
+- **THEN** the system rejects it or redirects only that proof-free request before creating or returning state, proof, or provider request material
+
+#### Scenario: Insecure callback configuration is rejected
+- **WHEN** a configured production non-loopback callback URI uses cleartext transport
+- **THEN** the system rejects the flow before creating login material or contacting the provider
 
 #### Scenario: Insecure provider endpoint is rejected
 - **WHEN** production configuration supplies a cleartext issuer or discovery returns a cleartext authorization, token, or key endpoint
@@ -62,7 +70,7 @@ The system SHALL link an external identity only by a verified canonical issuer a
 - **THEN** exchange reports an account-linking conflict without linking, merging, reassigning, or issuing a session
 
 ### Requirement: Bearer sessions use one-way global-account identity
-The system SHALL generate a high-entropy opaque bearer token, return its raw value only at issuance, and persist only a unique indexed one-way hash with required session metadata. Every session SHALL belong to an active global `User`; it SHALL authenticate only that account and SHALL NOT carry or grant organization authority. Authentication SHALL hash the presented token and resolve at most one unexpired, unrevoked session. Session expiry SHALL NOT exceed a configured maximum lifetime.
+The system SHALL generate a high-entropy opaque bearer token, return its raw value only at issuance, and persist only a unique indexed one-way hash with required session metadata. A session SHALL be issued only for an active global `User`; it SHALL authenticate only that account and SHALL NOT carry or grant organization authority. Authentication SHALL hash the presented token and resolve at most one unexpired, unrevoked session whose user remains active. Disabling a user SHALL make every otherwise valid session for that user immediately ineligible without requiring those session rows to be revoked or deleted. Session expiry SHALL NOT exceed a configured maximum lifetime.
 
 #### Scenario: Issued token is not persisted raw
 - **WHEN** the system issues a bearer session
@@ -77,7 +85,7 @@ The system SHALL generate a high-entropy opaque bearer token, return its raw val
 - **THEN** authentication fails without selecting an organization or exposing protected data
 
 ### Requirement: Inactive session retention is bounded
-The system SHALL automatically and idempotently delete expired or revoked session credential rows only after the later applicable expiry or revocation time plus a fixed retention interval. Cleanup SHALL preserve every unexpired and unrevoked session and SHALL NOT delete separately retained authentication-event evidence.
+The system SHALL automatically and idempotently delete expired or revoked session credential rows only after the later applicable expiry or revocation time plus a fixed retention interval. Cleanup SHALL preserve every unexpired and unrevoked session row, including one whose user has since been disabled, while ordinary authentication continues to require an active user. Cleanup SHALL NOT delete separately retained authentication-event evidence.
 
 #### Scenario: Expired and revoked credentials are eventually removed
 - **WHEN** inactive sessions pass their retention boundary
@@ -85,10 +93,14 @@ The system SHALL automatically and idempotently delete expired or revoked sessio
 
 #### Scenario: Active credentials survive cleanup
 - **WHEN** cleanup examines an unexpired and unrevoked session
-- **THEN** it preserves the session and its bearer token remains eligible for ordinary authentication checks
+- **THEN** it preserves the session row and ordinary authentication separately determines eligibility from session and current-user state
+
+#### Scenario: Disabled-user credential is retained but denied
+- **WHEN** cleanup examines an unexpired and unrevoked session whose user has been disabled
+- **THEN** it preserves the session row while authentication rejects its bearer token
 
 ### Requirement: Authenticated GraphQL resolves a fail-closed actor
-The system SHALL set the active global user resolved from a valid bearer session as both the GraphQL and Ash actor. Every organization-scoped product action SHALL derive its target organization from the protected resource or explicit action relationship and separately require that organization to be active, the actor to have an active membership, and the actor to have the action's explicit capability. Missing scope or authorization SHALL fail closed without disclosing organization data.
+The system SHALL set the active global user resolved from a valid bearer session as both the GraphQL and Ash actor. Every organization-scoped product action and its shared capability-check path SHALL derive its target organization from the protected resource or explicit action relationship and separately require the actor to remain active, that organization to be active, the actor to have an active membership, and the actor to have the action's explicit capability. Missing scope or authorization SHALL fail closed without disclosing organization data.
 
 #### Scenario: Active bearer session supplies the actor
 - **WHEN** a request presents a valid bearer token for an active global user
@@ -101,6 +113,10 @@ The system SHALL set the active global user resolved from a valid bearer session
 #### Scenario: Inactive organization is denied
 - **WHEN** an authenticated member retains grants in an organization that is inactive
 - **THEN** every caller-initiated organization-scoped action is denied without exposing protected data
+
+#### Scenario: Disabled user is denied despite retained grants
+- **WHEN** a disabled user retains an active membership and capability grant in an active organization
+- **THEN** the shared capability check and every caller-initiated organization-scoped action deny access without exposing protected data
 
 ### Requirement: Public GraphQL surface is minimal and authorized
 The system SHALL define an explicit public GraphQL allowlist. At this prerequisite stage it SHALL expose only OIDC begin and exchange root fields, both unauthenticated. `Session`, `OidcLoginTransaction`, and `ExternalIdentity` resources and credential or PII fields including token hashes, OIDC proof or verifier material, provider subjects, and raw provider claims SHALL be absent from public schema introspection and reads rather than relying only on sensitive-field metadata. Operational health SHALL remain available only at `/healthz`, GraphQL SHALL NOT expose a health field, and GraphiQL SHALL be restricted to development. Policy-disabled foundation fields, including broad user list, read, and creation operations, SHALL be absent rather than becoming available to every bearer-authenticated account.
