@@ -3,6 +3,8 @@ defmodule QuickTrain.Accounts.Oidc do
 
   @provider QuickTrain.Accounts.OidcProvider
 
+  def provider_name, do: @provider
+
   def children do
     case config()[:issuer] do
       issuer when is_binary(issuer) and issuer != "" ->
@@ -13,30 +15,11 @@ defmodule QuickTrain.Accounts.Oidc do
     end
   end
 
-  def authorization_url(redirect_uri, opts \\ %{}) do
-    with {:ok, client_id, client_secret} <- client_credentials() do
-      Oidcc.create_redirect_url(
-        @provider,
-        client_id,
-        client_secret,
-        Map.merge(%{redirect_uri: redirect_uri}, opts)
-      )
-    end
-  end
+  def authorization_url(options), do: provider().authorization_url(options)
 
-  def exchange_code(code, redirect_uri, opts \\ %{}) do
-    with {:ok, client_id, client_secret} <- client_credentials() do
-      Oidcc.retrieve_token(
-        code,
-        @provider,
-        client_id,
-        client_secret,
-        Map.merge(%{redirect_uri: redirect_uri}, opts)
-      )
-    end
-  end
+  def exchange_code(code, options), do: provider().exchange_code(code, options)
 
-  defp client_credentials do
+  def client_credentials do
     oidc_config = config()
 
     case {oidc_config[:client_id], oidc_config[:client_secret]} do
@@ -48,6 +31,12 @@ defmodule QuickTrain.Accounts.Oidc do
       _missing ->
         {:error, :oidc_not_configured}
     end
+  end
+
+  defp provider do
+    :quick_train
+    |> Application.get_env(:authentication, [])
+    |> Keyword.get(:oidc_provider, QuickTrain.Accounts.OidccProvider)
   end
 
   defp config, do: Application.get_env(:quick_train, :human_oidc, [])

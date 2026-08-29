@@ -17,7 +17,8 @@ defmodule QuickTrain.Application do
         QuickTrain.Repo,
         {DNSCluster, query: Application.get_env(:quick_train, :dns_cluster_query) || :ignore},
         {Oban, Application.fetch_env!(:quick_train, Oban)},
-        {Phoenix.PubSub, name: QuickTrain.PubSub}
+        {Phoenix.PubSub, name: QuickTrain.PubSub},
+        {QuickTrain.Accounts.OidcBeginLimiter, clean_period: :timer.minutes(10)}
       ] ++
         Oidc.children() ++
         [QuickTrainWeb.Endpoint]

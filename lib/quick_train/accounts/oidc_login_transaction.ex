@@ -36,6 +36,13 @@ defmodule QuickTrain.Accounts.OidcLoginTransaction do
   actions do
     defaults [:read]
 
+    action :begin_login, :map do
+      argument :callback_key, :string, allow_nil?: false
+      argument :network_source, :string, allow_nil?: false
+
+      run QuickTrain.Accounts.OidcLoginTransaction.Actions.BeginLogin
+    end
+
     create :begin do
       accept [
         :state_hash,

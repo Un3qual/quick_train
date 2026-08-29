@@ -39,6 +39,7 @@ defmodule QuickTrain.Accounts do
     end
 
     resource QuickTrain.Accounts.OidcLoginTransaction do
+      define :begin_oidc_login, action: :begin_login, args: [:callback_key, :network_source]
       define :store_oidc_login, action: :begin
       define :get_oidc_login, action: :read, get_by: [:state_hash]
       define :claim_oidc_login, action: :claim
