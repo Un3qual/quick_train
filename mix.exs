@@ -60,6 +60,7 @@ defmodule QuickTrain.MixProject do
       {:absinthe_plug, "== 1.5.10"},
       {:oidcc, "== 3.8.0"},
       {:req, "== 0.7.2"},
+      {:oban, "== 2.24.0"},
       {:boundary, "== 0.10.4", runtime: false},
       {:credo, "== 1.7.19", only: [:dev, :test], runtime: false},
       {:dialyxir, "== 1.4.7", only: [:dev, :test], runtime: false},

@@ -16,6 +16,7 @@ defmodule QuickTrain.Application do
         QuickTrainWeb.Telemetry,
         QuickTrain.Repo,
         {DNSCluster, query: Application.get_env(:quick_train, :dns_cluster_query) || :ignore},
+        {Oban, Application.fetch_env!(:quick_train, Oban)},
         {Phoenix.PubSub, name: QuickTrain.PubSub}
       ] ++
         Oidc.children() ++
