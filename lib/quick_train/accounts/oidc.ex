@@ -19,6 +19,13 @@ defmodule QuickTrain.Accounts.Oidc do
 
   def exchange_code(code, options), do: provider().exchange_code(code, options)
 
+  def nonce_for_verifier(pkce_verifier) do
+    :crypto.mac(:hmac, :sha256, pkce_verifier, "quick-train-oidc-nonce-v1")
+    |> Base.url_encode64(padding: false)
+  end
+
+  def issuer, do: config()[:issuer]
+
   def client_credentials do
     oidc_config = config()
 

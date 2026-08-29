@@ -8,8 +8,8 @@
 
 - [x] 2.1 Implement the OIDC begin action with server-generated state, nonce, S256 PKCE, separate client redemption proof, trusted client-owned callback selection, collision handling, safe output/log filtering, and standard global, network-source, and outstanding-state admission limits enforced before persistence or provider work.
 - [ ] 2.2 Implement client callback handoff through GraphQL exchange: accept the provider code and state with the separate client proof, expose no QuickTrain callback route, atomically claim the matching transaction from pending to exchanging only after proof verification and before provider contact, and never reopen a claimed transaction.
-- [ ] 2.3 Implement verified provider exchange, issuer/subject-only identity resolution, active identity/user locking, atomic new-user-and-identity creation with concurrency-safe uniqueness handling, deterministic display names, and fail-closed conflicts.
-- [ ] 2.4 Implement atomic bearer issuance with the consumed transition, returning the opaque token once while persisting only its unique SHA-256 hash and global-user session metadata.
+- [x] 2.3 Implement verified provider exchange, issuer/subject-only identity resolution, active identity/user locking, atomic new-user-and-identity creation with concurrency-safe uniqueness handling, deterministic display names, and fail-closed conflicts.
+- [x] 2.4 Implement atomic bearer issuance with the consumed transition, returning the opaque token once while persisting only its unique SHA-256 hash and global-user session metadata.
 
 ## 3. API Actor and Administration Boundaries
 

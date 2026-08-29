@@ -184,9 +184,7 @@ defmodule QuickTrain.Accounts.OidcLoginTransaction.Actions.BeginLogin do
     client_proof = random_url_value(@proof_bytes)
     pkce_verifier = random_url_value(@verifier_bytes)
 
-    nonce =
-      :crypto.mac(:hmac, :sha256, pkce_verifier, "quick-train-oidc-nonce-v1")
-      |> Base.url_encode64(padding: false)
+    nonce = Oidc.nonce_for_verifier(pkce_verifier)
 
     code_challenge = pkce_verifier |> sha256() |> Base.url_encode64(padding: false)
 

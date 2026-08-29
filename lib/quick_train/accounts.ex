@@ -21,6 +21,7 @@ defmodule QuickTrain.Accounts do
   resources do
     resource QuickTrain.Accounts.User do
       define :register_user, action: :register, args: [:email, :display_name]
+      define :create_oidc_user, action: :create_from_oidc
       define :list_active_users, action: :list_active
       define :get_user, action: :read, get_by: [:id]
     end
@@ -40,6 +41,11 @@ defmodule QuickTrain.Accounts do
 
     resource QuickTrain.Accounts.OidcLoginTransaction do
       define :begin_oidc_login, action: :begin_login, args: [:callback_key, :network_source]
+
+      define :exchange_oidc_login,
+        action: :exchange_login,
+        args: [:code, :state, :client_proof]
+
       define :store_oidc_login, action: :begin
       define :get_oidc_login, action: :read, get_by: [:state_hash]
       define :claim_oidc_login, action: :claim

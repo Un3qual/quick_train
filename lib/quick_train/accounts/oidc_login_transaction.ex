@@ -43,6 +43,14 @@ defmodule QuickTrain.Accounts.OidcLoginTransaction do
       run QuickTrain.Accounts.OidcLoginTransaction.Actions.BeginLogin
     end
 
+    action :exchange_login, :map do
+      argument :code, :string, allow_nil?: false
+      argument :state, :string, allow_nil?: false
+      argument :client_proof, :string, allow_nil?: false
+
+      run QuickTrain.Accounts.OidcLoginTransaction.Actions.ExchangeLogin
+    end
+
     create :begin do
       accept [
         :state_hash,
