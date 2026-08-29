@@ -23,8 +23,8 @@ The system SHALL begin OIDC login with fresh server-generated state, nonce, PKCE
 - **WHEN** an exchange fails or is interrupted after winning the one-time claim
 - **THEN** a later request cannot return the transaction to a reusable state or issue a session from it
 
-### Requirement: OIDC transport and unauthenticated admission are bounded
-The system SHALL accept production OIDC begin, exchange, and provider callback requests only through authenticated encrypted transport after honoring forwarded scheme information solely from configured trusted proxies. It SHALL hard-reject cleartext exchange and callback requests before provider contact, proof exposure, or session issuance and SHALL NOT redirect them. A proof-free cleartext begin request MAY instead be redirected to encrypted transport, but only before creating or returning state, proof, or provider request material. Production callback configuration, the configured provider issuer, and every discovered authorization, token, or key endpoint used by the OIDC flow SHALL use HTTPS and SHALL be rejected before provider contact otherwise; exact loopback HTTP callbacks MAY be enabled only in development and test, but provider endpoints receive no such exception. Before persisting login state or contacting a provider, unauthenticated begin SHALL enforce configurable global and per-network-source request limits plus a cap on outstanding unexpired login transactions. Network-source identity SHALL use the direct peer or addresses supplied only by a configured trusted proxy, never an untrusted forwarding header.
+### Requirement: Authentication transport and unauthenticated admission are bounded
+The system SHALL accept production OIDC begin, exchange, and provider callback requests only through authenticated encrypted transport after honoring forwarded scheme information solely from configured trusted proxies. It SHALL hard-reject cleartext exchange and callback requests before provider contact, proof exposure, or session issuance and SHALL NOT redirect them. A proof-free cleartext begin request MAY instead be redirected to encrypted transport, but only before creating or returning state, proof, or provider request material. Every production request presenting a bearer credential SHALL pass the same trusted-proxy-aware encrypted-transport check and SHALL be hard-rejected without redirect before token hashing or lookup, GraphQL parsing, or action dispatch. Every response carrying OIDC state, client proof, provider request material, or a raw bearer token SHALL include `Cache-Control: no-store`. Production callback configuration, the configured provider issuer, and every discovered authorization, token, or key endpoint used by the OIDC flow SHALL use HTTPS and SHALL be rejected before provider contact otherwise; exact loopback HTTP callbacks MAY be enabled only in development and test, but provider endpoints receive no such exception. Before persisting login state or contacting a provider, unauthenticated begin SHALL enforce configurable global and per-network-source request limits plus a cap on outstanding unexpired login transactions. Network-source identity SHALL use the direct peer or addresses supplied only by a configured trusted proxy, never an untrusted forwarding header.
 
 #### Scenario: Cleartext exchange and callback are rejected
 - **WHEN** a production exchange or callback request uses cleartext transport
@@ -33,6 +33,14 @@ The system SHALL accept production OIDC begin, exchange, and provider callback r
 #### Scenario: Cleartext begin exposes no login material
 - **WHEN** a production begin request uses cleartext transport
 - **THEN** the system rejects it or redirects only that proof-free request before creating or returning state, proof, or provider request material
+
+#### Scenario: Cleartext bearer request is rejected before authentication
+- **WHEN** a production GraphQL request presents a bearer credential over cleartext transport
+- **THEN** the system rejects it without redirecting, hashing or looking up the token, parsing GraphQL, or dispatching an action
+
+#### Scenario: Login and bearer material is not cacheable
+- **WHEN** a response returns OIDC state, client proof, provider request material, or a newly issued raw bearer token
+- **THEN** the response is marked `Cache-Control: no-store`
 
 #### Scenario: Insecure callback configuration is rejected
 - **WHEN** a configured production non-loopback callback URI uses cleartext transport
@@ -100,15 +108,19 @@ The system SHALL automatically and idempotently delete expired or revoked sessio
 - **THEN** it preserves the session row while authentication rejects its bearer token
 
 ### Requirement: Authenticated GraphQL resolves a fail-closed actor
-The system SHALL set the active global user resolved from a valid bearer session as both the GraphQL and Ash actor. Every organization-scoped product action and its shared capability-check path SHALL derive its target organization from the protected resource or explicit action relationship and separately require the actor to remain active, that organization to be active, the actor to have an active membership, and the actor to have the action's explicit capability. Missing scope or authorization SHALL fail closed without disclosing organization data.
+The system SHALL set the active global user resolved from a valid bearer session as both the GraphQL and Ash actor. The shared organization-capability authorization path SHALL derive its target organization from the protected resource or explicit action relationship and separately require the actor to remain active, that organization to be active, the actor to have an active membership, and the actor to have the action's explicit capability. An organization-scoped product action MAY use another authorization path only when the product capability that owns the action explicitly defines a named relationship-bound contract; such a path SHALL still require an active actor and active organization and SHALL NOT treat the bearer session alone as organization authority. Missing scope or authorization SHALL fail closed without disclosing organization data.
 
 #### Scenario: Active bearer session supplies the actor
 - **WHEN** a request presents a valid bearer token for an active global user
 - **THEN** GraphQL and Ash receive that user as the request actor
 
 #### Scenario: Membership and capability remain required
-- **WHEN** an authenticated user lacks an active membership or required capability for the target organization
-- **THEN** the product action is denied without disclosing the protected resource
+- **WHEN** an action uses organization-capability authorization and the authenticated user lacks an active membership or required capability for the target organization
+- **THEN** the shared path denies the action without disclosing the protected resource
+
+#### Scenario: Undefined alternative authorization is denied
+- **WHEN** an organization-scoped action does not satisfy the shared organization-capability path and its owning product capability defines no other relationship-bound authorization contract
+- **THEN** authentication alone grants no organization access and the action is denied without disclosing the protected resource
 
 #### Scenario: Inactive organization is denied
 - **WHEN** an authenticated member retains grants in an organization that is inactive

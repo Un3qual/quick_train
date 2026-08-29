@@ -105,7 +105,7 @@ Project lifecycle permits `draft -> active`, `active <-> paused`, either `active
 
 The global `User` remains the only account model. Organization membership is optional. Projects support `organization_members`, `external_users`, or `both` audiences without separate task or response tables.
 
-External access initially supports open authenticated access and explicit allowlists, with future qualification, geography, and reputation requirements as additive eligibility rules. Explicit blocks override positive routes. A user may qualify through membership and external eligibility simultaneously.
+External access initially supports open authenticated access and explicit allowlists, with future qualification, geography, and reputation requirements as additive eligibility rules. This is a named project-worker eligibility path, not the shared organization-capability path: it requires an active global user, active organization, active project, and a matching project audience route. The `organization_members` route additionally requires active membership; the `external_users` route applies the project's external-access and allowlist rules without requiring membership; and `both` accepts either route. Explicit blocks override positive routes, and a user may qualify through both simultaneously. A bearer session or open audience setting alone grants no dataset, asset, task, or project browsing authority.
 
 Work can be obtained by pool claim or direct assignment. Both routes create the same leased Attempt state machine and response model.
 
@@ -233,9 +233,9 @@ Skipping is tracked but is not automatically a negative signal because it may in
 
 ### M. Authorization and GraphQL boundaries for later domains
 
-Organization management actions require an active account, active organization, active membership, and explicit capabilities such as dataset, form, and project management, task review, and finance management.
+Organization management actions use the shared organization-capability path and require an active account, active organization, active membership, and explicit capabilities such as dataset, form, and project management, task review, and finance management.
 
-Workers cannot browse arbitrary datasets or unallocated tasks. `fetch_work` performs eligibility and funding checks and returns a leased attempt. Dataset values and assets become readable only through that attempt. Draft responses are writable only by the attempt owner. Submitted evidence is immutable. Reviewers cannot edit worker answers.
+Worker actions use the separate project-worker eligibility and attempt-ownership path that the future Projects and Tasks capabilities must specify normatively. `fetch_work` requires an active account, organization, and project, then applies the configured audience route, eligibility, explicit blocks, and funding checks; only the organization-member route requires membership. Workers cannot browse arbitrary datasets or unallocated tasks. A successful fetch returns a leased attempt, and only that attempt relationship grants its owner narrowly scoped reads of the allocated dataset values and assets plus writes to its draft response. Submitted evidence is immutable. Reviewers cannot edit worker answers.
 
 All application API behavior is GraphQL except `/healthz`. APIs expose deliberate lifecycle actions rather than generic mutation of immutable revisions, tasks, responses, reviews, reputation projections, or ledger postings.
 
