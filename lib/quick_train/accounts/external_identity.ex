@@ -9,18 +9,18 @@ defmodule QuickTrain.Accounts.ExternalIdentity do
     table "external_identities"
     repo QuickTrain.Repo
 
-    identity_index_names provider_subject: "external_identities_provider_subject_index",
-                         user_provider: "external_identities_user_provider_index"
+    identity_index_names issuer_subject: "external_identities_issuer_subject_index",
+                         user_issuer: "external_identities_user_issuer_index"
   end
 
   attributes do
     uuid_primary_key :id
-    attribute :provider, :string, allow_nil?: false, public?: true
-    attribute :subject, :string, allow_nil?: false, public?: true
-    attribute :status, :string, allow_nil?: false, public?: true, default: "active"
-    attribute :claims, :map, allow_nil?: false, public?: true, default: %{}
-    create_timestamp :inserted_at, public?: true
-    update_timestamp :updated_at, public?: true
+    attribute :issuer, :string, allow_nil?: false, sensitive?: true
+    attribute :subject, :string, allow_nil?: false, sensitive?: true
+    attribute :status, :string, allow_nil?: false, default: "active"
+    attribute :claims, :map, allow_nil?: false, sensitive?: true, default: %{}
+    create_timestamp :inserted_at
+    update_timestamp :updated_at
   end
 
   relationships do
@@ -33,21 +33,25 @@ defmodule QuickTrain.Accounts.ExternalIdentity do
   actions do
     defaults [:read]
 
-    create :link do
-      accept [:user_id, :provider, :subject, :status, :claims]
-      upsert? true
-      upsert_identity :provider_subject
-      upsert_fields [:user_id, :status, :claims]
-      return_skipped_upsert? true
+    create :create_identity do
+      accept [:user_id, :issuer, :subject, :claims]
     end
 
     update :refresh do
-      accept [:status, :claims]
+      accept [:claims]
+    end
+
+    update :set_status do
+      accept [:status]
     end
   end
 
+  validations do
+    validate one_of(:status, ~w(active inactive))
+  end
+
   identities do
-    identity :provider_subject, [:provider, :subject]
-    identity :user_provider, [:user_id, :provider]
+    identity :issuer_subject, [:issuer, :subject]
+    identity :user_issuer, [:user_id, :issuer]
   end
 end

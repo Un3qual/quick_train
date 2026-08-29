@@ -8,6 +8,8 @@ config :quick_train, Oban,
   pruner: [max_age: {1, :day}],
   repo: QuickTrain.Repo
 
+config :quick_train, :authentication, session_max_lifetime_seconds: 8 * 60 * 60
+
 config :quick_train,
   ash_domains: [
     QuickTrain.Accounts,

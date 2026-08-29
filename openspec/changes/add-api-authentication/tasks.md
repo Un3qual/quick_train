@@ -1,8 +1,8 @@
 ## 1. Authentication Tooling and Persistence
 
 - [x] 1.1 Select and exactly pin a stable GA Oban release, update `.mise.toml`, `mix.exs`, and `mix.lock` together, and run its supported generator for the jobs-table migration.
-- [ ] 1.2 Refine the OIDC login-transaction Ash resource, snapshot, and clean-database migration for hashed proof material, trusted callbacks, one-way lifecycle, expiry, retention, identities, and indexes.
-- [ ] 1.3 Refine ExternalIdentity and Session resources, snapshots, and clean-database migrations for immutable issuer/subject identity, active-state checks, global-account-only sessions, private required unique token hashes, bounded lifetime and retention, and indexed lookup. Remove the organization relationship and replace the legacy `Accounts.issue_session/2` API plus existing organization-scoped callers and tests with the internal bearer-issuance path.
+- [x] 1.2 Refine the OIDC login-transaction Ash resource, snapshot, and clean-database migration for hashed proof material, trusted callbacks, one-way lifecycle, expiry, retention, identities, and indexes.
+- [x] 1.3 Refine ExternalIdentity and Session resources, snapshots, and clean-database migrations for immutable issuer/subject identity, active-state checks, global-account-only sessions, private required unique token hashes, bounded lifetime and retention, and indexed lookup. Remove the organization relationship and replace the legacy `Accounts.issue_session/2` API plus existing organization-scoped callers and tests with the internal bearer-issuance path.
 
 ## 2. OIDC Login and Session Issuance
 

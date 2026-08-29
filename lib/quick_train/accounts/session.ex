@@ -1,53 +1,61 @@
 defmodule QuickTrain.Accounts.Session do
-  @moduledoc "An account-required session, optionally scoped to an organization."
+  @moduledoc "A hash-only bearer credential for one active global user account."
 
   use Ash.Resource,
     domain: QuickTrain.Accounts,
     data_layer: AshPostgres.DataLayer
 
   alias QuickTrain.Accounts.User
-  alias QuickTrain.Organizations
-  alias QuickTrain.Organizations.Organization
 
   postgres do
     table "sessions"
     repo QuickTrain.Repo
+    identity_index_names token_hash: "sessions_token_hash_index"
+
+    custom_indexes do
+      index [:expires_at], name: "sessions_expires_at_index"
+      index [:revoked_at], name: "sessions_revoked_at_index", where: "revoked_at IS NOT NULL"
+    end
   end
 
   attributes do
     uuid_primary_key :id
 
-    attribute :authentication_method, :string, allow_nil?: false, public?: true, default: "oidc"
-    attribute :token_hash, :string, public?: true, sensitive?: true
+    attribute :authentication_method, :string, allow_nil?: false, default: "oidc"
+    attribute :token_hash, :binary, allow_nil?: false, sensitive?: true
 
-    attribute :issued_at, :utc_datetime_usec, allow_nil?: false, public?: true
-    attribute :expires_at, :utc_datetime_usec, allow_nil?: false, public?: true
-    attribute :revoked_at, :utc_datetime_usec, public?: true
-    create_timestamp :inserted_at, public?: true
-    update_timestamp :updated_at, public?: true
+    attribute :issued_at, :utc_datetime_usec, allow_nil?: false
+    attribute :expires_at, :utc_datetime_usec, allow_nil?: false
+    attribute :revoked_at, :utc_datetime_usec
+    create_timestamp :inserted_at
+    update_timestamp :updated_at
   end
 
   relationships do
-    belongs_to :user, User,
-      allow_nil?: false,
-      attribute_public?: true,
-      filter: expr(status == "active")
-
-    belongs_to :organization, Organization,
-      allow_nil?: true,
-      attribute_public?: true
+    belongs_to :user, User do
+      allow_nil? false
+      filter expr(status == "active")
+    end
   end
 
   actions do
     defaults [:read]
 
-    create :issue do
+    action :issue_bearer, :map do
+      argument :user_id, :uuid, allow_nil?: false
+      argument :lifetime_seconds, :integer
+
+      run QuickTrain.Accounts.Session.Actions.IssueBearer
+    end
+
+    create :persist do
       argument :user_id, :uuid, allow_nil?: false
 
       accept [
-        :organization_id,
         :authentication_method,
-        :token_hash
+        :token_hash,
+        :issued_at,
+        :expires_at
       ]
 
       change manage_relationship(:user_id, :user,
@@ -57,22 +65,16 @@ defmodule QuickTrain.Accounts.Session do
                error_path: :user_id
              )
 
-      change QuickTrain.Accounts.Session.Changes.SetTimestamps
-
-      validate fn changeset, _context ->
-        organization_id = Ash.Changeset.get_attribute(changeset, :organization_id)
-        user_id = Ash.Changeset.get_argument(changeset, :user_id)
-
-        if is_nil(organization_id) or Organizations.member?(organization_id, user_id) do
-          :ok
-        else
-          {:error, field: :organization_id, message: "active membership required"}
-        end
-      end
+      validate compare(:expires_at, greater_than: :issued_at)
     end
 
     update :revoke do
-      accept [:revoked_at]
+      accept []
+      change set_attribute(:revoked_at, expr(now()))
     end
+  end
+
+  identities do
+    identity :token_hash, [:token_hash]
   end
 end

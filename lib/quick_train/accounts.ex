@@ -26,25 +26,22 @@ defmodule QuickTrain.Accounts do
     end
 
     resource QuickTrain.Accounts.Session do
-      define :issue_session, action: :issue, args: [:user_id]
+      define :issue_bearer_session, action: :issue_bearer, args: [:user_id]
+      define :persist_bearer_session, action: :persist
+      define :get_session_by_token_hash, action: :read, get_by: [:token_hash]
       define :revoke_session, action: :revoke
     end
 
     resource QuickTrain.Accounts.ExternalIdentity do
-      define :link_external_identity,
-        action: :link,
-        args: [:user_id, :provider, :subject]
-
-      define :get_external_identity, action: :read, get_by: [:provider, :subject]
+      define :create_external_identity, action: :create_identity
+      define :get_external_identity, action: :read, get_by: [:issuer, :subject]
       define :refresh_external_identity, action: :refresh
     end
 
     resource QuickTrain.Accounts.OidcLoginTransaction do
-      define :begin_oidc_login,
-        action: :begin,
-        args: [:state_hash, :code_verifier, :expires_at]
-
+      define :store_oidc_login, action: :begin
       define :get_oidc_login, action: :read, get_by: [:state_hash]
+      define :claim_oidc_login, action: :claim
       define :consume_oidc_login, action: :consume
       define :discard_oidc_login, action: :discard
     end
