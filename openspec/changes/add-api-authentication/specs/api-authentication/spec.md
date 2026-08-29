@@ -24,18 +24,22 @@ The system SHALL begin OIDC login with fresh server-generated state, nonce, PKCE
 - **THEN** a later request cannot return the transaction to a reusable state or issue a session from it
 
 ### Requirement: OIDC transport and unauthenticated admission are bounded
-The system SHALL accept production OIDC begin, exchange, and provider callback requests only through authenticated encrypted transport after honoring forwarded scheme information solely from configured trusted proxies. Production callback configuration SHALL use HTTPS; exact loopback HTTP callbacks MAY be enabled only in development and test. Before persisting login state or contacting a provider, unauthenticated begin SHALL enforce configurable global and per-network-source request limits plus a cap on outstanding unexpired login transactions. Network-source identity SHALL use the direct peer or addresses supplied only by a configured trusted proxy, never an untrusted forwarding header.
+The system SHALL accept production OIDC begin, exchange, and provider callback requests only through authenticated encrypted transport after honoring forwarded scheme information solely from configured trusted proxies. Production callback configuration, the configured provider issuer, and every discovered authorization, token, or key endpoint used by the OIDC flow SHALL use HTTPS and SHALL be rejected before provider contact otherwise; exact loopback HTTP callbacks MAY be enabled only in development and test, but provider endpoints receive no such exception. Before persisting login state or contacting a provider, unauthenticated begin SHALL enforce configurable global and per-network-source request limits plus a cap on outstanding unexpired login transactions. Network-source identity SHALL use the direct peer or addresses supplied only by a configured trusted proxy, never an untrusted forwarding header.
 
 #### Scenario: Insecure production flow is rejected
 - **WHEN** a production begin, exchange, callback request, or configured non-loopback callback URI uses cleartext transport
 - **THEN** the system redirects or rejects it before exposing proof material, contacting the provider, or issuing a session
+
+#### Scenario: Insecure provider endpoint is rejected
+- **WHEN** production configuration supplies a cleartext issuer or discovery returns a cleartext authorization, token, or key endpoint
+- **THEN** the system rejects the flow before sending an authorization request, code, client credential, token, or verification-key request to that endpoint
 
 #### Scenario: Sustained begin traffic is bounded
 - **WHEN** unauthenticated begin traffic exceeds a configured request or outstanding-transaction limit
 - **THEN** the system rejects excess requests before creating another login transaction or contacting the provider
 
 ### Requirement: OIDC account linking fails closed
-The system SHALL link an external identity only by a verified canonical issuer and subject. It SHALL validate the provider response and require an existing external identity and its linked global user to be active before issuing a session. A new global user SHALL require a nonempty provider-verified email and SHALL receive a deterministic display name from nonblank provider name claims or the normalized email local part. Email and presentation claims SHALL NOT select, merge, reassign, or reactivate an existing account. Identity, email, status, or relationship conflicts SHALL fail closed without issuing a session.
+The system SHALL link an external identity only by a verified canonical issuer and subject. It SHALL validate the provider response and require an existing external identity and its linked global user to be active before issuing a session. A new global user SHALL require a nonempty provider-verified email and SHALL receive a deterministic display name from nonblank provider name claims or the normalized email local part. Creation of that user and its issuer/subject identity SHALL be atomic and concurrency safe so a losing identity-uniqueness transaction cannot leave an unlinked user. Email and presentation claims SHALL NOT select, merge, reassign, or reactivate an existing account. Identity, email, status, or relationship conflicts SHALL fail closed without issuing a session.
 
 #### Scenario: Existing issuer and subject resolve immutably
 - **WHEN** a verified provider response matches an active external identity and active global user
@@ -48,6 +52,10 @@ The system SHALL link an external identity only by a verified canonical issuer a
 #### Scenario: New verified-email account gets a display name
 - **WHEN** a new verified identity supplies an email but no nonblank name claim
 - **THEN** exchange creates one active global user using the normalized email local part as the display name without using it to link another account
+
+#### Scenario: Concurrent first login creates one account graph
+- **WHEN** independent exchanges concurrently resolve the same previously unseen verified issuer and subject
+- **THEN** they converge on one external identity and one linked global user, and any losing transaction leaves no additional unlinked user
 
 #### Scenario: Existing email is not an implicit link
 - **WHEN** a new verified issuer and subject present an email already owned by another global user

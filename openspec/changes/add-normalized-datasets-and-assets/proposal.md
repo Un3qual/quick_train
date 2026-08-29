@@ -4,10 +4,10 @@ QuickTrain cannot define reusable forms or collect paid task responses until org
 
 ## What Changes
 
-- Add immutable, SHA-256-addressed asset metadata and a provider-neutral storage boundary that enforces bounded size and image dimensions, verifies and converges on one canonical sealed object, rejects active or falsely declared content, separates writable staging from sealed reads, and serializes abandoned-staging cleanup with finalization.
+- Add immutable, SHA-256-addressed asset metadata and a provider-neutral storage boundary that verifies staging bytes before canonical publication, enforces bounded size and image dimensions, converges on one canonical sealed object, rejects active or falsely declared content, separates writable staging from sealed reads, and coordinates recoverable finalization with late-write-safe staging cleanup.
 - Add organization-owned datasets with race-safe immutable schema versions, record types, typed field definitions, and stable dataset-item identities.
 - Add immutable dataset-item revisions backed by normalized records, value occurrences, and typed scalar or asset values, with relational constraints that bind every revision to its schema's root record type and every value to its record's exact type.
-- Add idempotent import batches and rows with bounded normalized relational staging, stable keyless-item targeting, source provenance, partial completion, open-batch expiry, row-derived progress, and retry-safe Oban processing with terminal retry-exhaustion outcomes but no custom processing leases or persisted aggregate counters.
+- Add idempotent import batches and rows with bounded normalized relational staging, stable keyless-item targeting, source provenance, partial completion, open-batch expiry, row-derived progress, and atomically scheduled retry-safe row processing with terminal retry-exhaustion outcomes but no custom processing leases or persisted aggregate counters.
 - Add deliberate GraphQL actions for dataset and schema lifecycle, programmatic import, asset registration and finalization, authorized asset access, and organization-scoped typed reads.
 - Require the separate `add-api-authentication` change before exposing product GraphQL actions. Every product action remains fail-closed and requires an active organization, active membership, and explicit capability.
 - Preserve the additive record envelope: the first release accepts flat single-cardinality typed records, while stable occurrences and record types leave repeated and nested values additive later.

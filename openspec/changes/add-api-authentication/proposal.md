@@ -4,8 +4,8 @@ QuickTrain cannot safely expose organization-owned product data until GraphQL ca
 
 ## What Changes
 
-- Complete a one-time OIDC begin/exchange handshake with server-generated state, nonce, S256 PKCE, a client-bound exchange proof, server-selected callbacks, encrypted production transport, and bounded unauthenticated admission.
-- Link accounts only by the verified issuer and subject, require active identities and users, and never link or reactivate an account by email.
+- Complete a one-time OIDC begin/exchange handshake with server-generated state, nonce, S256 PKCE, a client-bound exchange proof, server-selected callbacks, HTTPS-only production provider endpoints, encrypted production request transport, and bounded unauthenticated admission.
+- Link accounts only by the verified issuer and subject, create each new user and external identity atomically, require active identities and users, and never link or reactivate an account by email.
 - Issue high-entropy opaque bearer sessions, persist only indexed one-way token hashes, bound inactive-session retention, and make sessions authenticate only the global `User` rather than carrying organization authority.
 - Resolve the bearer session into both the GraphQL and Ash actor while requiring each organization-scoped action to derive and authorize its own active organization, membership, and capability.
 - Define an explicit public GraphQL allowlist that excludes authentication persistence resources and credential or PII fields, keep `/healthz` separate, restrict GraphiQL to development, and expose only OIDC begin/exchange without authentication.

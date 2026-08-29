@@ -89,7 +89,7 @@ For a valid row without an external key, the persisted import-row UUID SHALL be 
 - **THEN** the row records a sanitized field failure without creating a candidate graph or revision
 
 ### Requirement: Finalization seals the accepted row set
-Every import SHALL begin in persisted phase `open` with a server-calculated immutable expiry. Append and finalization SHALL lock the same import and recheck its phase and expiry. The first valid finalization SHALL atomically change the phase to `sealed` and insert one import-identity-unique processing job. A sealed import SHALL accept no later row. An expired open import SHALL reject append and first finalization with `import_expired`. Matching sequential or concurrent finalization retries SHALL return the same sealed import and SHALL not enqueue duplicate processing.
+Every import SHALL begin in persisted phase `open` with a server-calculated immutable expiry. Append and finalization SHALL lock the same import and recheck its phase and expiry. The first valid finalization SHALL atomically change the phase to `sealed` and insert one row-identity-unique bounded-retry processing job for every pending row; failure to insert the complete job set SHALL roll back sealing. A sealed import SHALL accept no later row. An expired open import SHALL reject append and first finalization with `import_expired`. Matching sequential or concurrent finalization retries SHALL return the same sealed import and SHALL not enqueue duplicate processing.
 
 #### Scenario: Append races finalization
 - **WHEN** finalization seals the import before a concurrent append acquires its lock
@@ -97,7 +97,7 @@ Every import SHALL begin in persisted phase `open` with a server-calculated immu
 
 #### Scenario: Lost finalization response is retry safe
 - **WHEN** finalization commits but its response is lost
-- **THEN** a retry returns the sealed import and exactly one batch-processing job exists
+- **THEN** a retry returns the sealed import and exactly one processing job exists for each pending row
 
 #### Scenario: Expired open import rejects work
 - **WHEN** append or first finalization locks an open import after its expiry
@@ -119,11 +119,11 @@ Automatic cleanup SHALL scan expired open imports, lock the same import row used
 - **THEN** it returns `import_expired` and leaves the open import eligible for cleanup
 
 ### Requirement: Row processing is idempotent and retryable
-Finalization SHALL cause every pending row to receive a unique durable bounded-retry processing job. A row job SHALL lock the row, return without work when it is already terminal, and atomically commit its item revision reference and terminal `succeeded`, `unchanged`, or `failed` outcome. A worker or enqueue failure before that commit SHALL leave the row pending so standard job retry can try again. A retry after the commit SHALL observe the terminal row and SHALL not duplicate an item revision. When retry exhaustion or cancellation leaves no runnable attempt, the system SHALL automatically and atomically record sanitized `processing_retries_exhausted` failure so the import cannot remain pending indefinitely. The capability contract does not mandate a periodic scanner, pruning coordination, custom row-processing lease, persisted row attempt counter, attempt fence, or per-attempt recovery job.
+Finalization SHALL atomically insert the complete set of unique durable bounded-retry jobs for pending rows rather than relying on a separate fan-out worker. A row job SHALL lock the row, return without work when it is already terminal, and atomically commit its item revision reference and terminal `succeeded`, `unchanged`, or `failed` outcome. A worker failure before that commit SHALL leave the row pending so standard job retry can try again. A retry after the commit SHALL observe the terminal row and SHALL not duplicate an item revision. When retry exhaustion or cancellation leaves no runnable attempt, the system SHALL automatically and atomically record sanitized `processing_retries_exhausted` failure so the import cannot remain pending indefinitely. The capability contract does not mandate a periodic scanner, pruning coordination, custom row-processing lease, persisted row attempt counter, attempt fence, or per-attempt recovery job.
 
-#### Scenario: Batch enqueue is retried safely
-- **WHEN** the batch worker stops after enqueueing only some pending rows
-- **THEN** its retry uses job uniqueness to enqueue every remaining row without duplicating row jobs
+#### Scenario: Row-job scheduling is atomic with sealing
+- **WHEN** finalization cannot insert the complete unique job set for all pending rows
+- **THEN** sealing rolls back and a retry may attempt the same complete operation without leaving a sealed import with unscheduled rows
 
 #### Scenario: Row worker fails before commit
 - **WHEN** a row worker raises or exits before its atomic terminal transaction commits

@@ -7,17 +7,17 @@
 
 ## 2. Immutable Asset Domain
 
-- [ ] 2.1 Generate the Asset resource, snapshot, and migration, then refine organization ownership, lifecycle, canonical SHA-256, finite configurable byte and image bounds, size, media type, image dimensions, staging and canonical sealed keys, staging expiry, cleanup completion, ready-only uniqueness, constraints, and indexes.
-- [ ] 2.2 Define `QuickTrain.Assets.Storage` and deterministic development and test adapters for bounded staging access, canonical-key conditional sealing, staging cleanup, and short-lived sealed reads without per-registration sealed copies.
+- [ ] 2.1 Generate the Asset resource, snapshot, and migration, then refine organization ownership, lifecycle, canonical SHA-256, finite configurable byte and image bounds, size, media type, image dimensions, staging and canonical sealed keys, staging expiry, cleanup completion, bounded operation-claim facts, ready-only uniqueness, constraints, and indexes.
+- [ ] 2.2 Define `QuickTrain.Assets.Storage` and deterministic development and test adapters for bounded staging access, staging-byte verification before canonical-key conditional publication, late-write-safe staging retirement, and short-lived sealed reads without per-registration sealed copies.
 - [ ] 2.3 Enforce encrypted approved destinations and credential-safe redirect handling in storage access descriptors without exposing persistent storage keys or credentials through GraphQL.
 - [ ] 2.4 Implement authorized asset registration with canonical ready-asset reuse only when hash, byte size, and media type all match.
-- [ ] 2.5 Implement atomically claimed idempotent finalization from one pinned or fenced canonical sealed object, including pre-read byte checks, bounded header parsing, actual-media detection, active-format rejection, image-dimension limits, sanitized failures, and immutable ready transition without holding a database transaction across storage I/O.
+- [ ] 2.5 Implement bounded, recoverable, atomically claimed idempotent finalization that pins or fences and verifies staging bytes before canonical publication, reverifies the canonical object, checks claim identity on completion, enforces bounded reads and image metadata, rejects active formats, records sanitized failures, and performs the immutable ready transition without holding a database transaction across storage I/O.
 - [ ] 2.6 Implement concurrent ready-content and sealed-object convergence plus canonical-asset-linked `duplicate_content` handling while preserving organization-scoped authorization and exact metadata agreement.
 - [ ] 2.7 Implement the responsibility-named verification worker with idempotent enqueue and resource-identity-only job arguments.
-- [ ] 2.8 Implement periodic staging cleanup over the expired-and-not-cleaned index using a short mutually exclusive claim and eligibility recheck before provider deletion, then record cleanup completion after deletion or absence confirmation without holding a database transaction across storage I/O or deleting sealed reads.
+- [ ] 2.8 Implement periodic staging cleanup over the expired-and-not-cleaned index using a bounded mutually exclusive claim with expired-claim replacement and eligibility recheck, retire the staging identity only after upload descriptors and bounded in-flight writes expire or further writes are fenced, and record cleanup completion only after deletion or absence confirmation without holding a database transaction across storage I/O or deleting sealed reads.
 - [ ] 2.9 Expose only registration, finalization, authorized access, and scoped read operations through authenticated GraphQL.
-- [ ] 2.10 Add focused adapter and resource tests for byte and decompression-bomb limits, immutable canonical sealing, overwrite races, active-format rejection, deduplication without sealed-copy leaks, metadata conflicts, secure access, and cross-organization denial.
-- [ ] 2.11 Add focused worker tests for verification retry, finalization/cleanup serialization, abandoned and duplicate staging cleanup, cleanup-marker retry, scan exclusion, overlap prevention, and sealed-object preservation.
+- [ ] 2.10 Add focused adapter and resource tests for byte and decompression-bomb limits, mismatch rejection before canonical publication, immutable canonical sealing and reverification, overwrite races, active-format rejection, deduplication without sealed-copy leaks, metadata conflicts, secure access, and cross-organization denial.
+- [ ] 2.11 Add focused worker tests for verification retry, finalization/cleanup serialization, abandoned-claim replacement and stale-worker fencing, late-upload recreation prevention, abandoned and duplicate staging cleanup, cleanup-marker retry, scan exclusion, overlap prevention, and sealed-object preservation.
 
 ## 3. Versioned Dataset Schemas
 
@@ -47,12 +47,12 @@
 - [ ] 5.4 Implement canonical fingerprints for structurally accepted rows, including the external-key presence marker and persisted value, plus atomic row-key and source-position retry handling and pre-persistence duplicate-external-key rejection.
 - [ ] 5.5 Implement append-time schema validation that stores valid normalized candidates as pending rows and domain-invalid inputs as terminal failed provenance without opaque payloads or partial graphs.
 - [ ] 5.6 Use the import-row UUID as the stable target item UUID for keyless valid rows without creating an item during append.
-- [ ] 5.7 Implement import-locked finalization that seals the accepted row set and inserts one unique batch fan-out job, with safe concurrent and lost-response retries.
-- [ ] 5.8 Implement idempotent batch fan-out and unique bounded-retry row jobs with terminal-row checks, atomic item-revision/outcome commits, and an automatic sanitized terminal outcome when no retry remains, using the simplest supported Oban lifecycle mechanism without leases, fences, persisted row attempt counters, or a scheduled scanner. If the selected Oban release cannot guarantee that outcome, pause and update the design with evidence before adding reconciliation.
+- [ ] 5.7 Implement import-locked finalization that atomically seals the accepted row set and inserts the complete unique bounded-retry row-job set, rolling back sealing on any scheduling failure and preserving safe concurrent and lost-response retries.
+- [ ] 5.8 Implement unique bounded-retry row jobs with terminal-row checks, atomic item-revision/outcome commits, and an automatic sanitized terminal outcome when no retry remains, using the simplest supported Oban lifecycle mechanism without leases, fences, persisted row attempt counters, or a scheduled scanner. If the selected Oban release cannot guarantee that outcome, pause and update the design with evidence before adding reconciliation.
 - [ ] 5.9 Implement automatic expired-open-import cleanup under the same import lock while preserving every sealed import and finalized provenance row.
 - [ ] 5.10 Implement derived batch counts and lifecycle queries over indexed row outcomes without persisted aggregate counters or a separate processing state.
 - [ ] 5.11 Add focused import tests for batch and row idempotency, structurally rejected input, domain-invalid provenance, equivalent fingerprints, duplicate external keys, keyless identity, partial completion, and schema or asset scope.
-- [ ] 5.12 Add focused concurrency and worker tests for append/finalize and finalize/cleanup races, fan-out retry, row failure before commit, retry after terminal commit, retry-exhaustion terminal outcomes, concurrent item revisions, derived progress, and cross-organization denial.
+- [ ] 5.12 Add focused concurrency and worker tests for append/finalize and finalize/cleanup races, atomic row-job scheduling rollback, row failure before commit, retry after terminal commit, retry-exhaustion terminal outcomes, concurrent item revisions, derived progress, and cross-organization denial.
 
 ## 6. Integration and Verification
 
