@@ -18,6 +18,7 @@ defmodule QuickTrain.Accounts.OidcLoginTransaction.Actions.BeginLogin do
   @default_transaction_ttl_seconds 300
   @default_replay_retention_seconds 86_400
   @collision_attempts 3
+  @outstanding_admission_lock {__MODULE__, :outstanding_state_admission}
   @allow_loopback_http Mix.env() in [:dev, :test]
 
   @impl true
@@ -29,7 +30,7 @@ defmodule QuickTrain.Accounts.OidcLoginTransaction.Actions.BeginLogin do
     with {:ok, callback_uri} <- trusted_callback(callback_key),
          :ok <- admit(resource, network_source),
          {:ok, transaction, material} <-
-           persist_fresh_transaction(resource, callback_key, callback_uri),
+           persist_admitted_transaction(resource, callback_key, callback_uri),
          {:ok, authorization_uri} <-
            provider_authorization_url(transaction, material, callback_uri) do
       {:ok,
@@ -64,7 +65,7 @@ defmodule QuickTrain.Accounts.OidcLoginTransaction.Actions.BeginLogin do
       else: {:error, :untrusted_callback}
   end
 
-  defp admit(resource, network_source) when is_binary(network_source) and network_source != "" do
+  defp admit(_resource, network_source) when is_binary(network_source) and network_source != "" do
     settings = config()
     namespace = Keyword.get(settings, :oidc_begin_limiter_namespace, "oidc-begin")
     window_ms = Keyword.get(settings, :oidc_begin_window_ms, @default_window_ms)
@@ -74,16 +75,31 @@ defmodule QuickTrain.Accounts.OidcLoginTransaction.Actions.BeginLogin do
     with {:allow, _count} <-
            OidcBeginLimiter.hit({namespace, :global}, window_ms, global_limit),
          {:allow, _count} <-
-           OidcBeginLimiter.hit({namespace, :network, network_source}, window_ms, network_limit),
-         :ok <- admit_outstanding(resource, settings) do
+           OidcBeginLimiter.hit({namespace, :network, network_source}, window_ms, network_limit) do
       :ok
     else
       {:deny, _retry_after} -> {:error, :rate_limited}
-      {:error, reason} -> {:error, reason}
     end
   end
 
   defp admit(_resource, _network_source), do: {:error, :invalid_network_source}
+
+  defp persist_admitted_transaction(resource, callback_key, callback_uri) do
+    lock_id = {@outstanding_admission_lock, self()}
+
+    case :global.trans(lock_id, fn ->
+           admit_and_persist(resource, callback_key, callback_uri)
+         end) do
+      :aborted -> {:error, :outstanding_admission_unavailable}
+      result -> result
+    end
+  end
+
+  defp admit_and_persist(resource, callback_key, callback_uri) do
+    with :ok <- admit_outstanding(resource, config()) do
+      persist_fresh_transaction(resource, callback_key, callback_uri)
+    end
+  end
 
   defp admit_outstanding(resource, settings) do
     now = DateTime.utc_now()

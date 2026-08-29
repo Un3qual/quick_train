@@ -45,7 +45,7 @@ config :quick_train, QuickTrainWeb.Endpoint,
 
 config :logger, :default_formatter,
   format: "$time $metadata[$level] $message\n",
-  metadata: [:request_id]
+  metadata: [:request_id, :authentication_operation, :authentication_failure]
 
 config :phoenix, :json_library, Jason
 

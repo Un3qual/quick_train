@@ -30,16 +30,17 @@ defmodule QuickTrainWeb.Authentication.RequestSecurity do
     end
   end
 
-  defp maybe_prevent_graphql_caching(%Plug.Conn{request_path: "/graphql"} = conn),
-    do: put_resp_header(conn, "cache-control", "no-store")
-
-  defp maybe_prevent_graphql_caching(conn), do: conn
+  defp maybe_prevent_graphql_caching(conn) do
+    if graphql_path?(conn.request_path),
+      do: put_resp_header(conn, "cache-control", "no-store"),
+      else: conn
+  end
 
   defp encrypted_transport_required?(conn, settings) do
     enforce_https? = Keyword.get(settings, :enforce_https?, false)
     bearer_present? = get_req_header(conn, "authorization") != []
 
-    enforce_https? and (conn.request_path == "/graphql" or bearer_present?)
+    enforce_https? and (graphql_path?(conn.request_path) or bearer_present?)
   end
 
   defp encrypted?(conn, settings) do
@@ -98,9 +99,22 @@ defmodule QuickTrainWeb.Authentication.RequestSecurity do
     |> List.first()
     |> case do
       nil -> nil
-      value -> value |> String.split(",", trim: true) |> List.last() |> String.trim()
+      value -> value |> String.split(",", trim: true) |> List.last() |> trimmed_value()
     end
   end
+
+  defp trimmed_value(nil), do: nil
+
+  defp trimmed_value(value) do
+    case String.trim(value) do
+      "" -> nil
+      trimmed -> trimmed
+    end
+  end
+
+  defp graphql_path?("/graphql"), do: true
+  defp graphql_path?("/graphql/" <> _subpath), do: true
+  defp graphql_path?(_path), do: false
 
   defp parse_ip(address) when is_tuple(address), do: {:ok, address}
 

@@ -54,6 +54,11 @@ defmodule QuickTrain.AuthorizationTest do
 
     refute Authorization.allowed?(disabled_user.id, organization.id, "forms.manage")
 
+    _active_user =
+      disabled_user
+      |> Ash.Changeset.for_update(:set_status, %{status: "active"}, authorize?: false)
+      |> Ash.update!()
+
     assert {:ok, decision} =
              Authorization.record_decision(
                user.id,

@@ -80,6 +80,33 @@ defmodule QuickTrainWeb.AuthenticationBoundaryTest do
     assert untrusted_conn.assigns.authentication_network_source == "192.0.2.40"
   end
 
+  test "all forwarded GraphQL subpaths require encrypted transport and disable caching" do
+    configure_authentication(enforce_https?: true, trusted_proxy_ips: [])
+
+    for path <- ["/graphql/", "/graphql/nested"] do
+      secured_conn =
+        Phoenix.ConnTest.build_conn(:post, path, nil)
+        |> RequestSecurity.call([])
+
+      assert secured_conn.status == 426
+      assert secured_conn.halted
+      assert get_resp_header(secured_conn, "cache-control") == ["no-store"]
+    end
+  end
+
+  test "an empty forwarded scheme from a trusted proxy fails closed" do
+    configure_authentication(enforce_https?: true, trusted_proxy_ips: ["10.0.0.1"])
+
+    secured_conn =
+      Phoenix.ConnTest.build_conn(:post, "/graphql", nil)
+      |> Map.put(:remote_ip, {10, 0, 0, 1})
+      |> put_req_header("x-forwarded-proto", ",,")
+      |> RequestSecurity.call([])
+
+    assert secured_conn.status == 426
+    assert secured_conn.halted
+  end
+
   test "a valid bearer installs the active global user as Ash and Absinthe actor", %{conn: conn} do
     configure_authentication(enforce_https?: false)
 
@@ -101,6 +128,29 @@ defmodule QuickTrainWeb.AuthenticationBoundaryTest do
     assert Ash.PlugHelpers.get_actor(authenticated_conn).id == user.id
     assert authenticated_conn.private.absinthe.context.actor.id == user.id
     refute Map.has_key?(authenticated_conn.private.absinthe.context, :organization_id)
+  end
+
+  test "bearer authentication scheme casing is ignored", %{conn: conn} do
+    configure_authentication(enforce_https?: false)
+
+    user =
+      Accounts.register_user!(
+        "scheme-actor-#{System.unique_integer([:positive])}@example.test",
+        "Scheme Actor"
+      )
+
+    issued = Accounts.issue_bearer_session!(user.id)
+
+    for scheme <- ["bearer", "BEARER"] do
+      authenticated_conn =
+        conn
+        |> put_req_header("authorization", "#{scheme} #{issued.token}")
+        |> RequestSecurity.call([])
+        |> BearerAuthentication.call([])
+
+      refute authenticated_conn.halted
+      assert Ash.PlugHelpers.get_actor(authenticated_conn).id == user.id
+    end
   end
 
   test "invalid and disabled-user bearer credentials fail closed", %{conn: conn} do

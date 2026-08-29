@@ -16,8 +16,18 @@ defmodule QuickTrainWeb.Authentication.BearerAuthentication do
       [] ->
         conn
 
-      ["Bearer " <> token] ->
-        authenticate(conn, token)
+      [header] ->
+        authenticate_header(conn, header)
+
+      _invalid ->
+        reject(conn)
+    end
+  end
+
+  defp authenticate_header(conn, header) do
+    case String.split(header, " ", parts: 2, trim: true) do
+      [scheme, token] when token != "" ->
+        if String.downcase(scheme) == "bearer", do: authenticate(conn, token), else: reject(conn)
 
       _invalid ->
         reject(conn)

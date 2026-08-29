@@ -1,6 +1,8 @@
 defmodule QuickTrainWeb.GraphqlApiTest do
   use QuickTrain.ConnCase, async: false
 
+  import ExUnit.CaptureLog
+
   setup do
     original_authentication = Application.get_env(:quick_train, :authentication)
     original_test_pid = Application.get_env(:quick_train, :oidc_test_pid)
@@ -100,6 +102,52 @@ defmodule QuickTrainWeb.GraphqlApiTest do
     refute MapSet.member?(type_names, "Session")
     refute MapSet.member?(type_names, "OidcLoginTransaction")
     refute MapSet.member?(type_names, "ExternalIdentity")
+  end
+
+  test "authentication failures are logged by safe category without request secrets", %{
+    conn: conn
+  } do
+    begin_query = "query { beginOidcLogin(callbackKey: \"sensitive-callback-key\") { state } }"
+
+    begin_log =
+      capture_log(
+        [level: :warning, metadata: [:authentication_operation, :authentication_failure]],
+        fn ->
+          response = conn |> post("/graphql", %{query: begin_query}) |> json_response(200)
+          assert [%{"message" => "login unavailable"}] = response["errors"]
+        end
+      )
+
+    assert begin_log =~ "OIDC login failed"
+    assert begin_log =~ "authentication_operation=begin"
+    assert begin_log =~ "authentication_failure=untrusted_callback"
+    refute begin_log =~ "sensitive-callback-key"
+
+    exchange_query = """
+    mutation {
+      exchangeOidcLogin(
+        code: "sensitive-code",
+        state: "sensitive-state",
+        clientProof: "sensitive-proof"
+      ) { token }
+    }
+    """
+
+    exchange_log =
+      capture_log(
+        [level: :warning, metadata: [:authentication_operation, :authentication_failure]],
+        fn ->
+          response = conn |> post("/graphql", %{query: exchange_query}) |> json_response(200)
+          assert [%{"message" => "login exchange failed"}] = response["errors"]
+        end
+      )
+
+    assert exchange_log =~ "OIDC login failed"
+    assert exchange_log =~ "authentication_operation=exchange"
+    assert exchange_log =~ "authentication_failure=invalid_oidc_exchange"
+    refute exchange_log =~ "sensitive-code"
+    refute exchange_log =~ "sensitive-state"
+    refute exchange_log =~ "sensitive-proof"
   end
 
   test "health and GraphiQL stay outside the production-shaped GraphQL surface", %{conn: conn} do

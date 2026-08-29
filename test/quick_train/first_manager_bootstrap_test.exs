@@ -46,20 +46,26 @@ defmodule QuickTrain.FirstManagerBootstrapTest do
     assert second.role.id == first.role.id
     assert second.assignment.id == first.assignment.id
 
-    results =
+    concurrent_results =
       1..2
       |> Enum.map(fn _attempt ->
         Task.async(fn ->
-          Accounts.bootstrap_first_manager(user.id, "repeat-org", "Repeat Org")
+          Accounts.bootstrap_first_manager(user.id, "concurrent-org", "Concurrent Org")
         end)
       end)
       |> Task.await_many()
 
-    assert Enum.all?(results, &match?({:ok, _graph}, &1))
-    assert Ash.count!(Organization, authorize?: false) == 1
-    assert Ash.count!(Membership, authorize?: false) == 1
-    assert Ash.count!(Role, authorize?: false) == 1
-    assert Ash.count!(RoleAssignment, authorize?: false) == 1
+    assert Enum.all?(concurrent_results, &match?({:ok, _graph}, &1))
+
+    assert concurrent_results
+           |> Enum.map(fn {:ok, graph} -> graph.organization.id end)
+           |> Enum.uniq()
+           |> length() == 1
+
+    assert Ash.count!(Organization, authorize?: false) == 2
+    assert Ash.count!(Membership, authorize?: false) == 2
+    assert Ash.count!(Role, authorize?: false) == 2
+    assert Ash.count!(RoleAssignment, authorize?: false) == 2
   end
 
   test "conflicting or inactive facts fail atomically" do

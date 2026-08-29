@@ -137,6 +137,45 @@ defmodule QuickTrain.OidcLoginTest do
     refute_receive {:oidc_authorization, _options}
   end
 
+  test "concurrent begins reserve outstanding-state capacity atomically" do
+    authentication = Application.fetch_env!(:quick_train, :authentication)
+
+    Application.put_env(
+      :quick_train,
+      :authentication,
+      authentication
+      |> Keyword.put(:oidc_outstanding_limit, 1)
+      |> Keyword.put(:oidc_begin_network_limit, 100)
+    )
+
+    parent = self()
+
+    tasks =
+      for attempt <- 1..12 do
+        Task.async(fn ->
+          send(parent, {:begin_ready, self()})
+
+          receive do
+            :begin ->
+              Accounts.begin_oidc_login("desktop", "198.51.100.#{attempt}")
+          end
+        end)
+      end
+
+    task_pids =
+      for _attempt <- 1..12 do
+        assert_receive {:begin_ready, task_pid}
+        task_pid
+      end
+
+    Enum.each(task_pids, &send(&1, :begin))
+    results = Task.await_many(tasks, 15_000)
+
+    assert Enum.count(results, &match?({:ok, _result}, &1)) == 1
+    assert Enum.count(results, &match?({:error, _error}, &1)) == 11
+    assert Ash.count!(QuickTrain.Accounts.OidcLoginTransaction, authorize?: false) == 1
+  end
+
   test "exchange verifies the separate client proof before provider contact" do
     login = Accounts.begin_oidc_login!("desktop", "198.51.100.20")
     assert_receive {:oidc_authorization, _options}

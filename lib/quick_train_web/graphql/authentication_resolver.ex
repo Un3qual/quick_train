@@ -1,7 +1,26 @@
 defmodule QuickTrainWeb.GraphQL.AuthenticationResolver do
   @moduledoc false
 
+  require Logger
+
   alias QuickTrain.Accounts
+
+  @failure_categories [
+    :untrusted_callback,
+    :rate_limited,
+    :outstanding_limit,
+    :outstanding_admission_unavailable,
+    :provider_unavailable,
+    :state_collision,
+    :invalid_network_source,
+    :invalid_oidc_exchange,
+    :provider_exchange_failed,
+    :invalid_provider_identity,
+    :inactive_account,
+    :identity_conflict,
+    :verified_email_required,
+    :account_linking_conflict
+  ]
 
   def begin_oidc_login(_parent, %{callback_key: callback_key}, resolution) do
     network_source = Map.get(resolution.context, :authentication_network_source, "unknown")
@@ -16,7 +35,8 @@ defmodule QuickTrainWeb.GraphQL.AuthenticationResolver do
            expires_at: DateTime.to_iso8601(result.expires_at)
          }}
 
-      {:error, _error} ->
+      {:error, error} ->
+        log_failure(:begin, error)
         {:error, "login unavailable"}
     end
   end
@@ -35,8 +55,24 @@ defmodule QuickTrainWeb.GraphQL.AuthenticationResolver do
            expires_at: DateTime.to_iso8601(result.expires_at)
          }}
 
-      {:error, _error} ->
+      {:error, error} ->
+        log_failure(:exchange, error)
         {:error, "login exchange failed"}
     end
+  end
+
+  defp log_failure(operation, error) do
+    Logger.warning("OIDC login failed",
+      authentication_operation: operation,
+      authentication_failure: failure_category(error)
+    )
+  end
+
+  defp failure_category(error) do
+    message = Exception.message(error)
+
+    Enum.find(@failure_categories, :internal_error, fn category ->
+      String.contains?(message, Atom.to_string(category))
+    end)
   end
 end
