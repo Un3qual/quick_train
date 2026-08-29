@@ -4,7 +4,7 @@ QuickTrain cannot safely expose organization-owned product data until GraphQL ca
 
 ## What Changes
 
-- Complete a one-time OIDC begin/exchange handshake with server-generated state, nonce, S256 PKCE, a client-bound exchange proof, server-selected callbacks, HTTPS-only production provider endpoints, encrypted production authentication transport, non-cacheable credential responses, and bounded unauthenticated admission.
+- Complete a one-time OIDC begin/exchange handshake with server-generated state, nonce, S256 PKCE, a client-bound exchange proof, server-selected client-owned callbacks, HTTPS-only production provider endpoints, encrypted production authentication transport, non-cacheable credential responses, and bounded unauthenticated admission.
 - Link accounts only by the verified issuer and subject, create each new user and external identity atomically, require active identities and users, and never link or reactivate an account by email.
 - Issue high-entropy opaque bearer sessions, persist only indexed one-way token hashes, bound inactive-session retention, and make sessions authenticate only the global `User` rather than carrying organization authority.
 - Resolve the bearer session into both the GraphQL and Ash actor without granting organization authority: organization-capability-authorized actions separately require an active organization, membership, and capability, while any later alternative authorization route must be explicitly owned by its product capability.
@@ -14,7 +14,7 @@ QuickTrain cannot safely expose organization-owned product data until GraphQL ca
 Explicit non-goals:
 
 - Migrating production users, identities, or sessions. QuickTrain has no production-data compatibility contract; implementation may require a clean local database.
-- Email-based account merging, configurable linking policies, password authentication, refresh tokens, frontend login UI, or organization authority embedded in sessions.
+- Email-based account merging, configurable linking policies, password authentication, refresh tokens, frontend login UI, a QuickTrain-hosted provider callback endpoint, or organization authority embedded in sessions.
 - Adding any product domain or selecting an external identity provider.
 
 ## Capabilities
