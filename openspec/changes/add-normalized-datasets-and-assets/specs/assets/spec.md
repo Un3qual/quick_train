@@ -66,15 +66,15 @@ The system SHALL enforce organization-scoped content-hash uniqueness only for re
 - **THEN** the system rejects canonical reuse with an asset-identity conflict and does not return metadata that contradicts the request
 
 ### Requirement: Abandoned staging content expires
-The system SHALL assign every writable staging object an expiry and a nullable cleanup-completion timestamp and SHALL remove expired staging content idempotently after a fixed safety grace period when its registration is pending, failed, in the `duplicate_content` terminal state, or already sealed. The responsibility-named cleanup worker SHALL be registered with Oban's supported periodic scheduler at a fixed interval, SHALL scan the indexed boundary of expired rows whose cleanup timestamp is null, and SHALL use job uniqueness to prevent overlapping scheduled runs so cleanup occurs without registration finalization or manual invocation. Before a destructive adapter call, the cleanup action SHALL acquire the same asset lock as finalization, recheck lifecycle and expiry, and hold the lock through deletion or absence confirmation and the cleanup-marker commit. Finalization SHALL hold that lock through sealed-byte verification and its terminal transition. Retrying before the marker is committed SHALL remain safe. Cleanup SHALL NOT delete or mutate sealed read objects.
+The system SHALL assign every writable staging object an expiry and a nullable cleanup-completion timestamp and SHALL remove expired staging content idempotently after a fixed safety grace period when its registration is pending, failed, in the `duplicate_content` terminal state, or already sealed. The responsibility-named cleanup worker SHALL be registered with Oban's supported periodic scheduler at a fixed interval, SHALL scan the indexed boundary of expired rows whose cleanup timestamp is null, and SHALL use job uniqueness to prevent overlapping scheduled runs so cleanup occurs without registration finalization or manual invocation. Before a destructive adapter call, cleanup SHALL atomically establish a durable claim after rechecking lifecycle and expiry against the same serialized boundary used by finalization. Finalization and cleanup claims SHALL be mutually exclusive, retries SHALL resume their claimed operation idempotently, and storage I/O SHALL NOT require holding a database transaction open. Cleanup completion SHALL be recorded only after deletion or confirmed absence. Cleanup SHALL NOT delete or mutate sealed read objects.
 
 #### Scenario: Pending upload is abandoned
 - **WHEN** a pending registration remains unfinalized beyond its staging expiry and cleanup grace period
 - **THEN** the responsibility-named cleanup path removes its writable staging object and leaves the registration unable to become ready without a new upload
 
-#### Scenario: Cleanup waits for in-flight finalization
-- **WHEN** finalization holds the asset lock while verifying and sealing staging content
-- **THEN** cleanup cannot delete that staging object and rechecks the terminal asset facts after acquiring the lock
+#### Scenario: Cleanup cannot claim in-flight finalization
+- **WHEN** finalization has atomically claimed an asset before verifying and sealing staging content
+- **THEN** cleanup cannot claim or delete that staging object and rechecks the asset facts after finalization reaches a terminal outcome
 
 #### Scenario: Periodic scheduling cleans an unfinalized upload
 - **WHEN** the application runs beyond the configured cleanup interval with a pending registration past its staging expiry and grace period

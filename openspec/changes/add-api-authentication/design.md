@@ -66,11 +66,9 @@ An operator-only Mix task accepts an exact global user UUID plus a normalized or
 - the organization slug;
 - the organization-and-user membership pair;
 - role key `manager` in that organization;
-- global capability keys `organizations.manage_memberships` and `authorization.manage_roles`;
-- each role-and-capability grant; and
 - the organization, user, and role assignment.
 
-The role name is `Manager`; capability descriptions are presentation metadata and do not affect identity. The transaction creates missing facts and succeeds idempotently only when every existing fact belongs to the same active graph. An inactive user, organization, or membership; a slug/name or role-name mismatch; a role owned by another organization; or an assignment/grant mismatch is a conflict and leaves no partial changes. Concurrent identical invocations converge through the same identities and re-read the winning graph after uniqueness contention. Product changes extend the bootstrap manifest with their own exact capability keys rather than giving this role wildcard authority. The command uses responsibility-named Ash actions and is never reachable through GraphQL.
+The role name is `Manager`. The transaction creates missing facts and succeeds idempotently only when every existing fact belongs to the same active relationship graph. An inactive user, organization, or membership; a slug/name or role-name mismatch; a role owned by another organization; or an assignment mismatch is a conflict and leaves no partial changes. Concurrent identical invocations converge through the same identities and re-read the winning graph after uniqueness contention. This authentication change creates no capability keys or role grants; each product change owns its exact capabilities and any product-specific manager grants. The command uses responsibility-named Ash actions and is never reachable through GraphQL.
 
 ### 6. Use Oban only for bounded authentication retention
 

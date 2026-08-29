@@ -114,18 +114,18 @@ The system SHALL define an explicit public GraphQL allowlist. At this prerequisi
 - **THEN** health responds without exposing GraphQL data, while GraphiQL remains unavailable
 
 ### Requirement: First-manager bootstrap is operator-only
-The system SHALL provide a responsibility-named operator command outside GraphQL that bootstraps the first organization manager from an exact active global-user UUID and normalized organization slug and name. In one transaction it SHALL create or resolve the active organization, active membership, organization role key `manager`, role assignment, and exact initial capability grants `organizations.manage_memberships` and `authorization.manage_roles`. Repetition SHALL be idempotent only for the same authorization graph. Existing inactive facts, identity ownership mismatches, or conflicting organization or role facts SHALL fail without reactivation, reassignment, wildcard authority, or a partial graph. Concurrent identical invocations SHALL converge on the same graph.
+The system SHALL provide a responsibility-named operator command outside GraphQL that bootstraps the first organization manager from an exact active global-user UUID and normalized organization slug and name. In one transaction it SHALL create or resolve the active organization, active membership, organization role key `manager`, and role assignment. Repetition SHALL be idempotent only for the same relationship graph. Existing inactive facts, identity ownership mismatches, or conflicting organization or role facts SHALL fail without reactivation, reassignment, implicit product authority, or a partial graph. Concurrent identical invocations SHALL converge on the same graph. This authentication capability SHALL NOT define product or administration capability keys or grants; the change that introduces an authorized product action owns those facts.
 
 #### Scenario: Operator bootstraps a fresh installation
 - **WHEN** an operator invokes the command with one exact active user and nonconflicting organization facts
-- **THEN** it establishes one active manager authorization graph with only the two named foundation capabilities
+- **THEN** it establishes one active organization membership and manager role assignment without granting implicit product authority
 
 #### Scenario: Matching bootstrap is repeatable
 - **WHEN** sequential or concurrent invocations supply the same user UUID, organization identity, and fixed manager graph
-- **THEN** they resolve one organization, membership, role, assignment, and set of grants without duplicates
+- **THEN** they resolve one organization, membership, role, and assignment without duplicates
 
 #### Scenario: Bootstrap conflict is atomic
-- **WHEN** the requested user, organization, membership, role, or grants conflict with existing facts
+- **WHEN** the requested user, organization, membership, role, or assignment conflicts with existing facts
 - **THEN** the command reports the conflict without partially creating or reassigning access
 
 ### Requirement: OIDC login-state retention is bounded

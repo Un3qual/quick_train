@@ -119,7 +119,7 @@ Automatic cleanup SHALL scan expired open imports, lock the same import row used
 - **THEN** it returns `import_expired` and leaves the open import eligible for cleanup
 
 ### Requirement: Row processing is idempotent and retryable
-Finalization SHALL cause every pending row to receive a unique durable bounded-retry processing job. A row job SHALL lock the row, return without work when it is already terminal, and atomically commit its item revision reference and terminal `succeeded`, `unchanged`, or `failed` outcome. A worker or enqueue failure before that commit SHALL leave the row pending so standard job retry can try again. A retry after the commit SHALL observe the terminal row and SHALL not duplicate an item revision. After retry exhaustion or cancellation, an automatically scheduled responsibility-named terminalizer SHALL lock a still-pending row and atomically record sanitized `processing_retries_exhausted` failure only when its unique Oban row job is terminal and no runnable attempt remains. Terminal row-job evidence SHALL remain retained beyond the maximum terminalizer interval and SHALL NOT be pruned before this reconciliation. No custom row-processing lease, persisted row attempt counter, attempt fence, or per-attempt recovery job is required.
+Finalization SHALL cause every pending row to receive a unique durable bounded-retry processing job. A row job SHALL lock the row, return without work when it is already terminal, and atomically commit its item revision reference and terminal `succeeded`, `unchanged`, or `failed` outcome. A worker or enqueue failure before that commit SHALL leave the row pending so standard job retry can try again. A retry after the commit SHALL observe the terminal row and SHALL not duplicate an item revision. When retry exhaustion or cancellation leaves no runnable attempt, the system SHALL automatically and atomically record sanitized `processing_retries_exhausted` failure so the import cannot remain pending indefinitely. The capability contract does not mandate a periodic scanner, pruning coordination, custom row-processing lease, persisted row attempt counter, attempt fence, or per-attempt recovery job.
 
 #### Scenario: Batch enqueue is retried safely
 - **WHEN** the batch worker stops after enqueueing only some pending rows
@@ -135,11 +135,7 @@ Finalization SHALL cause every pending row to receive a unique durable bounded-r
 
 #### Scenario: Retry exhaustion becomes terminal provenance
 - **WHEN** a unique row job exhausts its bounded attempts or is cancelled while its import row remains pending
-- **THEN** the terminalizer records one sanitized failed outcome after confirming that no runnable attempt remains, allowing the sealed batch to leave `pending`
-
-#### Scenario: Job pruning cannot erase exhaustion evidence early
-- **WHEN** a row job becomes discarded or cancelled before the next terminalizer run
-- **THEN** Oban retains that terminal job record until the terminalizer has had time to record the row's failed outcome
+- **THEN** the system records one sanitized failed outcome without manual intervention, allowing the sealed batch to leave `pending`
 
 ### Requirement: Batch progress is derived from rows
 An import SHALL persist only its `open` or `sealed` phase. It SHALL NOT persist aggregate outcome counters or a separate processing lifecycle. Queries SHALL derive `row_count`, `pending`, `succeeded`, `unchanged`, and `failed` from current import rows. These mutually exclusive counts SHALL sum to `row_count`. An open import's lifecycle SHALL be `open`; a sealed import with any pending row SHALL be `pending`; a sealed import with no pending rows SHALL be `completed` when no row failed, `failed` when every nonempty row set failed, and `partially_failed` when failures coexist with succeeded or unchanged rows. An empty sealed import SHALL be `completed`.
