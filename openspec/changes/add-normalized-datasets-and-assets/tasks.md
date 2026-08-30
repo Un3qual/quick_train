@@ -1,6 +1,6 @@
 ## 1. Prerequisite and Product Domain Foundation
 
-- [ ] 1.1 Confirm `add-api-authentication` is implemented and verified so product GraphQL operations have an authenticated Ash actor and the shared Oban dependency is available.
+- [x] 1.1 Confirm `add-api-authentication` is implemented and verified so product GraphQL operations have an authenticated Ash actor and the shared Oban dependency is available.
 - [ ] 1.2 Use Igniter and the available Ash generators to add the `QuickTrain.Assets` and `QuickTrain.Datasets` domain skeletons, retaining only product-specific generated structure.
 - [ ] 1.3 Add exact capability keys `assets.read`, `assets.manage`, `datasets.read`, `datasets.manage`, and `dataset_imports.manage`; add a product-owned idempotent action that grants them to a selected existing organization manager without a shared manifest or wildcard; and add shared fail-closed policy checks and denial coverage for active user, active organization, active membership, and explicit capability.
 - [ ] 1.4 Export the product domains and storage behavior through the top-level `QuickTrain` boundary without adding generic service, operation, audit, or integration layers.
