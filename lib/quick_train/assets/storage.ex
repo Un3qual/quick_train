@@ -9,6 +9,8 @@ defmodule QuickTrain.Assets.Storage do
           required(:uri) => URI.t(),
           required(:headers) => [{String.t(), String.t()}],
           required(:expires_at) => DateTime.t(),
+          required(:cache_control) => String.t(),
+          required(:referrer_policy) => String.t(),
           optional(:max_bytes) => pos_integer()
         }
 
@@ -31,6 +33,9 @@ defmodule QuickTrain.Assets.Storage do
           required(:facts) => verified_facts(),
           required(:provider_in_flight_until) => DateTime.t()
         }
+
+  @callback enforces_byte_cap?() :: boolean()
+  @callback approved_hosts() :: [String.t()]
 
   @callback writable_staging_access(
               staging_key :: object_key(),
@@ -61,4 +66,125 @@ defmodule QuickTrain.Assets.Storage do
               sealed_key :: object_key(),
               expires_at :: DateTime.t()
             ) :: {:ok, access_descriptor()} | {:error, term()}
+
+  def child_spec(_opts) do
+    %{
+      id: __MODULE__,
+      start: {__MODULE__, :start_link, [[]]},
+      type: :worker
+    }
+  end
+
+  def start_link(_opts) do
+    case adapter() do
+      nil -> :ignore
+      adapter -> adapter.start_link([])
+    end
+  end
+
+  def adapter do
+    :quick_train
+    |> Application.get_env(:assets, [])
+    |> Keyword.get(:storage_adapter)
+  end
+
+  def writable_staging_access(staging_key, byte_cap, expires_at) do
+    with {:ok, adapter} <- configured_adapter(),
+         true <- adapter.enforces_byte_cap?() || {:error, :byte_cap_not_enforced},
+         {:ok, descriptor} <- adapter.writable_staging_access(staging_key, byte_cap, expires_at),
+         :ok <- validate_descriptor(descriptor, :put, adapter, byte_cap) do
+      {:ok, descriptor}
+    else
+      false -> {:error, :byte_cap_not_enforced}
+      {:error, _reason} = error -> error
+      _invalid -> {:error, :invalid_storage_descriptor}
+    end
+  end
+
+  def writable_staging_access!(staging_key, byte_cap, expires_at) do
+    case writable_staging_access(staging_key, byte_cap, expires_at) do
+      {:ok, descriptor} -> descriptor
+      {:error, reason} -> raise "storage access failed: #{inspect(reason)}"
+    end
+  end
+
+  def verify_and_publish(staging_key, sealed_key, expected, deadline_ms) do
+    with {:ok, adapter} <- configured_adapter() do
+      adapter.verify_and_publish(staging_key, sealed_key, expected, deadline_ms)
+    end
+  end
+
+  def verify_sealed(sealed_key, expected, deadline_ms) do
+    with {:ok, adapter} <- configured_adapter() do
+      adapter.verify_sealed(sealed_key, expected, deadline_ms)
+    end
+  end
+
+  def retire_staging(staging_key, not_before, deadline_ms) do
+    with {:ok, adapter} <- configured_adapter() do
+      adapter.retire_staging(staging_key, not_before, deadline_ms)
+    end
+  end
+
+  def sealed_read_access(sealed_key, expires_at) do
+    with {:ok, adapter} <- configured_adapter(),
+         {:ok, descriptor} <- adapter.sealed_read_access(sealed_key, expires_at),
+         :ok <- validate_descriptor(descriptor, :get, adapter, nil) do
+      {:ok, descriptor}
+    end
+  end
+
+  def validate_redirect(_descriptor, %URI{} = destination) do
+    with {:ok, adapter} <- configured_adapter() do
+      validate_destination(destination, adapter)
+    end
+  end
+
+  defp configured_adapter do
+    case adapter() do
+      nil -> {:error, :storage_not_configured}
+      adapter -> {:ok, adapter}
+    end
+  end
+
+  defp validate_descriptor(descriptor, method, adapter, byte_cap) when is_map(descriptor) do
+    with ^method <- Map.get(descriptor, :method),
+         %URI{} = uri <- Map.get(descriptor, :uri),
+         :ok <- validate_destination(uri, adapter),
+         %DateTime{} <- Map.get(descriptor, :expires_at),
+         "no-store" <- Map.get(descriptor, :cache_control),
+         "no-referrer" <- Map.get(descriptor, :referrer_policy),
+         true <- is_list(Map.get(descriptor, :headers)),
+         :ok <- validate_byte_cap(descriptor, byte_cap) do
+      :ok
+    else
+      {:error, _reason} = error -> error
+      _invalid -> {:error, :invalid_storage_descriptor}
+    end
+  end
+
+  defp validate_descriptor(_descriptor, _method, _adapter, _byte_cap),
+    do: {:error, :invalid_storage_descriptor}
+
+  defp validate_byte_cap(_descriptor, nil), do: :ok
+
+  defp validate_byte_cap(%{max_bytes: byte_cap}, byte_cap)
+       when is_integer(byte_cap) and byte_cap > 0,
+       do: :ok
+
+  defp validate_byte_cap(_descriptor, _byte_cap), do: {:error, :byte_cap_not_enforced}
+
+  defp validate_destination(%URI{scheme: "https", host: host}, adapter)
+       when is_binary(host) do
+    if host in adapter.approved_hosts() do
+      :ok
+    else
+      {:error, :unapproved_storage_destination}
+    end
+  end
+
+  defp validate_destination(%URI{scheme: scheme}, _adapter) when scheme != "https",
+    do: {:error, :insecure_storage_destination}
+
+  defp validate_destination(_uri, _adapter), do: {:error, :unapproved_storage_destination}
 end

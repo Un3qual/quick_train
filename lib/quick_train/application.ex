@@ -16,6 +16,7 @@ defmodule QuickTrain.Application do
         {DNSCluster, query: Application.get_env(:quick_train, :dns_cluster_query) || :ignore},
         {Oban, Application.fetch_env!(:quick_train, Oban)},
         {Phoenix.PubSub, name: QuickTrain.PubSub},
+        QuickTrain.Assets.Storage,
         {QuickTrain.Accounts.OidcBeginLimiter, clean_period: :timer.minutes(10)},
         QuickTrain.Accounts.OidcProviderMetadataCache,
         QuickTrainWeb.Endpoint
