@@ -33,4 +33,11 @@
 - [x] 5.2 Replace exception-message parsing with structured constraint handling and prove independent concurrent first-login requests converge on one account graph.
 - [x] 5.3 Move bearer eligibility into a responsibility-named Ash read action and cover unknown, expired, revoked, and retained-expired authentication state.
 - [x] 5.4 Strengthen first-manager rollback coverage, make the clean-database authentication migration explicitly forward-only, and keep GraphQL assertions order-independent.
-- [x] 5.5 Run focused tests, `mise run openspec.validate`, and `mise run verify`; record the unrelated Ash dependency-audit failure; verify the skipped production compile and full suite directly; then commit and push the reviewed fixes.
+- [x] 5.5 Run focused tests, `mise run openspec.validate`, and the repository verification gates for the review remediation.
+
+## 6. Complexity Remediation
+
+- [ ] 6.1 Cache only validated public OIDC discovery metadata and verification keys by issuer, and construct credential-bearing client contexts per request outside the cache.
+- [ ] 6.2 Remove redundant PKCE, state-collision preflight, custom secure-compare, exception-message classification, and duplicated authentication-default plumbing while preserving the fail-closed boundary.
+- [ ] 6.3 Use Accounts code interfaces for ordinary authentication persistence, keep direct Ash queries only where locking, bulk cleanup, or transaction orchestration requires them, and make cleanup actions return success without materializing deleted credential records.
+- [ ] 6.4 Reduce concurrency-test amplification while preserving deterministic race coverage, then run focused tests, `mise run openspec.validate`, and the repository verification gates.
