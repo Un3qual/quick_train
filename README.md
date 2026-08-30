@@ -63,7 +63,7 @@ GraphQL is available at `POST http://localhost:4000/graphql`. Begin selects a cl
 callback by configured key; QuickTrain intentionally exposes no provider callback route:
 
 ```graphql
-query {
+mutation {
   beginOidcLogin(callbackKey: "desktop") {
     authorizationUri
     state
