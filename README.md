@@ -109,8 +109,12 @@ bearer tokens are returned once and only their unique SHA-256 hashes are stored.
 are linked exclusively by the verified issuer and subject, never by email.
 
 `TRUSTED_PROXY_IPS` is the comma-separated list of direct proxy IPs allowed to supply forwarded
-scheme and client-address headers. Leave it empty when Phoenix receives traffic directly. The
-authentication defaults live in `config/config.exs`. Deployments may override them with
+scheme and client-address headers. The default production endpoint uses an HTTP listener behind a
+TLS-terminating proxy, so production deployments must configure the proxy's direct IP and must
+overwrite or reject client-supplied forwarding headers. A trusted proxy request without a final
+`X-Forwarded-Proto` value fails closed. Direct production TLS requires separately configuring the
+Phoenix HTTPS listener and certificates. The authentication defaults live in `config/config.exs`.
+Deployments may override them with
 `OIDC_BEGIN_WINDOW_MS`, `OIDC_BEGIN_GLOBAL_LIMIT`, `OIDC_BEGIN_NETWORK_LIMIT`,
 `OIDC_OUTSTANDING_LIMIT`, `OIDC_TRANSACTION_TTL_SECONDS`, `OIDC_REPLAY_RETENTION_SECONDS`,
 `HUMAN_SESSION_MAX_LIFETIME_SECONDS`, and `HUMAN_SESSION_RETENTION_SECONDS`.

@@ -5,7 +5,7 @@ defmodule QuickTrain.OidcLoginTest do
 
   alias Ecto.Adapters.SQL.Sandbox
   alias QuickTrain.Accounts
-  alias QuickTrain.Accounts.{Oidc, OidccProvider, OidcLoginTransaction}
+  alias QuickTrain.Accounts.{Oidc, OidcBeginLimiter, OidccProvider, OidcLoginTransaction}
   alias QuickTrain.Authentication
 
   setup do
@@ -120,6 +120,32 @@ defmodule QuickTrain.OidcLoginTest do
 
     assert Ash.count!(QuickTrain.Accounts.OidcLoginTransaction, authorize?: false) == before_count
     refute_receive {:oidc_authorization, _options}
+  end
+
+  test "network rejection does not consume global admission capacity" do
+    authentication =
+      Application.fetch_env!(:quick_train, :authentication)
+      |> Keyword.put(:oidc_begin_global_limit, 1)
+      |> Keyword.put(:oidc_begin_network_limit, 1)
+
+    Application.put_env(:quick_train, :authentication, authentication)
+
+    namespace = Keyword.fetch!(authentication, :oidc_begin_limiter_namespace)
+    window_ms = Keyword.fetch!(authentication, :oidc_begin_window_ms)
+    blocked_network = "198.51.100.120"
+
+    assert {:allow, _count} =
+             OidcBeginLimiter.hit(
+               {namespace, :network, blocked_network},
+               window_ms,
+               1
+             )
+
+    assert {:error, blocked_error} = begin_oidc_login("desktop", blocked_network)
+    assert Exception.message(blocked_error) =~ "rate_limited"
+
+    assert {:ok, _result} = begin_oidc_login("desktop", "198.51.100.121")
+    assert_receive {:oidc_authorization, _options}
   end
 
   test "begin enforces the outstanding-state cap before provider work" do

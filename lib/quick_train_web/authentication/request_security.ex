@@ -46,7 +46,7 @@ defmodule QuickTrainWeb.Authentication.RequestSecurity do
   defp encrypted?(conn, settings) do
     if trusted_proxy?(conn.remote_ip, settings) do
       case forwarded_value(conn, "x-forwarded-proto") do
-        nil -> conn.scheme == :https
+        nil -> false
         value -> String.downcase(value) in ["https", "wss"]
       end
     else
@@ -96,11 +96,9 @@ defmodule QuickTrainWeb.Authentication.RequestSecurity do
   defp forwarded_value(conn, header) do
     conn
     |> get_req_header(header)
-    |> List.first()
-    |> case do
-      nil -> nil
-      value -> value |> String.split(",", trim: true) |> List.last() |> trimmed_value()
-    end
+    |> Enum.flat_map(&String.split(&1, ",", trim: false))
+    |> List.last()
+    |> trimmed_value()
   end
 
   defp trimmed_value(nil), do: nil

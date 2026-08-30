@@ -72,9 +72,9 @@ defmodule QuickTrain.Authentication.Api.Actions.BeginOidcLogin do
     network_limit = Keyword.fetch!(settings, :oidc_begin_network_limit)
 
     with {:allow, _count} <-
-           OidcBeginLimiter.hit({namespace, :global}, window_ms, global_limit),
+           OidcBeginLimiter.hit({namespace, :network, network_source}, window_ms, network_limit),
          {:allow, _count} <-
-           OidcBeginLimiter.hit({namespace, :network, network_source}, window_ms, network_limit) do
+           OidcBeginLimiter.hit({namespace, :global}, window_ms, global_limit) do
       :ok
     else
       {:deny, _retry_after} -> {:error, :rate_limited}

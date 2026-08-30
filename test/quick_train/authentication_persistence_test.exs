@@ -189,6 +189,30 @@ defmodule QuickTrain.AuthenticationPersistenceTest do
     refute Map.has_key?(session, :organization_id)
   end
 
+  test "session persistence rejects a lifetime above the configured maximum" do
+    user =
+      Accounts.register_user!(
+        "bounded-session-#{System.unique_integer([:positive])}@example.com",
+        "Bounded Session"
+      )
+
+    issued_at = DateTime.utc_now()
+
+    maximum_seconds =
+      :quick_train
+      |> Application.fetch_env!(:authentication)
+      |> Keyword.fetch!(:session_max_lifetime_seconds)
+
+    assert {:error, %Ash.Error.Invalid{}} =
+             Accounts.persist_bearer_session(%{
+               user_id: user.id,
+               token_hash: :crypto.hash(:sha256, "overlong-token"),
+               authentication_method: "oidc",
+               issued_at: issued_at,
+               expires_at: DateTime.add(issued_at, maximum_seconds + 1, :second)
+             })
+  end
+
   test "bearer eligibility is resolved by a dedicated Ash read action" do
     user =
       Accounts.register_user!(

@@ -109,6 +109,35 @@ defmodule QuickTrainWeb.AuthenticationBoundaryTest do
     assert secured_conn.halted
   end
 
+  test "a trusted proxy must supply the external request scheme" do
+    configure_authentication(enforce_https?: true, trusted_proxy_ips: ["10.0.0.1"])
+
+    secured_conn =
+      Phoenix.ConnTest.build_conn(:post, "/graphql", nil)
+      |> Map.put(:remote_ip, {10, 0, 0, 1})
+      |> Map.put(:scheme, :https)
+      |> RequestSecurity.call([])
+
+    assert secured_conn.status == 426
+    assert secured_conn.halted
+  end
+
+  test "the final repeated forwarded scheme controls the external request scheme" do
+    configure_authentication(enforce_https?: true, trusted_proxy_ips: ["10.0.0.1"])
+
+    secured_conn =
+      Phoenix.ConnTest.build_conn(:post, "/graphql", nil)
+      |> Map.put(:remote_ip, {10, 0, 0, 1})
+      |> prepend_req_headers([
+        {"x-forwarded-proto", "https"},
+        {"x-forwarded-proto", "http"}
+      ])
+      |> RequestSecurity.call([])
+
+    assert secured_conn.status == 426
+    assert secured_conn.halted
+  end
+
   test "a valid bearer installs the active global user as Ash and Absinthe actor", %{conn: conn} do
     configure_authentication(enforce_https?: false)
 
@@ -153,6 +182,27 @@ defmodule QuickTrainWeb.AuthenticationBoundaryTest do
       refute authenticated_conn.halted
       assert Ash.PlugHelpers.get_actor(authenticated_conn).id == user.id
     end
+  end
+
+  test "bearer authentication accepts multiple separator spaces", %{conn: conn} do
+    configure_authentication(enforce_https?: false)
+
+    user =
+      Accounts.register_user!(
+        "spaced-scheme-actor-#{System.unique_integer([:positive])}@example.test",
+        "Spaced Scheme Actor"
+      )
+
+    issued = Accounts.issue_bearer_session!(user.id)
+
+    authenticated_conn =
+      conn
+      |> put_req_header("authorization", "Bearer   #{issued.token}")
+      |> RequestSecurity.call([])
+      |> BearerAuthentication.call([])
+
+    refute authenticated_conn.halted
+    assert Ash.PlugHelpers.get_actor(authenticated_conn).id == user.id
   end
 
   test "invalid and disabled-user bearer credentials fail closed", %{conn: conn} do

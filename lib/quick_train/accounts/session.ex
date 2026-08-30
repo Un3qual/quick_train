@@ -83,6 +83,7 @@ defmodule QuickTrain.Accounts.Session do
              )
 
       validate compare(:expires_at, greater_than: :issued_at)
+      validate QuickTrain.Accounts.Session.Validations.LifetimeWithinMaximum
     end
 
     update :revoke do
