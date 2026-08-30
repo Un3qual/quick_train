@@ -119,6 +119,11 @@ defmodule QuickTrain.Assets.Asset do
       validate attribute_equals(:state, "pending")
     end
 
+    update :claim_cleanup do
+      require_atomic? false
+      accept [:operation_claim_kind, :operation_claim_id, :operation_claim_expires_at]
+    end
+
     update :start_publication do
       require_atomic? false
       accept [:operation_claim_expires_at, :publication_may_finish_at]
@@ -151,6 +156,25 @@ defmodule QuickTrain.Assets.Asset do
       validate attribute_equals(:state, "pending")
       change set_attribute(:state, "duplicate_content")
       change set_attribute(:failure_reason, "duplicate_content")
+      change set_attribute(:operation_claim_kind, nil)
+      change set_attribute(:operation_claim_id, nil)
+      change set_attribute(:operation_claim_expires_at, nil)
+    end
+
+    update :complete_staging_cleanup do
+      require_atomic? false
+      accept [:staging_cleaned_at]
+      change set_attribute(:operation_claim_kind, nil)
+      change set_attribute(:operation_claim_id, nil)
+      change set_attribute(:operation_claim_expires_at, nil)
+    end
+
+    update :complete_expired_staging_cleanup do
+      require_atomic? false
+      accept [:staging_cleaned_at]
+      validate attribute_equals(:state, "pending")
+      change set_attribute(:state, "failed")
+      change set_attribute(:failure_reason, "staging_expired")
       change set_attribute(:operation_claim_kind, nil)
       change set_attribute(:operation_claim_id, nil)
       change set_attribute(:operation_claim_expires_at, nil)

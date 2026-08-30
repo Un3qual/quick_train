@@ -34,6 +34,10 @@ defmodule QuickTrain.Assets.Asset.Actions.Finalize do
     end
   end
 
+  def reconcile_verified(resource, asset_id, organization_id, claim_id, sealed_key, facts) do
+    commit_success(resource, asset_id, organization_id, claim_id, sealed_key, facts)
+  end
+
   defp acquire_claim(resource, asset_id, organization_id, claim_id) do
     now = DateTime.utc_now()
     claim_expires_at = DateTime.add(now, config(:operation_claim_seconds), :second)
@@ -167,7 +171,7 @@ defmodule QuickTrain.Assets.Asset.Actions.Finalize do
           asset.state != "pending" ->
             {:terminal, asset}
 
-          asset.operation_claim_id != claim_id ->
+          not live_claim_identity?(asset, claim_id, DateTime.utc_now()) ->
             :stale
 
           true ->
@@ -236,7 +240,7 @@ defmodule QuickTrain.Assets.Asset.Actions.Finalize do
       cond do
         is_nil(asset) -> :missing
         asset.state != "pending" -> {:terminal, asset}
-        asset.operation_claim_id != claim_id -> :stale
+        not live_claim_identity?(asset, claim_id, DateTime.utc_now()) -> :stale
         true -> {:terminal, complete_failed!(asset, sanitized_reason)}
       end
     end)
@@ -296,6 +300,10 @@ defmodule QuickTrain.Assets.Asset.Actions.Finalize do
   defp current_claim?(asset, claim_id, now) do
     asset.state == "pending" and asset.operation_claim_kind == "finalize" and
       asset.operation_claim_id == claim_id and live_claim?(asset, now)
+  end
+
+  defp live_claim_identity?(asset, claim_id, now) do
+    asset.state == "pending" and asset.operation_claim_id == claim_id and live_claim?(asset, now)
   end
 
   defp sanitize_failure(:content_mismatch), do: "content_mismatch"

@@ -3,10 +3,11 @@ import Config
 config :quick_train, Oban,
   engine: Oban.Engines.Basic,
   notifier: Oban.Notifiers.Postgres,
-  queues: [default: 10, authentication: 1],
+  queues: [default: 10, authentication: 1, assets: 5],
   cron: [
     crontab: [
-      {"17 * * * *", QuickTrain.Accounts.Workers.AuthenticationRetention}
+      {"17 * * * *", QuickTrain.Accounts.Workers.AuthenticationRetention},
+      {"*/10 * * * *", QuickTrain.Assets.Workers.AssetStagingCleanup}
     ]
   ],
   lifeline: [rescue_after: {2, :hours}],
