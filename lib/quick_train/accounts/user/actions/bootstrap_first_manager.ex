@@ -5,9 +5,9 @@ defmodule QuickTrain.Accounts.User.Actions.BootstrapFirstManager do
 
   require Ash.Query
 
+  alias QuickTrain.AshError
   alias QuickTrain.Authorization.{Role, RoleAssignment}
   alias QuickTrain.Organizations.{Membership, Organization}
-  alias QuickTrain.AshError
 
   @manager_key "manager"
   @manager_name "Manager"

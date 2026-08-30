@@ -623,20 +623,7 @@ defmodule QuickTrain.OidcLoginTest do
 
     tasks =
       Enum.map(logins, fn login ->
-        Task.async(fn ->
-          send(parent, {:exchange_ready, self()})
-
-          receive do
-            :exchange ->
-              Sandbox.unboxed_run(Repo, fn ->
-                Authentication.exchange_oidc_login(
-                  "provider-code",
-                  login.state,
-                  login.client_proof
-                )
-              end)
-          end
-        end)
+        Task.async(fn -> await_concurrent_exchange(parent, login) end)
       end)
 
     task_pids =
@@ -647,6 +634,21 @@ defmodule QuickTrain.OidcLoginTest do
 
     Enum.each(task_pids, &send(&1, :exchange))
     Task.await_many(tasks, 15_000)
+  end
+
+  defp await_concurrent_exchange(parent, login) do
+    send(parent, {:exchange_ready, self()})
+
+    receive do
+      :exchange ->
+        Sandbox.unboxed_run(Repo, fn ->
+          Authentication.exchange_oidc_login(
+            "provider-code",
+            login.state,
+            login.client_proof
+          )
+        end)
+    end
   end
 
   defp await_concurrent_begin(parent, callback_key, attempt) do

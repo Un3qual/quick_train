@@ -15,8 +15,8 @@ defmodule QuickTrain.Authentication.Api.Actions.ExchangeOidcLogin do
     User
   }
 
-  alias QuickTrain.Authentication.{Error, OidcExchangeResult}
   alias QuickTrain.AshError
+  alias QuickTrain.Authentication.{Error, OidcExchangeResult}
 
   @finalization_attempts 2
 

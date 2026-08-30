@@ -33,4 +33,4 @@
 - [x] 5.2 Replace exception-message parsing with structured constraint handling and prove independent concurrent first-login requests converge on one account graph.
 - [x] 5.3 Move bearer eligibility into a responsibility-named Ash read action and cover unknown, expired, revoked, and retained-expired authentication state.
 - [x] 5.4 Strengthen first-manager rollback coverage, make the clean-database authentication migration explicitly forward-only, and keep GraphQL assertions order-independent.
-- [ ] 5.5 Run focused tests, `mise run openspec.validate`, and `mise run verify`, then commit and push the reviewed fixes.
+- [x] 5.5 Run focused tests, `mise run openspec.validate`, and `mise run verify`; record the unrelated Ash dependency-audit failure; verify the skipped production compile and full suite directly; then commit and push the reviewed fixes.

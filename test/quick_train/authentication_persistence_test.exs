@@ -1,11 +1,12 @@
 defmodule QuickTrain.AuthenticationPersistenceTest do
   use QuickTrain.DataCase, async: true
 
+  alias Ash.Resource.Info
   alias QuickTrain.Accounts
   alias QuickTrain.Authentication.{Api, OidcBeginResult, OidcExchangeResult}
 
   test "authentication inputs are sensitive and one-time results redact secrets from inspection" do
-    exchange_action = Ash.Resource.Info.action(Api, :exchange_oidc_login)
+    exchange_action = Info.action(Api, :exchange_oidc_login)
 
     assert Enum.all?(exchange_action.arguments, & &1.sensitive?)
 
