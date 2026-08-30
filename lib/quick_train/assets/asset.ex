@@ -76,7 +76,15 @@ defmodule QuickTrain.Assets.Asset do
   actions do
     defaults [:read]
 
-    action :register, :map do
+    read :get_scoped do
+      get? true
+      argument :asset_id, :uuid, allow_nil?: false
+      argument :organization_id, :uuid, allow_nil?: false
+      filter expr(id == ^arg(:asset_id) and organization_id == ^arg(:organization_id))
+    end
+
+    action :register, QuickTrain.Assets.AssetRegistrationResult do
+      allow_nil? false
       argument :organization_id, :uuid, allow_nil?: false
       argument :sha256, :string, allow_nil?: false
       argument :byte_size, :integer, allow_nil?: false
@@ -85,14 +93,16 @@ defmodule QuickTrain.Assets.Asset do
       run QuickTrain.Assets.Asset.Actions.Register
     end
 
-    action :finalize, :map do
+    action :finalize, QuickTrain.Assets.AssetFinalizationResult do
+      allow_nil? false
       argument :asset_id, :uuid, allow_nil?: false
       argument :organization_id, :uuid, allow_nil?: false
 
       run QuickTrain.Assets.Asset.Actions.Finalize
     end
 
-    action :access, :map do
+    action :access, QuickTrain.Assets.AssetAccessResult do
+      allow_nil? false
       argument :asset_id, :uuid, allow_nil?: false
       argument :organization_id, :uuid, allow_nil?: false
 
@@ -193,6 +203,11 @@ defmodule QuickTrain.Assets.Asset do
   end
 
   policies do
+    policy action(:get_scoped) do
+      authorize_if {QuickTrain.Authorization.Checks.OrganizationCapability,
+                    capability: "assets.read"}
+    end
+
     policy action(:register) do
       authorize_if {QuickTrain.Authorization.Checks.OrganizationCapability,
                     capability: "assets.manage"}
@@ -210,6 +225,7 @@ defmodule QuickTrain.Assets.Asset do
   end
 
   graphql do
+    derive_filter? false
     type :asset
   end
 

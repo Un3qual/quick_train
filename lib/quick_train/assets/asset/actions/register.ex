@@ -5,7 +5,7 @@ defmodule QuickTrain.Assets.Asset.Actions.Register do
 
   require Ash.Query
 
-  alias QuickTrain.Assets.Storage
+  alias QuickTrain.Assets.{AssetRegistrationResult, Storage}
 
   @impl true
   def run(input, _opts, _context) do
@@ -46,7 +46,7 @@ defmodule QuickTrain.Assets.Asset.Actions.Register do
 
   defp reuse_ready(asset, %{byte_size: byte_size, media_type: media_type}) do
     if asset.byte_size == byte_size and asset.media_type == media_type do
-      {:ok, %{asset: asset, upload_access: nil, reused?: true}}
+      {:ok, AssetRegistrationResult.from(asset, nil, true)}
     else
       {:error, :asset_identity_conflict}
     end
@@ -79,7 +79,7 @@ defmodule QuickTrain.Assets.Asset.Actions.Register do
              arguments.byte_size,
              access_expiry(now, staging_expires_at, config)
            ) do
-      {:ok, %{asset: asset, upload_access: access, reused?: false}}
+      {:ok, AssetRegistrationResult.from(asset, access, false)}
     else
       {:error, error} ->
         discard_registration(resource, asset_id)

@@ -3,8 +3,24 @@ defmodule QuickTrain.Assets do
 
   use Ash.Domain, otp_app: :quick_train, extensions: [AshGraphql.Domain]
 
+  alias QuickTrain.Assets.Asset
+
+  graphql do
+    queries do
+      read_one Asset, :asset, :get_scoped
+      action Asset, :asset_access, :access
+    end
+
+    mutations do
+      action Asset, :register_asset, :register,
+        args: [:organization_id, :sha256, :byte_size, :media_type]
+
+      action Asset, :finalize_asset, :finalize, args: [:asset_id, :organization_id]
+    end
+  end
+
   resources do
-    resource QuickTrain.Assets.Asset do
+    resource Asset do
       define :register_asset,
         action: :register,
         args: [:organization_id, :sha256, :byte_size, :media_type]
@@ -16,6 +32,8 @@ defmodule QuickTrain.Assets do
       define :get_asset_access,
         action: :access,
         args: [:asset_id, :organization_id]
+
+      define :get_asset, action: :get_scoped, args: [:asset_id, :organization_id]
     end
   end
 end

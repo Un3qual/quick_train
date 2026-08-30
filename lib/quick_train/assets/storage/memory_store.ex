@@ -223,6 +223,8 @@ defmodule QuickTrain.Assets.Storage.MemoryStore do
     path |> String.split("/", trim: true) |> List.last()
   end
 
+  defp token(%{uri: uri}) when is_binary(uri), do: token(%{uri: URI.parse(uri)})
+
   defp token(_descriptor), do: nil
 
   defp within_cap(bytes, byte_cap) when byte_size(bytes) <= byte_cap, do: :ok

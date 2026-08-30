@@ -80,7 +80,9 @@ defmodule QuickTrainWeb.GraphqlApiTest do
     assert_receive {:oidc_exchange, "provider-code", _options}
   end
 
-  test "public GraphQL roots contain only API version and OIDC mutations", %{conn: conn} do
+  test "public GraphQL roots contain only authentication and deliberate asset operations", %{
+    conn: conn
+  } do
     query = """
     {
       __schema {
@@ -94,7 +96,16 @@ defmodule QuickTrainWeb.GraphqlApiTest do
     response = conn |> post("/graphql", %{query: query}) |> json_response(200)
     schema = response["data"]["__schema"]
 
-    assert schema["queryType"]["fields"] == [%{"args" => [], "name" => "apiVersion"}]
+    queries =
+      Map.new(schema["queryType"]["fields"], fn field ->
+        {field["name"], MapSet.new(field["args"], & &1["name"])}
+      end)
+
+    assert queries == %{
+             "apiVersion" => MapSet.new(),
+             "asset" => MapSet.new(["assetId", "organizationId"]),
+             "assetAccess" => MapSet.new(["assetId", "organizationId"])
+           }
 
     mutations =
       Map.new(schema["mutationType"]["fields"], fn field ->
@@ -103,7 +114,9 @@ defmodule QuickTrainWeb.GraphqlApiTest do
 
     assert mutations == %{
              "beginOidcLogin" => MapSet.new(["callbackKey"]),
-             "exchangeOidcLogin" => MapSet.new(["clientProof", "code", "state"])
+             "exchangeOidcLogin" => MapSet.new(["clientProof", "code", "state"]),
+             "registerAsset" => MapSet.new(["organizationId", "sha256", "byteSize", "mediaType"]),
+             "finalizeAsset" => MapSet.new(["assetId", "organizationId"])
            }
 
     type_names = MapSet.new(schema["types"], & &1["name"])

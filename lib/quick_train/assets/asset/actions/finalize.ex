@@ -6,7 +6,7 @@ defmodule QuickTrain.Assets.Asset.Actions.Finalize do
   require Ash.Query
 
   alias QuickTrain.AshError
-  alias QuickTrain.Assets.Storage
+  alias QuickTrain.Assets.{AssetFinalizationResult, Storage}
 
   @terminal_storage_errors [
     :content_mismatch,
@@ -276,13 +276,13 @@ defmodule QuickTrain.Assets.Asset.Actions.Finalize do
 
   defp result(resource, %{state: "duplicate_content"} = asset) do
     canonical = resource |> Ash.get!(asset.canonical_asset_id, authorize?: false)
-    {:ok, %{asset: asset, canonical_asset: canonical}}
+    {:ok, AssetFinalizationResult.from(asset, canonical)}
   end
 
   defp result(_resource, %{state: "ready"} = asset),
-    do: {:ok, %{asset: asset, canonical_asset: asset}}
+    do: {:ok, AssetFinalizationResult.from(asset, asset)}
 
-  defp result(_resource, asset), do: {:ok, %{asset: asset, canonical_asset: nil}}
+  defp result(_resource, asset), do: {:ok, AssetFinalizationResult.from(asset, nil)}
 
   defp expected_facts(asset) do
     %{sha256: asset.sha256, byte_size: asset.byte_size, media_type: asset.media_type}

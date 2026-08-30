@@ -89,11 +89,12 @@ defmodule QuickTrain.Assets.AssetLifecycleTest do
              )
 
     assert access.asset.id == finalized.asset.id
-    assert access.read_access.method == :get
+    assert access.read_access.method == "GET"
     assert {:ok, ^content} = TestStorage.read_sealed(access.read_access)
 
     assert_raise ArgumentError, ~r/No such update action/, fn ->
-      Ash.Changeset.for_update(finalized.asset, :update, %{media_type: "application/pdf"})
+      stored_asset = Ash.get!(Asset, finalized.asset.id, authorize?: false)
+      Ash.Changeset.for_update(stored_asset, :update, %{media_type: "application/pdf"})
     end
   end
 
@@ -149,7 +150,7 @@ defmodule QuickTrain.Assets.AssetLifecycleTest do
                actor: manager
              )
 
-    assert reused.reused?
+    assert reused.reused
     assert reused.asset.id == first_result.asset.id
     assert is_nil(reused.upload_access)
     assert Ash.count!(Asset, authorize?: false) == 2

@@ -5,7 +5,7 @@ defmodule QuickTrain.Assets.Asset.Actions.Access do
 
   require Ash.Query
 
-  alias QuickTrain.Assets.Storage
+  alias QuickTrain.Assets.{AssetAccessResult, Storage}
 
   @impl true
   def run(input, _opts, _context) do
@@ -13,7 +13,7 @@ defmodule QuickTrain.Assets.Asset.Actions.Access do
 
     with {:ok, asset} <- accessible_asset(input.resource, asset_id, organization_id),
          {:ok, access} <- Storage.sealed_read_access(asset.sealed_key, read_expiry()) do
-      {:ok, %{asset: asset, read_access: access}}
+      {:ok, AssetAccessResult.from(asset, access)}
     end
   end
 
