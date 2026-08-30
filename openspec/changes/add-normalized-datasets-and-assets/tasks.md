@@ -21,7 +21,7 @@
 
 ## 3. Versioned Dataset Schemas
 
-- [ ] 3.1 Generate Dataset, DatasetSchemaVersion, DatasetRecordType, and DatasetFieldDefinition resources with snapshots, migrations, organization ownership, relationships, identities, constraints, and indexes.
+- [x] 3.1 Generate Dataset, DatasetSchemaVersion, DatasetRecordType, and DatasetFieldDefinition resources with snapshots, migrations, organization ownership, relationships, identities, constraints, and indexes.
 - [ ] 3.2 Implement draft-only record-type and field editing for text, integer, decimal, boolean, UTC date-time, and asset families with `single` cardinality and requiredness.
 - [ ] 3.3 Make every schema child edit lock and recheck the parent version so no mutation can commit after publication.
 - [ ] 3.4 Implement atomic schema publication with exactly one same-schema designated root type and immutable post-publication behavior.
