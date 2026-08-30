@@ -3,9 +3,9 @@ defmodule QuickTrain.Authentication.Api.Actions.ExchangeOidcLogin do
 
   use Ash.Resource.Actions.Implementation
 
-  import Bitwise, only: [bor: 2, bxor: 2]
-
   require Ash.Query
+
+  alias QuickTrain.Accounts
 
   alias QuickTrain.Accounts.{
     ExternalIdentity,
@@ -26,18 +26,17 @@ defmodule QuickTrain.Authentication.Api.Actions.ExchangeOidcLogin do
   end
 
   defp exchange_login(input) do
-    resource = OidcLoginTransaction
     code = input.arguments.code
     state = input.arguments.state
     client_proof = input.arguments.client_proof
 
     with :ok <- validate_exchange_input(code, state, client_proof),
-         {:ok, transaction} <- load_transaction(resource, state),
+         {:ok, transaction} <- load_transaction(state),
          :ok <- verify_client_proof(transaction, client_proof),
          {:ok, claimed_transaction} <- claim_transaction(transaction),
          {:ok, claims} <- exchange_with_provider(claimed_transaction, code),
          {:ok, identity_claims} <- validate_identity_claims(claims),
-         {:ok, result} <- finalize_exchange(resource, claimed_transaction, identity_claims) do
+         {:ok, result} <- finalize_exchange(claimed_transaction, identity_claims) do
       {:ok, result}
     else
       {:error, reason} -> {:error, reason}
@@ -52,10 +51,10 @@ defmodule QuickTrain.Authentication.Api.Actions.ExchangeOidcLogin do
   defp validate_exchange_input(_code, _state, _client_proof),
     do: {:error, :invalid_oidc_exchange}
 
-  defp load_transaction(resource, state) do
+  defp load_transaction(state) do
     state_hash = sha256(state)
 
-    case resource
+    case OidcLoginTransaction
          |> Ash.Query.filter(state_hash == ^state_hash)
          |> Ash.read_one(authorize?: false) do
       {:ok, transaction} when not is_nil(transaction) -> {:ok, transaction}
@@ -76,10 +75,7 @@ defmodule QuickTrain.Authentication.Api.Actions.ExchangeOidcLogin do
   end
 
   defp claim_transaction(transaction) do
-    result =
-      transaction
-      |> Ash.Changeset.for_update(:claim, %{})
-      |> Ash.update(authorize?: false)
+    result = Accounts.claim_oidc_login(transaction, authorize?: false)
 
     case result do
       {:ok, claimed_transaction} -> {:ok, claimed_transaction}
@@ -144,29 +140,21 @@ defmodule QuickTrain.Authentication.Api.Actions.ExchangeOidcLogin do
   defp trimmed_nonblank(_value), do: nil
 
   defp finalize_exchange(
-         transaction_resource,
          transaction,
          identity_claims,
          attempts \\ @finalization_attempts
        ) do
-    resources = [transaction_resource, ExternalIdentity, User, Session]
+    resources = [OidcLoginTransaction, ExternalIdentity, User, Session]
 
     case Ash.transact(resources, fn ->
-           transaction_result(
-             finalize_in_transaction(transaction_resource, transaction, identity_claims)
-           )
+           transaction_result(finalize_in_transaction(transaction, identity_claims))
          end) do
       {:ok, result} ->
         {:ok, result}
 
       {:error, error} when attempts > 1 ->
         if uniqueness_conflict?(error) do
-          finalize_exchange(
-            transaction_resource,
-            transaction,
-            identity_claims,
-            attempts - 1
-          )
+          finalize_exchange(transaction, identity_claims, attempts - 1)
         else
           {:error, finalization_error(error)}
         end
@@ -182,9 +170,9 @@ defmodule QuickTrain.Authentication.Api.Actions.ExchangeOidcLogin do
 
   defp transaction_result(result), do: result
 
-  defp finalize_in_transaction(transaction_resource, transaction, identity_claims) do
+  defp finalize_in_transaction(transaction, identity_claims) do
     with {:ok, locked_transaction} <-
-           lock_claimed_transaction(transaction_resource, transaction.id),
+           lock_claimed_transaction(transaction.id),
          {:ok, user} <- resolve_user(identity_claims),
          {:ok, issued} <- issue_bearer_session(user.id),
          {:ok, _consumed_transaction} <- consume_transaction(locked_transaction) do
@@ -197,9 +185,9 @@ defmodule QuickTrain.Authentication.Api.Actions.ExchangeOidcLogin do
     end
   end
 
-  defp lock_claimed_transaction(resource, transaction_id) do
+  defp lock_claimed_transaction(transaction_id) do
     transaction =
-      resource
+      OidcLoginTransaction
       |> Ash.Query.filter(id == ^transaction_id)
       |> Ash.Query.lock(:for_update)
       |> Ash.read_one!(authorize?: false)
@@ -249,43 +237,37 @@ defmodule QuickTrain.Authentication.Api.Actions.ExchangeOidcLogin do
   defp create_identity_graph(identity_claims) do
     with {:ok, email} <- verified_email(identity_claims),
          {:ok, user} <-
-           create(User, :create_from_oidc, %{
-             email: email,
-             display_name: identity_claims.display_name || email_local_part(email)
-           }),
+           Accounts.create_oidc_user(
+             %{
+               email: email,
+               display_name: identity_claims.display_name || email_local_part(email)
+             },
+             authorize?: false
+           ),
          {:ok, _identity} <-
-           create(ExternalIdentity, :create_identity, %{
-             user_id: user.id,
-             issuer: identity_claims.issuer,
-             subject: identity_claims.subject,
-             claims: identity_claims.claims
-           }) do
+           Accounts.create_external_identity(
+             %{
+               user_id: user.id,
+               issuer: identity_claims.issuer,
+               subject: identity_claims.subject,
+               claims: identity_claims.claims
+             },
+             authorize?: false
+           ) do
       {:ok, user}
     end
   end
 
   defp refresh_identity(identity, claims) do
-    identity
-    |> Ash.Changeset.for_update(:refresh, %{claims: claims})
-    |> Ash.update(authorize?: false)
+    Accounts.refresh_external_identity(identity, %{claims: claims}, authorize?: false)
   end
 
   defp issue_bearer_session(user_id) do
-    Session
-    |> Ash.ActionInput.for_action(:issue_bearer, %{user_id: user_id})
-    |> Ash.run_action(authorize?: false)
+    Accounts.issue_bearer_session(user_id, authorize?: false)
   end
 
   defp consume_transaction(transaction) do
-    transaction
-    |> Ash.Changeset.for_update(:consume, %{})
-    |> Ash.update(authorize?: false)
-  end
-
-  defp create(resource, action, attributes) do
-    resource
-    |> Ash.Changeset.for_create(action, attributes)
-    |> Ash.create(authorize?: false)
+    Accounts.consume_oidc_login(transaction, authorize?: false)
   end
 
   defp verified_email(%{email_verified: true, email: email}) when is_binary(email) do
@@ -330,20 +312,10 @@ defmodule QuickTrain.Authentication.Api.Actions.ExchangeOidcLogin do
 
   defp constant_time_equal?(left, right)
        when is_binary(left) and is_binary(right) and byte_size(left) == byte_size(right) do
-    constant_time_difference(left, right, 0) == 0
+    :crypto.hash_equals(left, right)
   end
 
   defp constant_time_equal?(_left, _right), do: false
-
-  defp constant_time_difference(<<>>, <<>>, difference), do: difference
-
-  defp constant_time_difference(
-         <<left, left_rest::binary>>,
-         <<right, right_rest::binary>>,
-         difference
-       ) do
-    constant_time_difference(left_rest, right_rest, bor(difference, bxor(left, right)))
-  end
 
   defp sha256(value), do: :crypto.hash(:sha256, value)
 end

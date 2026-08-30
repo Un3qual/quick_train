@@ -4,14 +4,19 @@ defmodule QuickTrain.TestOidcProvider do
   @behaviour QuickTrain.Accounts.OidcProvider
 
   def authorization_url(options) do
-    send(test_pid(), {:oidc_authorization, options})
+    code_challenge =
+      options.pkce_verifier
+      |> then(&:crypto.hash(:sha256, &1))
+      |> Base.url_encode64(padding: false)
+
+    send(test_pid(), {:oidc_authorization, Map.put(options, :code_challenge, code_challenge)})
 
     query =
       URI.encode_query(%{
         "redirect_uri" => options.redirect_uri,
         "state" => options.state,
         "nonce" => options.nonce,
-        "code_challenge" => options.code_challenge,
+        "code_challenge" => code_challenge,
         "code_challenge_method" => "S256"
       })
 

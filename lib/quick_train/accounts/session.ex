@@ -60,7 +60,7 @@ defmodule QuickTrain.Accounts.Session do
       run QuickTrain.Accounts.Session.Actions.IssueBearer
     end
 
-    action :cleanup_retained, :integer do
+    action :cleanup_retained, :boolean do
       argument :now, :utc_datetime_usec, allow_nil?: false
       run QuickTrain.Accounts.Session.Actions.CleanupRetained
     end

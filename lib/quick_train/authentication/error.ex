@@ -42,16 +42,10 @@ defmodule QuickTrain.Authentication.Error do
 
   defp failure_category(reason) when reason in @categories, do: reason
 
-  defp failure_category(reason) do
-    message = reason_message(reason)
+  defp failure_category(%__MODULE__{category: category}) when category in @categories,
+    do: category
 
-    Enum.find(@categories, :internal_error, fn category ->
-      String.contains?(message, Atom.to_string(category))
-    end)
-  end
-
-  defp reason_message(reason) when is_exception(reason), do: Exception.message(reason)
-  defp reason_message(reason), do: inspect(reason)
+  defp failure_category(_reason), do: :internal_error
 end
 
 defimpl AshGraphql.Error, for: QuickTrain.Authentication.Error do

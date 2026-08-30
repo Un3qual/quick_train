@@ -4,7 +4,6 @@ defmodule QuickTrain.Accounts.Session.Actions.IssueBearer do
   use Ash.Resource.Actions.Implementation
 
   @token_bytes 32
-  @default_max_lifetime_seconds 8 * 60 * 60
 
   @impl true
   def run(input, _opts, _context) do
@@ -37,8 +36,8 @@ defmodule QuickTrain.Accounts.Session.Actions.IssueBearer do
   defp bounded_lifetime(requested_seconds) do
     maximum_seconds =
       :quick_train
-      |> Application.get_env(:authentication, [])
-      |> Keyword.get(:session_max_lifetime_seconds, @default_max_lifetime_seconds)
+      |> Application.fetch_env!(:authentication)
+      |> Keyword.fetch!(:session_max_lifetime_seconds)
 
     requested_seconds
     |> Kernel.||(maximum_seconds)

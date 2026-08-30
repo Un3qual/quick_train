@@ -5,8 +5,6 @@ defmodule QuickTrain.Accounts.Session.Actions.CleanupRetained do
 
   require Ash.Query
 
-  @default_retention_seconds 86_400
-
   @impl true
   def run(input, _opts, _context) do
     cutoff = DateTime.add(input.arguments.now, -retention_seconds(), :second)
@@ -17,19 +15,18 @@ defmodule QuickTrain.Accounts.Session.Actions.CleanupRetained do
       |> Ash.bulk_destroy(:delete_retained, %{},
         authorize?: false,
         strategy: [:atomic],
-        return_records?: true,
         return_errors?: true
       )
 
     case result do
-      %Ash.BulkResult{status: :success, records: records} -> {:ok, length(records || [])}
+      %Ash.BulkResult{status: :success} -> {:ok, true}
       %Ash.BulkResult{errors: errors} -> {:error, Ash.Error.to_error_class(errors)}
     end
   end
 
   defp retention_seconds do
     :quick_train
-    |> Application.get_env(:authentication, [])
-    |> Keyword.get(:session_retention_seconds, @default_retention_seconds)
+    |> Application.fetch_env!(:authentication)
+    |> Keyword.fetch!(:session_retention_seconds)
   end
 end

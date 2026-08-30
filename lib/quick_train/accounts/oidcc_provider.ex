@@ -4,7 +4,7 @@ defmodule QuickTrain.Accounts.OidccProvider do
   @behaviour QuickTrain.Accounts.OidcProvider
 
   alias Oidcc.{Authorization, ClientContext, ProviderConfiguration, Token}
-  alias QuickTrain.Accounts.{Oidc, OidcClientContextCache}
+  alias QuickTrain.Accounts.{Oidc, OidcProviderMetadataCache}
 
   @impl true
   def authorization_url(options) do
@@ -12,7 +12,7 @@ defmodule QuickTrain.Accounts.OidccProvider do
          {:ok, authorization_uri} <-
            Authorization.create_redirect_url(
              client_context,
-             Map.drop(options, [:code_challenge])
+             options
            ),
          true <- secure_endpoint?(authorization_uri) do
       {:ok, authorization_uri}
@@ -67,8 +67,9 @@ defmodule QuickTrain.Accounts.OidccProvider do
   defp client_context do
     with {:ok, client_id, client_secret} <- Oidc.client_credentials(),
          issuer when is_binary(issuer) <- Oidc.issuer(),
-         true <- secure_endpoint?(issuer) do
-      OidcClientContextCache.fetch({issuer, client_id, client_secret})
+         true <- secure_endpoint?(issuer),
+         {:ok, {configuration, jwks}} <- OidcProviderMetadataCache.fetch(issuer) do
+      {:ok, ClientContext.from_manual(configuration, jwks, client_id, client_secret)}
     else
       false -> {:error, :insecure_provider_endpoint}
       nil -> {:error, :oidc_not_configured}
@@ -77,15 +78,14 @@ defmodule QuickTrain.Accounts.OidccProvider do
   end
 
   @doc false
-  def load_client_context({issuer, client_id, client_secret}) do
+  def load_provider_metadata(issuer) do
     with true <- secure_endpoint?(issuer),
          {:ok, {configuration, configuration_expiry}} <-
            ProviderConfiguration.load_configuration(issuer),
          true <- secure_provider_configuration?(configuration),
          {:ok, {jwks, jwks_expiry}} <-
            ProviderConfiguration.load_jwks(configuration.jwks_uri) do
-      {:ok, ClientContext.from_manual(configuration, jwks, client_id, client_secret),
-       min(configuration_expiry, jwks_expiry)}
+      {:ok, {configuration, jwks}, min(configuration_expiry, jwks_expiry)}
     else
       false -> {:error, :insecure_provider_endpoint}
       {:error, error} -> {:error, error}

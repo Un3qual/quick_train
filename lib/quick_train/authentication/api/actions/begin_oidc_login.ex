@@ -5,6 +5,7 @@ defmodule QuickTrain.Authentication.Api.Actions.BeginOidcLogin do
 
   require Ash.Query
 
+  alias QuickTrain.Accounts
   alias QuickTrain.Accounts.{Oidc, OidcBeginLimiter, OidcLoginTransaction}
   alias QuickTrain.AshError
   alias QuickTrain.Authentication.{Error, OidcBeginResult}
@@ -12,12 +13,6 @@ defmodule QuickTrain.Authentication.Api.Actions.BeginOidcLogin do
   @state_bytes 32
   @proof_bytes 32
   @verifier_bytes 64
-  @default_window_ms 60_000
-  @default_global_limit 300
-  @default_network_limit 20
-  @default_outstanding_limit 10_000
-  @default_transaction_ttl_seconds 300
-  @default_replay_retention_seconds 86_400
   @collision_attempts 3
   @outstanding_admission_lock {__MODULE__, :outstanding_state_admission}
   @allow_loopback_http Mix.env() in [:dev, :test]
@@ -28,14 +23,13 @@ defmodule QuickTrain.Authentication.Api.Actions.BeginOidcLogin do
   end
 
   defp begin_login(input) do
-    resource = OidcLoginTransaction
     callback_key = input.arguments.callback_key
     network_source = Map.get(input.context, :authentication_network_source)
 
     with {:ok, callback_uri} <- trusted_callback(callback_key),
-         :ok <- admit(resource, network_source),
+         :ok <- admit(network_source),
          {:ok, transaction, material} <-
-           persist_admitted_transaction(resource, callback_key, callback_uri),
+           persist_admitted_transaction(callback_key, callback_uri),
          {:ok, authorization_uri} <-
            provider_authorization_url(transaction, material, callback_uri) do
       {:ok,
@@ -47,7 +41,7 @@ defmodule QuickTrain.Authentication.Api.Actions.BeginOidcLogin do
        }}
     else
       {:provider_error, transaction} ->
-        _result = Ash.destroy(transaction, action: :discard, authorize?: false)
+        _result = Accounts.discard_oidc_login(transaction, authorize?: false)
         {:error, :provider_unavailable}
 
       {:error, reason} ->
@@ -60,7 +54,7 @@ defmodule QuickTrain.Authentication.Api.Actions.BeginOidcLogin do
 
     callback =
       config()
-      |> Keyword.get(:oidc_callbacks, [])
+      |> Keyword.fetch!(:oidc_callbacks)
       |> Enum.find_value(fn {key, uri} ->
         if to_string(key) == callback_key, do: uri
       end)
@@ -70,12 +64,12 @@ defmodule QuickTrain.Authentication.Api.Actions.BeginOidcLogin do
       else: {:error, :untrusted_callback}
   end
 
-  defp admit(_resource, network_source) when is_binary(network_source) and network_source != "" do
+  defp admit(network_source) when is_binary(network_source) and network_source != "" do
     settings = config()
     namespace = Keyword.get(settings, :oidc_begin_limiter_namespace, "oidc-begin")
-    window_ms = Keyword.get(settings, :oidc_begin_window_ms, @default_window_ms)
-    global_limit = Keyword.get(settings, :oidc_begin_global_limit, @default_global_limit)
-    network_limit = Keyword.get(settings, :oidc_begin_network_limit, @default_network_limit)
+    window_ms = Keyword.fetch!(settings, :oidc_begin_window_ms)
+    global_limit = Keyword.fetch!(settings, :oidc_begin_global_limit)
+    network_limit = Keyword.fetch!(settings, :oidc_begin_network_limit)
 
     with {:allow, _count} <-
            OidcBeginLimiter.hit({namespace, :global}, window_ms, global_limit),
@@ -87,31 +81,31 @@ defmodule QuickTrain.Authentication.Api.Actions.BeginOidcLogin do
     end
   end
 
-  defp admit(_resource, _network_source), do: {:error, :invalid_network_source}
+  defp admit(_network_source), do: {:error, :invalid_network_source}
 
-  defp persist_admitted_transaction(resource, callback_key, callback_uri) do
+  defp persist_admitted_transaction(callback_key, callback_uri) do
     lock_id = {@outstanding_admission_lock, self()}
 
     case :global.trans(lock_id, fn ->
-           admit_and_persist(resource, callback_key, callback_uri)
+           admit_and_persist(callback_key, callback_uri)
          end) do
       :aborted -> {:error, :outstanding_admission_unavailable}
       result -> result
     end
   end
 
-  defp admit_and_persist(resource, callback_key, callback_uri) do
-    with :ok <- admit_outstanding(resource, config()) do
-      persist_fresh_transaction(resource, callback_key, callback_uri)
+  defp admit_and_persist(callback_key, callback_uri) do
+    with :ok <- admit_outstanding(config()) do
+      persist_fresh_transaction(callback_key, callback_uri)
     end
   end
 
-  defp admit_outstanding(resource, settings) do
+  defp admit_outstanding(settings) do
     now = DateTime.utc_now()
-    limit = Keyword.get(settings, :oidc_outstanding_limit, @default_outstanding_limit)
+    limit = Keyword.fetch!(settings, :oidc_outstanding_limit)
 
     count =
-      resource
+      OidcLoginTransaction
       |> Ash.Query.filter(status in ["pending", "exchanging"] and expires_at > ^now)
       |> Ash.count!(authorize?: false)
 
@@ -119,16 +113,15 @@ defmodule QuickTrain.Authentication.Api.Actions.BeginOidcLogin do
   end
 
   defp persist_fresh_transaction(
-         resource,
          callback_key,
          callback_uri,
          attempts \\ @collision_attempts
        )
 
-  defp persist_fresh_transaction(_resource, _callback_key, _callback_uri, 0),
+  defp persist_fresh_transaction(_callback_key, _callback_uri, 0),
     do: {:error, :state_collision}
 
-  defp persist_fresh_transaction(resource, callback_key, callback_uri, attempts) do
+  defp persist_fresh_transaction(callback_key, callback_uri, attempts) do
     material = generate_material()
     state_hash = sha256(material.state)
     now = DateTime.utc_now()
@@ -137,18 +130,14 @@ defmodule QuickTrain.Authentication.Api.Actions.BeginOidcLogin do
     expires_at =
       DateTime.add(
         now,
-        Keyword.get(settings, :oidc_transaction_ttl_seconds, @default_transaction_ttl_seconds),
+        Keyword.fetch!(settings, :oidc_transaction_ttl_seconds),
         :second
       )
 
     retain_until =
       DateTime.add(
         expires_at,
-        Keyword.get(
-          settings,
-          :oidc_replay_retention_seconds,
-          @default_replay_retention_seconds
-        ),
+        Keyword.fetch!(settings, :oidc_replay_retention_seconds),
         :second
       )
 
@@ -163,39 +152,17 @@ defmodule QuickTrain.Authentication.Api.Actions.BeginOidcLogin do
       retain_until: retain_until
     }
 
-    case resource
-         |> Ash.Query.filter(state_hash == ^state_hash)
-         |> Ash.read_one(authorize?: false) do
-      {:ok, nil} ->
-        create_transaction(
-          resource,
-          attributes,
-          material,
-          callback_key,
-          callback_uri,
-          attempts
-        )
-
-      {:ok, _collision} ->
-        persist_fresh_transaction(resource, callback_key, callback_uri, attempts - 1)
-
-      {:error, error} ->
-        {:error, error}
-    end
+    create_transaction(attributes, material, callback_key, callback_uri, attempts)
   end
 
   defp create_transaction(
-         resource,
          attributes,
          material,
          callback_key,
          callback_uri,
          attempts
        ) do
-    result =
-      resource
-      |> Ash.Changeset.for_create(:begin, attributes)
-      |> Ash.create(authorize?: false)
+    result = Accounts.store_oidc_login(attributes, authorize?: false)
 
     case result do
       {:ok, transaction} ->
@@ -203,7 +170,7 @@ defmodule QuickTrain.Authentication.Api.Actions.BeginOidcLogin do
 
       {:error, error} ->
         if state_collision?(error) do
-          persist_fresh_transaction(resource, callback_key, callback_uri, attempts - 1)
+          persist_fresh_transaction(callback_key, callback_uri, attempts - 1)
         else
           {:error, error}
         end
@@ -221,14 +188,11 @@ defmodule QuickTrain.Authentication.Api.Actions.BeginOidcLogin do
 
     nonce = Oidc.nonce_for_verifier(pkce_verifier)
 
-    code_challenge = pkce_verifier |> sha256() |> Base.url_encode64(padding: false)
-
     %{
       state: state,
       nonce: nonce,
       client_proof: client_proof,
-      pkce_verifier: pkce_verifier,
-      code_challenge: code_challenge
+      pkce_verifier: pkce_verifier
     }
   end
 
@@ -238,7 +202,6 @@ defmodule QuickTrain.Authentication.Api.Actions.BeginOidcLogin do
       state: material.state,
       nonce: material.nonce,
       pkce_verifier: material.pkce_verifier,
-      code_challenge: material.code_challenge,
       require_pkce: true,
       scopes: ["openid", "email", "profile"]
     }
@@ -254,5 +217,5 @@ defmodule QuickTrain.Authentication.Api.Actions.BeginOidcLogin do
   end
 
   defp sha256(value), do: :crypto.hash(:sha256, value)
-  defp config, do: Application.get_env(:quick_train, :authentication, [])
+  defp config, do: Application.fetch_env!(:quick_train, :authentication)
 end

@@ -37,7 +37,7 @@
 
 ## 6. Complexity Remediation
 
-- [ ] 6.1 Cache only validated public OIDC discovery metadata and verification keys by issuer, and construct credential-bearing client contexts per request outside the cache.
-- [ ] 6.2 Remove redundant PKCE, state-collision preflight, custom secure-compare, exception-message classification, and duplicated authentication-default plumbing while preserving the fail-closed boundary.
-- [ ] 6.3 Use Accounts code interfaces for ordinary authentication persistence, keep direct Ash queries only where locking, bulk cleanup, or transaction orchestration requires them, and make cleanup actions return success without materializing deleted credential records.
-- [ ] 6.4 Reduce concurrency-test amplification while preserving deterministic race coverage, then run focused tests, `mise run openspec.validate`, and the repository verification gates.
+- [x] 6.1 Cache only validated public OIDC discovery metadata and verification keys by issuer, and construct credential-bearing client contexts per request outside the cache.
+- [x] 6.2 Remove redundant PKCE, state-collision preflight, custom secure-compare, exception-message classification, and duplicated authentication-default plumbing while preserving the fail-closed boundary.
+- [x] 6.3 Use Accounts code interfaces for ordinary cross-resource authentication persistence, keep direct Ash operations where resource-owned action implementation, locking, bulk cleanup, or transaction orchestration requires them, and make cleanup actions return success without materializing deleted credential records.
+- [x] 6.4 Reduce concurrency-test amplification while preserving deterministic race coverage, then run focused tests, `mise run openspec.validate`, and the repository verification gates.

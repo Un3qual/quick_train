@@ -36,7 +36,7 @@ defmodule QuickTrain.Accounts.OidcLoginTransaction do
   actions do
     defaults [:read]
 
-    action :cleanup_retained, :integer do
+    action :cleanup_retained, :boolean do
       argument :now, :utc_datetime_usec, allow_nil?: false
       run QuickTrain.Accounts.OidcLoginTransaction.Actions.CleanupRetained
     end

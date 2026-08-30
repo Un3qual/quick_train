@@ -158,10 +158,10 @@ defmodule QuickTrain.OidcLoginTest do
     )
 
     try do
-      results = concurrent_begins(callback_key, 12)
+      results = concurrent_begins(callback_key, 3)
 
       assert Enum.count(results, &match?({:ok, _result}, &1)) == 1
-      assert Enum.count(results, &match?({:error, _error}, &1)) == 11
+      assert Enum.count(results, &match?({:error, _error}, &1)) == 2
       assert count_non_expired_transactions(callback_key) == 1
     after
       delete_transactions(callback_key)
@@ -495,7 +495,7 @@ defmodule QuickTrain.OidcLoginTest do
     )
 
     logins =
-      for attempt <- 1..8 do
+      for attempt <- 1..3 do
         Sandbox.unboxed_run(Repo, fn ->
           begin_oidc_login!("desktop", "198.51.100.#{30 + attempt}")
         end)

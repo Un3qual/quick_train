@@ -21,7 +21,7 @@ defmodule QuickTrain.Accounts.Workers.AuthenticationRetention do
       Accounts.cleanup_retained_sessions(now, authorize?: false)
     ]
 
-    case Enum.reject(results, &match?({:ok, _count}, &1)) do
+    case Enum.reject(results, &match?({:ok, true}, &1)) do
       [] -> :ok
       errors -> {:error, {:authentication_retention_failed, length(errors)}}
     end

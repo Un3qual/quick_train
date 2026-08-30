@@ -15,12 +15,11 @@ defmodule QuickTrain.Accounts.OidcLoginTransaction.Actions.CleanupRetained do
       |> Ash.bulk_destroy(:delete_retained, %{},
         authorize?: false,
         strategy: [:atomic],
-        return_records?: true,
         return_errors?: true
       )
 
     case result do
-      %Ash.BulkResult{status: :success, records: records} -> {:ok, length(records || [])}
+      %Ash.BulkResult{status: :success} -> {:ok, true}
       %Ash.BulkResult{errors: errors} -> {:error, Ash.Error.to_error_class(errors)}
     end
   end

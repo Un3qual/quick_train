@@ -10,7 +10,7 @@ defmodule QuickTrainWeb.Authentication.RequestSecurity do
 
   @impl true
   def call(conn, _opts) do
-    settings = Application.get_env(:quick_train, :authentication, [])
+    settings = Application.fetch_env!(:quick_train, :authentication)
     network_source = network_source(conn, settings)
 
     conn =
@@ -37,7 +37,7 @@ defmodule QuickTrainWeb.Authentication.RequestSecurity do
   end
 
   defp encrypted_transport_required?(conn, settings) do
-    enforce_https? = Keyword.get(settings, :enforce_https?, false)
+    enforce_https? = Keyword.fetch!(settings, :enforce_https?)
     bearer_present? = get_req_header(conn, "authorization") != []
 
     enforce_https? and (graphql_path?(conn.request_path) or bearer_present?)
@@ -73,7 +73,7 @@ defmodule QuickTrainWeb.Authentication.RequestSecurity do
 
   defp trusted_proxy?(address, settings) when is_tuple(address) do
     settings
-    |> Keyword.get(:trusted_proxy_ips, [])
+    |> Keyword.fetch!(:trusted_proxy_ips)
     |> Enum.any?(fn configured -> parse_ip(configured) == {:ok, address} end)
   end
 

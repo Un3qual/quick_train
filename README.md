@@ -110,7 +110,10 @@ are linked exclusively by the verified issuer and subject, never by email.
 
 `TRUSTED_PROXY_IPS` is the comma-separated list of direct proxy IPs allowed to supply forwarded
 scheme and client-address headers. Leave it empty when Phoenix receives traffic directly. The
-remaining `OIDC_*` and `HUMAN_SESSION_*` bounds are shown with defaults in `.env.example`.
+authentication defaults live in `config/config.exs`. Deployments may override them with
+`OIDC_BEGIN_WINDOW_MS`, `OIDC_BEGIN_GLOBAL_LIMIT`, `OIDC_BEGIN_NETWORK_LIMIT`,
+`OIDC_OUTSTANDING_LIMIT`, `OIDC_TRANSACTION_TTL_SECONDS`, `OIDC_REPLAY_RETENTION_SECONDS`,
+`HUMAN_SESSION_MAX_LIFETIME_SECONDS`, and `HUMAN_SESSION_RETENTION_SECONDS`.
 
 Bootstrap the first organization manager from an existing active global-user UUID with the
 operator-only command:

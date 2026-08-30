@@ -14,7 +14,7 @@ defmodule QuickTrain.AuthenticationRetentionTest do
     stale_consumed = seed_login("stale-consumed", "consumed", now, -2, -1)
     live_pending = seed_login("live-pending", "pending", now, 1, 2)
 
-    assert :ok = perform_job(AuthenticationRetention, %{})
+    assert {:ok, true} = Accounts.cleanup_retained_oidc_logins(now, authorize?: false)
     assert :ok = perform_job(AuthenticationRetention, %{})
 
     for transaction <- [stale_pending, stale_claimed, stale_consumed] do
@@ -56,6 +56,7 @@ defmodule QuickTrain.AuthenticationRetentionTest do
       |> Ash.Changeset.for_update(:set_status, %{status: "disabled"}, authorize?: false)
       |> Ash.update!()
 
+    assert {:ok, true} = Accounts.cleanup_retained_sessions(now, authorize?: false)
     assert :ok = perform_job(AuthenticationRetention, %{})
 
     for session <- [stale_expired, stale_revoked] do
