@@ -5,10 +5,11 @@ defmodule QuickTrain.Assets.Asset do
     otp_app: :quick_train,
     domain: QuickTrain.Assets,
     extensions: [AshGraphql.Resource],
-    data_layer: AshPostgres.DataLayer
+    data_layer: AshPostgres.DataLayer,
+    authorizers: [Ash.Policy.Authorizer]
 
   attributes do
-    uuid_primary_key :id
+    uuid_primary_key :id, writable?: true
 
     attribute :state, :string do
       allow_nil? false
@@ -74,6 +75,88 @@ defmodule QuickTrain.Assets.Asset do
 
   actions do
     defaults [:read]
+
+    action :register, :map do
+      argument :organization_id, :uuid, allow_nil?: false
+      argument :sha256, :string, allow_nil?: false
+      argument :byte_size, :integer, allow_nil?: false
+      argument :media_type, :string, allow_nil?: false
+
+      run QuickTrain.Assets.Asset.Actions.Register
+    end
+
+    action :finalize, :map do
+      argument :asset_id, :uuid, allow_nil?: false
+      argument :organization_id, :uuid, allow_nil?: false
+
+      run QuickTrain.Assets.Asset.Actions.Finalize
+    end
+
+    action :access, :map do
+      argument :asset_id, :uuid, allow_nil?: false
+      argument :organization_id, :uuid, allow_nil?: false
+
+      run QuickTrain.Assets.Asset.Actions.Access
+    end
+
+    create :create_pending do
+      accept [
+        :id,
+        :organization_id,
+        :sha256,
+        :byte_size,
+        :media_type,
+        :staging_key,
+        :staging_expires_at
+      ]
+
+      change set_attribute(:state, "pending")
+    end
+
+    update :claim_operation do
+      require_atomic? false
+      accept [:operation_claim_kind, :operation_claim_id, :operation_claim_expires_at]
+      validate attribute_equals(:state, "pending")
+    end
+
+    update :start_publication do
+      require_atomic? false
+      accept [:operation_claim_expires_at, :publication_may_finish_at]
+      validate attribute_equals(:state, "pending")
+    end
+
+    update :complete_ready do
+      require_atomic? false
+      accept [:sealed_key, :width, :height]
+      validate attribute_equals(:state, "pending")
+      change set_attribute(:state, "ready")
+      change set_attribute(:operation_claim_kind, nil)
+      change set_attribute(:operation_claim_id, nil)
+      change set_attribute(:operation_claim_expires_at, nil)
+    end
+
+    update :complete_failed do
+      require_atomic? false
+      accept [:failure_reason]
+      validate attribute_equals(:state, "pending")
+      change set_attribute(:state, "failed")
+      change set_attribute(:operation_claim_kind, nil)
+      change set_attribute(:operation_claim_id, nil)
+      change set_attribute(:operation_claim_expires_at, nil)
+    end
+
+    update :complete_duplicate do
+      require_atomic? false
+      accept [:canonical_asset_id]
+      validate attribute_equals(:state, "pending")
+      change set_attribute(:state, "duplicate_content")
+      change set_attribute(:failure_reason, "duplicate_content")
+      change set_attribute(:operation_claim_kind, nil)
+      change set_attribute(:operation_claim_id, nil)
+      change set_attribute(:operation_claim_expires_at, nil)
+    end
+
+    destroy :discard_registration
   end
 
   validations do
@@ -83,6 +166,23 @@ defmodule QuickTrain.Assets.Asset do
     validate compare(:width, greater_than: 0)
     validate compare(:height, greater_than: 0)
     validate one_of(:operation_claim_kind, ~w(finalize cleanup))
+  end
+
+  policies do
+    policy action(:register) do
+      authorize_if {QuickTrain.Authorization.Checks.OrganizationCapability,
+                    capability: "assets.manage"}
+    end
+
+    policy action(:finalize) do
+      authorize_if {QuickTrain.Authorization.Checks.OrganizationCapability,
+                    capability: "assets.manage"}
+    end
+
+    policy action(:access) do
+      authorize_if {QuickTrain.Authorization.Checks.OrganizationCapability,
+                    capability: "assets.read"}
+    end
   end
 
   graphql do
