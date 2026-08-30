@@ -41,7 +41,8 @@ defmodule QuickTrain.Repo.Migrations.AddAssets do
             type: :uuid,
             prefix: "public",
             on_delete: :restrict
-          ), null: false
+          ),
+          null: false
     end
 
     create unique_index(:assets, [:staging_key], name: "assets_staging_key_index")
