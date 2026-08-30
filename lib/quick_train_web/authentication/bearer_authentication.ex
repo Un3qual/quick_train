@@ -37,10 +37,7 @@ defmodule QuickTrainWeb.Authentication.BearerAuthentication do
   defp authenticate(conn, token) do
     with {:ok, decoded} <- Base.url_decode64(token, padding: false),
          true <- byte_size(decoded) == 32,
-         {:ok, %{expires_at: _expires_at} = session} <- lookup_session(token),
-         :ok <- active_session?(session),
-         {:ok, session} <- Ash.load(session, :user, authorize?: false),
-         %{status: "active"} = user <- session.user do
+         {:ok, %{user: user}} when not is_nil(user) <- lookup_session(token) do
       Ash.PlugHelpers.set_actor(conn, user)
     else
       _invalid -> reject(conn)
@@ -48,19 +45,11 @@ defmodule QuickTrainWeb.Authentication.BearerAuthentication do
   end
 
   defp lookup_session(token) do
-    Accounts.get_session_by_token_hash(:crypto.hash(:sha256, token),
+    Accounts.authenticate_bearer_session(:crypto.hash(:sha256, token),
       authorize?: false,
       not_found_error?: false
     )
   end
-
-  defp active_session?(%{revoked_at: nil, expires_at: expires_at}) do
-    if DateTime.compare(expires_at, DateTime.utc_now()) == :gt,
-      do: :ok,
-      else: {:error, :expired}
-  end
-
-  defp active_session?(_session), do: {:error, :revoked}
 
   defp reject(conn) do
     conn

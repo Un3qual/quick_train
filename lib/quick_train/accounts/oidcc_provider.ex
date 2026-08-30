@@ -4,7 +4,7 @@ defmodule QuickTrain.Accounts.OidccProvider do
   @behaviour QuickTrain.Accounts.OidcProvider
 
   alias Oidcc.{Authorization, ClientContext, ProviderConfiguration, Token}
-  alias QuickTrain.Accounts.Oidc
+  alias QuickTrain.Accounts.{Oidc, OidcClientContextCache}
 
   @impl true
   def authorization_url(options) do
@@ -56,6 +56,7 @@ defmodule QuickTrain.Accounts.OidccProvider do
     mtls_endpoints = Map.values(configuration.mtls_endpoint_aliases || %{})
 
     configuration.issuer == Oidc.issuer() and
+      "S256" in List.wrap(configuration.code_challenge_methods_supported) and
       Enum.all?(required_endpoints, &secure_endpoint?/1) and
       Enum.all?(optional_endpoints, &secure_optional_endpoint?/1) and
       Enum.all?(mtls_endpoints, &secure_endpoint?/1)
@@ -66,16 +67,27 @@ defmodule QuickTrain.Accounts.OidccProvider do
   defp client_context do
     with {:ok, client_id, client_secret} <- Oidc.client_credentials(),
          issuer when is_binary(issuer) <- Oidc.issuer(),
-         true <- secure_endpoint?(issuer),
-         {:ok, {configuration, _configuration_expiry}} <-
-           ProviderConfiguration.load_configuration(issuer),
-         true <- secure_provider_configuration?(configuration),
-         {:ok, {jwks, _jwks_expiry}} <-
-           ProviderConfiguration.load_jwks(configuration.jwks_uri) do
-      {:ok, ClientContext.from_manual(configuration, jwks, client_id, client_secret)}
+         true <- secure_endpoint?(issuer) do
+      OidcClientContextCache.fetch({issuer, client_id, client_secret})
     else
       false -> {:error, :insecure_provider_endpoint}
       nil -> {:error, :oidc_not_configured}
+      {:error, error} -> {:error, error}
+    end
+  end
+
+  @doc false
+  def load_client_context({issuer, client_id, client_secret}) do
+    with true <- secure_endpoint?(issuer),
+         {:ok, {configuration, configuration_expiry}} <-
+           ProviderConfiguration.load_configuration(issuer),
+         true <- secure_provider_configuration?(configuration),
+         {:ok, {jwks, jwks_expiry}} <-
+           ProviderConfiguration.load_jwks(configuration.jwks_uri) do
+      {:ok, ClientContext.from_manual(configuration, jwks, client_id, client_secret),
+       min(configuration_expiry, jwks_expiry)}
+    else
+      false -> {:error, :insecure_provider_endpoint}
       {:error, error} -> {:error, error}
     end
   end

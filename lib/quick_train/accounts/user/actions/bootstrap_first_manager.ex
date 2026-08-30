@@ -7,6 +7,7 @@ defmodule QuickTrain.Accounts.User.Actions.BootstrapFirstManager do
 
   alias QuickTrain.Authorization.{Role, RoleAssignment}
   alias QuickTrain.Organizations.{Membership, Organization}
+  alias QuickTrain.AshError
 
   @manager_key "manager"
   @manager_name "Manager"
@@ -159,18 +160,12 @@ defmodule QuickTrain.Accounts.User.Actions.BootstrapFirstManager do
   end
 
   defp uniqueness_conflict?(error) do
-    message = Exception.message(error)
-
-    String.contains?(message, "has already been taken") or
-      Enum.any?(
-        [
-          "organizations_slug_index",
-          "organization_memberships_organization_user_index",
-          "roles_organization_key_index",
-          "role_assignments_organization_user_role_index"
-        ],
-        &String.contains?(message, &1)
-      )
+    AshError.constraint?(error, [
+      "organizations_slug_index",
+      "organization_memberships_organization_user_index",
+      "roles_organization_key_index",
+      "role_assignments_organization_user_role_index"
+    ])
   end
 
   defp create(resource, action, attributes) do

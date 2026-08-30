@@ -6,6 +6,7 @@ defmodule QuickTrain.Authentication.Api.Actions.BeginOidcLogin do
   require Ash.Query
 
   alias QuickTrain.Accounts.{Oidc, OidcBeginLimiter, OidcLoginTransaction}
+  alias QuickTrain.AshError
   alias QuickTrain.Authentication.{Error, OidcBeginResult}
 
   @state_bytes 32
@@ -210,9 +211,7 @@ defmodule QuickTrain.Authentication.Api.Actions.BeginOidcLogin do
   end
 
   defp state_collision?(error) do
-    error
-    |> Exception.message()
-    |> String.contains?("oidc_login_transactions_state_hash_index")
+    AshError.constraint?(error, ["oidc_login_transactions_state_hash_index"])
   end
 
   defp generate_material do

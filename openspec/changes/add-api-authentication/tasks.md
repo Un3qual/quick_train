@@ -26,3 +26,11 @@
 - [x] 4.3 Add API authorization tests for cleartext bearer rejection before token lookup or GraphQL dispatch, actor propagation, absent or invalid credentials, disabled-user denial in the shared capability path, active-organization checks, current membership and capability enforcement, denial when no product-owned alternative authorization contract exists, cross-organization nondisclosure, root-field allowlisting, authentication-resource and credential-field introspection denial, `/healthz`, and development-only GraphiQL.
 - [x] 4.4 Add tests for the exact first-manager relationship graph, absence of implicit capability grants, conflict atomicity, and concurrent idempotency plus automatic login-state and inactive-session cleanup that preserves live credentials and avoids overlapping jobs.
 - [x] 4.5 Review generated AshPostgres and Oban migrations from a clean database, document the reset requirement and runtime OIDC configuration, run `mise run openspec.validate`, and finish with `mise run verify`.
+
+## 5. Review Remediation
+
+- [x] 5.1 Upgrade Oidcc to the patched stable release, enforce advertised S256 support, redact GraphQL authentication inputs and results, and reuse only fully validated provider metadata until its advertised expiry.
+- [x] 5.2 Replace exception-message parsing with structured constraint handling and prove independent concurrent first-login requests converge on one account graph.
+- [x] 5.3 Move bearer eligibility into a responsibility-named Ash read action and cover unknown, expired, revoked, and retained-expired authentication state.
+- [x] 5.4 Strengthen first-manager rollback coverage, make the clean-database authentication migration explicitly forward-only, and keep GraphQL assertions order-independent.
+- [ ] 5.5 Run focused tests, `mise run openspec.validate`, and `mise run verify`, then commit and push the reviewed fixes.

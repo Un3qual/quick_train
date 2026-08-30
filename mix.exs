@@ -58,7 +58,7 @@ defmodule QuickTrain.MixProject do
       {:absinthe, "== 1.11.0"},
       {:absinthe_relay, "== 1.6.0"},
       {:absinthe_plug, "== 1.5.10"},
-      {:oidcc, "== 3.8.0"},
+      {:oidcc, "== 3.9.0"},
       {:req, "== 0.7.2"},
       {:hammer, "== 7.4.0"},
       {:oban, "== 2.24.0"},

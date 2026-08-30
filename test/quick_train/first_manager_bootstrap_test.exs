@@ -96,6 +96,25 @@ defmodule QuickTrain.FirstManagerBootstrapTest do
     assert Ash.count!(Organization, authorize?: false) == 1
   end
 
+  test "a role conflict rolls back membership created earlier in the bootstrap" do
+    user = Accounts.register_user!("role-conflict-manager@example.test", "Manager")
+    organization = QuickTrain.Organizations.create_organization!("Role Conflict", "role-conflict")
+
+    _conflicting_role =
+      QuickTrain.Authorization.create_role!(organization.id, "manager", "Not Manager")
+
+    assert {:error, error} =
+             Accounts.bootstrap_first_manager(
+               user.id,
+               organization.slug,
+               organization.name
+             )
+
+    assert Exception.message(error) =~ "bootstrap_conflict"
+    assert Ash.count!(Membership, authorize?: false) == 0
+    assert Ash.count!(RoleAssignment, authorize?: false) == 0
+  end
+
   test "operator Mix task accepts only the explicit graph identities" do
     user = Accounts.register_user!("cli-manager@example.test", "CLI Manager")
     Mix.Task.reenable("quick_train.bootstrap_first_manager")

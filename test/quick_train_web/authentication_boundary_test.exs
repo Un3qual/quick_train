@@ -190,6 +190,46 @@ defmodule QuickTrainWeb.AuthenticationBoundaryTest do
     assert disabled_conn.halted
   end
 
+  test "unknown, expired, and revoked bearer credentials fail closed" do
+    configure_authentication(enforce_https?: false)
+
+    user =
+      Accounts.register_user!(
+        "lifecycle-actor-#{System.unique_integer([:positive])}@example.test",
+        "Lifecycle Actor"
+      )
+
+    now = DateTime.utc_now()
+
+    expired_token = Base.url_encode64(:crypto.strong_rand_bytes(32), padding: false)
+
+    _expired_session =
+      Accounts.persist_bearer_session!(%{
+        user_id: user.id,
+        token_hash: :crypto.hash(:sha256, expired_token),
+        authentication_method: "oidc",
+        issued_at: DateTime.add(now, -2, :hour),
+        expires_at: DateTime.add(now, -1, :hour)
+      })
+
+    revoked = Accounts.issue_bearer_session!(user.id)
+    revoked_session = Accounts.get_session_by_token_hash!(:crypto.hash(:sha256, revoked.token))
+    _revoked_session = Accounts.revoke_session!(revoked_session)
+
+    unknown_token = Base.url_encode64(:crypto.strong_rand_bytes(32), padding: false)
+
+    for token <- [unknown_token, expired_token, revoked.token] do
+      rejected_conn =
+        Phoenix.ConnTest.build_conn()
+        |> put_req_header("authorization", "Bearer #{token}")
+        |> RequestSecurity.call([])
+        |> BearerAuthentication.call([])
+
+      assert rejected_conn.status == 401
+      assert rejected_conn.halted
+    end
+  end
+
   defp configure_authentication(overrides) do
     current = Application.get_env(:quick_train, :authentication, [])
     Application.put_env(:quick_train, :authentication, Keyword.merge(current, overrides))

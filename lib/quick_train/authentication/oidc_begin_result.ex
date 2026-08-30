@@ -10,16 +10,19 @@ defmodule QuickTrain.Authentication.OidcBeginResult do
     attribute :authorization_uri, :string do
       allow_nil? false
       public? true
+      sensitive? true
     end
 
     attribute :state, :string do
       allow_nil? false
       public? true
+      sensitive? true
     end
 
     attribute :client_proof, :string do
       allow_nil? false
       public? true
+      sensitive? true
     end
 
     attribute :expires_at, :utc_datetime_usec do

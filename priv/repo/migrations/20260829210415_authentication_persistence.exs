@@ -79,74 +79,7 @@ defmodule QuickTrain.Repo.Migrations.AuthenticationPersistence do
   end
 
   def down do
-    drop_if_exists unique_index(:external_identities, [:user_id, :issuer],
-                     name: "external_identities_user_issuer_index"
-                   )
-
-    drop_if_exists unique_index(:external_identities, [:issuer, :subject],
-                     name: "external_identities_issuer_subject_index"
-                   )
-
-    alter table(:external_identities) do
-      remove :issuer
-      add :provider, :text, null: false
-    end
-
-    create unique_index(:external_identities, [:user_id, :provider],
-             name: "external_identities_user_provider_index"
-           )
-
-    create unique_index(:external_identities, [:provider, :subject],
-             name: "external_identities_provider_subject_index"
-           )
-
-    drop_if_exists index(:oidc_login_transactions, [:status, :expires_at],
-                     name: "oidc_login_transactions_status_expires_at_index"
-                   )
-
-    drop_if_exists index(:oidc_login_transactions, [:retain_until],
-                     name: "oidc_login_transactions_retain_until_index"
-                   )
-
-    drop_if_exists unique_index(:oidc_login_transactions, [:state_hash],
-                     name: "oidc_login_transactions_state_hash_index"
-                   )
-
-    alter table(:oidc_login_transactions) do
-      remove :updated_at
-      remove :exchange_started_at
-      remove :retain_until
-      remove :status
-      remove :callback_uri
-      remove :callback_key
-      remove :redemption_secret_hash
-      remove :nonce_hash
-      remove :state_hash
-      add :state_hash, :text, null: false
-      add :return_to, :text, null: false, default: "/"
-    end
-
-    create unique_index(:oidc_login_transactions, [:state_hash],
-             name: "oidc_login_transactions_state_hash_index"
-           )
-
-    drop_if_exists unique_index(:sessions, [:token_hash], name: "sessions_token_hash_index")
-
-    alter table(:sessions) do
-      remove :token_hash
-      add :token_hash, :text
-
-      add :organization_id,
-          references(:organizations,
-            column: :id,
-            name: "sessions_organization_id_fkey",
-            type: :uuid,
-            prefix: "public"
-          )
-    end
-
-    drop_if_exists index(:sessions, [:expires_at], name: "sessions_expires_at_index")
-
-    drop_if_exists index(:sessions, [:revoked_at], name: "sessions_revoked_at_index")
+    raise Ecto.MigrationError,
+          "authentication persistence is forward-only; reset a pre-product database or write a replacement-authentication migration"
   end
 end

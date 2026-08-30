@@ -235,6 +235,33 @@ defmodule QuickTrain.OidcLoginTest do
     refute_receive {:oidc_exchange, "invalid-code", _options}
   end
 
+  test "expired retained state is rejected before provider exchange" do
+    state = Base.url_encode64(:crypto.strong_rand_bytes(32), padding: false)
+    proof = Base.url_encode64(:crypto.strong_rand_bytes(32), padding: false)
+    verifier = Base.url_encode64(:crypto.strong_rand_bytes(64), padding: false)
+    nonce = Oidc.nonce_for_verifier(verifier)
+    now = DateTime.utc_now()
+
+    transaction =
+      Accounts.store_oidc_login!(%{
+        state_hash: :crypto.hash(:sha256, state),
+        nonce_hash: :crypto.hash(:sha256, nonce),
+        code_verifier: verifier,
+        redemption_secret_hash: :crypto.hash(:sha256, proof),
+        callback_key: "desktop",
+        callback_uri: "http://127.0.0.1:4173/oidc/callback",
+        expires_at: DateTime.add(now, -1, :minute),
+        retain_until: DateTime.add(now, 1, :day)
+      })
+
+    assert {:error, error} =
+             Authentication.exchange_oidc_login("provider-code", state, proof)
+
+    assert Exception.message(error) =~ "invalid_oidc_exchange"
+    refute_receive {:oidc_exchange, "provider-code", _options}
+    assert Accounts.get_oidc_login!(transaction.state_hash).status == "pending"
+  end
+
   test "existing identities resolve only by issuer and subject without email relinking" do
     user = Accounts.register_user!("original@example.test", "Original")
 
@@ -448,33 +475,55 @@ defmodule QuickTrain.OidcLoginTest do
     assert transaction.status == "consumed"
   end
 
-  test "concurrent first logins leave one complete user and identity graph" do
-    first_login = begin_oidc_login!("desktop", "198.51.100.28")
-    second_login = begin_oidc_login!("desktop", "198.51.100.29")
-    assert_receive {:oidc_authorization, _options}
-    assert_receive {:oidc_authorization, _options}
+  @tag :unboxed_db
+  test "independent concurrent first logins converge on one complete account graph" do
+    suffix = System.unique_integer([:positive])
+    subject = "concurrent-subject-#{suffix}"
+    email = "concurrent-#{suffix}@example.test"
 
-    results =
-      [first_login, second_login]
-      |> Enum.map(fn login ->
-        Task.async(fn ->
-          Authentication.exchange_oidc_login("provider-code", login.state, login.client_proof)
+    Application.put_env(
+      :quick_train,
+      :oidc_test_exchange_result,
+      {:ok,
+       %{
+         "iss" => "https://issuer.example.test",
+         "sub" => subject,
+         "email" => email,
+         "email_verified" => true,
+         "name" => "Concurrent User"
+       }}
+    )
+
+    logins =
+      for attempt <- 1..8 do
+        Sandbox.unboxed_run(Repo, fn ->
+          begin_oidc_login!("desktop", "198.51.100.#{30 + attempt}")
         end)
+      end
+
+    for _login <- logins do
+      assert_receive {:oidc_authorization, _options}
+    end
+
+    try do
+      results = concurrent_exchanges(logins)
+
+      assert Enum.all?(results, &match?({:ok, _result}, &1))
+
+      user_ids = Enum.map(results, fn {:ok, result} -> result.user.id end)
+      assert Enum.uniq(user_ids) |> length() == 1
+
+      Sandbox.unboxed_run(Repo, fn ->
+        identity = Accounts.get_external_identity!("https://issuer.example.test", subject)
+        assert identity.user_id == hd(user_ids)
+        assert Accounts.get_user!(identity.user_id).email == email
+        assert Ash.count!(QuickTrain.Accounts.User, authorize?: false) == 1
+        assert Ash.count!(QuickTrain.Accounts.ExternalIdentity, authorize?: false) == 1
+        assert Ash.count!(QuickTrain.Accounts.Session, authorize?: false) == length(logins)
       end)
-      |> Task.await_many()
-
-    assert Enum.any?(results, &match?({:ok, _result}, &1))
-    assert Ash.count!(QuickTrain.Accounts.User, authorize?: false) == 1
-    assert Ash.count!(QuickTrain.Accounts.ExternalIdentity, authorize?: false) == 1
-
-    identity =
-      Accounts.get_external_identity!("https://issuer.example.test", "subject-1")
-
-    user = Accounts.get_user!(identity.user_id)
-    assert user.email == "new.user@example.test"
-
-    success_count = Enum.count(results, &match?({:ok, _result}, &1))
-    assert Ash.count!(QuickTrain.Accounts.Session, authorize?: false) == success_count
+    after
+      cleanup_concurrent_first_login(logins, subject, email)
+    end
   end
 
   test "provider discovery endpoints must all be HTTPS before they are used" do
@@ -485,7 +534,8 @@ defmodule QuickTrain.OidcLoginTest do
       jwks_uri: "https://issuer.example.test/jwks",
       userinfo_endpoint: "https://issuer.example.test/userinfo",
       pushed_authorization_request_endpoint: :undefined,
-      mtls_endpoint_aliases: %{}
+      mtls_endpoint_aliases: %{},
+      code_challenge_methods_supported: ["S256"]
     }
 
     assert OidccProvider.secure_provider_configuration?(secure_configuration)
@@ -503,6 +553,16 @@ defmodule QuickTrain.OidcLoginTest do
     refute OidccProvider.secure_provider_configuration?(%{
              secure_configuration
              | authorization_endpoint: "http://issuer.example.test/authorize"
+           })
+
+    refute OidccProvider.secure_provider_configuration?(%{
+             secure_configuration
+             | code_challenge_methods_supported: ["plain"]
+           })
+
+    refute OidccProvider.secure_provider_configuration?(%{
+             secure_configuration
+             | code_challenge_methods_supported: :undefined
            })
   end
 
@@ -558,6 +618,37 @@ defmodule QuickTrain.OidcLoginTest do
     Task.await_many(tasks, 15_000)
   end
 
+  defp concurrent_exchanges(logins) do
+    parent = self()
+
+    tasks =
+      Enum.map(logins, fn login ->
+        Task.async(fn ->
+          send(parent, {:exchange_ready, self()})
+
+          receive do
+            :exchange ->
+              Sandbox.unboxed_run(Repo, fn ->
+                Authentication.exchange_oidc_login(
+                  "provider-code",
+                  login.state,
+                  login.client_proof
+                )
+              end)
+          end
+        end)
+      end)
+
+    task_pids =
+      for _login <- logins do
+        assert_receive {:exchange_ready, task_pid}
+        task_pid
+      end
+
+    Enum.each(task_pids, &send(&1, :exchange))
+    Task.await_many(tasks, 15_000)
+  end
+
   defp await_concurrent_begin(parent, callback_key, attempt) do
     send(parent, {:begin_ready, self()})
 
@@ -594,6 +685,26 @@ defmodule QuickTrain.OidcLoginTest do
         %Ash.BulkResult{status: :success} -> :ok
         %Ash.BulkResult{errors: errors} -> raise Ash.Error.to_error_class(errors)
       end
+    end)
+  end
+
+  defp cleanup_concurrent_first_login(logins, subject, email) do
+    state_hashes = Enum.map(logins, &:crypto.hash(:sha256, &1.state))
+
+    Sandbox.unboxed_run(Repo, fn ->
+      Repo.query!(
+        "DELETE FROM sessions WHERE user_id IN (SELECT id FROM users WHERE email = $1)",
+        [email]
+      )
+
+      Repo.query!(
+        "DELETE FROM external_identities WHERE issuer = $1 AND subject = $2",
+        ["https://issuer.example.test", subject]
+      )
+
+      Repo.query!("DELETE FROM users WHERE email = $1", [email])
+
+      Repo.query!("DELETE FROM oidc_login_transactions WHERE state_hash = ANY($1)", [state_hashes])
     end)
   end
 

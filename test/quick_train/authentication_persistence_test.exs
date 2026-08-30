@@ -2,6 +2,34 @@ defmodule QuickTrain.AuthenticationPersistenceTest do
   use QuickTrain.DataCase, async: true
 
   alias QuickTrain.Accounts
+  alias QuickTrain.Authentication.{Api, OidcBeginResult, OidcExchangeResult}
+
+  test "authentication inputs are sensitive and one-time results redact secrets from inspection" do
+    exchange_action = Ash.Resource.Info.action(Api, :exchange_oidc_login)
+
+    assert Enum.all?(exchange_action.arguments, & &1.sensitive?)
+
+    begin_result =
+      inspect(%OidcBeginResult{
+        authorization_uri: "https://issuer.example.test/authorize?sensitive-request",
+        state: "sensitive-result-state",
+        client_proof: "sensitive-result-proof",
+        expires_at: DateTime.utc_now()
+      })
+
+    refute begin_result =~ "sensitive-request"
+    refute begin_result =~ "sensitive-result-state"
+    refute begin_result =~ "sensitive-result-proof"
+
+    exchange_result =
+      inspect(%OidcExchangeResult{
+        token: "sensitive-bearer-token",
+        session_id: Ecto.UUID.generate(),
+        expires_at: DateTime.utc_now()
+      })
+
+    refute exchange_result =~ "sensitive-bearer-token"
+  end
 
   test "login transactions persist hashed client proof and a trusted callback" do
     now = DateTime.utc_now()
@@ -158,5 +186,53 @@ defmodule QuickTrain.AuthenticationPersistenceTest do
 
     refute Map.has_key?(session, :token)
     refute Map.has_key?(session, :organization_id)
+  end
+
+  test "bearer eligibility is resolved by a dedicated Ash read action" do
+    user =
+      Accounts.register_user!(
+        "eligible-session-#{System.unique_integer([:positive])}@example.com",
+        "Eligible Session"
+      )
+
+    issued = Accounts.issue_bearer_session!(user.id)
+    token_hash = :crypto.hash(:sha256, issued.token)
+
+    assert {:ok, %{user: %{id: user_id}}} =
+             Accounts.authenticate_bearer_session(token_hash,
+               authorize?: false,
+               not_found_error?: false
+             )
+
+    assert user_id == user.id
+
+    now = DateTime.utc_now()
+
+    expired =
+      Accounts.persist_bearer_session!(%{
+        user_id: user.id,
+        token_hash: :crypto.hash(:sha256, "expired-token"),
+        authentication_method: "oidc",
+        issued_at: DateTime.add(now, -2, :hour),
+        expires_at: DateTime.add(now, -1, :hour)
+      })
+
+    revoked =
+      Accounts.persist_bearer_session!(%{
+        user_id: user.id,
+        token_hash: :crypto.hash(:sha256, "revoked-token"),
+        authentication_method: "oidc",
+        issued_at: DateTime.add(now, -1, :minute),
+        expires_at: DateTime.add(now, 1, :hour)
+      })
+      |> Accounts.revoke_session!()
+
+    for ineligible_hash <- [expired.token_hash, revoked.token_hash] do
+      assert {:ok, nil} =
+               Accounts.authenticate_bearer_session(ineligible_hash,
+                 authorize?: false,
+                 not_found_error?: false
+               )
+    end
   end
 end

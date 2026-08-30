@@ -147,6 +147,9 @@ These commands destroy the corresponding local development or test database. Do 
 reset approach to a database containing production data; design a dedicated compatibility
 migration first.
 
+The authentication persistence migration is explicitly forward-only because one-way credential
+hashes and issuer/subject identities cannot be reconstructed as the legacy schema.
+
 ## Verification
 
 `mise run verify` first validates all OpenSpec artifacts in strict, non-interactive mode, then runs

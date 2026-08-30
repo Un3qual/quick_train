@@ -10,6 +10,7 @@ defmodule QuickTrain.Authentication.OidcExchangeResult do
     attribute :token, :string do
       allow_nil? false
       public? true
+      sensitive? true
     end
 
     attribute :session_id, :uuid do

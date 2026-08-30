@@ -96,20 +96,15 @@ defmodule QuickTrainWeb.GraphqlApiTest do
 
     assert schema["queryType"]["fields"] == [%{"args" => [], "name" => "apiVersion"}]
 
-    assert schema["mutationType"]["fields"] == [
-             %{
-               "args" => [%{"name" => "callbackKey"}],
-               "name" => "beginOidcLogin"
-             },
-             %{
-               "args" => [
-                 %{"name" => "clientProof"},
-                 %{"name" => "code"},
-                 %{"name" => "state"}
-               ],
-               "name" => "exchangeOidcLogin"
-             }
-           ]
+    mutations =
+      Map.new(schema["mutationType"]["fields"], fn field ->
+        {field["name"], MapSet.new(field["args"], & &1["name"])}
+      end)
+
+    assert mutations == %{
+             "beginOidcLogin" => MapSet.new(["callbackKey"]),
+             "exchangeOidcLogin" => MapSet.new(["clientProof", "code", "state"])
+           }
 
     type_names = MapSet.new(schema["types"], & &1["name"])
     refute MapSet.member?(type_names, "User")

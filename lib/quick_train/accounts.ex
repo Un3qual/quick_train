@@ -25,6 +25,7 @@ defmodule QuickTrain.Accounts do
     resource QuickTrain.Accounts.Session do
       define :issue_bearer_session, action: :issue_bearer, args: [:user_id]
       define :persist_bearer_session, action: :persist
+      define :authenticate_bearer_session, action: :authenticate_bearer, args: [:token_hash]
       define :get_session_by_token_hash, action: :read, get_by: [:token_hash]
       define :revoke_session, action: :revoke
       define :cleanup_retained_sessions, action: :cleanup_retained, args: [:now]

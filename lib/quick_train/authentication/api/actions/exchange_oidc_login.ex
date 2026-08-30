@@ -16,6 +16,7 @@ defmodule QuickTrain.Authentication.Api.Actions.ExchangeOidcLogin do
   }
 
   alias QuickTrain.Authentication.{Error, OidcExchangeResult}
+  alias QuickTrain.AshError
 
   @finalization_attempts 2
 
@@ -151,7 +152,9 @@ defmodule QuickTrain.Authentication.Api.Actions.ExchangeOidcLogin do
     resources = [transaction_resource, ExternalIdentity, User, Session]
 
     case Ash.transact(resources, fn ->
-           finalize_in_transaction(transaction_resource, transaction, identity_claims)
+           transaction_result(
+             finalize_in_transaction(transaction_resource, transaction, identity_claims)
+           )
          end) do
       {:ok, result} ->
         {:ok, result}
@@ -172,6 +175,12 @@ defmodule QuickTrain.Authentication.Api.Actions.ExchangeOidcLogin do
         {:error, finalization_error(error)}
     end
   end
+
+  defp transaction_result({:error, reason}) when is_atom(reason) do
+    {:error, Error.exception(operation: :exchange, category: reason)}
+  end
+
+  defp transaction_result(result), do: result
 
   defp finalize_in_transaction(transaction_resource, transaction, identity_claims) do
     with {:ok, locked_transaction} <-
@@ -293,27 +302,20 @@ defmodule QuickTrain.Authentication.Api.Actions.ExchangeOidcLogin do
   defp email_local_part(email), do: email |> String.split("@", parts: 2) |> hd()
 
   defp uniqueness_conflict?(error) do
-    message = Exception.message(error)
-
-    Enum.any?(
-      [
-        "users_email_index",
-        "external_identities_issuer_subject_index",
-        "external_identities_user_issuer_index",
-        "sessions_token_hash_index"
-      ],
-      &String.contains?(message, &1)
-    )
+    AshError.constraint?(error, [
+      "users_email_index",
+      "external_identities_issuer_subject_index",
+      "external_identities_user_issuer_index",
+      "sessions_token_hash_index"
+    ])
   end
 
   defp finalization_error(error) do
-    message = Exception.message(error)
-
     cond do
       uniqueness_conflict?(error) -> :account_linking_conflict
-      String.contains?(message, "inactive_account") -> :inactive_account
-      String.contains?(message, "verified_email_required") -> :verified_email_required
-      String.contains?(message, "invalid_oidc_exchange") -> :invalid_oidc_exchange
+      AshError.reason?(error, :inactive_account) -> :inactive_account
+      AshError.reason?(error, :verified_email_required) -> :verified_email_required
+      AshError.reason?(error, :invalid_oidc_exchange) -> :invalid_oidc_exchange
       true -> :account_linking_conflict
     end
   end

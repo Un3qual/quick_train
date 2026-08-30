@@ -30,9 +30,9 @@ defmodule QuickTrain.Authentication.Api do
     action :exchange_oidc_login, QuickTrain.Authentication.OidcExchangeResult do
       allow_nil? false
 
-      argument :code, :string, allow_nil?: false
-      argument :state, :string, allow_nil?: false
-      argument :client_proof, :string, allow_nil?: false
+      argument :code, :string, allow_nil?: false, sensitive?: true
+      argument :state, :string, allow_nil?: false, sensitive?: true
+      argument :client_proof, :string, allow_nil?: false, sensitive?: true
 
       run QuickTrain.Authentication.Api.Actions.ExchangeOidcLogin
     end

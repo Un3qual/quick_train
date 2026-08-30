@@ -41,6 +41,18 @@ defmodule QuickTrain.Accounts.Session do
   actions do
     defaults [:read]
 
+    read :authenticate_bearer do
+      argument :token_hash, :binary, allow_nil?: false, sensitive?: true
+      get? true
+
+      filter expr(
+               token_hash == ^arg(:token_hash) and is_nil(revoked_at) and expires_at > now() and
+                 exists(user, status == "active")
+             )
+
+      prepare build(load: [:user])
+    end
+
     action :issue_bearer, :map do
       argument :user_id, :uuid, allow_nil?: false
       argument :lifetime_seconds, :integer
@@ -75,7 +87,7 @@ defmodule QuickTrain.Accounts.Session do
 
     update :revoke do
       accept []
-      change set_attribute(:revoked_at, expr(now()))
+      change atomic_update(:revoked_at, expr(now()))
     end
 
     destroy :delete_retained
