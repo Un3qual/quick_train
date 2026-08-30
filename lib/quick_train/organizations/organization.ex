@@ -57,6 +57,16 @@ defmodule QuickTrain.Organizations.Organization do
              end)
     end
 
+    create :bootstrap_first_manager_organization do
+      accept [:name, :slug]
+      change set_attribute(:status, "active")
+      change update_change(:name, &String.trim/1)
+
+      change update_change(:slug, fn slug ->
+               slug |> String.trim() |> String.downcase()
+             end)
+    end
+
     update :update do
       accept [:name, :status]
     end

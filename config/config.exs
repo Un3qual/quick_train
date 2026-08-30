@@ -1,7 +1,34 @@
 import Config
 
+config :quick_train, Oban,
+  engine: Oban.Engines.Basic,
+  notifier: Oban.Notifiers.Postgres,
+  queues: [default: 10, authentication: 1],
+  cron: [
+    crontab: [
+      {"17 * * * *", QuickTrain.Accounts.Workers.AuthenticationRetention}
+    ]
+  ],
+  lifeline: [rescue_after: {2, :hours}],
+  pruner: [max_age: {1, :day}],
+  repo: QuickTrain.Repo
+
+config :quick_train, :authentication,
+  enforce_https?: false,
+  trusted_proxy_ips: [],
+  oidc_callbacks: [],
+  oidc_begin_window_ms: 60_000,
+  oidc_begin_global_limit: 300,
+  oidc_begin_network_limit: 20,
+  oidc_outstanding_limit: 10_000,
+  oidc_transaction_ttl_seconds: 300,
+  oidc_replay_retention_seconds: 86_400,
+  session_max_lifetime_seconds: 8 * 60 * 60,
+  session_retention_seconds: 86_400
+
 config :quick_train,
   ash_domains: [
+    QuickTrain.Authentication,
     QuickTrain.Accounts,
     QuickTrain.Authorization,
     QuickTrain.EnterpriseIdentity,
@@ -19,7 +46,7 @@ config :quick_train, QuickTrainWeb.Endpoint,
 
 config :logger, :default_formatter,
   format: "$time $metadata[$level] $message\n",
-  metadata: [:request_id]
+  metadata: [:request_id, :authentication_operation, :authentication_failure]
 
 config :phoenix, :json_library, Jason
 

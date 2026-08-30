@@ -3,6 +3,8 @@ defmodule QuickTrain.ConnCase do
 
   use ExUnit.CaseTemplate
 
+  alias Ecto.Adapters.SQL.Sandbox
+
   using do
     quote do
       @endpoint QuickTrainWeb.Endpoint
@@ -11,7 +13,10 @@ defmodule QuickTrain.ConnCase do
     end
   end
 
-  setup do
+  setup tags do
+    owner = Sandbox.start_owner!(QuickTrain.Repo, shared: not tags[:async])
+    on_exit(fn -> Sandbox.stop_owner(owner) end)
+
     {:ok, conn: Phoenix.ConnTest.build_conn()}
   end
 end

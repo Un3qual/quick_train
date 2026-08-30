@@ -10,8 +10,9 @@ and the frontend empty.
   tables and no principal abstraction.
 - An `OrganizationMembership` relates a user to an enterprise organization. A consumer user may
   have no memberships, and the same account may be both an organization member and a consumer.
-- Every session requires an active user account. Consumer sessions have no organization scope;
-  organization-scoped sessions require an active membership. There are no guest sessions.
+- Every bearer session requires an active global user account and carries no organization scope.
+  Organization authority is checked from current relationships for each protected action. There
+  are no guest sessions.
 - Directory deprovisioning disables the enterprise membership while preserving the global user
   and independent consumer access.
 - Authorization is fail-closed and organization-scoped through roles and capability keys.
@@ -29,7 +30,9 @@ and the frontend empty.
   assignments, and optional decision evidence.
 - `QuickTrain.EnterpriseIdentity`: provider-neutral connections, directories, users, groups,
   memberships, group-to-role mappings, and an adapter behaviour.
-- `QuickTrainWeb.GraphQL.Schema`: a minimal GraphQL-only API ready for product fields.
+- `QuickTrainWeb.GraphQL.Schema`: an explicit public allowlist containing the read-only
+  `apiVersion` query and OIDC begin and exchange mutations until product changes add their own
+  authorized fields.
 
 ## Toolchain
 
@@ -57,13 +60,36 @@ Start a change in Codex with `$openspec-propose "describe the change"`, review t
 artifacts, then use `$openspec-apply-change` to implement it and `$openspec-archive-change` after
 verification. Run `mise exec -- openspec list --json` to inspect active changes from the terminal.
 
-GraphQL is available at `POST http://localhost:4000/graphql`:
+GraphQL is available at `POST http://localhost:4000/graphql`. Begin selects a client-owned
+callback by configured key; QuickTrain intentionally exposes no provider callback route:
 
 ```graphql
-query {
-  health
+mutation {
+  beginOidcLogin(callbackKey: "desktop") {
+    authorizationUri
+    state
+    clientProof
+    expiresAt
+  }
 }
 ```
+
+After the provider redirects `code` and `state` to that client callback, the initiating client
+submits them with the separate `clientProof`:
+
+```graphql
+mutation {
+  exchangeOidcLogin(code: "provider-code", state: "state", clientProof: "client-proof") {
+    token
+    sessionId
+    expiresAt
+  }
+}
+```
+
+Responses containing login material use `Cache-Control: no-store`. Present the returned token as
+`Authorization: Bearer <token>` on later requests. `/healthz` remains the separate operational
+health endpoint, and `/graphiql` exists only in development.
 
 Stop the local database with `mise run db.stop`. The database is published on port `55433` by
 default so it does not collide with a system PostgreSQL installation; override
@@ -71,15 +97,65 @@ default so it does not collide with a system PostgreSQL installation; override
 
 ## Authentication and secrets
 
-Set `OIDC_ISSUER`, `OIDC_CLIENT_ID`, and `OIDC_CLIENT_SECRET` to enable the supervised OIDC
-discovery worker. `QuickTrain.Accounts.Oidc` exposes authorization URL and verified code exchange
-functions through `oidcc`. Persist only hashes and short-lived transaction material; never store
-raw browser session tokens.
+Set `OIDC_ISSUER`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET`, and `OIDC_CALLBACKS_JSON` to enable OIDC.
+The callback value is a JSON object from stable client key to exact client-owned callback URI. The
+issuer and every discovered authorization, token, and key endpoint must use HTTPS. Production
+callbacks must also use HTTPS; exact loopback HTTP callbacks are accepted only in development and
+test. Discovery is validated before any discovered endpoint is contacted.
+
+OIDC begin uses server-generated state, nonce, S256 PKCE, and a separate client redemption proof.
+Only proof hashes, state/nonce hashes, and exchange-required verifier material are persisted. Raw
+bearer tokens are returned once and only their unique SHA-256 hashes are stored. Existing accounts
+are linked exclusively by the verified issuer and subject, never by email.
+
+`TRUSTED_PROXY_IPS` is the comma-separated list of direct proxy IPs allowed to supply forwarded
+scheme and client-address headers. The default production endpoint uses an HTTP listener behind a
+TLS-terminating proxy, so production deployments must configure the proxy's direct IP and must
+overwrite or reject client-supplied forwarding headers. A trusted proxy request without a final
+`X-Forwarded-Proto` value fails closed. Direct production TLS requires separately configuring the
+Phoenix HTTPS listener and certificates. The authentication defaults live in `config/config.exs`.
+Deployments may override them with
+`OIDC_BEGIN_WINDOW_MS`, `OIDC_BEGIN_GLOBAL_LIMIT`, `OIDC_BEGIN_NETWORK_LIMIT`,
+`OIDC_OUTSTANDING_LIMIT`, `OIDC_TRANSACTION_TTL_SECONDS`, `OIDC_REPLAY_RETENTION_SECONDS`,
+`HUMAN_SESSION_MAX_LIFETIME_SECONDS`, and `HUMAN_SESSION_RETENTION_SECONDS`.
+
+Bootstrap the first organization manager from an existing active global-user UUID with the
+operator-only command:
+
+```sh
+mise exec -- mix quick_train.bootstrap_first_manager \
+  --user-id USER_UUID \
+  --organization-slug acme-training \
+  --organization-name "Acme Training"
+```
+
+The command creates or resolves only the organization, active membership, `manager` role, and
+role assignment. It does not create capability keys or grants. Authentication retention runs at
+minute 17 of every hour through Oban and removes only login state and inactive credential rows
+beyond their configured cutoffs.
 
 Implement `QuickTrain.EnterpriseIdentity.Adapter` for the selected enterprise identity provider.
 
 Production additionally requires `DATABASE_URL` and `SECRET_KEY_BASE`; the other runtime settings
 are documented in `.env.example`.
+
+## Clean-database migration requirement
+
+The authentication persistence migration deliberately establishes the target schema without a
+legacy-data compatibility path. Existing local databases created from the earlier template must
+be reset before applying it:
+
+```sh
+mise exec -- mix ecto.reset
+mise exec -- env MIX_ENV=test mix ecto.reset
+```
+
+These commands destroy the corresponding local development or test database. Do not apply this
+reset approach to a database containing production data; design a dedicated compatibility
+migration first.
+
+The authentication persistence migration is explicitly forward-only because one-way credential
+hashes and issuer/subject identities cannot be reconstructed as the legacy schema.
 
 ## Verification
 

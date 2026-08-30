@@ -6,15 +6,11 @@ defmodule QuickTrain.AccountsAndOrganizationsTest do
   test "consumer accounts do not require an organization membership" do
     assert {:ok, user} = Accounts.register_user("  CONSUMER@Example.COM  ", "Consumer")
     assert user.email == "consumer@example.com"
-
-    assert {:ok, session} = Accounts.issue_session(user.id, %{authentication_method: "oidc"})
-    assert session.user_id == user.id
-    assert session.organization_id == nil
   end
 
   test "all sessions require a registered user" do
     assert {:error, %Ash.Error.Invalid{}} =
-             Accounts.issue_session(Ecto.UUID.generate(), %{authentication_method: "oidc"})
+             Accounts.persist_bearer_session(session_attrs(Ecto.UUID.generate(), "missing-user"))
   end
 
   test "disabled accounts cannot start sessions" do
@@ -25,7 +21,8 @@ defmodule QuickTrain.AccountsAndOrganizationsTest do
       |> Ash.Changeset.for_update(:set_status, %{status: "disabled"}, authorize?: false)
       |> Ash.update!()
 
-    assert {:error, %Ash.Error.Invalid{}} = Accounts.issue_session(user.id, %{})
+    assert {:error, %Ash.Error.Invalid{}} =
+             Accounts.persist_bearer_session(session_attrs(user.id, "disabled-user"))
   end
 
   test "the same user can be an organization member and a consumer" do
@@ -35,25 +32,14 @@ defmodule QuickTrain.AccountsAndOrganizationsTest do
 
     assert membership.user_id == user.id
     assert Organizations.member?(organization.id, user.id)
-    assert {:ok, consumer_session} = Accounts.issue_session(user.id, %{})
-    assert consumer_session.organization_id == nil
+
+    assert {:ok, session} =
+             Accounts.persist_bearer_session(session_attrs(user.id, "member-consumer"))
+
+    refute Map.has_key?(session, :organization_id)
   end
 
-  test "organization sessions require an active membership" do
-    assert {:ok, user} = Accounts.register_user("scoped@example.com", "Scoped")
-    assert {:ok, organization} = Organizations.create_organization("Acme", "acme")
-
-    assert {:error, %Ash.Error.Invalid{} = error} =
-             Accounts.issue_session(user.id, %{organization_id: organization.id})
-
-    assert Exception.message(error) =~ "active membership required"
-
-    assert {:ok, _membership} = Organizations.add_member(organization.id, user.id)
-    assert {:ok, session} = Accounts.issue_session(user.id, %{organization_id: organization.id})
-    assert session.organization_id == organization.id
-  end
-
-  test "inactive memberships do not authorize organization sessions" do
+  test "membership state does not become bearer-session authority" do
     assert {:ok, user} = Accounts.register_user("inactive-member@example.com", "Inactive")
     assert {:ok, organization} = Organizations.create_organization("Dormant", "dormant")
     assert {:ok, membership} = Organizations.add_member(organization.id, user.id)
@@ -62,37 +48,15 @@ defmodule QuickTrain.AccountsAndOrganizationsTest do
     assert {:ok, _membership} = Organizations.deactivate_membership(membership)
     refute Organizations.member?(organization.id, user.id)
 
-    assert {:error, %Ash.Error.Invalid{} = error} =
-             Accounts.issue_session(user.id, %{organization_id: organization.id})
+    assert {:ok, session} =
+             Accounts.persist_bearer_session(session_attrs(user.id, "inactive-membership"))
 
-    assert Exception.message(error) =~ "active membership required"
+    assert session.user_id == user.id
+    refute Map.has_key?(session, :organization_id)
   end
 
-  test "authentication support records are managed through account actions" do
+  test "authentication events are managed through account actions" do
     assert {:ok, user} = Accounts.register_user("identity@example.com", "Identity")
-
-    assert {:ok, identity} =
-             Accounts.link_external_identity(user.id, "oidc", "provider-subject", %{
-               claims: %{"email_verified" => true}
-             })
-
-    assert identity.user_id == user.id
-
-    assert {:ok, persisted_identity} =
-             Accounts.get_external_identity("oidc", "provider-subject")
-
-    assert persisted_identity.id == identity.id
-
-    expires_at = DateTime.add(DateTime.utc_now(), 5, :minute)
-
-    assert {:ok, transaction} =
-             Accounts.begin_oidc_login("state-hash", "code-verifier", expires_at, %{
-               return_to: "/forms"
-             })
-
-    assert transaction.return_to == "/forms"
-    assert {:ok, consumed_transaction} = Accounts.consume_oidc_login(transaction)
-    assert %DateTime{} = consumed_transaction.consumed_at
 
     assert {:ok, event} =
              Accounts.record_authentication_event("oidc.callback", "succeeded", %{
@@ -100,5 +64,17 @@ defmodule QuickTrain.AccountsAndOrganizationsTest do
              })
 
     assert event.user_id == user.id
+  end
+
+  defp session_attrs(user_id, token_seed) do
+    now = DateTime.utc_now()
+
+    %{
+      user_id: user_id,
+      token_hash: :crypto.hash(:sha256, token_seed),
+      authentication_method: "oidc",
+      issued_at: now,
+      expires_at: DateTime.add(now, 8, :hour)
+    }
   end
 end

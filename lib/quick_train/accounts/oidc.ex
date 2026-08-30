@@ -1,42 +1,33 @@
 defmodule QuickTrain.Accounts.Oidc do
   @moduledoc "OIDC discovery, authorization-code redirects, and verified token exchange through oidcc."
 
-  @provider QuickTrain.Accounts.OidcProvider
+  def authorization_url(options), do: provider().authorization_url(options)
 
-  def children do
-    case config()[:issuer] do
-      issuer when is_binary(issuer) and issuer != "" ->
-        [{Oidcc.ProviderConfiguration.Worker, %{issuer: issuer, name: @provider}}]
+  def exchange_code(code, options), do: provider().exchange_code(code, options)
 
-      _missing ->
-        []
+  def nonce_for_verifier(pkce_verifier) do
+    :crypto.mac(:hmac, :sha256, pkce_verifier, "quick-train-oidc-nonce-v1")
+    |> Base.url_encode64(padding: false)
+  end
+
+  def issuer, do: config()[:issuer]
+
+  def secure_callback_uri?(callback, allow_loopback_http?) when is_binary(callback) do
+    case URI.parse(callback) do
+      %URI{scheme: "https", host: host} when is_binary(host) and host != "" ->
+        true
+
+      %URI{scheme: "http", host: host} when allow_loopback_http? ->
+        host in ["localhost", "127.0.0.1", "::1"]
+
+      _uri ->
+        false
     end
   end
 
-  def authorization_url(redirect_uri, opts \\ %{}) do
-    with {:ok, client_id, client_secret} <- client_credentials() do
-      Oidcc.create_redirect_url(
-        @provider,
-        client_id,
-        client_secret,
-        Map.merge(%{redirect_uri: redirect_uri}, opts)
-      )
-    end
-  end
+  def secure_callback_uri?(_callback, _allow_loopback_http?), do: false
 
-  def exchange_code(code, redirect_uri, opts \\ %{}) do
-    with {:ok, client_id, client_secret} <- client_credentials() do
-      Oidcc.retrieve_token(
-        code,
-        @provider,
-        client_id,
-        client_secret,
-        Map.merge(%{redirect_uri: redirect_uri}, opts)
-      )
-    end
-  end
-
-  defp client_credentials do
+  def client_credentials do
     oidc_config = config()
 
     case {oidc_config[:client_id], oidc_config[:client_secret]} do
@@ -48,6 +39,12 @@ defmodule QuickTrain.Accounts.Oidc do
       _missing ->
         {:error, :oidc_not_configured}
     end
+  end
+
+  defp provider do
+    :quick_train
+    |> Application.get_env(:authentication, [])
+    |> Keyword.get(:oidc_provider, QuickTrain.Accounts.OidccProvider)
   end
 
   defp config, do: Application.get_env(:quick_train, :human_oidc, [])

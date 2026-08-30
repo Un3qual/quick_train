@@ -91,6 +91,6 @@ defmodule QuickTrain.EnterpriseIdentityTest do
     assert {:ok, preserved_user} = Accounts.get_user(user.id)
     assert preserved_user.status == "active"
     refute Organizations.member?(organization.id, user.id)
-    assert {:ok, _consumer_session} = Accounts.issue_session(user.id, %{})
+    assert {:ok, _consumer_session} = Accounts.issue_bearer_session(user.id)
   end
 end

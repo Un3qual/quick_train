@@ -12,8 +12,11 @@ defmodule QuickTrain.DataCase do
   end
 
   setup tags do
-    owner = Sandbox.start_owner!(QuickTrain.Repo, shared: not tags[:async])
-    on_exit(fn -> Sandbox.stop_owner(owner) end)
+    unless tags[:unboxed_db] do
+      owner = Sandbox.start_owner!(QuickTrain.Repo, shared: not tags[:async])
+      on_exit(fn -> Sandbox.stop_owner(owner) end)
+    end
+
     :ok
   end
 end

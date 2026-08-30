@@ -80,6 +80,24 @@ defmodule QuickTrain.Accounts.User do
              end)
     end
 
+    create :create_from_oidc do
+      accept [:email, :display_name]
+      change set_attribute(:status, "active")
+      change update_change(:display_name, &String.trim/1)
+
+      change update_change(:email, fn email ->
+               email |> String.trim() |> String.downcase()
+             end)
+    end
+
+    action :bootstrap_first_manager, :map do
+      argument :user_id, :uuid, allow_nil?: false
+      argument :organization_slug, :string, allow_nil?: false
+      argument :organization_name, :string, allow_nil?: false
+
+      run QuickTrain.Accounts.User.Actions.BootstrapFirstManager
+    end
+
     update :set_status do
       accept [:status]
       validate one_of(:status, ~w(active disabled))

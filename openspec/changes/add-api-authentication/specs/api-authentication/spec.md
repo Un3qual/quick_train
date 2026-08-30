@@ -5,15 +5,19 @@ Provide a one-time OIDC-to-bearer handshake and fail-closed API actor boundary b
 ## ADDED Requirements
 
 ### Requirement: OIDC exchange is one-time and client-bound
-The system SHALL begin OIDC login with fresh server-generated state, nonce, PKCE material, and a separate proof returned only to the initiating client. Callback selection SHALL come only from trusted server configuration. Exchange SHALL require that client proof, the matching unexpired login transaction, the exact callback selected at begin, and a valid provider response. It SHALL allow only one claimant to consume a login transaction and issue a bearer session; a concurrent, later, failed, or interrupted claimant SHALL NOT make the transaction reusable.
+The system SHALL begin OIDC login with fresh server-generated state, nonce, PKCE material, and a separate proof returned only to the initiating client. Callback selection SHALL come only from trusted server configuration and SHALL target a client-owned callback rather than a QuickTrain callback ingress. The client callback SHALL receive the provider authorization response and hand its code and state to exchange together with the separate client proof. QuickTrain SHALL expose no provider-callback route. Exchange SHALL require that client proof, the matching unexpired login transaction, the provider code and state, the exact callback selected at begin, and a valid provider response. It SHALL allow only one claimant to consume a login transaction and issue a bearer session; a concurrent, later, failed, or interrupted claimant SHALL NOT make the transaction reusable.
 
 #### Scenario: Login material is unpredictable and server selected
 - **WHEN** an unauthenticated client begins OIDC login
 - **THEN** the system returns fresh state and client proof, constructs the provider request from server-generated PKCE and nonce material, and does not accept caller-selected proof or callback material
 
 #### Scenario: Login redemption is bound to the initiating client
-- **WHEN** another client obtains a valid provider callback and state without the separate proof returned at begin
+- **WHEN** another client obtains a valid provider response code and state without the separate proof returned at begin
 - **THEN** exchange rejects the request before provider redemption or session issuance
+
+#### Scenario: Client-owned callback hands off to exchange
+- **WHEN** the provider redirects a valid authorization response to the trusted callback selected at begin
+- **THEN** the client submits that code and state with its separate proof to GraphQL exchange, and QuickTrain completes no login through a separate callback route
 
 #### Scenario: Concurrent exchanges issue one session
 - **WHEN** independent requests concurrently exchange the same valid login transaction
@@ -24,10 +28,10 @@ The system SHALL begin OIDC login with fresh server-generated state, nonce, PKCE
 - **THEN** a later request cannot return the transaction to a reusable state or issue a session from it
 
 ### Requirement: Authentication transport and unauthenticated admission are bounded
-The system SHALL accept production OIDC begin, exchange, and provider callback requests only through authenticated encrypted transport after honoring forwarded scheme information solely from configured trusted proxies. It SHALL hard-reject cleartext exchange and callback requests before provider contact, proof exposure, or session issuance and SHALL NOT redirect them. A proof-free cleartext begin request MAY instead be redirected to encrypted transport, but only before creating or returning state, proof, or provider request material. Every production request presenting a bearer credential SHALL pass the same trusted-proxy-aware encrypted-transport check and SHALL be hard-rejected without redirect before token hashing or lookup, GraphQL parsing, or action dispatch. Every response carrying OIDC state, client proof, provider request material, or a raw bearer token SHALL include `Cache-Control: no-store`. Production callback configuration, the configured provider issuer, and every discovered authorization, token, or key endpoint used by the OIDC flow SHALL use HTTPS and SHALL be rejected before provider contact otherwise; exact loopback HTTP callbacks MAY be enabled only in development and test, but provider endpoints receive no such exception. Before persisting login state or contacting a provider, unauthenticated begin SHALL enforce configurable global and per-network-source request limits plus a cap on outstanding unexpired login transactions. Network-source identity SHALL use the direct peer or addresses supplied only by a configured trusted proxy, never an untrusted forwarding header.
+The system SHALL accept production OIDC begin and exchange requests only through authenticated encrypted transport after honoring forwarded scheme information solely from configured trusted proxies. It SHALL hard-reject cleartext exchange requests before provider contact, proof exposure, or session issuance and SHALL NOT redirect them. A proof-free cleartext begin request MAY instead be redirected to encrypted transport, but only before creating or returning state, proof, or provider request material. Every production request presenting a bearer credential SHALL pass the same trusted-proxy-aware encrypted-transport check and SHALL be hard-rejected without redirect before token hashing or lookup, GraphQL parsing, or action dispatch. Every response carrying OIDC state, client proof, provider request material, or a raw bearer token SHALL include `Cache-Control: no-store`. Production client-callback configuration, the configured provider issuer, and every discovered authorization, token, or key endpoint used by the OIDC flow SHALL use HTTPS and SHALL be rejected before provider contact otherwise; exact loopback HTTP client callbacks MAY be enabled only in development and test, but provider endpoints receive no such exception. Before persisting login state or contacting a provider, unauthenticated begin SHALL enforce configurable global and per-network-source request limits plus a cap on outstanding unexpired login transactions. Network-source identity SHALL use the direct peer or addresses supplied only by a configured trusted proxy, never an untrusted forwarding header.
 
-#### Scenario: Cleartext exchange and callback are rejected
-- **WHEN** a production exchange or callback request uses cleartext transport
+#### Scenario: Cleartext exchange is rejected
+- **WHEN** a production exchange request uses cleartext transport
 - **THEN** the system rejects it without redirecting, contacting the provider, exposing proof material, or issuing a session
 
 #### Scenario: Cleartext begin exposes no login material
@@ -42,7 +46,7 @@ The system SHALL accept production OIDC begin, exchange, and provider callback r
 - **WHEN** a response returns OIDC state, client proof, provider request material, or a newly issued raw bearer token
 - **THEN** the response is marked `Cache-Control: no-store`
 
-#### Scenario: Insecure callback configuration is rejected
+#### Scenario: Insecure client-callback configuration is rejected
 - **WHEN** a configured production non-loopback callback URI uses cleartext transport
 - **THEN** the system rejects the flow before creating login material or contacting the provider
 
@@ -131,11 +135,17 @@ The system SHALL set the active global user resolved from a valid bearer session
 - **THEN** the shared capability check and every caller-initiated organization-scoped action deny access without exposing protected data
 
 ### Requirement: Public GraphQL surface is minimal and authorized
-The system SHALL define an explicit public GraphQL allowlist. At this prerequisite stage it SHALL expose only OIDC begin and exchange root fields, both unauthenticated. `Session`, `OidcLoginTransaction`, and `ExternalIdentity` resources and credential or PII fields including token hashes, OIDC proof or verifier material, provider subjects, and raw provider claims SHALL be absent from public schema introspection and reads rather than relying only on sensitive-field metadata. Operational health SHALL remain available only at `/healthz`, GraphQL SHALL NOT expose a health field, and GraphiQL SHALL be restricted to development. Policy-disabled foundation fields, including broad user list, read, and creation operations, SHALL be absent rather than becoming available to every bearer-authenticated account.
+The system SHALL define an explicit public GraphQL allowlist through AshGraphQL. OIDC begin and exchange SHALL be unauthenticated GraphQL mutations generated from typed generic Ash actions; they SHALL NOT be manual Absinthe fields or resolvers. Trusted network-source identity SHALL enter the begin action through Ash request context and SHALL NOT be accepted as a public GraphQL input. Because GraphQL requires a query root, this prerequisite stage SHALL expose one scalar, read-only `apiVersion` query and no application read. `Session`, `OidcLoginTransaction`, and `ExternalIdentity` resources and credential or PII fields including token hashes, OIDC proof or verifier material, provider subjects, and raw provider claims SHALL be absent from public schema introspection and reads rather than relying only on sensitive-field metadata. Operational health SHALL remain available only at `/healthz`, GraphQL SHALL NOT expose a health field, and GraphiQL SHALL be restricted to development. Policy-disabled foundation fields, including broad user list, read, and creation operations, SHALL be absent rather than becoming available to every bearer-authenticated account.
 
 #### Scenario: Unauthenticated schema has no bypass
+
 - **WHEN** an unauthenticated client queries the GraphQL schema
-- **THEN** no health, product, or foundation operation other than OIDC begin and exchange is available
+- **THEN** the query root contains only `apiVersion`, the mutation root contains only OIDC begin and exchange, and no health, product, account, or authentication-persistence operation is available
+
+#### Scenario: OIDC operations use mutation semantics
+
+- **WHEN** a client begins or exchanges an OIDC login through GraphQL
+- **THEN** it invokes a typed generic Ash action through the mutation root, with begin receiving its trusted network source only from Ash request context
 
 #### Scenario: Authenticated account lacks implicit administration
 - **WHEN** an ordinary authenticated account attempts a former policy-disabled foundation operation

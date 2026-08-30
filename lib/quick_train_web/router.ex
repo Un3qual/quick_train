@@ -3,6 +3,7 @@ defmodule QuickTrainWeb.Router do
 
   pipeline :api do
     plug :accepts, ["json"]
+    plug AshGraphql.Plug
   end
 
   scope "/" do
@@ -10,10 +11,12 @@ defmodule QuickTrainWeb.Router do
 
     forward "/graphql", Absinthe.Plug, schema: QuickTrainWeb.GraphQL.Schema
 
-    forward "/graphiql",
-            Absinthe.Plug.GraphiQL,
-            schema: QuickTrainWeb.GraphQL.Schema,
-            interface: :simple
+    if Mix.env() == :dev do
+      forward "/graphiql",
+              Absinthe.Plug.GraphiQL,
+              schema: QuickTrainWeb.GraphQL.Schema,
+              interface: :simple
+    end
   end
 
   scope "/", QuickTrainWeb do

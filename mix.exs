@@ -13,7 +13,7 @@ defmodule QuickTrain.MixProject do
       deps: deps(),
       dialyzer: [
         plt_add_deps: :app_tree,
-        plt_add_apps: [:ex_unit],
+        plt_add_apps: [:ex_unit, :mix],
         flags: [:error_handling, :underspecs]
       ],
       listeners: [Phoenix.CodeReloader],
@@ -58,8 +58,10 @@ defmodule QuickTrain.MixProject do
       {:absinthe, "== 1.11.0"},
       {:absinthe_relay, "== 1.6.0"},
       {:absinthe_plug, "== 1.5.10"},
-      {:oidcc, "== 3.8.0"},
+      {:oidcc, "== 3.9.0"},
       {:req, "== 0.7.2"},
+      {:hammer, "== 7.4.0"},
+      {:oban, "== 2.24.0"},
       {:boundary, "== 0.10.4", runtime: false},
       {:credo, "== 1.7.19", only: [:dev, :test], runtime: false},
       {:dialyxir, "== 1.4.7", only: [:dev, :test], runtime: false},

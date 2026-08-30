@@ -1,5 +1,7 @@
 import Config
 
+config :quick_train, Oban, testing: :manual
+
 config :quick_train, QuickTrain.Repo,
   username: System.get_env("QUICK_TRAIN_TEST_DATABASE_USERNAME", "quick_train"),
   password: System.get_env("QUICK_TRAIN_TEST_DATABASE_PASSWORD", "quick_train"),

@@ -24,11 +24,20 @@ defmodule QuickTrain.Organizations do
   resources do
     resource Organization do
       define :create_organization, action: :create, args: [:name, :slug]
+
+      define :bootstrap_first_manager_organization,
+        action: :bootstrap_first_manager_organization,
+        args: [:name, :slug]
     end
 
     resource Membership do
       define :member?, action: :member?, args: [:organization_id, :user_id]
       define :add_member, action: :add, args: [:organization_id, :user_id]
+
+      define :bootstrap_first_manager_membership,
+        action: :bootstrap_first_manager_membership,
+        args: [:organization_id, :user_id]
+
       define :get_membership, action: :read, get_by: [:id]
       define :deactivate_membership, action: :deactivate
     end
