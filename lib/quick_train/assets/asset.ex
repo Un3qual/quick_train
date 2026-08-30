@@ -140,6 +140,24 @@ defmodule QuickTrain.Assets.Asset do
       validate attribute_equals(:state, "pending")
     end
 
+    update :release_operation_claim do
+      require_atomic? false
+      accept []
+      change set_attribute(:operation_claim_kind, nil)
+      change set_attribute(:operation_claim_id, nil)
+      change set_attribute(:operation_claim_expires_at, nil)
+    end
+
+    update :release_unpublished_claim do
+      require_atomic? false
+      accept []
+      validate attribute_equals(:state, "pending")
+      change set_attribute(:operation_claim_kind, nil)
+      change set_attribute(:operation_claim_id, nil)
+      change set_attribute(:operation_claim_expires_at, nil)
+      change set_attribute(:publication_may_finish_at, nil)
+    end
+
     update :complete_ready do
       require_atomic? false
       accept [:sealed_key, :width, :height]

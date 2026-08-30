@@ -105,10 +105,28 @@ defmodule QuickTrain.Assets.Asset.Actions.Finalize do
         {:error, reason} when reason in @terminal_storage_errors ->
           commit_failure(resource, asset.id, asset.organization_id, claim_id, reason)
 
+        {:error, reason} when reason in [:staging_missing, :staging_retired] ->
+          _result = release_unpublished_claim(resource, asset.id, asset.organization_id, claim_id)
+          {:error, reason}
+
         {:error, reason} ->
           {:error, reason}
       end
     end
+  end
+
+  defp release_unpublished_claim(resource, asset_id, organization_id, claim_id) do
+    Ash.transact(resource, fn ->
+      asset = locked_asset(resource, asset_id, organization_id)
+
+      if asset && asset.state == "pending" && asset.operation_claim_id == claim_id do
+        asset
+        |> Ash.Changeset.for_update(:release_unpublished_claim, %{})
+        |> Ash.update!(authorize?: false)
+      end
+
+      :ok
+    end)
   end
 
   defp start_publication(resource, asset_id, organization_id, claim_id) do

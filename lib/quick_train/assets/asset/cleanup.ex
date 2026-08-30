@@ -87,7 +87,7 @@ defmodule QuickTrain.Assets.Asset.Cleanup do
 
       {:error, :sealed_missing} ->
         if publication_window_open?(asset, now) do
-          {:ok, :waiting_for_publication}
+          release_for_retry(resource, asset.id, claim_id, :waiting_for_publication)
         else
           retire(resource, asset, claim_id, now)
         end
@@ -105,8 +105,32 @@ defmodule QuickTrain.Assets.Asset.Cleanup do
            not_before,
            config(:publication_deadline_ms)
          ) do
-      :ok -> complete_cleanup(resource, asset.id, claim_id, now)
-      {:error, :staging_access_still_active} -> {:ok, :waiting_for_access_expiry}
+      :ok ->
+        complete_cleanup(resource, asset.id, claim_id, now)
+
+      {:error, :staging_access_still_active} ->
+        release_for_retry(resource, asset.id, claim_id, :waiting_for_access_expiry)
+
+      {:error, error} ->
+        {:error, error}
+    end
+  end
+
+  defp release_for_retry(resource, asset_id, claim_id, status) do
+    Ash.transact(resource, fn ->
+      asset = locked_asset(resource, asset_id)
+
+      if asset && asset.operation_claim_kind == "cleanup" &&
+           asset.operation_claim_id == claim_id do
+        asset
+        |> Ash.Changeset.for_update(:release_operation_claim, %{})
+        |> Ash.update!(authorize?: false)
+      end
+
+      status
+    end)
+    |> case do
+      {:ok, ^status} -> {:ok, status}
       {:error, error} -> {:error, error}
     end
   end

@@ -11,6 +11,9 @@ defmodule QuickTrain.Assets.Storage.MemoryStore do
 
   def reset(server), do: GenServer.call(server, :reset)
 
+  def set_publish_delay(server, delay_ms),
+    do: GenServer.call(server, {:set_publish_delay, delay_ms})
+
   def issue_staging(server, key, byte_cap, expires_at),
     do: GenServer.call(server, {:issue_staging, key, byte_cap, expires_at})
 
@@ -43,6 +46,11 @@ defmodule QuickTrain.Assets.Storage.MemoryStore do
 
   @impl true
   def handle_call(:reset, _from, state), do: {:reply, :ok, fresh_state(state.host)}
+
+  def handle_call({:set_publish_delay, delay_ms}, _from, state)
+      when is_integer(delay_ms) and delay_ms >= 0 do
+    {:reply, :ok, %{state | publish_delay_ms: delay_ms}}
+  end
 
   def handle_call({:issue_staging, key, byte_cap, expires_at}, _from, state)
       when is_binary(key) and is_integer(byte_cap) and byte_cap > 0 do
@@ -115,6 +123,8 @@ defmodule QuickTrain.Assets.Storage.MemoryStore do
   end
 
   def handle_call({:publish, key, bytes, facts}, _from, state) do
+    Process.sleep(state.publish_delay_ms)
+
     case Map.get(state.sealed, key) do
       nil ->
         sealed = Map.put(state.sealed, key, %{bytes: bytes, facts: facts})
@@ -196,7 +206,15 @@ defmodule QuickTrain.Assets.Storage.MemoryStore do
   def handle_call(:sealed_count, _from, state), do: {:reply, map_size(state.sealed), state}
 
   defp fresh_state(host) do
-    %{host: host, counter: 0, staging: %{}, sealed: %{}, upload_tokens: %{}, read_tokens: %{}}
+    %{
+      host: host,
+      counter: 0,
+      publish_delay_ms: 0,
+      staging: %{},
+      sealed: %{},
+      upload_tokens: %{},
+      read_tokens: %{}
+    }
   end
 
   defp next_token(state) do

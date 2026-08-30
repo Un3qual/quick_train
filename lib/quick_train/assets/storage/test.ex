@@ -10,6 +10,7 @@ defmodule QuickTrain.Assets.Storage.Test do
 
   def start_link(_opts), do: MemoryStore.start_link(name: @store, host: @host)
   def reset, do: MemoryStore.reset(@store)
+  def set_publish_delay(delay_ms), do: MemoryStore.set_publish_delay(@store, delay_ms)
   def put_staging(descriptor, bytes), do: MemoryStore.put_staging(@store, descriptor, bytes)
   def read_sealed(descriptor), do: MemoryStore.read_sealed(@store, descriptor)
   def sealed?(key), do: MemoryStore.sealed?(@store, key)

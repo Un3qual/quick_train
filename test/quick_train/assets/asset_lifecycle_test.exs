@@ -118,6 +118,40 @@ defmodule QuickTrain.Assets.AssetLifecycleTest do
     assert TestStorage.sealed_count() == 0
   end
 
+  test "a staging overwrite racing finalization can never change ready bytes", %{
+    manager: manager,
+    graph: graph
+  } do
+    original = "original-bytes"
+    replacement = "replaced-bytes"
+    registration = register!(graph.organization.id, manager, original, "text/plain")
+    :ok = TestStorage.put_staging(registration.upload_access, original)
+    :ok = TestStorage.set_publish_delay(100)
+
+    finalization =
+      Task.async(fn ->
+        Assets.finalize_asset!(registration.asset.id, graph.organization.id, actor: manager)
+      end)
+
+    overwrite_result = TestStorage.put_staging(registration.upload_access, replacement)
+    finalized = Task.await(finalization)
+
+    case overwrite_result do
+      :ok ->
+        assert finalized.asset.state == "failed"
+        assert finalized.asset.failure_reason == "content_mismatch"
+        assert TestStorage.sealed_count() == 0
+
+      {:error, :staging_fenced} ->
+        assert finalized.asset.state == "ready"
+
+        access =
+          Assets.get_asset_access!(finalized.asset.id, graph.organization.id, actor: manager)
+
+        assert {:ok, ^original} = TestStorage.read_sealed(access.read_access)
+    end
+  end
+
   test "concurrent-ready content converges and matching registration reuses the canonical asset",
        %{
          manager: manager,
@@ -129,16 +163,22 @@ defmodule QuickTrain.Assets.AssetLifecycleTest do
     :ok = TestStorage.put_staging(first.upload_access, content)
     :ok = TestStorage.put_staging(second.upload_access, content)
 
-    first_result =
-      Assets.finalize_asset!(first.asset.id, graph.organization.id, actor: manager)
+    [first_result, second_result] =
+      [first.asset.id, second.asset.id]
+      |> Enum.map(fn asset_id ->
+        Task.async(fn ->
+          Assets.finalize_asset!(asset_id, graph.organization.id, actor: manager)
+        end)
+      end)
+      |> Task.await_many()
 
-    second_result =
-      Assets.finalize_asset!(second.asset.id, graph.organization.id, actor: manager)
+    [ready_result] = Enum.filter([first_result, second_result], &(&1.asset.state == "ready"))
 
-    assert first_result.asset.state == "ready"
-    assert second_result.asset.state == "duplicate_content"
-    assert second_result.asset.canonical_asset_id == first_result.asset.id
-    assert second_result.canonical_asset.id == first_result.asset.id
+    [duplicate_result] =
+      Enum.filter([first_result, second_result], &(&1.asset.state == "duplicate_content"))
+
+    assert duplicate_result.asset.canonical_asset_id == ready_result.asset.id
+    assert duplicate_result.canonical_asset.id == ready_result.asset.id
     assert TestStorage.sealed_count() == 1
 
     assert {:ok, reused} =
@@ -151,7 +191,7 @@ defmodule QuickTrain.Assets.AssetLifecycleTest do
              )
 
     assert reused.reused
-    assert reused.asset.id == first_result.asset.id
+    assert reused.asset.id == ready_result.asset.id
     assert is_nil(reused.upload_access)
     assert Ash.count!(Asset, authorize?: false) == 2
 

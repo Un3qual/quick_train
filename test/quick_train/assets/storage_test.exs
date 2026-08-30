@@ -167,6 +167,65 @@ defmodule QuickTrain.Assets.StorageTest do
     refute TestStorage.sealed?("sealed/active")
   end
 
+  test "defense-in-depth bounds reject oversized stored bytes and image headers" do
+    original_assets = Application.fetch_env!(:quick_train, :assets)
+    expires_at = DateTime.add(DateTime.utc_now(), 60, :second)
+
+    on_exit(fn -> Application.put_env(:quick_train, :assets, original_assets) end)
+
+    byte_descriptor = Storage.writable_staging_access!("staging/actual-size", 32, expires_at)
+    bytes = String.duplicate("x", 32)
+    :ok = TestStorage.put_staging(byte_descriptor, bytes)
+
+    Application.put_env(
+      :quick_train,
+      :assets,
+      Keyword.put(original_assets, :max_bytes, 16)
+    )
+
+    assert {:error, :content_mismatch} =
+             Storage.verify_and_publish(
+               "staging/actual-size",
+               "sealed/actual-size",
+               %{
+                 sha256: Base.encode16(:crypto.hash(:sha256, bytes), case: :lower),
+                 byte_size: 32,
+                 media_type: "text/plain"
+               },
+               1_000
+             )
+
+    refute TestStorage.sealed?("sealed/actual-size")
+
+    Application.put_env(
+      :quick_train,
+      :assets,
+      original_assets
+      |> Keyword.put(:max_image_width, 1)
+      |> Keyword.put(:max_image_height, 1)
+      |> Keyword.put(:max_image_pixels, 1)
+    )
+
+    image_descriptor =
+      Storage.writable_staging_access!("staging/image-bounds", byte_size(@png), expires_at)
+
+    :ok = TestStorage.put_staging(image_descriptor, @png)
+
+    assert {:error, :image_bounds_exceeded} =
+             Storage.verify_and_publish(
+               "staging/image-bounds",
+               "sealed/image-bounds",
+               %{
+                 sha256: Base.encode16(:crypto.hash(:sha256, @png), case: :lower),
+                 byte_size: byte_size(@png),
+                 media_type: "image/png"
+               },
+               1_000
+             )
+
+    refute TestStorage.sealed?("sealed/image-bounds")
+  end
+
   test "sealed reads are short-lived and redirects fail closed" do
     expires_at = DateTime.add(DateTime.utc_now(), 60, :second)
     descriptor = Storage.writable_staging_access!("staging/read", 8, expires_at)
