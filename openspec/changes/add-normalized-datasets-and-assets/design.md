@@ -135,7 +135,9 @@ Append and finalization lock the same import. An import persists only `open` or 
 
 First finalization atomically seals the import and inserts one unique bounded-retry row job for each pending row. A failure to insert that complete bounded job set rolls back sealing, so there is no separate fan-out job that can strand rows after partial enqueue. A row job locks its row, skips terminal outcomes, and atomically commits item revision and terminal outcome. Failure before commit leaves the row pending for ordinary Oban retry. Failure after commit but before job acknowledgement is safe because the retry observes the terminal row. When no retry remains, the row must automatically receive a sanitized terminal failure so the import cannot remain pending indefinitely.
 
-Implementation first uses the simplest supported Oban worker or job-lifecycle mechanism that can prove this terminal outcome, without adding a periodic scanner, pruning coordination, a custom processing scheduler, persisted `processing` state, lease, row attempt counter, attempt fence, or per-attempt recovery job. If the selected stable Oban release cannot guarantee terminalization across its documented failure modes, implementation pauses and updates this design with that evidence before adding reconciliation machinery.
+Implementation evidence from Oban 2.24.0 shows that workers expose `perform/1`, `backoff/1`, and `timeout/1`, while external cancellation updates `oban_jobs` and may kill an executing worker without a durable worker callback. Job telemetry is emitted after Oban records the terminal state and is not an atomic durable product-row transition. The ordinary worker lifecycle therefore cannot guarantee terminal provenance across cancellation, final-attempt process loss, and Lifeline discard.
+
+One responsibility-specific terminalization reconciler closes only that demonstrated gap. A unique periodic job scans bounded pages of discarded or cancelled jobs for the exact import-row worker, obtains the immutable row UUID from the resource-identity-only arguments, and invokes an idempotent Ash action that locks and rechecks the row before recording sanitized `processing_retries_exhausted` failure. It skips rows that a surviving worker already completed and never creates an item revision. Oban terminal-job retention exceeds the documented maximum reconciliation delay, and verification covers pruning eligibility so terminal evidence cannot disappear first. The reconciler adds no custom processing state, lease, row attempt counter, attempt fence, per-attempt recovery job, aggregate counter, or generic job-recovery domain.
 
 Batch counts and lifecycle are query calculations over indexed rows, not mutable snapshots. The import query derives total, pending, succeeded, unchanged, and failed counts. Import inspection also returns a bounded cursor-paginated row-outcome connection over those existing rows, including row key, source position, current outcome, sanitized errors, and any resulting item-revision reference. A sealed import is pending while any row is pending; otherwise it is completed, failed, or partially failed from terminal outcomes. This removes parent-row serialization from independent row completion.
 
@@ -161,7 +163,7 @@ Ash actions, `Ash.DataLayer.transaction/5`, atomic changes, and row-locking quer
 
 ### 10. Use responsibility-specific durable jobs
 
-This change reuses the stable pinned Oban dependency established by the authentication prerequisite. Workers are responsibility-named for asset verification, asset staging cleanup, import-row processing, and expired-open-import cleanup. Jobs carry only resource identities, not dataset content. Job uniqueness prevents duplicate row processing and overlapping periodic cleanup, while application actions remain independently idempotent.
+This change reuses the stable pinned Oban dependency established by the authentication prerequisite. Workers are responsibility-named for asset verification, asset staging cleanup, import-row processing, import-row terminalization reconciliation, and expired-open-import cleanup. Jobs carry only resource identities, not dataset content. Job uniqueness prevents duplicate row processing and overlapping periodic reconciliation or cleanup, while application actions remain independently idempotent.
 
 QuickTrain does not recreate generic Operations, Integrations, Audit, or DurableDelivery domains.
 
@@ -170,7 +172,7 @@ QuickTrain does not recreate generic Operations, Integrations, Audit, or Durable
 - **[More rows and joins than JSONB]** -> Index record, field, ordinal, latest-revision, and import-status paths; benchmark representative imports before adding caches.
 - **[Typed-child invariant crosses tables]** -> Use one deferred constraint trigger plus Ash transactional construction and integration tests.
 - **[Derived import counts cost queries]** -> Use filtered aggregate queries over an index on import and outcome; add a projection only after measured need.
-- **[A repeatedly failing row exhausts Oban retry policy]** -> Require a sanitized terminal outcome through the simplest supported Oban lifecycle mechanism; add reconciliation only after implementation evidence and an explicit design update.
+- **[A terminal Oban row job has no durable worker callback]** -> Reconcile only discarded or cancelled import-row jobs in bounded unique runs, retain terminal evidence through the recovery window, and atomically terminalize still-pending rows without adding processing leases or counters.
 - **[An asset worker stops after claiming external work]** -> Bound the asset-local claim, permit atomic replacement after expiry, and fence stale post-I/O transitions by claim identity without introducing a generic recovery domain.
 - **[Abandoned open imports retain normalized staging]** -> Apply a fixed server-calculated expiry and periodic deletion of only still-open imports.
 - **[Storage provider remains unselected]** -> Keep the adapter narrow, ship deterministic development and test behavior, and fail clearly when production storage is absent.
@@ -183,7 +185,7 @@ QuickTrain does not recreate generic Operations, Integrations, Audit, or Durable
 3. Generate and review AshPostgres snapshots and migrations for schemas, exact record types, stable items, revisions, typed values, asset lifecycle, and simplified import rows.
 4. Add the storage behavior, deterministic adapters, asset lifecycle actions, verification worker, and staging cleanup.
 5. Add schema publication, normalized record construction, revision fingerprinting, and immutable item revision actions.
-6. Add import open, append, finalize with atomic row-job insertion, cleanup, idempotent row processing, terminal retry-exhaustion handling, and derived progress queries.
+6. Add import open, append, finalize with atomic row-job insertion, cleanup, idempotent row processing, bounded terminal-job reconciliation, and derived progress queries.
 7. Run focused policy, resource, adapter, worker, concurrency, migration, and GraphQL tests; then run `mise run openspec.validate` and `mise run verify` from a clean migrated database.
 
 Rollback before product data exists removes the new domains and tables through generated down migrations. After real assets or revisions exist, rollback requires an explicit product-data export or migration and must not silently discard immutable content or provenance.

@@ -119,7 +119,9 @@ Automatic cleanup SHALL scan expired open imports, lock the same import row used
 - **THEN** it returns `import_expired` and leaves the open import eligible for cleanup
 
 ### Requirement: Row processing is idempotent and retryable
-Finalization SHALL atomically insert the complete set of unique durable bounded-retry jobs for pending rows rather than relying on a separate fan-out worker. A row job SHALL lock the row, return without work when it is already terminal, and atomically commit its item revision reference and terminal `succeeded`, `unchanged`, or `failed` outcome. A worker failure before that commit SHALL leave the row pending so standard job retry can try again. A retry after the commit SHALL observe the terminal row and SHALL not duplicate an item revision. When retry exhaustion or cancellation leaves no runnable attempt, the system SHALL automatically and atomically record sanitized `processing_retries_exhausted` failure so the import cannot remain pending indefinitely. The capability contract does not mandate a periodic scanner, pruning coordination, custom row-processing lease, persisted row attempt counter, attempt fence, or per-attempt recovery job.
+Finalization SHALL atomically insert the complete set of unique durable bounded-retry jobs for pending rows rather than relying on a separate fan-out worker. A row job SHALL lock the row, return without work when it is already terminal, and atomically commit its item revision reference and terminal `succeeded`, `unchanged`, or `failed` outcome. A worker failure before that commit SHALL leave the row pending so standard job retry can try again. A retry after the commit SHALL observe the terminal row and SHALL not duplicate an item revision.
+
+Because the selected Oban release provides no durable worker callback for external cancellation or every terminal discard path, one responsibility-specific reconciliation job SHALL inspect only terminal `DatasetImportRow` processing jobs in bounded pages. For each discarded or cancelled job whose import row remains pending, it SHALL lock and recheck the row and the job's immutable row identity, then atomically record sanitized `processing_retries_exhausted` failure without creating an item revision. Already-terminal rows SHALL be skipped. The reconciler SHALL run automatically on a fixed schedule with overlap-preventing uniqueness, and terminal row-job retention SHALL exceed its bounded recovery window so pruning cannot erase the only terminalization evidence first. This is not a general job scanner or processing scheduler and SHALL NOT add a custom row-processing lease, persisted row attempt counter, attempt fence, per-attempt recovery job, or aggregate import counter.
 
 #### Scenario: Row-job scheduling is atomic with sealing
 - **WHEN** finalization cannot insert the complete unique job set for all pending rows
@@ -136,6 +138,14 @@ Finalization SHALL atomically insert the complete set of unique durable bounded-
 #### Scenario: Retry exhaustion becomes terminal provenance
 - **WHEN** a unique row job exhausts its bounded attempts or is cancelled while its import row remains pending
 - **THEN** the system records one sanitized failed outcome without manual intervention, allowing the sealed batch to leave `pending`
+
+#### Scenario: Reconciliation races a late terminal commit
+- **WHEN** terminal-job reconciliation and a surviving row worker contend for the same pending import row
+- **THEN** the row lock and terminal recheck allow exactly one terminal outcome, and no item revision is created after reconciliation records failure
+
+#### Scenario: Terminal evidence is retained through reconciliation
+- **WHEN** a row job becomes discarded or cancelled before a scheduled reconciliation run
+- **THEN** pruning retains that job through the bounded recovery window and reconciliation terminalizes any still-pending row before the job becomes eligible for deletion
 
 ### Requirement: Batch progress is derived from rows
 An import SHALL persist only its `open` or `sealed` phase. It SHALL NOT persist aggregate outcome counters or a separate processing lifecycle. Queries SHALL derive `row_count`, `pending`, `succeeded`, `unchanged`, and `failed` from current import rows. These mutually exclusive counts SHALL sum to `row_count`. Authorized inspection SHALL also expose a bounded cursor-paginated read of the import's rows containing each row key, source position, current outcome, sanitized errors when present, and resulting item-revision reference when present. An open import's lifecycle SHALL be `open`; a sealed import with any pending row SHALL be `pending`; a sealed import with no pending rows SHALL be `completed` when no row failed, `failed` when every nonempty row set failed, and `partially_failed` when failures coexist with succeeded or unchanged rows. An empty sealed import SHALL be `completed`.
