@@ -30,8 +30,9 @@ and the frontend empty.
   assignments, and optional decision evidence.
 - `QuickTrain.EnterpriseIdentity`: provider-neutral connections, directories, users, groups,
   memberships, group-to-role mappings, and an adapter behaviour.
-- `QuickTrainWeb.GraphQL.Schema`: an explicit public allowlist containing only OIDC begin and
-  exchange until product changes add their own authorized fields.
+- `QuickTrainWeb.GraphQL.Schema`: an explicit public allowlist containing the read-only
+  `apiVersion` query and OIDC begin and exchange mutations until product changes add their own
+  authorized fields.
 
 ## Toolchain
 
