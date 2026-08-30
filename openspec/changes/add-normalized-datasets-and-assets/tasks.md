@@ -7,7 +7,7 @@
 
 ## 2. Immutable Asset Domain
 
-- [ ] 2.1 Generate the Asset resource, snapshot, and migration, then refine organization ownership, lifecycle, canonical SHA-256, finite configurable byte and image bounds, size, media type, image dimensions, staging and canonical sealed keys, staging expiry, cleanup completion, bounded operation-claim facts, ready-only uniqueness, constraints, and indexes.
+- [x] 2.1 Generate the Asset resource, snapshot, and migration, then refine organization ownership, lifecycle, canonical SHA-256, finite configurable byte and image bounds, size, media type, image dimensions, staging and canonical sealed keys, staging expiry, cleanup completion, bounded operation-claim facts, ready-only uniqueness, constraints, and indexes.
 - [ ] 2.2 Define `QuickTrain.Assets.Storage` and deterministic development and test adapters for staging access that enforces the declared byte cap or fails closed, staging-byte verification before canonical-key conditional publication, a finite publication deadline and bounded provider in-flight window, late-write-safe staging retirement, and short-lived sealed reads without per-registration sealed copies.
 - [ ] 2.3 Enforce encrypted approved destinations and credential-safe redirect handling in storage access descriptors without exposing persistent storage keys or credentials through GraphQL.
 - [ ] 2.4 Implement authorized asset registration that returns writable staging access only when the adapter enforces the declared byte cap, with canonical ready-asset reuse only when hash, byte size, and media type all match.

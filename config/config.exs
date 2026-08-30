@@ -26,6 +26,19 @@ config :quick_train, :authentication,
   session_max_lifetime_seconds: 8 * 60 * 60,
   session_retention_seconds: 86_400
 
+config :quick_train, :assets,
+  max_bytes: 25 * 1024 * 1024,
+  max_image_width: 12_000,
+  max_image_height: 12_000,
+  max_image_pixels: 40_000_000,
+  staging_lifetime_seconds: 60 * 60,
+  upload_access_lifetime_seconds: 15 * 60,
+  read_access_lifetime_seconds: 5 * 60,
+  cleanup_grace_seconds: 15 * 60,
+  operation_claim_seconds: 2 * 60,
+  publication_deadline_ms: 30_000,
+  provider_in_flight_seconds: 60
+
 config :quick_train,
   ash_domains: [
     QuickTrain.Datasets,
