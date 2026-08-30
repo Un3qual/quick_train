@@ -28,6 +28,8 @@ config :quick_train, :authentication,
 
 config :quick_train,
   ash_domains: [
+    QuickTrain.Datasets,
+    QuickTrain.Assets,
     QuickTrain.Authentication,
     QuickTrain.Accounts,
     QuickTrain.Authorization,
