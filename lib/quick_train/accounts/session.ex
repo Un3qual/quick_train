@@ -39,9 +39,13 @@ defmodule QuickTrain.Accounts.Session do
   end
 
   actions do
-    defaults [:read]
+    read :read do
+      primary? true
+      public? false
+    end
 
     read :authenticate_bearer do
+      public? false
       argument :token_hash, :binary, allow_nil?: false, sensitive?: true
       get? true
 
@@ -54,6 +58,7 @@ defmodule QuickTrain.Accounts.Session do
     end
 
     action :issue_bearer, :map do
+      public? false
       argument :user_id, :uuid, allow_nil?: false
       argument :lifetime_seconds, :integer
 
@@ -61,11 +66,13 @@ defmodule QuickTrain.Accounts.Session do
     end
 
     action :cleanup_retained, :boolean do
+      public? false
       argument :now, :utc_datetime_usec, allow_nil?: false
       run QuickTrain.Accounts.Session.Actions.CleanupRetained
     end
 
     create :persist do
+      public? false
       argument :user_id, :uuid, allow_nil?: false
 
       accept [
@@ -87,11 +94,14 @@ defmodule QuickTrain.Accounts.Session do
     end
 
     update :revoke do
+      public? false
       accept []
       change atomic_update(:revoked_at, expr(now()))
     end
 
-    destroy :delete_retained
+    destroy :delete_retained do
+      public? false
+    end
   end
 
   identities do
