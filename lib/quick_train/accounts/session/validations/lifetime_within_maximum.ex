@@ -13,12 +13,23 @@ defmodule QuickTrain.Accounts.Session.Validations.LifetimeWithinMaximum do
       |> Application.fetch_env!(:authentication)
       |> Keyword.fetch!(:session_max_lifetime_seconds)
 
-    if within_maximum?(issued_at, expires_at, maximum_seconds) do
-      :ok
-    else
-      {:error, field: :expires_at, message: "exceeds the configured session lifetime"}
+    cond do
+      future_issuance?(issued_at) ->
+        {:error, field: :issued_at, message: "cannot be in the future"}
+
+      not within_maximum?(issued_at, expires_at, maximum_seconds) ->
+        {:error, field: :expires_at, message: "exceeds the configured session lifetime"}
+
+      true ->
+        :ok
     end
   end
+
+  defp future_issuance?(%DateTime{} = issued_at) do
+    DateTime.compare(issued_at, DateTime.utc_now()) == :gt
+  end
+
+  defp future_issuance?(_issued_at), do: false
 
   defp within_maximum?(%DateTime{} = issued_at, %DateTime{} = expires_at, maximum_seconds) do
     DateTime.compare(expires_at, DateTime.add(issued_at, maximum_seconds, :second)) != :gt

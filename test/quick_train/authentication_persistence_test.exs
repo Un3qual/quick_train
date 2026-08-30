@@ -213,6 +213,26 @@ defmodule QuickTrain.AuthenticationPersistenceTest do
              })
   end
 
+  test "session persistence rejects a future issuance timestamp" do
+    user =
+      Accounts.register_user!(
+        "future-session-#{System.unique_integer([:positive])}@example.com",
+        "Future Session"
+      )
+
+    issued_at = DateTime.add(DateTime.utc_now(), 1, :day)
+    token = "future-issued-token-#{System.unique_integer([:positive])}"
+
+    assert {:error, %Ash.Error.Invalid{}} =
+             Accounts.persist_bearer_session(%{
+               user_id: user.id,
+               token_hash: :crypto.hash(:sha256, token),
+               authentication_method: "oidc",
+               issued_at: issued_at,
+               expires_at: DateTime.add(issued_at, 1, :hour)
+             })
+  end
+
   test "bearer eligibility is resolved by a dedicated Ash read action" do
     user =
       Accounts.register_user!(
