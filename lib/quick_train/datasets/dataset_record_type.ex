@@ -5,7 +5,8 @@ defmodule QuickTrain.Datasets.DatasetRecordType do
     otp_app: :quick_train,
     domain: QuickTrain.Datasets,
     extensions: [AshGraphql.Resource],
-    data_layer: AshPostgres.DataLayer
+    data_layer: AshPostgres.DataLayer,
+    authorizers: [Ash.Policy.Authorizer]
 
   attributes do
     uuid_primary_key :id
@@ -35,10 +36,71 @@ defmodule QuickTrain.Datasets.DatasetRecordType do
 
   actions do
     defaults [:read]
+
+    read :list_scoped do
+      argument :organization_id, :uuid, allow_nil?: false
+      argument :schema_version_id, :uuid, allow_nil?: false
+
+      filter expr(
+               schema_version_id == ^arg(:schema_version_id) and
+                 schema_version.dataset.organization_id == ^arg(:organization_id)
+             )
+    end
+
+    action :add_to_draft, :struct do
+      allow_nil? false
+      constraints instance_of: __MODULE__
+      argument :organization_id, :uuid, allow_nil?: false
+      argument :schema_version_id, :uuid, allow_nil?: false
+      argument :key, :string, allow_nil?: false
+      argument :name, :string, allow_nil?: false
+      run QuickTrain.Datasets.DatasetRecordType.Actions.AddToDraft
+    end
+
+    action :update_in_draft, :struct do
+      allow_nil? false
+      constraints instance_of: __MODULE__
+      argument :organization_id, :uuid, allow_nil?: false
+      argument :record_type_id, :uuid, allow_nil?: false
+      argument :key, :string, allow_nil?: false
+      argument :name, :string, allow_nil?: false
+      run QuickTrain.Datasets.DatasetRecordType.Actions.UpdateInDraft
+    end
+
+    action :remove_from_draft, :atom do
+      allow_nil? false
+      argument :organization_id, :uuid, allow_nil?: false
+      argument :record_type_id, :uuid, allow_nil?: false
+      run QuickTrain.Datasets.DatasetRecordType.Actions.RemoveFromDraft
+    end
+
+    create :create_internal do
+      accept [:schema_version_id, :key, :name]
+    end
+
+    update :update_internal do
+      require_atomic? false
+      accept [:key, :name]
+    end
+
+    destroy :destroy_internal
+  end
+
+  policies do
+    policy action(:list_scoped) do
+      authorize_if {QuickTrain.Authorization.Checks.OrganizationCapability,
+                    capability: "datasets.read"}
+    end
+
+    policy action([:add_to_draft, :update_in_draft, :remove_from_draft]) do
+      authorize_if {QuickTrain.Authorization.Checks.OrganizationCapability,
+                    capability: "datasets.manage"}
+    end
   end
 
   graphql do
     derive_filter? false
+    derive_sort? false
     type :dataset_record_type
   end
 

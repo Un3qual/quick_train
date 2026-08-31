@@ -5,7 +5,8 @@ defmodule QuickTrain.Datasets.Dataset do
     otp_app: :quick_train,
     domain: QuickTrain.Datasets,
     extensions: [AshGraphql.Resource],
-    data_layer: AshPostgres.DataLayer
+    data_layer: AshPostgres.DataLayer,
+    authorizers: [Ash.Policy.Authorizer]
 
   attributes do
     uuid_primary_key :id
@@ -34,10 +35,32 @@ defmodule QuickTrain.Datasets.Dataset do
 
   actions do
     defaults [:read]
+
+    create :create_dataset do
+      accept [:organization_id, :key, :name]
+    end
+
+    read :list_scoped do
+      argument :organization_id, :uuid, allow_nil?: false
+      filter expr(organization_id == ^arg(:organization_id))
+    end
+  end
+
+  policies do
+    policy action(:create_dataset) do
+      authorize_if {QuickTrain.Authorization.Checks.OrganizationCapability,
+                    capability: "datasets.manage"}
+    end
+
+    policy action(:list_scoped) do
+      authorize_if {QuickTrain.Authorization.Checks.OrganizationCapability,
+                    capability: "datasets.read"}
+    end
   end
 
   graphql do
     derive_filter? false
+    derive_sort? false
     type :dataset
   end
 

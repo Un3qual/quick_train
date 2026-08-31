@@ -22,11 +22,11 @@
 ## 3. Versioned Dataset Schemas
 
 - [x] 3.1 Generate Dataset, DatasetSchemaVersion, DatasetRecordType, and DatasetFieldDefinition resources with snapshots, migrations, organization ownership, relationships, identities, constraints, and indexes.
-- [ ] 3.2 Implement draft-only record-type and field editing for text, integer, decimal, boolean, UTC date-time, and asset families with `single` cardinality and requiredness.
-- [ ] 3.3 Make every schema child edit lock and recheck the parent version so no mutation can commit after publication.
-- [ ] 3.4 Implement atomic schema publication with exactly one same-schema designated root type and immutable post-publication behavior.
-- [ ] 3.5 Expose deliberate dataset and schema lifecycle actions plus scoped typed reads through GraphQL.
-- [ ] 3.6 Add focused policy, lifecycle, validation, same-schema constraint, publication-race, and GraphQL tests.
+- [x] 3.2 Implement draft-only record-type and field editing for text, integer, decimal, boolean, UTC date-time, and asset families with `single` cardinality and requiredness.
+- [x] 3.3 Make every schema child edit lock and recheck the parent version so no mutation can commit after publication.
+- [x] 3.4 Implement atomic schema publication with exactly one same-schema designated root type and immutable post-publication behavior.
+- [x] 3.5 Expose deliberate dataset and schema lifecycle actions plus scoped typed reads through GraphQL.
+- [x] 3.6 Add focused policy, lifecycle, validation, same-schema constraint, publication-race, and GraphQL tests.
 
 ## 4. Normalized Items, Revisions, and Typed Values
 

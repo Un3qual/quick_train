@@ -80,7 +80,7 @@ defmodule QuickTrainWeb.GraphqlApiTest do
     assert_receive {:oidc_exchange, "provider-code", _options}
   end
 
-  test "public GraphQL roots contain only authentication and deliberate asset operations", %{
+  test "public GraphQL roots contain only deliberate authenticated product operations", %{
     conn: conn
   } do
     query = """
@@ -104,7 +104,11 @@ defmodule QuickTrainWeb.GraphqlApiTest do
     assert queries == %{
              "apiVersion" => MapSet.new(),
              "asset" => MapSet.new(["assetId", "organizationId"]),
-             "assetAccess" => MapSet.new(["assetId", "organizationId"])
+             "assetAccess" => MapSet.new(["assetId", "organizationId"]),
+             "datasetFieldDefinitions" => MapSet.new(["organizationId", "recordTypeId"]),
+             "datasetRecordTypes" => MapSet.new(["organizationId", "schemaVersionId"]),
+             "datasetSchemaVersion" => MapSet.new(["organizationId", "schemaVersionId"]),
+             "datasets" => MapSet.new(["organizationId"])
            }
 
     mutations =
@@ -113,10 +117,41 @@ defmodule QuickTrainWeb.GraphqlApiTest do
       end)
 
     assert mutations == %{
+             "addDatasetFieldDefinition" =>
+               MapSet.new([
+                 "cardinality",
+                 "key",
+                 "name",
+                 "organizationId",
+                 "recordTypeId",
+                 "required",
+                 "valueFamily"
+               ]),
+             "addDatasetRecordType" =>
+               MapSet.new(["key", "name", "organizationId", "schemaVersionId"]),
              "beginOidcLogin" => MapSet.new(["callbackKey"]),
+             "createDataset" => MapSet.new(["input"]),
+             "createDatasetSchemaVersion" => MapSet.new(["datasetId", "organizationId"]),
              "exchangeOidcLogin" => MapSet.new(["clientProof", "code", "state"]),
              "registerAsset" => MapSet.new(["organizationId", "sha256", "byteSize", "mediaType"]),
-             "finalizeAsset" => MapSet.new(["assetId", "organizationId"])
+             "finalizeAsset" => MapSet.new(["assetId", "organizationId"]),
+             "publishDatasetSchemaVersion" =>
+               MapSet.new(["organizationId", "rootRecordTypeId", "schemaVersionId"]),
+             "removeDatasetFieldDefinition" =>
+               MapSet.new(["fieldDefinitionId", "organizationId"]),
+             "removeDatasetRecordType" => MapSet.new(["organizationId", "recordTypeId"]),
+             "updateDatasetFieldDefinition" =>
+               MapSet.new([
+                 "cardinality",
+                 "fieldDefinitionId",
+                 "key",
+                 "name",
+                 "organizationId",
+                 "required",
+                 "valueFamily"
+               ]),
+             "updateDatasetRecordType" =>
+               MapSet.new(["key", "name", "organizationId", "recordTypeId"])
            }
 
     type_names = MapSet.new(schema["types"], & &1["name"])

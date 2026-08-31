@@ -5,7 +5,8 @@ defmodule QuickTrain.Datasets.DatasetSchemaVersion do
     otp_app: :quick_train,
     domain: QuickTrain.Datasets,
     extensions: [AshGraphql.Resource],
-    data_layer: AshPostgres.DataLayer
+    data_layer: AshPostgres.DataLayer,
+    authorizers: [Ash.Policy.Authorizer]
 
   attributes do
     uuid_primary_key :id
@@ -45,6 +46,58 @@ defmodule QuickTrain.Datasets.DatasetSchemaVersion do
 
   actions do
     defaults [:read]
+
+    read :get_scoped do
+      get? true
+      argument :organization_id, :uuid, allow_nil?: false
+      argument :schema_version_id, :uuid, allow_nil?: false
+
+      filter expr(
+               id == ^arg(:schema_version_id) and
+                 dataset.organization_id == ^arg(:organization_id)
+             )
+    end
+
+    action :create_draft, :struct do
+      allow_nil? false
+      constraints instance_of: __MODULE__
+      argument :organization_id, :uuid, allow_nil?: false
+      argument :dataset_id, :uuid, allow_nil?: false
+      run QuickTrain.Datasets.DatasetSchemaVersion.Actions.CreateDraft
+    end
+
+    action :publish, :struct do
+      allow_nil? false
+      constraints instance_of: __MODULE__
+      argument :organization_id, :uuid, allow_nil?: false
+      argument :schema_version_id, :uuid, allow_nil?: false
+      argument :root_record_type_id, :uuid, allow_nil?: false
+      run QuickTrain.Datasets.DatasetSchemaVersion.Actions.Publish
+    end
+
+    create :create_internal do
+      accept [:dataset_id, :version]
+      change set_attribute(:state, "draft")
+    end
+
+    update :publish_internal do
+      require_atomic? false
+      accept [:root_record_type_id, :published_at]
+      validate attribute_equals(:state, "draft")
+      change set_attribute(:state, "published")
+    end
+  end
+
+  policies do
+    policy action(:get_scoped) do
+      authorize_if {QuickTrain.Authorization.Checks.OrganizationCapability,
+                    capability: "datasets.read"}
+    end
+
+    policy action([:create_draft, :publish]) do
+      authorize_if {QuickTrain.Authorization.Checks.OrganizationCapability,
+                    capability: "datasets.manage"}
+    end
   end
 
   validations do
@@ -54,6 +107,7 @@ defmodule QuickTrain.Datasets.DatasetSchemaVersion do
 
   graphql do
     derive_filter? false
+    derive_sort? false
     type :dataset_schema_version
   end
 
