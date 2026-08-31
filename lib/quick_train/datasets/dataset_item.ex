@@ -1,6 +1,9 @@
 defmodule QuickTrain.Datasets.DatasetItem do
   @moduledoc "Stable identity for one item within an organization dataset."
 
+  alias QuickTrain.Datasets.{Dataset, DatasetItemRevision}
+  alias QuickTrain.Organizations.Organization
+
   use Ash.Resource,
     otp_app: :quick_train,
     domain: QuickTrain.Datasets,
@@ -15,18 +18,18 @@ defmodule QuickTrain.Datasets.DatasetItem do
   end
 
   relationships do
-    belongs_to :organization, QuickTrain.Organizations.Organization do
+    belongs_to :organization, Organization do
       allow_nil? false
       attribute_public? true
     end
 
-    belongs_to :dataset, QuickTrain.Datasets.Dataset do
+    belongs_to :dataset, Dataset do
       allow_nil? false
       attribute_public? true
       public? true
     end
 
-    has_many :revisions, QuickTrain.Datasets.DatasetItemRevision do
+    has_many :revisions, DatasetItemRevision do
       destination_attribute :item_id
       public? true
     end

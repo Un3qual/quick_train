@@ -1,6 +1,8 @@
 defmodule QuickTrain.Authentication.Api do
   @moduledoc "The public, behavior-only authentication API."
 
+  alias QuickTrain.Authentication.{OidcBeginResult, OidcExchangeResult}
+
   use Ash.Resource,
     otp_app: :quick_train,
     domain: QuickTrain.Authentication,
@@ -19,7 +21,7 @@ defmodule QuickTrain.Authentication.Api do
       end
     end
 
-    action :begin_oidc_login, QuickTrain.Authentication.OidcBeginResult do
+    action :begin_oidc_login, OidcBeginResult do
       allow_nil? false
 
       argument :callback_key, :string, allow_nil?: false
@@ -27,7 +29,7 @@ defmodule QuickTrain.Authentication.Api do
       run QuickTrain.Authentication.Api.Actions.BeginOidcLogin
     end
 
-    action :exchange_oidc_login, QuickTrain.Authentication.OidcExchangeResult do
+    action :exchange_oidc_login, OidcExchangeResult do
       allow_nil? false
 
       argument :code, :string, allow_nil?: false, sensitive?: true

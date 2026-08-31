@@ -1,6 +1,16 @@
 defmodule QuickTrain.Datasets.DatasetRecord do
   @moduledoc "Immutable normalized record bound to one exact published record type."
 
+  alias QuickTrain.Datasets.{
+    Dataset,
+    DatasetItemRevision,
+    DatasetRecordType,
+    DatasetSchemaVersion,
+    DatasetValue
+  }
+
+  alias QuickTrain.Organizations.Organization
+
   use Ash.Resource,
     otp_app: :quick_train,
     domain: QuickTrain.Datasets,
@@ -13,34 +23,33 @@ defmodule QuickTrain.Datasets.DatasetRecord do
   end
 
   relationships do
-    belongs_to :organization, QuickTrain.Organizations.Organization do
+    belongs_to :organization, Organization do
       allow_nil? false
       attribute_public? true
     end
 
-    belongs_to :dataset, QuickTrain.Datasets.Dataset do
+    belongs_to :dataset, Dataset do
       allow_nil? false
       attribute_public? true
     end
 
-    belongs_to :schema_version, QuickTrain.Datasets.DatasetSchemaVersion do
+    belongs_to :schema_version, DatasetSchemaVersion do
       allow_nil? false
       attribute_public? true
     end
 
-    belongs_to :record_type, QuickTrain.Datasets.DatasetRecordType do
+    belongs_to :record_type, DatasetRecordType do
       allow_nil? false
       attribute_public? true
       public? true
     end
 
-    has_many :values, QuickTrain.Datasets.DatasetValue do
+    has_many :values, DatasetValue do
       destination_attribute :record_id
       public? true
     end
 
-    has_one :root_revision, QuickTrain.Datasets.DatasetItemRevision,
-      destination_attribute: :root_record_id
+    has_one :root_revision, DatasetItemRevision, destination_attribute: :root_record_id
   end
 
   actions do

@@ -1,6 +1,10 @@
 defmodule QuickTrain.Datasets.DatasetValue.Asset do
   @moduledoc "Organization-safe immutable asset representation for one occurrence."
 
+  alias QuickTrain.Assets.Asset, as: StoredAsset
+  alias QuickTrain.Datasets.DatasetValue
+  alias QuickTrain.Organizations.Organization
+
   use Ash.Resource,
     otp_app: :quick_train,
     domain: QuickTrain.Datasets,
@@ -13,17 +17,17 @@ defmodule QuickTrain.Datasets.DatasetValue.Asset do
   end
 
   relationships do
-    belongs_to :organization, QuickTrain.Organizations.Organization do
+    belongs_to :organization, Organization do
       allow_nil? false
       attribute_public? true
     end
 
-    belongs_to :dataset_value, QuickTrain.Datasets.DatasetValue do
+    belongs_to :dataset_value, DatasetValue do
       allow_nil? false
       attribute_public? true
     end
 
-    belongs_to :asset, QuickTrain.Assets.Asset do
+    belongs_to :asset, StoredAsset do
       allow_nil? false
       attribute_public? true
       public? true

@@ -1,6 +1,11 @@
 defmodule QuickTrain.Datasets.DatasetImport do
   @moduledoc "Bounded idempotent import pinned to one published dataset schema."
 
+  alias QuickTrain.Accounts.User
+  alias QuickTrain.Datasets.{Dataset, DatasetImportRow, DatasetSchemaVersion}
+  alias QuickTrain.Datasets.DatasetImport.Lifecycle
+  alias QuickTrain.Organizations.Organization
+
   use Ash.Resource,
     otp_app: :quick_train,
     domain: QuickTrain.Datasets,
@@ -24,29 +29,29 @@ defmodule QuickTrain.Datasets.DatasetImport do
   end
 
   relationships do
-    belongs_to :organization, QuickTrain.Organizations.Organization do
+    belongs_to :organization, Organization do
       allow_nil? false
       attribute_public? true
     end
 
-    belongs_to :dataset, QuickTrain.Datasets.Dataset do
-      allow_nil? false
-      attribute_public? true
-      public? true
-    end
-
-    belongs_to :schema_version, QuickTrain.Datasets.DatasetSchemaVersion do
+    belongs_to :dataset, Dataset do
       allow_nil? false
       attribute_public? true
       public? true
     end
 
-    belongs_to :initiated_by, QuickTrain.Accounts.User do
+    belongs_to :schema_version, DatasetSchemaVersion do
+      allow_nil? false
+      attribute_public? true
+      public? true
+    end
+
+    belongs_to :initiated_by, User do
       allow_nil? false
       attribute_public? true
     end
 
-    has_many :rows, QuickTrain.Datasets.DatasetImportRow do
+    has_many :rows, DatasetImportRow do
       destination_attribute :import_id
       public? true
     end
@@ -89,7 +94,7 @@ defmodule QuickTrain.Datasets.DatasetImport do
     end
 
     calculate :lifecycle,
-              QuickTrain.Datasets.DatasetImport.Lifecycle,
+              Lifecycle,
               expr(
                 cond do
                   phase == :open -> :open

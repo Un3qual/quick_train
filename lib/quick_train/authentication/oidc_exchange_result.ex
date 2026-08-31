@@ -1,6 +1,8 @@
 defmodule QuickTrain.Authentication.OidcExchangeResult do
   @moduledoc "The one-time public result of exchanging an OIDC login."
 
+  alias QuickTrain.Accounts.User
+
   use Ash.Resource,
     otp_app: :quick_train,
     data_layer: :embedded,
@@ -25,7 +27,7 @@ defmodule QuickTrain.Authentication.OidcExchangeResult do
 
     attribute :user, :struct do
       public? false
-      constraints instance_of: QuickTrain.Accounts.User
+      constraints instance_of: User
     end
   end
 

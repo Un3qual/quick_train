@@ -1,6 +1,9 @@
 defmodule QuickTrain.Assets.Asset do
   @moduledoc "Immutable metadata and bounded lifecycle facts for one organization asset."
 
+  alias QuickTrain.Assets.{AssetAccessResult, AssetFinalizationResult, AssetRegistrationResult}
+  alias QuickTrain.Organizations.Organization
+
   use Ash.Resource,
     otp_app: :quick_train,
     domain: QuickTrain.Assets,
@@ -58,7 +61,7 @@ defmodule QuickTrain.Assets.Asset do
   end
 
   relationships do
-    belongs_to :organization, QuickTrain.Organizations.Organization do
+    belongs_to :organization, Organization do
       allow_nil? false
       attribute_public? true
     end
@@ -84,7 +87,7 @@ defmodule QuickTrain.Assets.Asset do
       filter expr(id == ^arg(:asset_id) and organization_id == ^arg(:organization_id))
     end
 
-    action :register, QuickTrain.Assets.AssetRegistrationResult do
+    action :register, AssetRegistrationResult do
       allow_nil? false
       argument :organization_id, :uuid, allow_nil?: false
       argument :sha256, :string, allow_nil?: false
@@ -94,7 +97,7 @@ defmodule QuickTrain.Assets.Asset do
       run {Module.concat(["QuickTrain.Assets.Asset.Actions.Register"]), []}
     end
 
-    action :finalize, QuickTrain.Assets.AssetFinalizationResult do
+    action :finalize, AssetFinalizationResult do
       allow_nil? false
       argument :asset_id, :uuid, allow_nil?: false
       argument :organization_id, :uuid, allow_nil?: false
@@ -102,7 +105,7 @@ defmodule QuickTrain.Assets.Asset do
       run {Module.concat(["QuickTrain.Assets.Asset.Actions.Finalize"]), []}
     end
 
-    action :access, QuickTrain.Assets.AssetAccessResult do
+    action :access, AssetAccessResult do
       allow_nil? false
       argument :asset_id, :uuid, allow_nil?: false
       argument :organization_id, :uuid, allow_nil?: false

@@ -1,6 +1,17 @@
 defmodule QuickTrain.Datasets.DatasetItemRevision do
   @moduledoc "Immutable schema-pinned content revision for one stable dataset item."
 
+  alias QuickTrain.Datasets.{
+    Dataset,
+    DatasetItem,
+    DatasetRecord,
+    DatasetRecordType,
+    DatasetSchemaVersion
+  }
+
+  alias QuickTrain.Datasets.DatasetItemRevision.Result
+  alias QuickTrain.Organizations.Organization
+
   use Ash.Resource,
     otp_app: :quick_train,
     domain: QuickTrain.Datasets,
@@ -25,35 +36,35 @@ defmodule QuickTrain.Datasets.DatasetItemRevision do
   end
 
   relationships do
-    belongs_to :organization, QuickTrain.Organizations.Organization do
+    belongs_to :organization, Organization do
       allow_nil? false
       attribute_public? true
     end
 
-    belongs_to :dataset, QuickTrain.Datasets.Dataset do
+    belongs_to :dataset, Dataset do
       allow_nil? false
       attribute_public? true
     end
 
-    belongs_to :item, QuickTrain.Datasets.DatasetItem do
-      allow_nil? false
-      attribute_public? true
-      public? true
-    end
-
-    belongs_to :schema_version, QuickTrain.Datasets.DatasetSchemaVersion do
+    belongs_to :item, DatasetItem do
       allow_nil? false
       attribute_public? true
       public? true
     end
 
-    belongs_to :root_record_type, QuickTrain.Datasets.DatasetRecordType do
+    belongs_to :schema_version, DatasetSchemaVersion do
       allow_nil? false
       attribute_public? true
       public? true
     end
 
-    belongs_to :root_record, QuickTrain.Datasets.DatasetRecord do
+    belongs_to :root_record_type, DatasetRecordType do
+      allow_nil? false
+      attribute_public? true
+      public? true
+    end
+
+    belongs_to :root_record, DatasetRecord do
       allow_nil? false
       attribute_public? true
       public? true
@@ -74,7 +85,7 @@ defmodule QuickTrain.Datasets.DatasetItemRevision do
 
     action :put, :struct do
       allow_nil? false
-      constraints instance_of: QuickTrain.Datasets.DatasetItemRevision.Result
+      constraints instance_of: Result
       argument :organization_id, :uuid, allow_nil?: false
       argument :dataset_id, :uuid, allow_nil?: false
       argument :schema_version_id, :uuid, allow_nil?: false

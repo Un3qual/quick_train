@@ -1,6 +1,8 @@
 defmodule QuickTrain.Datasets.DatasetSchemaVersion do
   @moduledoc "A draft or immutable published schema for one dataset."
 
+  alias QuickTrain.Datasets.{Dataset, DatasetRecordType}
+
   use Ash.Resource,
     otp_app: :quick_train,
     domain: QuickTrain.Datasets,
@@ -30,19 +32,19 @@ defmodule QuickTrain.Datasets.DatasetSchemaVersion do
   end
 
   relationships do
-    belongs_to :dataset, QuickTrain.Datasets.Dataset do
+    belongs_to :dataset, Dataset do
       allow_nil? false
       attribute_public? true
       public? true
     end
 
-    belongs_to :root_record_type, QuickTrain.Datasets.DatasetRecordType do
+    belongs_to :root_record_type, DatasetRecordType do
       allow_nil? true
       attribute_public? true
       public? true
     end
 
-    has_many :record_types, QuickTrain.Datasets.DatasetRecordType do
+    has_many :record_types, DatasetRecordType do
       destination_attribute :schema_version_id
       public? true
     end

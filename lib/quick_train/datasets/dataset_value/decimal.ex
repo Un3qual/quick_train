@@ -1,6 +1,8 @@
 defmodule QuickTrain.Datasets.DatasetValue.Decimal do
   @moduledoc "Normalized arbitrary-precision decimal representation for one occurrence."
 
+  alias QuickTrain.Datasets.DatasetValue
+
   use Ash.Resource,
     otp_app: :quick_train,
     domain: QuickTrain.Datasets,
@@ -14,7 +16,7 @@ defmodule QuickTrain.Datasets.DatasetValue.Decimal do
   end
 
   relationships do
-    belongs_to :dataset_value, QuickTrain.Datasets.DatasetValue do
+    belongs_to :dataset_value, DatasetValue do
       allow_nil? false
       attribute_public? true
     end

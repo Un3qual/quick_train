@@ -1,6 +1,8 @@
 defmodule QuickTrain.Datasets.DatasetValue.Text do
   @moduledoc "Normalized text representation for one dataset value occurrence."
 
+  alias QuickTrain.Datasets.DatasetValue
+
   use Ash.Resource,
     otp_app: :quick_train,
     domain: QuickTrain.Datasets,
@@ -14,7 +16,7 @@ defmodule QuickTrain.Datasets.DatasetValue.Text do
   end
 
   relationships do
-    belongs_to :dataset_value, QuickTrain.Datasets.DatasetValue do
+    belongs_to :dataset_value, DatasetValue do
       allow_nil? false
       attribute_public? true
     end

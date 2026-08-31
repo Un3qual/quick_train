@@ -1,6 +1,8 @@
 defmodule QuickTrain.Datasets.DatasetFieldDefinition do
   @moduledoc "A typed single-cardinality field within one exact dataset record type."
 
+  alias QuickTrain.Datasets.DatasetRecordType
+
   use Ash.Resource,
     otp_app: :quick_train,
     domain: QuickTrain.Datasets,
@@ -42,7 +44,7 @@ defmodule QuickTrain.Datasets.DatasetFieldDefinition do
   end
 
   relationships do
-    belongs_to :record_type, QuickTrain.Datasets.DatasetRecordType do
+    belongs_to :record_type, DatasetRecordType do
       allow_nil? false
       attribute_public? true
       public? true

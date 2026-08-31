@@ -1,6 +1,9 @@
 defmodule QuickTrain.Datasets.Dataset do
   @moduledoc "Stable organization-owned container for versioned normalized records."
 
+  alias QuickTrain.Datasets.{DatasetItem, DatasetSchemaVersion}
+  alias QuickTrain.Organizations.Organization
+
   use Ash.Resource,
     otp_app: :quick_train,
     domain: QuickTrain.Datasets,
@@ -25,16 +28,16 @@ defmodule QuickTrain.Datasets.Dataset do
   end
 
   relationships do
-    belongs_to :organization, QuickTrain.Organizations.Organization do
+    belongs_to :organization, Organization do
       allow_nil? false
       attribute_public? true
     end
 
-    has_many :schema_versions, QuickTrain.Datasets.DatasetSchemaVersion do
+    has_many :schema_versions, DatasetSchemaVersion do
       public? true
     end
 
-    has_many :items, QuickTrain.Datasets.DatasetItem do
+    has_many :items, DatasetItem do
       public? true
     end
   end

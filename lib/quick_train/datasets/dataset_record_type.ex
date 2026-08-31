@@ -1,6 +1,8 @@
 defmodule QuickTrain.Datasets.DatasetRecordType do
   @moduledoc "A named record shape within one dataset schema version."
 
+  alias QuickTrain.Datasets.{DatasetFieldDefinition, DatasetSchemaVersion}
+
   use Ash.Resource,
     otp_app: :quick_train,
     domain: QuickTrain.Datasets,
@@ -25,13 +27,13 @@ defmodule QuickTrain.Datasets.DatasetRecordType do
   end
 
   relationships do
-    belongs_to :schema_version, QuickTrain.Datasets.DatasetSchemaVersion do
+    belongs_to :schema_version, DatasetSchemaVersion do
       allow_nil? false
       attribute_public? true
       public? true
     end
 
-    has_many :field_definitions, QuickTrain.Datasets.DatasetFieldDefinition do
+    has_many :field_definitions, DatasetFieldDefinition do
       destination_attribute :record_type_id
       public? true
     end

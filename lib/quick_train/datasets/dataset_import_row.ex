@@ -1,6 +1,18 @@
 defmodule QuickTrain.Datasets.DatasetImportRow do
   @moduledoc "Immutable accepted row provenance and its terminal processing outcome."
 
+  alias QuickTrain.Datasets.{
+    Dataset,
+    DatasetImport,
+    DatasetItemRevision,
+    DatasetRecord,
+    DatasetRecordType,
+    DatasetSchemaVersion
+  }
+
+  alias QuickTrain.Datasets.DatasetImportRow.ValueInput
+  alias QuickTrain.Organizations.Organization
+
   use Ash.Resource,
     otp_app: :quick_train,
     domain: QuickTrain.Datasets,
@@ -25,37 +37,37 @@ defmodule QuickTrain.Datasets.DatasetImportRow do
   end
 
   relationships do
-    belongs_to :organization, QuickTrain.Organizations.Organization do
+    belongs_to :organization, Organization do
       allow_nil? false
       attribute_public? true
     end
 
-    belongs_to :dataset, QuickTrain.Datasets.Dataset do
+    belongs_to :dataset, Dataset do
       allow_nil? false
       attribute_public? true
     end
 
-    belongs_to :import, QuickTrain.Datasets.DatasetImport do
+    belongs_to :import, DatasetImport do
       allow_nil? false
       attribute_public? true
     end
 
-    belongs_to :schema_version, QuickTrain.Datasets.DatasetSchemaVersion do
+    belongs_to :schema_version, DatasetSchemaVersion do
       allow_nil? false
       attribute_public? true
     end
 
-    belongs_to :root_record_type, QuickTrain.Datasets.DatasetRecordType do
+    belongs_to :root_record_type, DatasetRecordType do
       allow_nil? false
       attribute_public? true
     end
 
-    belongs_to :candidate_record, QuickTrain.Datasets.DatasetRecord do
+    belongs_to :candidate_record, DatasetRecord do
       allow_nil? true
       attribute_public? true
     end
 
-    belongs_to :item_revision, QuickTrain.Datasets.DatasetItemRevision do
+    belongs_to :item_revision, DatasetItemRevision do
       allow_nil? true
       attribute_public? true
       public? true
@@ -83,8 +95,7 @@ defmodule QuickTrain.Datasets.DatasetImportRow do
       argument :external_key, :string
       argument :source_position, :integer, allow_nil?: false
 
-      argument :values, {:array, QuickTrain.Datasets.DatasetImportRow.ValueInput},
-        allow_nil?: false
+      argument :values, {:array, ValueInput}, allow_nil?: false
 
       run {Module.concat(["QuickTrain.Datasets.DatasetImportRow.Actions.Append"]), []}
     end

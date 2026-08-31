@@ -1,7 +1,25 @@
 defmodule QuickTrain.Datasets.DatasetValue do
   @moduledoc "Stable ordinal occurrence of one exact field in a normalized record."
 
-  alias QuickTrain.Datasets.DatasetValue.TypedChildConstraint
+  alias QuickTrain.Datasets.{
+    Dataset,
+    DatasetFieldDefinition,
+    DatasetRecord,
+    DatasetRecordType,
+    DatasetSchemaVersion
+  }
+
+  alias QuickTrain.Datasets.DatasetValue.{
+    Asset,
+    Boolean,
+    DateTime,
+    Decimal,
+    Integer,
+    Text,
+    TypedChildConstraint
+  }
+
+  alias QuickTrain.Organizations.Organization
 
   use Ash.Resource,
     otp_app: :quick_train,
@@ -23,58 +41,58 @@ defmodule QuickTrain.Datasets.DatasetValue do
   end
 
   relationships do
-    belongs_to :organization, QuickTrain.Organizations.Organization do
+    belongs_to :organization, Organization do
       allow_nil? false
       attribute_public? true
     end
 
-    belongs_to :record, QuickTrain.Datasets.DatasetRecord do
+    belongs_to :record, DatasetRecord do
       allow_nil? false
       attribute_public? true
     end
 
-    belongs_to :field_definition, QuickTrain.Datasets.DatasetFieldDefinition do
+    belongs_to :field_definition, DatasetFieldDefinition do
       allow_nil? false
       attribute_public? true
       public? true
     end
 
-    belongs_to :record_type, QuickTrain.Datasets.DatasetRecordType do
+    belongs_to :record_type, DatasetRecordType do
       allow_nil? false
       attribute_public? true
     end
 
-    belongs_to :dataset, QuickTrain.Datasets.Dataset do
+    belongs_to :dataset, Dataset do
       allow_nil? false
       attribute_public? true
     end
 
-    belongs_to :schema_version, QuickTrain.Datasets.DatasetSchemaVersion do
+    belongs_to :schema_version, DatasetSchemaVersion do
       allow_nil? false
       attribute_public? true
     end
 
-    has_one :text_value, QuickTrain.Datasets.DatasetValue.Text,
+    has_one :text_value, Text,
       destination_attribute: :dataset_value_id,
       public?: true
 
-    has_one :integer_value, QuickTrain.Datasets.DatasetValue.Integer,
+    has_one :integer_value, Integer,
       destination_attribute: :dataset_value_id,
       public?: true
 
-    has_one :decimal_value, QuickTrain.Datasets.DatasetValue.Decimal,
+    has_one :decimal_value, Decimal,
       destination_attribute: :dataset_value_id,
       public?: true
 
-    has_one :boolean_value, QuickTrain.Datasets.DatasetValue.Boolean,
+    has_one :boolean_value, Boolean,
       destination_attribute: :dataset_value_id,
       public?: true
 
-    has_one :date_time_value, QuickTrain.Datasets.DatasetValue.DateTime,
+    has_one :date_time_value, DateTime,
       destination_attribute: :dataset_value_id,
       public?: true
 
-    has_one :asset_value, QuickTrain.Datasets.DatasetValue.Asset,
+    has_one :asset_value, Asset,
       destination_attribute: :dataset_value_id,
       public?: true
   end
