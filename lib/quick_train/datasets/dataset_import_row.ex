@@ -4,6 +4,7 @@ defmodule QuickTrain.Datasets.DatasetImportRow do
   alias QuickTrain.Datasets.{
     Dataset,
     DatasetImport,
+    DatasetImportRow,
     DatasetItemRevision,
     DatasetRecord,
     DatasetRecordType,
@@ -12,6 +13,7 @@ defmodule QuickTrain.Datasets.DatasetImportRow do
 
   alias QuickTrain.Datasets.DatasetImportRow.ValueInput
   alias QuickTrain.Organizations.Organization
+  alias QuickTrain.Types.Sha256Digest
 
   use Ash.Resource,
     otp_app: :quick_train,
@@ -25,9 +27,9 @@ defmodule QuickTrain.Datasets.DatasetImportRow do
     attribute :row_key, :string, allow_nil?: false, public?: true
     attribute :source_position, :integer, allow_nil?: false, public?: true
     attribute :external_key, :string, public?: true
-    attribute :fingerprint, QuickTrain.Types.Sha256Digest, allow_nil?: false
+    attribute :fingerprint, Sha256Digest, allow_nil?: false
 
-    attribute :outcome, QuickTrain.Datasets.DatasetImportRow.Outcome,
+    attribute :outcome, DatasetImportRow.Outcome,
       allow_nil?: false,
       default: :pending,
       public?: true

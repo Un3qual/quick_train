@@ -1,13 +1,15 @@
 defmodule QuickTrain.Assets.StorageAccess do
   @moduledoc "Opaque, short-lived storage access returned to an authorized caller."
 
+  alias QuickTrain.Assets.StorageMethod
+
   use Ash.Resource,
     otp_app: :quick_train,
     data_layer: :embedded,
     extensions: [AshGraphql.Resource]
 
   attributes do
-    attribute :method, QuickTrain.Assets.StorageMethod, allow_nil?: false, public?: true
+    attribute :method, StorageMethod, allow_nil?: false, public?: true
     attribute :uri, :string, allow_nil?: false, public?: true, sensitive?: true
     attribute :headers, :map, allow_nil?: false, public?: true, default: %{}
     attribute :expires_at, :utc_datetime_usec, allow_nil?: false, public?: true

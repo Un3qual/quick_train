@@ -1,7 +1,7 @@
 defmodule QuickTrain.Datasets.DatasetSchemaVersion do
   @moduledoc "A draft or immutable published schema for one dataset."
 
-  alias QuickTrain.Datasets.{Dataset, DatasetRecordType}
+  alias QuickTrain.Datasets.{Dataset, DatasetRecordType, DatasetSchemaVersion}
 
   use Ash.Resource,
     otp_app: :quick_train,
@@ -17,7 +17,7 @@ defmodule QuickTrain.Datasets.DatasetSchemaVersion do
       allow_nil?: false,
       public?: true
 
-    attribute :state, QuickTrain.Datasets.DatasetSchemaVersion.State,
+    attribute :state, DatasetSchemaVersion.State,
       allow_nil?: false,
       public?: true,
       default: :draft

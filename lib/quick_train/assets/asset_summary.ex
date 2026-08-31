@@ -1,6 +1,9 @@
 defmodule QuickTrain.Assets.AssetSummary do
   @moduledoc "Public asset metadata without storage keys or operation claims."
 
+  alias QuickTrain.Assets.AssetState
+  alias QuickTrain.Types.Sha256Digest
+
   use Ash.Resource,
     otp_app: :quick_train,
     data_layer: :embedded,
@@ -9,8 +12,8 @@ defmodule QuickTrain.Assets.AssetSummary do
   attributes do
     uuid_primary_key :id, writable?: true
     attribute :organization_id, :uuid, allow_nil?: false, public?: true
-    attribute :state, QuickTrain.Assets.AssetState, allow_nil?: false, public?: true
-    attribute :sha256, QuickTrain.Types.Sha256Digest, allow_nil?: false, public?: true
+    attribute :state, AssetState, allow_nil?: false, public?: true
+    attribute :sha256, Sha256Digest, allow_nil?: false, public?: true
     attribute :byte_size, :integer, allow_nil?: false, public?: true
     attribute :media_type, :string, allow_nil?: false, public?: true
     attribute :width, :integer, public?: true

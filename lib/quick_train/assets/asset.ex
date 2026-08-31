@@ -1,8 +1,15 @@
 defmodule QuickTrain.Assets.Asset do
   @moduledoc "Immutable metadata and bounded lifecycle facts for one organization asset."
 
-  alias QuickTrain.Assets.{AssetAccessResult, AssetFinalizationResult, AssetRegistrationResult}
+  alias QuickTrain.Assets.{
+    AssetAccessResult,
+    AssetFinalizationResult,
+    AssetRegistrationResult,
+    AssetState
+  }
+
   alias QuickTrain.Organizations.Organization
+  alias QuickTrain.Types.Sha256Digest
 
   use Ash.Resource,
     otp_app: :quick_train,
@@ -14,12 +21,12 @@ defmodule QuickTrain.Assets.Asset do
   attributes do
     uuid_primary_key :id, writable?: true
 
-    attribute :state, QuickTrain.Assets.AssetState,
+    attribute :state, AssetState,
       allow_nil?: false,
       default: :pending,
       public?: true
 
-    attribute :sha256, QuickTrain.Types.Sha256Digest,
+    attribute :sha256, Sha256Digest,
       allow_nil?: false,
       public?: true
 

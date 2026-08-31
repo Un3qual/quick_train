@@ -2,9 +2,10 @@ defmodule QuickTrain.Datasets.DatasetImport do
   @moduledoc "Bounded idempotent import pinned to one published dataset schema."
 
   alias QuickTrain.Accounts.User
-  alias QuickTrain.Datasets.{Dataset, DatasetImportRow, DatasetSchemaVersion}
+  alias QuickTrain.Datasets.{Dataset, DatasetImport, DatasetImportRow, DatasetSchemaVersion}
   alias QuickTrain.Datasets.DatasetImport.Lifecycle
   alias QuickTrain.Organizations.Organization
+  alias QuickTrain.Types.Sha256Digest
 
   use Ash.Resource,
     otp_app: :quick_train,
@@ -16,9 +17,9 @@ defmodule QuickTrain.Datasets.DatasetImport do
   attributes do
     uuid_primary_key :id
     attribute :idempotency_key, :string, allow_nil?: false, public?: true
-    attribute :open_fingerprint, QuickTrain.Types.Sha256Digest, allow_nil?: false
+    attribute :open_fingerprint, Sha256Digest, allow_nil?: false
 
-    attribute :phase, QuickTrain.Datasets.DatasetImport.Phase,
+    attribute :phase, DatasetImport.Phase,
       allow_nil?: false,
       default: :open,
       public?: true

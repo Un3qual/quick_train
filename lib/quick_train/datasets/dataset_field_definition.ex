@@ -1,7 +1,7 @@
 defmodule QuickTrain.Datasets.DatasetFieldDefinition do
   @moduledoc "A typed single-cardinality field within one exact dataset record type."
 
-  alias QuickTrain.Datasets.DatasetRecordType
+  alias QuickTrain.Datasets.{DatasetFieldDefinition, DatasetRecordType, DatasetValue}
 
   use Ash.Resource,
     otp_app: :quick_train,
@@ -21,11 +21,11 @@ defmodule QuickTrain.Datasets.DatasetFieldDefinition do
       allow_nil?: false,
       public?: true
 
-    attribute :value_family, QuickTrain.Datasets.DatasetValue.Family,
+    attribute :value_family, DatasetValue.Family,
       allow_nil?: false,
       public?: true
 
-    attribute :cardinality, QuickTrain.Datasets.DatasetFieldDefinition.Cardinality,
+    attribute :cardinality, DatasetFieldDefinition.Cardinality,
       allow_nil?: false,
       public?: true,
       default: :single
@@ -77,10 +77,9 @@ defmodule QuickTrain.Datasets.DatasetFieldDefinition do
       argument :record_type_id, :uuid, allow_nil?: false
       argument :key, :string, allow_nil?: false
       argument :name, :string, allow_nil?: false
-      argument :value_family, QuickTrain.Datasets.DatasetValue.Family, allow_nil?: false
+      argument :value_family, DatasetValue.Family, allow_nil?: false
 
-      argument :cardinality, QuickTrain.Datasets.DatasetFieldDefinition.Cardinality,
-        allow_nil?: false
+      argument :cardinality, DatasetFieldDefinition.Cardinality, allow_nil?: false
 
       argument :required, :boolean, allow_nil?: false
 
@@ -94,10 +93,9 @@ defmodule QuickTrain.Datasets.DatasetFieldDefinition do
       argument :field_definition_id, :uuid, allow_nil?: false
       argument :key, :string, allow_nil?: false
       argument :name, :string, allow_nil?: false
-      argument :value_family, QuickTrain.Datasets.DatasetValue.Family, allow_nil?: false
+      argument :value_family, DatasetValue.Family, allow_nil?: false
 
-      argument :cardinality, QuickTrain.Datasets.DatasetFieldDefinition.Cardinality,
-        allow_nil?: false
+      argument :cardinality, DatasetFieldDefinition.Cardinality, allow_nil?: false
 
       argument :required, :boolean, allow_nil?: false
 
