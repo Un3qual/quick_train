@@ -93,6 +93,8 @@ defmodule QuickTrain.Datasets.DatasetValue do
       ]
     end
 
+    destroy :destroy_internal
+
     read :list_scoped do
       argument :organization_id, :uuid, allow_nil?: false
       argument :revision_id, :uuid, allow_nil?: false

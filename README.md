@@ -136,6 +136,33 @@ beyond their configured cutoffs.
 
 Implement `QuickTrain.EnterpriseIdentity.Adapter` for the selected enterprise identity provider.
 
+## Dataset and asset product configuration
+
+Product access is explicit. After selecting an existing active organization manager, grant the
+five product capabilities once through the idempotent product action:
+
+```elixir
+QuickTrain.Datasets.grant_product_capabilities!(organization_id, manager_user_id)
+```
+
+This grants only `assets.read`, `assets.manage`, `datasets.read`, `datasets.manage`, and
+`dataset_imports.manage` to that organization's manager role. It does not create an account,
+membership, organization, wildcard, or global grant.
+
+Development and test use deterministic local storage adapters. Production deliberately ships
+without a selected storage provider and therefore fails closed with `storage_not_configured`.
+Configure an implementation of `QuickTrain.Assets.Storage` under
+`config :quick_train, :assets, storage_adapter: YourAdapter`; it must enforce upload byte caps,
+encrypted approved destinations, bounded verification/publication, immutable sealed objects, and
+short-lived access descriptors.
+
+The default asset staging lifetime is one hour. Open imports also expire after one hour and accept
+at most 10,000 rows, 100 fields per row, 256 KiB of scalar data per row, 64 KiB per text value, and
+512 KiB per request. Asset staging cleanup and import-row terminalization reconciliation run every
+10 minutes; expired open-import cleanup runs hourly at minute 23. Import row jobs have eight
+bounded attempts, terminal Oban evidence is retained for one day, and all GraphQL collections use
+bounded keyset-paginated Relay connections.
+
 Production additionally requires `DATABASE_URL` and `SECRET_KEY_BASE`; the other runtime settings
 are documented in `.env.example`.
 

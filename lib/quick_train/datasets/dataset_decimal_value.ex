@@ -26,6 +26,8 @@ defmodule QuickTrain.Datasets.DatasetDecimalValue do
     create :create_internal do
       accept [:dataset_value_id, :value]
     end
+
+    destroy :destroy_internal
   end
 
   graphql do

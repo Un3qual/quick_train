@@ -65,7 +65,7 @@ defmodule QuickTrain.Datasets.DatasetItemRevision.Actions.Put do
     |> Ash.read_one!(authorize?: false)
   end
 
-  defp normalize(schema, values) when is_list(values) do
+  def normalize(schema, values) when is_list(values) do
     fields = Map.new(schema.root_record_type.field_definitions, &{&1.key, &1})
 
     with {:ok, occurrences} <- normalize_entries(values, fields),
@@ -74,7 +74,7 @@ defmodule QuickTrain.Datasets.DatasetItemRevision.Actions.Put do
     end
   end
 
-  defp normalize(_schema, _values), do: {:error, :unsupported_structure}
+  def normalize(_schema, _values), do: {:error, :unsupported_structure}
 
   defp normalize_entries(values, fields) do
     Enum.reduce_while(values, {:ok, [], MapSet.new()}, fn value, {:ok, entries, seen} ->
@@ -282,7 +282,7 @@ defmodule QuickTrain.Datasets.DatasetItemRevision.Actions.Put do
       else: {:error, :item_identity_conflict}
   end
 
-  defp validate_assets(organization_id, occurrences) do
+  def validate_assets(organization_id, occurrences) do
     occurrences
     |> Enum.filter(&(&1.family == "asset"))
     |> Enum.reduce_while(:ok, fn occurrence, :ok ->
@@ -306,17 +306,7 @@ defmodule QuickTrain.Datasets.DatasetItemRevision.Actions.Put do
   end
 
   defp create_revision!(arguments, schema, item, latest, occurrences, fingerprint) do
-    record =
-      DatasetRecord
-      |> Ash.Changeset.for_create(:create_internal, %{
-        organization_id: arguments.organization_id,
-        dataset_id: arguments.dataset_id,
-        schema_version_id: schema.id,
-        record_type_id: schema.root_record_type_id
-      })
-      |> Ash.create!(authorize?: false)
-
-    Enum.each(occurrences, &create_occurrence!(arguments, schema, record, &1))
+    record = create_normalized_record!(arguments, schema, occurrences)
 
     DatasetItemRevision
     |> Ash.Changeset.for_create(:create_internal, %{
@@ -330,6 +320,21 @@ defmodule QuickTrain.Datasets.DatasetItemRevision.Actions.Put do
       fingerprint: fingerprint
     })
     |> Ash.create!(authorize?: false)
+  end
+
+  def create_normalized_record!(scope, schema, occurrences) do
+    record =
+      DatasetRecord
+      |> Ash.Changeset.for_create(:create_internal, %{
+        organization_id: scope.organization_id,
+        dataset_id: scope.dataset_id,
+        schema_version_id: schema.id,
+        record_type_id: schema.root_record_type_id
+      })
+      |> Ash.create!(authorize?: false)
+
+    Enum.each(occurrences, &create_occurrence!(scope, schema, record, &1))
+    record
   end
 
   defp create_occurrence!(arguments, schema, record, occurrence) do
@@ -395,7 +400,7 @@ defmodule QuickTrain.Datasets.DatasetItemRevision.Actions.Put do
   defp selector("asset"), do: :asset_id
   defp selector(family), do: String.to_existing_atom(family)
 
-  defp present?(map, key), do: Map.has_key?(map, key) or Map.has_key?(map, Atom.to_string(key))
+  defp present?(map, key), do: not is_nil(fetch(map, key))
 
   defp fetch(map, key) do
     case Map.fetch(map, key) do

@@ -18,6 +18,9 @@ defmodule QuickTrainWeb.Endpoint do
   plug Plug.Parsers,
     parsers: [:urlencoded, :multipart, :json],
     pass: ["*/*"],
+    length:
+      Application.compile_env!(:quick_train, :dataset_imports)
+      |> Keyword.fetch!(:max_request_bytes),
     json_decoder: Phoenix.json_library()
 
   plug Plug.MethodOverride

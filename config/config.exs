@@ -3,11 +3,13 @@ import Config
 config :quick_train, Oban,
   engine: Oban.Engines.Basic,
   notifier: Oban.Notifiers.Postgres,
-  queues: [default: 10, authentication: 1, assets: 5],
+  queues: [default: 10, authentication: 1, assets: 5, dataset_imports: 5],
   cron: [
     crontab: [
       {"17 * * * *", QuickTrain.Accounts.Workers.AuthenticationRetention},
-      {"*/10 * * * *", QuickTrain.Assets.Workers.AssetStagingCleanup}
+      {"*/10 * * * *", QuickTrain.Assets.Workers.AssetStagingCleanup},
+      {"*/10 * * * *", QuickTrain.Datasets.Workers.ImportRowTerminalization},
+      {"23 * * * *", QuickTrain.Datasets.Workers.ExpiredOpenImportCleanup}
     ]
   ],
   lifeline: [rescue_after: {2, :hours}],
@@ -39,6 +41,14 @@ config :quick_train, :assets,
   operation_claim_seconds: 2 * 60,
   publication_deadline_ms: 30_000,
   provider_in_flight_seconds: 60
+
+config :quick_train, :dataset_imports,
+  open_lifetime_seconds: 60 * 60,
+  max_rows_per_import: 10_000,
+  max_fields_per_row: 100,
+  max_scalar_bytes_per_row: 256 * 1024,
+  max_text_bytes: 64 * 1024,
+  max_request_bytes: 512 * 1024
 
 config :quick_train,
   ash_domains: [

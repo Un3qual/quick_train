@@ -45,6 +45,8 @@ defmodule QuickTrain.Datasets.DatasetRecord do
     create :create_internal do
       accept [:organization_id, :dataset_id, :schema_version_id, :record_type_id]
     end
+
+    destroy :destroy_internal
   end
 
   graphql do

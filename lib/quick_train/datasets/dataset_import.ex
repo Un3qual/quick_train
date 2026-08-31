@@ -1,0 +1,165 @@
+defmodule QuickTrain.Datasets.DatasetImport do
+  @moduledoc "Bounded idempotent import pinned to one published dataset schema."
+
+  use Ash.Resource,
+    otp_app: :quick_train,
+    domain: QuickTrain.Datasets,
+    extensions: [AshGraphql.Resource],
+    data_layer: AshPostgres.DataLayer,
+    authorizers: [Ash.Policy.Authorizer]
+
+  attributes do
+    uuid_primary_key :id
+    attribute :idempotency_key, :string, allow_nil?: false, public?: true
+    attribute :open_fingerprint, :string, allow_nil?: false
+    attribute :phase, :string, allow_nil?: false, default: "open", public?: true
+    attribute :open_expires_at, :utc_datetime_usec, allow_nil?: false, public?: true
+    attribute :sealed_at, :utc_datetime_usec, public?: true
+    timestamps()
+  end
+
+  relationships do
+    belongs_to :organization, QuickTrain.Organizations.Organization do
+      allow_nil? false
+      attribute_public? true
+    end
+
+    belongs_to :dataset, QuickTrain.Datasets.Dataset do
+      allow_nil? false
+      attribute_public? true
+    end
+
+    belongs_to :schema_version, QuickTrain.Datasets.DatasetSchemaVersion do
+      allow_nil? false
+      attribute_public? true
+    end
+
+    belongs_to :initiated_by, QuickTrain.Accounts.User do
+      allow_nil? false
+      attribute_public? true
+    end
+
+    has_many :rows, QuickTrain.Datasets.DatasetImportRow, destination_attribute: :import_id
+  end
+
+  actions do
+    defaults [:read]
+
+    action :open, :struct do
+      allow_nil? false
+      constraints instance_of: __MODULE__
+      argument :organization_id, :uuid, allow_nil?: false
+      argument :dataset_id, :uuid, allow_nil?: false
+      argument :schema_version_id, :uuid, allow_nil?: false
+      argument :idempotency_key, :string, allow_nil?: false
+      run QuickTrain.Datasets.DatasetImport.Actions.Open
+    end
+
+    action :finalize, :struct do
+      allow_nil? false
+      constraints instance_of: __MODULE__
+      argument :organization_id, :uuid, allow_nil?: false
+      argument :import_id, :uuid, allow_nil?: false
+      run QuickTrain.Datasets.DatasetImport.Actions.Finalize
+    end
+
+    action :inspect, QuickTrain.Datasets.DatasetImportSummary do
+      allow_nil? false
+      argument :organization_id, :uuid, allow_nil?: false
+      argument :import_id, :uuid, allow_nil?: false
+      run QuickTrain.Datasets.DatasetImport.Actions.Inspect
+    end
+
+    create :create_internal do
+      accept [
+        :organization_id,
+        :dataset_id,
+        :schema_version_id,
+        :initiated_by_id,
+        :idempotency_key,
+        :open_fingerprint,
+        :open_expires_at
+      ]
+
+      change set_attribute(:phase, "open")
+    end
+
+    update :seal_internal do
+      require_atomic? false
+      accept [:sealed_at]
+      validate attribute_equals(:phase, "open")
+      change set_attribute(:phase, "sealed")
+    end
+
+    destroy :destroy_internal
+  end
+
+  policies do
+    policy action([:open, :finalize, :inspect]) do
+      authorize_if {QuickTrain.Authorization.Checks.OrganizationCapability,
+                    capability: "dataset_imports.manage"}
+    end
+  end
+
+  validations do
+    validate one_of(:phase, ~w(open sealed))
+    validate match(:open_fingerprint, ~r/\A[0-9a-f]{64}\z/)
+  end
+
+  graphql do
+    derive_filter? false
+    derive_sort? false
+    type :dataset_import
+  end
+
+  postgres do
+    table "dataset_imports"
+    repo QuickTrain.Repo
+
+    identity_index_names organization_dataset_key:
+                           "dataset_imports_organization_dataset_key_index"
+
+    references do
+      reference :organization, on_delete: :restrict, name: "dataset_imports_organization_id_fkey"
+
+      reference :dataset,
+        on_delete: :restrict,
+        name: "dataset_imports_dataset_scope_fkey",
+        match_with: [organization_id: :organization_id]
+
+      reference :schema_version,
+        on_delete: :restrict,
+        name: "dataset_imports_schema_scope_fkey",
+        match_with: [dataset_id: :dataset_id]
+
+      reference :initiated_by, on_delete: :restrict, name: "dataset_imports_initiated_by_id_fkey"
+    end
+
+    custom_indexes do
+      index [:id, :organization_id, :dataset_id, :schema_version_id],
+        unique: true,
+        name: "dataset_imports_id_full_scope_index"
+
+      index [:phase, :open_expires_at, :id], name: "dataset_imports_expiry_cursor_index"
+    end
+
+    check_constraints do
+      check_constraint :phase, "dataset_imports_phase_valid",
+        check: "phase IN ('open', 'sealed')",
+        message: "is invalid"
+
+      check_constraint :phase, "dataset_imports_phase_facts_valid",
+        check:
+          "(phase = 'open' AND sealed_at IS NULL) OR (phase = 'sealed' AND sealed_at IS NOT NULL)",
+        message: "does not match lifecycle facts"
+
+      check_constraint :open_fingerprint, "dataset_imports_open_fingerprint_format",
+        check: "open_fingerprint ~ '^[0-9a-f]{64}$'",
+        message: "must be exactly 64 lowercase hexadecimal characters"
+    end
+  end
+
+  identities do
+    identity :organization_dataset_key, [:organization_id, :dataset_id, :idempotency_key]
+  end
+end

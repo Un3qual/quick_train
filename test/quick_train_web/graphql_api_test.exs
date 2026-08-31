@@ -114,6 +114,16 @@ defmodule QuickTrainWeb.GraphqlApiTest do
                  "organizationId",
                  "recordTypeId"
                ]),
+             "datasetImport" => MapSet.new(["importId", "organizationId"]),
+             "datasetImportRows" =>
+               MapSet.new([
+                 "after",
+                 "before",
+                 "first",
+                 "importId",
+                 "last",
+                 "organizationId"
+               ]),
              "datasetItemRevisions" =>
                MapSet.new([
                  "after",
@@ -172,12 +182,29 @@ defmodule QuickTrainWeb.GraphqlApiTest do
                ]),
              "addDatasetRecordType" =>
                MapSet.new(["key", "name", "organizationId", "schemaVersionId"]),
+             "appendDatasetImportRow" =>
+               MapSet.new([
+                 "externalKey",
+                 "importId",
+                 "organizationId",
+                 "rowKey",
+                 "sourcePosition",
+                 "values"
+               ]),
              "beginOidcLogin" => MapSet.new(["callbackKey"]),
              "createDataset" => MapSet.new(["input"]),
              "createDatasetSchemaVersion" => MapSet.new(["datasetId", "organizationId"]),
              "exchangeOidcLogin" => MapSet.new(["clientProof", "code", "state"]),
              "registerAsset" => MapSet.new(["organizationId", "sha256", "byteSize", "mediaType"]),
              "finalizeAsset" => MapSet.new(["assetId", "organizationId"]),
+             "finalizeDatasetImport" => MapSet.new(["importId", "organizationId"]),
+             "openDatasetImport" =>
+               MapSet.new([
+                 "datasetId",
+                 "idempotencyKey",
+                 "organizationId",
+                 "schemaVersionId"
+               ]),
              "publishDatasetSchemaVersion" =>
                MapSet.new(["organizationId", "rootRecordTypeId", "schemaVersionId"]),
              "removeDatasetFieldDefinition" =>

@@ -6,6 +6,8 @@ defmodule QuickTrain.Datasets do
   alias QuickTrain.Datasets.{
     Dataset,
     DatasetFieldDefinition,
+    DatasetImport,
+    DatasetImportRow,
     DatasetItem,
     DatasetItemRevision,
     DatasetRecordType,
@@ -35,6 +37,12 @@ defmodule QuickTrain.Datasets do
         paginate_with: :keyset
 
       list DatasetValue, :dataset_values, :list_scoped,
+        relay?: true,
+        paginate_with: :keyset
+
+      action DatasetImport, :dataset_import, :inspect
+
+      list DatasetImportRow, :dataset_import_rows, :list_scoped,
         relay?: true,
         paginate_with: :keyset
     end
@@ -81,6 +89,22 @@ defmodule QuickTrain.Datasets do
 
       action DatasetFieldDefinition, :remove_dataset_field_definition, :remove_from_draft,
         args: [:organization_id, :field_definition_id]
+
+      action DatasetImport, :open_dataset_import, :open,
+        args: [:organization_id, :dataset_id, :schema_version_id, :idempotency_key]
+
+      action DatasetImportRow, :append_dataset_import_row, :append,
+        args: [
+          :organization_id,
+          :import_id,
+          :row_key,
+          :external_key,
+          :source_position,
+          :values
+        ]
+
+      action DatasetImport, :finalize_dataset_import, :finalize,
+        args: [:organization_id, :import_id]
     end
   end
 
@@ -202,5 +226,36 @@ defmodule QuickTrain.Datasets do
     resource QuickTrain.Datasets.DatasetBooleanValue
     resource QuickTrain.Datasets.DatasetDateTimeValue
     resource QuickTrain.Datasets.DatasetAssetValue
+
+    resource QuickTrain.Datasets.DatasetImport do
+      define :open_import,
+        action: :open,
+        args: [:organization_id, :dataset_id, :schema_version_id, :idempotency_key]
+
+      define :finalize_import,
+        action: :finalize,
+        args: [:organization_id, :import_id]
+
+      define :inspect_import,
+        action: :inspect,
+        args: [:organization_id, :import_id]
+    end
+
+    resource QuickTrain.Datasets.DatasetImportRow do
+      define :append_import_row,
+        action: :append,
+        args: [
+          :organization_id,
+          :import_id,
+          :row_key,
+          :external_key,
+          :source_position,
+          :values
+        ]
+
+      define :list_import_rows,
+        action: :list_scoped,
+        args: [:organization_id, :import_id]
+    end
   end
 end

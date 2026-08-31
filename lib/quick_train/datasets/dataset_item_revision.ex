@@ -167,6 +167,10 @@ defmodule QuickTrain.Datasets.DatasetItemRevision do
     end
 
     custom_indexes do
+      index [:id, :dataset_id, :organization_id],
+        unique: true,
+        name: "dataset_item_revisions_id_dataset_organization_index"
+
       index [:item_id, :revision_number, :id],
         name: "dataset_item_revisions_item_cursor_index"
 
