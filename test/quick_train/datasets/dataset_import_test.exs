@@ -224,7 +224,7 @@ defmodule QuickTrain.Datasets.DatasetImportTest do
     assert pending_id == pending.id
     retry = Datasets.finalize_import!(context.organization.id, import.id, actor: context.manager)
     assert retry.id == sealed.id
-    assert length(all_enqueued(worker: ProcessImportRow)) == 1
+    assert [%Oban.Job{}] = all_enqueued(worker: ProcessImportRow)
 
     before = Datasets.inspect_import!(context.organization.id, import.id, actor: context.manager)
     assert before.lifecycle == :pending

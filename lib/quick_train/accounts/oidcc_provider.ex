@@ -28,8 +28,6 @@ defmodule QuickTrain.Accounts.OidccProvider do
          {:ok, token} <-
            Token.retrieve(code, client_context, options) do
       token_claims(token)
-    else
-      {:error, error} -> {:error, error}
     end
   end
 

@@ -35,11 +35,8 @@ defmodule QuickTrain.Authentication.Api.Actions.ExchangeOidcLogin do
          :ok <- verify_client_proof(transaction, client_proof),
          {:ok, claimed_transaction} <- claim_transaction(transaction),
          {:ok, claims} <- exchange_with_provider(claimed_transaction, code),
-         {:ok, identity_claims} <- validate_identity_claims(claims),
-         {:ok, result} <- finalize_exchange(claimed_transaction, identity_claims) do
-      {:ok, result}
-    else
-      {:error, reason} -> {:error, reason}
+         {:ok, identity_claims} <- validate_identity_claims(claims) do
+      finalize_exchange(claimed_transaction, identity_claims)
     end
   end
 

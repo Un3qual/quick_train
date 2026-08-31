@@ -71,7 +71,7 @@ defmodule QuickTrain.Datasets.DatasetRevisionTest do
     assert Regex.match?(~r/\A[0-9a-f]{64}\z/, first.revision.fingerprint)
 
     loaded_first = load_revision(first.revision)
-    assert length(loaded_first.root_record.values) == 6
+    assert [_, _, _, _, _, _] = loaded_first.root_record.values
 
     assert typed_values(loaded_first) == %{
              "active" => true,
@@ -368,7 +368,7 @@ defmodule QuickTrain.Datasets.DatasetRevisionTest do
       )
 
     assert result.changed
-    assert length(load_revision(result.revision).root_record.values) == 5
+    assert [_, _, _, _, _] = load_revision(result.revision).root_record.values
   end
 
   defp put!(context, values) do
