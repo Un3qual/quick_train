@@ -5,14 +5,17 @@ defmodule QuickTrain.Assets.Asset.Actions.Register do
 
   require Ash.Query
 
-  alias QuickTrain.Assets.{AssetRegistrationResult, Storage}
+  alias QuickTrain.Assets.{Asset, AssetRegistrationResult, Storage}
 
   @impl true
   def run(input, _opts, _context) do
     arguments = input.arguments
 
     with :ok <- validate_declared_facts(arguments) do
-      register(input.resource, arguments)
+      case ready_asset(arguments.organization_id, arguments.sha256) do
+        nil -> create_pending(arguments)
+        asset -> reuse_ready(asset, arguments)
+      end
     end
   end
 
@@ -28,15 +31,8 @@ defmodule QuickTrain.Assets.Asset.Actions.Register do
     end
   end
 
-  defp register(resource, arguments) do
-    case ready_asset(resource, arguments.organization_id, arguments.sha256) do
-      nil -> create_pending(resource, arguments)
-      asset -> reuse_ready(asset, arguments)
-    end
-  end
-
-  defp ready_asset(resource, organization_id, sha256) do
-    resource
+  defp ready_asset(organization_id, sha256) do
+    Asset
     |> Ash.Query.filter(
       organization_id == ^organization_id and sha256 == ^sha256 and state == "ready"
     )
@@ -51,7 +47,7 @@ defmodule QuickTrain.Assets.Asset.Actions.Register do
     end
   end
 
-  defp create_pending(resource, arguments) do
+  defp create_pending(arguments) do
     asset_id = Ecto.UUID.generate()
     config = Application.fetch_env!(:quick_train, :assets)
     now = DateTime.utc_now()
@@ -69,7 +65,7 @@ defmodule QuickTrain.Assets.Asset.Actions.Register do
     }
 
     with {:ok, asset} <-
-           resource
+           Asset
            |> Ash.Changeset.for_create(:create_pending, attributes)
            |> Ash.create(authorize?: false),
          {:ok, access} <-
@@ -81,7 +77,7 @@ defmodule QuickTrain.Assets.Asset.Actions.Register do
       {:ok, AssetRegistrationResult.from(asset, access, false)}
     else
       {:error, error} ->
-        discard_registration(resource, asset_id)
+        discard_registration(asset_id)
         {:error, error}
     end
   end
@@ -91,8 +87,8 @@ defmodule QuickTrain.Assets.Asset.Actions.Register do
     if DateTime.before?(requested, staging_expires_at), do: requested, else: staging_expires_at
   end
 
-  defp discard_registration(resource, asset_id) do
-    case resource |> Ash.get(asset_id, authorize?: false) do
+  defp discard_registration(asset_id) do
+    case Asset |> Ash.get(asset_id, authorize?: false) do
       {:ok, nil} -> :ok
       {:ok, asset} -> Ash.destroy(asset, action: :discard_registration, authorize?: false)
       {:error, _error} -> :ok

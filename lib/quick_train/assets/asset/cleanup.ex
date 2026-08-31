@@ -3,34 +3,35 @@ defmodule QuickTrain.Assets.Asset.Cleanup do
 
   require Ash.Query
 
+  alias QuickTrain.Assets.Asset
   alias QuickTrain.Assets.Asset.Actions.Finalize
   alias QuickTrain.Assets.Storage
 
-  def cleanup(resource, asset_id, now \\ DateTime.utc_now()) do
+  def cleanup(asset_id, now \\ DateTime.utc_now()) do
     claim_id = Ecto.UUID.generate()
 
-    case acquire_claim(resource, asset_id, claim_id, now) do
-      {:ok, {:claimed, asset}} -> reconcile_or_retire(resource, asset, claim_id, now)
+    case acquire_claim(asset_id, claim_id, now) do
+      {:ok, {:claimed, asset}} -> reconcile_or_retire(asset, claim_id, now)
       {:ok, status} when status in [:missing, :ineligible, :busy] -> {:ok, status}
       {:error, error} -> {:error, error}
     end
   end
 
-  def expired_assets(resource, now, limit) do
+  def expired_assets(now, limit) do
     cutoff = DateTime.add(now, -config(:cleanup_grace_seconds), :second)
 
-    resource
+    Asset
     |> Ash.Query.filter(is_nil(staging_cleaned_at) and staging_expires_at <= ^cutoff)
     |> Ash.Query.sort(staging_expires_at: :asc, id: :asc)
     |> Ash.Query.limit(limit)
     |> Ash.read(authorize?: false)
   end
 
-  defp acquire_claim(resource, asset_id, claim_id, now) do
+  defp acquire_claim(asset_id, claim_id, now) do
     expires_at = DateTime.add(now, config(:operation_claim_seconds), :second)
 
-    Ash.transact(resource, fn ->
-      asset = locked_asset(resource, asset_id)
+    Ash.transact(Asset, fn ->
+      asset = locked_asset(asset_id)
 
       cond do
         is_nil(asset) ->
@@ -57,7 +58,7 @@ defmodule QuickTrain.Assets.Asset.Cleanup do
     end)
   end
 
-  defp reconcile_or_retire(resource, asset, claim_id, now) do
+  defp reconcile_or_retire(asset, claim_id, now) do
     sealed_key = "assets/sealed/#{asset.organization_id}/#{asset.sha256}"
     expected = %{sha256: asset.sha256, byte_size: asset.byte_size, media_type: asset.media_type}
 
@@ -65,31 +66,30 @@ defmodule QuickTrain.Assets.Asset.Cleanup do
       {:ok, facts} when asset.state == "pending" ->
         with {:ok, _result} <-
                Finalize.reconcile_verified(
-                 resource,
                  asset.id,
                  asset.organization_id,
                  claim_id,
                  sealed_key,
                  facts
                ) do
-          cleanup(resource, asset.id, now)
+          cleanup(asset.id, now)
         end
 
       {:ok, _facts} when asset.state in ["ready", "duplicate_content"] ->
-        retire(resource, asset, claim_id, now)
+        retire(asset, claim_id, now)
 
       {:ok, _facts} when asset.state == "failed" ->
-        if canonical_accounted?(resource, asset) do
-          retire(resource, asset, claim_id, now)
+        if canonical_accounted?(asset) do
+          retire(asset, claim_id, now)
         else
           {:error, :unaccounted_canonical_object}
         end
 
       {:error, :sealed_missing} ->
         if publication_window_open?(asset, now) do
-          release_for_retry(resource, asset.id, claim_id, :waiting_for_publication)
+          release_for_retry(asset.id, claim_id, :waiting_for_publication)
         else
-          retire(resource, asset, claim_id, now)
+          retire(asset, claim_id, now)
         end
 
       {:error, error} ->
@@ -97,7 +97,7 @@ defmodule QuickTrain.Assets.Asset.Cleanup do
     end
   end
 
-  defp retire(resource, asset, claim_id, now) do
+  defp retire(asset, claim_id, now) do
     not_before = retirement_not_before(asset)
 
     case Storage.retire_staging(
@@ -106,19 +106,19 @@ defmodule QuickTrain.Assets.Asset.Cleanup do
            config(:publication_deadline_ms)
          ) do
       :ok ->
-        complete_cleanup(resource, asset.id, claim_id, now)
+        complete_cleanup(asset.id, claim_id, now)
 
       {:error, :staging_access_still_active} ->
-        release_for_retry(resource, asset.id, claim_id, :waiting_for_access_expiry)
+        release_for_retry(asset.id, claim_id, :waiting_for_access_expiry)
 
       {:error, error} ->
         {:error, error}
     end
   end
 
-  defp release_for_retry(resource, asset_id, claim_id, status) do
-    Ash.transact(resource, fn ->
-      asset = locked_asset(resource, asset_id)
+  defp release_for_retry(asset_id, claim_id, status) do
+    Ash.transact(Asset, fn ->
+      asset = locked_asset(asset_id)
 
       if asset && asset.operation_claim_kind == "cleanup" &&
            asset.operation_claim_id == claim_id do
@@ -135,9 +135,9 @@ defmodule QuickTrain.Assets.Asset.Cleanup do
     end
   end
 
-  defp complete_cleanup(resource, asset_id, claim_id, now) do
-    Ash.transact(resource, fn ->
-      asset = locked_asset(resource, asset_id)
+  defp complete_cleanup(asset_id, claim_id, now) do
+    Ash.transact(Asset, fn ->
+      asset = locked_asset(asset_id)
 
       cond do
         is_nil(asset) ->
@@ -170,16 +170,16 @@ defmodule QuickTrain.Assets.Asset.Cleanup do
     end
   end
 
-  defp canonical_accounted?(resource, asset) do
-    resource
+  defp canonical_accounted?(asset) do
+    Asset
     |> Ash.Query.filter(
       organization_id == ^asset.organization_id and sha256 == ^asset.sha256 and state == "ready"
     )
     |> Ash.exists?(authorize?: false)
   end
 
-  defp locked_asset(resource, asset_id) do
-    resource
+  defp locked_asset(asset_id) do
+    Asset
     |> Ash.Query.filter(id == ^asset_id)
     |> Ash.Query.lock(:for_update)
     |> Ash.read_one!(authorize?: false)

@@ -5,21 +5,21 @@ defmodule QuickTrain.Assets.Asset.Actions.Access do
 
   require Ash.Query
 
-  alias QuickTrain.Assets.{AssetAccessResult, Storage}
+  alias QuickTrain.Assets.{Asset, AssetAccessResult, Storage}
 
   @impl true
   def run(input, _opts, _context) do
     %{asset_id: asset_id, organization_id: organization_id} = input.arguments
 
-    with {:ok, asset} <- accessible_asset(input.resource, asset_id, organization_id),
+    with {:ok, asset} <- accessible_asset(asset_id, organization_id),
          {:ok, access} <- Storage.sealed_read_access(asset.sealed_key, read_expiry()) do
       {:ok, AssetAccessResult.from(asset, access)}
     end
   end
 
-  defp accessible_asset(resource, asset_id, organization_id) do
+  defp accessible_asset(asset_id, organization_id) do
     asset =
-      resource
+      Asset
       |> Ash.Query.filter(id == ^asset_id and organization_id == ^organization_id)
       |> Ash.read_one!(authorize?: false)
 
@@ -29,7 +29,7 @@ defmodule QuickTrain.Assets.Asset.Actions.Access do
 
       %{state: "duplicate_content", canonical_asset_id: canonical_asset_id} ->
         canonical =
-          resource
+          Asset
           |> Ash.Query.filter(
             id == ^canonical_asset_id and organization_id == ^organization_id and state == "ready"
           )

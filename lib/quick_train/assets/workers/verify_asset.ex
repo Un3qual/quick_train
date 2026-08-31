@@ -27,7 +27,7 @@ defmodule QuickTrain.Assets.Workers.VerifyAsset do
         :ok
 
       {:ok, asset} ->
-        case Finalize.finalize(Asset, asset.id, asset.organization_id) do
+        case Finalize.finalize(asset.id, asset.organization_id) do
           {:ok, _result} -> :ok
           {:error, :asset_operation_in_progress} -> {:snooze, 10}
           {:error, error} -> {:error, error}

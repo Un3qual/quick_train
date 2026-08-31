@@ -104,7 +104,7 @@ defmodule QuickTrain.Assets.AssetWorkersTest do
     assert Ash.get!(Asset, asset.id, authorize?: false).staging_cleaned_at ==
              cleaned.staging_cleaned_at
 
-    assert {:ok, remaining} = Cleanup.expired_assets(Asset, DateTime.utc_now(), 100)
+    assert {:ok, remaining} = Cleanup.expired_assets(DateTime.utc_now(), 100)
     refute Enum.any?(remaining, &(&1.id == asset.id))
   end
 
@@ -152,7 +152,6 @@ defmodule QuickTrain.Assets.AssetWorkersTest do
 
     assert {:error, :stale_asset_claim} =
              Finalize.reconcile_verified(
-               Asset,
                pending.id,
                pending.organization_id,
                Ecto.UUID.generate(),
@@ -259,7 +258,7 @@ defmodule QuickTrain.Assets.AssetWorkersTest do
     :ok = TestStorage.put_staging(registration.upload_access, content)
 
     assert {:error, :stale_asset_claim} =
-             Finalize.finalize(Asset, registration.asset.id, graph.organization.id)
+             Finalize.finalize(registration.asset.id, graph.organization.id)
 
     published_but_pending = Ash.get!(Asset, registration.asset.id, authorize?: false)
     assert published_but_pending.state == "pending"
@@ -269,7 +268,7 @@ defmodule QuickTrain.Assets.AssetWorkersTest do
     remaining_ms = max(DateTime.diff(wait_until, DateTime.utc_now(), :millisecond) + 50, 0)
     Process.sleep(remaining_ms)
 
-    assert {:ok, _status} = Cleanup.cleanup(Asset, published_but_pending.id)
+    assert {:ok, _status} = Cleanup.cleanup(published_but_pending.id)
     reconciled = Ash.get!(Asset, published_but_pending.id, authorize?: false)
     assert reconciled.state == "ready"
     assert %DateTime{} = reconciled.staging_cleaned_at
