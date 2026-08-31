@@ -25,6 +25,10 @@ defmodule QuickTrain.Datasets.Workers.ImportRowTerminalization do
       Oban.Job
       |> where([job], job.worker == ^inspect(ProcessImportRow))
       |> where([job], job.state in ^["discarded", "cancelled"])
+      |> join(:inner, [job], row in "dataset_import_rows",
+        on: fragment("CAST(? AS text) = ?->>'row_id'", field(row, :id), job.args)
+      )
+      |> where([_job, row], field(row, :outcome) == "pending")
       |> order_by([job], asc: job.id)
       |> limit(@page_size)
       |> QuickTrain.Repo.all()

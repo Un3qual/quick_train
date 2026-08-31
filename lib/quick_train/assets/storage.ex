@@ -37,6 +37,10 @@ defmodule QuickTrain.Assets.Storage do
   @callback enforces_byte_cap?() :: boolean()
   @callback approved_hosts() :: [String.t()]
 
+  @callback start_link(keyword()) :: GenServer.on_start() | :ignore
+
+  @optional_callbacks start_link: 1
+
   @callback writable_staging_access(
               staging_key :: object_key(),
               byte_cap :: pos_integer(),
@@ -77,8 +81,11 @@ defmodule QuickTrain.Assets.Storage do
 
   def start_link(_opts) do
     case adapter() do
-      nil -> :ignore
-      adapter -> adapter.start_link([])
+      nil ->
+        :ignore
+
+      adapter ->
+        start_adapter(adapter)
     end
   end
 
@@ -92,7 +99,7 @@ defmodule QuickTrain.Assets.Storage do
     with {:ok, adapter} <- configured_adapter(),
          true <- adapter.enforces_byte_cap?() || {:error, :byte_cap_not_enforced},
          {:ok, descriptor} <- adapter.writable_staging_access(staging_key, byte_cap, expires_at),
-         :ok <- validate_descriptor(descriptor, :put, adapter, byte_cap) do
+         :ok <- validate_descriptor(descriptor, :put, adapter, byte_cap, expires_at) do
       {:ok, descriptor}
     else
       false -> {:error, :byte_cap_not_enforced}
@@ -129,7 +136,7 @@ defmodule QuickTrain.Assets.Storage do
   def sealed_read_access(sealed_key, expires_at) do
     with {:ok, adapter} <- configured_adapter(),
          {:ok, descriptor} <- adapter.sealed_read_access(sealed_key, expires_at),
-         :ok <- validate_descriptor(descriptor, :get, adapter, nil) do
+         :ok <- validate_descriptor(descriptor, :get, adapter, nil, expires_at) do
       {:ok, descriptor}
     end
   end
@@ -147,11 +154,24 @@ defmodule QuickTrain.Assets.Storage do
     end
   end
 
-  defp validate_descriptor(descriptor, method, adapter, byte_cap) when is_map(descriptor) do
+  defp start_adapter(adapter) do
+    case Code.ensure_loaded(adapter) do
+      {:module, ^adapter} -> start_loaded_adapter(adapter)
+      {:error, reason} -> {:error, {:storage_adapter_unavailable, adapter, reason}}
+    end
+  end
+
+  defp start_loaded_adapter(adapter) do
+    if function_exported?(adapter, :start_link, 1), do: adapter.start_link([]), else: :ignore
+  end
+
+  defp validate_descriptor(descriptor, method, adapter, byte_cap, requested_expires_at)
+       when is_map(descriptor) do
     with ^method <- Map.get(descriptor, :method),
          %URI{} = uri <- Map.get(descriptor, :uri),
          :ok <- validate_destination(uri, adapter),
-         %DateTime{} <- Map.get(descriptor, :expires_at),
+         %DateTime{} = descriptor_expires_at <- Map.get(descriptor, :expires_at),
+         :ok <- validate_expiry(descriptor_expires_at, requested_expires_at),
          "no-store" <- Map.get(descriptor, :cache_control),
          "no-referrer" <- Map.get(descriptor, :referrer_policy),
          true <- is_list(Map.get(descriptor, :headers)),
@@ -163,7 +183,18 @@ defmodule QuickTrain.Assets.Storage do
     end
   end
 
-  defp validate_descriptor(_descriptor, _method, _adapter, _byte_cap),
+  defp validate_descriptor(_descriptor, _method, _adapter, _byte_cap, _requested_expires_at),
+    do: {:error, :invalid_storage_descriptor}
+
+  defp validate_expiry(descriptor_expires_at, %DateTime{} = requested_expires_at) do
+    if DateTime.compare(descriptor_expires_at, requested_expires_at) in [:lt, :eq] do
+      :ok
+    else
+      {:error, :storage_access_expiry_exceeded}
+    end
+  end
+
+  defp validate_expiry(_descriptor_expires_at, _requested_expires_at),
     do: {:error, :invalid_storage_descriptor}
 
   defp validate_byte_cap(_descriptor, nil), do: :ok

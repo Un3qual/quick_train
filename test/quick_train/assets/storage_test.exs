@@ -9,6 +9,50 @@ defmodule QuickTrain.Assets.StorageTest do
     def approved_hosts, do: ["storage.quicktrain.test"]
   end
 
+  defmodule OverlongStatelessStorage do
+    @behaviour QuickTrain.Assets.Storage
+
+    @impl true
+    def enforces_byte_cap?, do: true
+
+    @impl true
+    def approved_hosts, do: ["storage.quicktrain.test"]
+
+    @impl true
+    def writable_staging_access(staging_key, byte_cap, expires_at) do
+      {:ok, descriptor(:put, staging_key, DateTime.add(expires_at, 1, :second), byte_cap)}
+    end
+
+    @impl true
+    def sealed_read_access(sealed_key, expires_at) do
+      {:ok, descriptor(:get, sealed_key, DateTime.add(expires_at, 1, :second), nil)}
+    end
+
+    @impl true
+    def verify_and_publish(_staging_key, _sealed_key, _expected, _deadline_ms),
+      do: {:error, :unsupported}
+
+    @impl true
+    def verify_sealed(_sealed_key, _expected, _deadline_ms), do: {:error, :unsupported}
+
+    @impl true
+    def retire_staging(_staging_key, _not_before, _deadline_ms), do: :ok
+
+    defp descriptor(method, key, expires_at, byte_cap) do
+      %{
+        method: method,
+        uri: URI.parse("https://storage.quicktrain.test/#{key}"),
+        headers: [],
+        expires_at: expires_at,
+        cache_control: "no-store",
+        referrer_policy: "no-referrer"
+      }
+      |> then(fn descriptor ->
+        if byte_cap, do: Map.put(descriptor, :max_bytes, byte_cap), else: descriptor
+      end)
+    end
+  end
+
   @png <<
     137,
     80,
@@ -52,6 +96,26 @@ defmodule QuickTrain.Assets.StorageTest do
     0,
     0,
     0
+  >>
+
+  @jpeg <<
+    0xFF,
+    0xD8,
+    0xFF,
+    0xC0,
+    0x00,
+    0x0B,
+    0x08,
+    0x01,
+    0x00,
+    0x02,
+    0x00,
+    0x01,
+    0x01,
+    0x11,
+    0x00,
+    0xFF,
+    0xD9
   >>
 
   setup do
@@ -167,6 +231,53 @@ defmodule QuickTrain.Assets.StorageTest do
     refute TestStorage.sealed?("sealed/active")
   end
 
+  test "active content is rejected even beyond the initial sniff prefix" do
+    expires_at = DateTime.add(DateTime.utc_now(), 60, :second)
+    active = String.duplicate(" ", 4_097) <> "<script>alert('active')</script>"
+
+    descriptor =
+      Storage.writable_staging_access!("staging/late-active", byte_size(active), expires_at)
+
+    :ok = TestStorage.put_staging(descriptor, active)
+
+    expected = %{
+      sha256: Base.encode16(:crypto.hash(:sha256, active), case: :lower),
+      byte_size: byte_size(active),
+      media_type: "text/plain"
+    }
+
+    assert {:error, :active_content_rejected} =
+             Storage.verify_and_publish(
+               "staging/late-active",
+               "sealed/late-active",
+               expected,
+               1_000
+             )
+
+    refute TestStorage.sealed?("sealed/late-active")
+  end
+
+  test "JPEG dimensions are read after the sample precision byte" do
+    expires_at = DateTime.add(DateTime.utc_now(), 60, :second)
+
+    descriptor =
+      Storage.writable_staging_access!("staging/jpeg", byte_size(@jpeg), expires_at)
+
+    :ok = TestStorage.put_staging(descriptor, @jpeg)
+
+    expected = %{
+      sha256: Base.encode16(:crypto.hash(:sha256, @jpeg), case: :lower),
+      byte_size: byte_size(@jpeg),
+      media_type: "image/jpeg"
+    }
+
+    assert {:ok, published} =
+             Storage.verify_and_publish("staging/jpeg", "sealed/jpeg", expected, 1_000)
+
+    assert published.facts.width == 512
+    assert published.facts.height == 256
+  end
+
   test "defense-in-depth bounds reject oversized stored bytes and image headers" do
     original_assets = Application.fetch_env!(:quick_train, :assets)
     expires_at = DateTime.add(DateTime.utc_now(), 60, :second)
@@ -257,6 +368,40 @@ defmodule QuickTrain.Assets.StorageTest do
 
     assert {:error, :unapproved_storage_destination} =
              Storage.validate_redirect(read_descriptor, URI.parse("https://attacker.example/x"))
+  end
+
+  test "access descriptors cannot outlive the requested expiry" do
+    original_assets = Application.fetch_env!(:quick_train, :assets)
+
+    Application.put_env(
+      :quick_train,
+      :assets,
+      Keyword.put(original_assets, :storage_adapter, OverlongStatelessStorage)
+    )
+
+    on_exit(fn -> Application.put_env(:quick_train, :assets, original_assets) end)
+
+    expires_at = DateTime.add(DateTime.utc_now(), 60, :second)
+
+    assert {:error, :storage_access_expiry_exceeded} =
+             Storage.writable_staging_access("staging/overlong", 8, expires_at)
+
+    assert {:error, :storage_access_expiry_exceeded} =
+             Storage.sealed_read_access("sealed/overlong", expires_at)
+  end
+
+  test "a stateless storage adapter does not need to start a process" do
+    original_assets = Application.fetch_env!(:quick_train, :assets)
+
+    Application.put_env(
+      :quick_train,
+      :assets,
+      Keyword.put(original_assets, :storage_adapter, OverlongStatelessStorage)
+    )
+
+    on_exit(fn -> Application.put_env(:quick_train, :assets, original_assets) end)
+
+    assert :ignore = Storage.start_link([])
   end
 
   test "retirement fences expired upload descriptors before deletion completes" do

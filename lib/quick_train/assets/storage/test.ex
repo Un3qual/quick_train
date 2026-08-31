@@ -8,6 +8,7 @@ defmodule QuickTrain.Assets.Storage.Test do
   @store __MODULE__.Store
   @host "storage.quicktrain.test"
 
+  @impl true
   def start_link(_opts), do: MemoryStore.start_link(name: @store, host: @host)
   def reset, do: MemoryStore.reset(@store)
   def set_publish_delay(delay_ms), do: MemoryStore.set_publish_delay(@store, delay_ms)

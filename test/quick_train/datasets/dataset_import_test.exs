@@ -315,6 +315,44 @@ defmodule QuickTrain.Datasets.DatasetImportTest do
     assert {"*/10 * * * *", ImportRowTerminalization} in config[:cron][:crontab]
   end
 
+  test "terminal-job reconciliation is not starved by older jobs for terminal rows", context do
+    old_import = open!(context, "terminalize-old")
+
+    old_row =
+      append!(context, old_import, "already-terminal", nil, 0, [
+        %{field: "balance", decimal: "1"}
+      ])
+
+    assert old_row.outcome == "failed"
+
+    for _index <- 1..100 do
+      %{row_id: old_row.id}
+      |> ProcessImportRow.new(state: "cancelled")
+      |> QuickTrain.Repo.insert!()
+    end
+
+    target_import = open!(context, "terminalize-target")
+
+    target_row =
+      append!(context, target_import, "target", "customer-target", 0, [
+        %{field: "name", text: "Target"}
+      ])
+
+    Datasets.finalize_import!(
+      context.organization.id,
+      target_import.id,
+      actor: context.manager
+    )
+
+    [target_job] = all_enqueued(worker: ProcessImportRow)
+    assert :ok = Oban.cancel_job(target_job.id)
+    assert :ok = perform_job(ImportRowTerminalization, %{})
+
+    terminal = Ash.get!(DatasetImportRow, target_row.id, authorize?: false)
+    assert terminal.outcome == "failed"
+    assert terminal.error_code == "processing_retries_exhausted"
+  end
+
   test "concurrent row workers serialize revisions for one unseen external key", context do
     first_import = open!(context, "concurrent-first")
     second_import = open!(context, "concurrent-second")

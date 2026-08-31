@@ -1,7 +1,7 @@
 defmodule QuickTrain.Assets.Storage.Content do
   @moduledoc false
 
-  @active_pattern ~r/<\s*(?:html|svg)\b|<!doctype\s+html\b|xmlns\s*=\s*["']http:\/\/www\.w3\.org\/1999\/xhtml/i
+  @active_pattern ~r/<\s*(?:html|head|body|script|iframe|object|embed|link|meta|style|svg)\b|<!doctype\s+html\b|xmlns\s*=\s*["']http:\/\/www\.w3\.org\/1999\/xhtml/i
   @jpeg_start_of_frame [
     0xC0,
     0xC1,
@@ -58,9 +58,7 @@ defmodule QuickTrain.Assets.Storage.Content do
   defp matching_hash(_bytes, _expected), do: {:error, :content_mismatch}
 
   defp reject_active_content(bytes) do
-    prefix = binary_part(bytes, 0, min(byte_size(bytes), 4_096))
-
-    if String.valid?(prefix) and Regex.match?(@active_pattern, prefix) do
+    if String.valid?(bytes) and Regex.match?(@active_pattern, bytes) do
       {:error, :active_content_rejected}
     else
       :ok
@@ -96,8 +94,11 @@ defmodule QuickTrain.Assets.Storage.Content do
     end
   end
 
-  defp jpeg_dimensions(<<0xFF, marker, length::16, height::16, width::16, _rest::binary>>)
-       when marker in @jpeg_start_of_frame and length >= 7 and width > 0 and height > 0 do
+  defp jpeg_dimensions(
+         <<0xFF, marker, length::16, _precision::8, height::16, width::16, _components::8,
+           _rest::binary>>
+       )
+       when marker in @jpeg_start_of_frame and length >= 8 and width > 0 and height > 0 do
     {:ok, width, height}
   end
 

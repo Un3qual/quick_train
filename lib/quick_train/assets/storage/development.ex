@@ -8,6 +8,7 @@ defmodule QuickTrain.Assets.Storage.Development do
   @store __MODULE__.Store
   @host "storage.quicktrain.local"
 
+  @impl true
   def start_link(_opts), do: MemoryStore.start_link(name: @store, host: @host)
   @impl true
   def enforces_byte_cap?, do: true
