@@ -90,7 +90,7 @@ defmodule QuickTrain.Assets.Asset do
       argument :byte_size, :integer, allow_nil?: false
       argument :media_type, :string, allow_nil?: false
 
-      run QuickTrain.Assets.Asset.Actions.Register
+      run {Module.concat(["QuickTrain.Assets.Asset.Actions.Register"]), []}
     end
 
     action :finalize, QuickTrain.Assets.AssetFinalizationResult do
@@ -98,7 +98,7 @@ defmodule QuickTrain.Assets.Asset do
       argument :asset_id, :uuid, allow_nil?: false
       argument :organization_id, :uuid, allow_nil?: false
 
-      run QuickTrain.Assets.Asset.Actions.Finalize
+      run {Module.concat(["QuickTrain.Assets.Asset.Actions.Finalize"]), []}
     end
 
     action :access, QuickTrain.Assets.AssetAccessResult do
@@ -106,7 +106,7 @@ defmodule QuickTrain.Assets.Asset do
       argument :asset_id, :uuid, allow_nil?: false
       argument :organization_id, :uuid, allow_nil?: false
 
-      run QuickTrain.Assets.Asset.Actions.Access
+      run {Module.concat(["QuickTrain.Assets.Asset.Actions.Access"]), []}
     end
 
     create :create_pending do
@@ -124,24 +124,20 @@ defmodule QuickTrain.Assets.Asset do
     end
 
     update :claim_operation do
-      require_atomic? false
       accept [:operation_claim_kind, :operation_claim_id, :operation_claim_expires_at]
       validate attribute_equals(:state, "pending")
     end
 
     update :claim_cleanup do
-      require_atomic? false
       accept [:operation_claim_kind, :operation_claim_id, :operation_claim_expires_at]
     end
 
     update :start_publication do
-      require_atomic? false
       accept [:operation_claim_expires_at, :publication_may_finish_at]
       validate attribute_equals(:state, "pending")
     end
 
     update :release_operation_claim do
-      require_atomic? false
       accept []
       change set_attribute(:operation_claim_kind, nil)
       change set_attribute(:operation_claim_id, nil)
@@ -149,7 +145,6 @@ defmodule QuickTrain.Assets.Asset do
     end
 
     update :release_unpublished_claim do
-      require_atomic? false
       accept []
       validate attribute_equals(:state, "pending")
       change set_attribute(:operation_claim_kind, nil)
@@ -159,7 +154,6 @@ defmodule QuickTrain.Assets.Asset do
     end
 
     update :complete_ready do
-      require_atomic? false
       accept [:sealed_key, :width, :height]
       validate attribute_equals(:state, "pending")
       change set_attribute(:state, "ready")
@@ -169,7 +163,6 @@ defmodule QuickTrain.Assets.Asset do
     end
 
     update :complete_failed do
-      require_atomic? false
       accept [:failure_reason]
       validate attribute_equals(:state, "pending")
       change set_attribute(:state, "failed")
@@ -179,7 +172,6 @@ defmodule QuickTrain.Assets.Asset do
     end
 
     update :complete_duplicate do
-      require_atomic? false
       accept [:canonical_asset_id]
       validate attribute_equals(:state, "pending")
       change set_attribute(:state, "duplicate_content")
@@ -190,7 +182,6 @@ defmodule QuickTrain.Assets.Asset do
     end
 
     update :complete_staging_cleanup do
-      require_atomic? false
       accept [:staging_cleaned_at]
       change set_attribute(:operation_claim_kind, nil)
       change set_attribute(:operation_claim_id, nil)
@@ -198,7 +189,6 @@ defmodule QuickTrain.Assets.Asset do
     end
 
     update :complete_expired_staging_cleanup do
-      require_atomic? false
       accept [:staging_cleaned_at]
       validate attribute_equals(:state, "pending")
       change set_attribute(:state, "failed")
@@ -213,7 +203,7 @@ defmodule QuickTrain.Assets.Asset do
 
   validations do
     validate one_of(:state, ~w(pending ready failed duplicate_content))
-    validate match(:sha256, ~r/\A[0-9a-f]{64}\z/)
+    validate match(:sha256, ~r/\A[0-9a-f]{64}\z/), where: [changing(:sha256)]
     validate compare(:byte_size, greater_than: 0)
     validate compare(:width, greater_than: 0)
     validate compare(:height, greater_than: 0)

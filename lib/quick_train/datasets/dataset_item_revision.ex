@@ -113,7 +113,7 @@ defmodule QuickTrain.Datasets.DatasetItemRevision do
 
   validations do
     validate compare(:revision_number, greater_than: 0)
-    validate match(:fingerprint, ~r/\A[0-9a-f]{64}\z/)
+    validate match(:fingerprint, ~r/\A[0-9a-f]{64}\z/), where: [changing(:fingerprint)]
   end
 
   graphql do

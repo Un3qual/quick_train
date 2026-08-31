@@ -104,7 +104,6 @@ defmodule QuickTrain.Datasets.DatasetImportRow do
     end
 
     update :complete_internal do
-      require_atomic? false
       accept [:outcome, :error_code, :item_revision_id]
     end
 
@@ -121,7 +120,7 @@ defmodule QuickTrain.Datasets.DatasetImportRow do
   validations do
     validate compare(:source_position, greater_than_or_equal_to: 0)
     validate one_of(:outcome, ~w(pending succeeded unchanged failed))
-    validate match(:fingerprint, ~r/\A[0-9a-f]{64}\z/)
+    validate match(:fingerprint, ~r/\A[0-9a-f]{64}\z/), where: [changing(:fingerprint)]
   end
 
   graphql do

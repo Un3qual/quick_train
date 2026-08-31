@@ -117,7 +117,6 @@ defmodule QuickTrain.Datasets.DatasetFieldDefinition do
     end
 
     update :update_internal do
-      require_atomic? false
       accept [:key, :name, :value_family, :cardinality, :required]
     end
 

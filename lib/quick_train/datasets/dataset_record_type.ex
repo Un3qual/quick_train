@@ -85,7 +85,6 @@ defmodule QuickTrain.Datasets.DatasetRecordType do
     end
 
     update :update_internal do
-      require_atomic? false
       accept [:key, :name]
     end
 

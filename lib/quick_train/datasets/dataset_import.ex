@@ -85,7 +85,6 @@ defmodule QuickTrain.Datasets.DatasetImport do
     end
 
     update :seal_internal do
-      require_atomic? false
       accept [:sealed_at]
       validate attribute_equals(:phase, "open")
       change set_attribute(:phase, "sealed")
@@ -103,7 +102,9 @@ defmodule QuickTrain.Datasets.DatasetImport do
 
   validations do
     validate one_of(:phase, ~w(open sealed))
-    validate match(:open_fingerprint, ~r/\A[0-9a-f]{64}\z/)
+
+    validate match(:open_fingerprint, ~r/\A[0-9a-f]{64}\z/),
+      where: [changing(:open_fingerprint)]
   end
 
   graphql do

@@ -81,7 +81,6 @@ defmodule QuickTrain.Datasets.DatasetSchemaVersion do
     end
 
     update :publish_internal do
-      require_atomic? false
       accept [:root_record_type_id, :published_at]
       validate attribute_equals(:state, "draft")
       change set_attribute(:state, "published")
