@@ -13,41 +13,35 @@ defmodule QuickTrain.Datasets.DatasetFieldDefinition do
   attributes do
     uuid_primary_key :id
 
-    attribute :key, :string do
-      allow_nil? false
-      public? true
-    end
+    attribute :key, :string,
+      allow_nil?: false,
+      public?: true
 
-    attribute :name, :string do
-      allow_nil? false
-      public? true
-    end
+    attribute :name, :string,
+      allow_nil?: false,
+      public?: true
 
-    attribute :value_family, QuickTrain.Datasets.DatasetValue.Family do
-      allow_nil? false
-      public? true
-    end
+    attribute :value_family, QuickTrain.Datasets.DatasetValue.Family,
+      allow_nil?: false,
+      public?: true
 
-    attribute :cardinality, QuickTrain.Datasets.DatasetFieldDefinition.Cardinality do
-      allow_nil? false
-      public? true
-      default :single
-    end
+    attribute :cardinality, QuickTrain.Datasets.DatasetFieldDefinition.Cardinality,
+      allow_nil?: false,
+      public?: true,
+      default: :single
 
-    attribute :required, :boolean do
-      allow_nil? false
-      public? true
-      default false
-    end
+    attribute :required, :boolean,
+      allow_nil?: false,
+      public?: true,
+      default: false
 
     timestamps()
   end
 
   relationships do
-    belongs_to :record_type, DatasetRecordType do
-      allow_nil? false
-      public? true
-    end
+    belongs_to :record_type, DatasetRecordType,
+      allow_nil?: false,
+      public?: true
   end
 
   actions do

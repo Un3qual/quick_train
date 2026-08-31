@@ -14,32 +14,25 @@ defmodule QuickTrain.Datasets.Dataset do
   attributes do
     uuid_primary_key :id
 
-    attribute :key, :string do
-      allow_nil? false
-      public? true
-    end
+    attribute :key, :string,
+      allow_nil?: false,
+      public?: true
 
-    attribute :name, :string do
-      allow_nil? false
-      public? true
-    end
+    attribute :name, :string,
+      allow_nil?: false,
+      public?: true
 
     timestamps()
   end
 
   relationships do
-    belongs_to :organization, Organization do
-      allow_nil? false
-      attribute_public? true
-    end
+    belongs_to :organization, Organization,
+      allow_nil?: false,
+      attribute_public?: true
 
-    has_many :schema_versions, DatasetSchemaVersion do
-      public? true
-    end
+    has_many :schema_versions, DatasetSchemaVersion, public?: true
 
-    has_many :items, DatasetItem do
-      public? true
-    end
+    has_many :items, DatasetItem, public?: true
   end
 
   actions do

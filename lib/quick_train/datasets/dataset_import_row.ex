@@ -37,38 +37,29 @@ defmodule QuickTrain.Datasets.DatasetImportRow do
   end
 
   relationships do
-    belongs_to :organization, Organization do
-      allow_nil? false
-      attribute_public? true
-    end
+    belongs_to :organization, Organization,
+      allow_nil?: false,
+      attribute_public?: true
 
-    belongs_to :dataset, Dataset do
-      allow_nil? false
-      attribute_public? true
-    end
+    belongs_to :dataset, Dataset,
+      allow_nil?: false,
+      attribute_public?: true
 
-    belongs_to :import, DatasetImport do
-      allow_nil? false
-      attribute_public? true
-    end
+    belongs_to :import, DatasetImport,
+      allow_nil?: false,
+      attribute_public?: true
 
-    belongs_to :schema_version, DatasetSchemaVersion do
-      allow_nil? false
-      attribute_public? true
-    end
+    belongs_to :schema_version, DatasetSchemaVersion,
+      allow_nil?: false,
+      attribute_public?: true
 
-    belongs_to :root_record_type, DatasetRecordType do
-      allow_nil? false
-      attribute_public? true
-    end
+    belongs_to :root_record_type, DatasetRecordType,
+      allow_nil?: false,
+      attribute_public?: true
 
-    belongs_to :candidate_record, DatasetRecord do
-      attribute_public? true
-    end
+    belongs_to :candidate_record, DatasetRecord, attribute_public?: true
 
-    belongs_to :item_revision, DatasetItemRevision do
-      public? true
-    end
+    belongs_to :item_revision, DatasetItemRevision, public?: true
   end
 
   actions do

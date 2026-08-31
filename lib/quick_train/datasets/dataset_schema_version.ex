@@ -13,38 +13,30 @@ defmodule QuickTrain.Datasets.DatasetSchemaVersion do
   attributes do
     uuid_primary_key :id
 
-    attribute :version, :integer do
-      allow_nil? false
-      public? true
-    end
+    attribute :version, :integer,
+      allow_nil?: false,
+      public?: true
 
-    attribute :state, QuickTrain.Datasets.DatasetSchemaVersion.State do
-      allow_nil? false
-      public? true
-      default :draft
-    end
+    attribute :state, QuickTrain.Datasets.DatasetSchemaVersion.State,
+      allow_nil?: false,
+      public?: true,
+      default: :draft
 
-    attribute :published_at, :utc_datetime_usec do
-      public? true
-    end
+    attribute :published_at, :utc_datetime_usec, public?: true
 
     timestamps()
   end
 
   relationships do
-    belongs_to :dataset, Dataset do
-      allow_nil? false
-      public? true
-    end
+    belongs_to :dataset, Dataset,
+      allow_nil?: false,
+      public?: true
 
-    belongs_to :root_record_type, DatasetRecordType do
-      public? true
-    end
+    belongs_to :root_record_type, DatasetRecordType, public?: true
 
-    has_many :record_types, DatasetRecordType do
-      destination_attribute :schema_version_id
-      public? true
-    end
+    has_many :record_types, DatasetRecordType,
+      destination_attribute: :schema_version_id,
+      public?: true
   end
 
   actions do

@@ -23,30 +23,25 @@ defmodule QuickTrain.Datasets.DatasetRecord do
   end
 
   relationships do
-    belongs_to :organization, Organization do
-      allow_nil? false
-      attribute_public? true
-    end
+    belongs_to :organization, Organization,
+      allow_nil?: false,
+      attribute_public?: true
 
-    belongs_to :dataset, Dataset do
-      allow_nil? false
-      attribute_public? true
-    end
+    belongs_to :dataset, Dataset,
+      allow_nil?: false,
+      attribute_public?: true
 
-    belongs_to :schema_version, DatasetSchemaVersion do
-      allow_nil? false
-      attribute_public? true
-    end
+    belongs_to :schema_version, DatasetSchemaVersion,
+      allow_nil?: false,
+      attribute_public?: true
 
-    belongs_to :record_type, DatasetRecordType do
-      allow_nil? false
-      public? true
-    end
+    belongs_to :record_type, DatasetRecordType,
+      allow_nil?: false,
+      public?: true
 
-    has_many :values, DatasetValue do
-      destination_attribute :record_id
-      public? true
-    end
+    has_many :values, DatasetValue,
+      destination_attribute: :record_id,
+      public?: true
 
     has_one :root_revision, DatasetItemRevision, destination_attribute: :root_record_id
   end

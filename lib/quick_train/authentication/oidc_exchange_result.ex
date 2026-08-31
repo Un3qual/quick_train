@@ -9,25 +9,20 @@ defmodule QuickTrain.Authentication.OidcExchangeResult do
     extensions: [AshGraphql.Resource]
 
   attributes do
-    attribute :token, :string do
-      allow_nil? false
-      public? true
-      sensitive? true
-    end
+    attribute :token, :string,
+      allow_nil?: false,
+      public?: true,
+      sensitive?: true
 
-    attribute :session_id, :uuid do
-      allow_nil? false
-      public? true
-    end
+    attribute :session_id, :uuid,
+      allow_nil?: false,
+      public?: true
 
-    attribute :expires_at, :utc_datetime_usec do
-      allow_nil? false
-      public? true
-    end
+    attribute :expires_at, :utc_datetime_usec,
+      allow_nil?: false,
+      public?: true
 
-    attribute :user, :struct do
-      constraints instance_of: User
-    end
+    attribute :user, :struct, constraints: [instance_of: User]
   end
 
   graphql do

@@ -17,20 +17,17 @@ defmodule QuickTrain.Datasets.DatasetValue.Asset do
   end
 
   relationships do
-    belongs_to :organization, Organization do
-      allow_nil? false
-      attribute_public? true
-    end
+    belongs_to :organization, Organization,
+      allow_nil?: false,
+      attribute_public?: true
 
-    belongs_to :dataset_value, DatasetValue do
-      allow_nil? false
-      attribute_public? true
-    end
+    belongs_to :dataset_value, DatasetValue,
+      allow_nil?: false,
+      attribute_public?: true
 
-    belongs_to :asset, StoredAsset do
-      allow_nil? false
-      public? true
-    end
+    belongs_to :asset, StoredAsset,
+      allow_nil?: false,
+      public?: true
   end
 
   actions do

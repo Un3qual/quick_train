@@ -31,45 +31,38 @@ defmodule QuickTrain.Datasets.DatasetValue do
   attributes do
     uuid_primary_key :id
 
-    attribute :ordinal, :integer do
-      allow_nil? false
-      public? true
-      default 0
-    end
+    attribute :ordinal, :integer,
+      allow_nil?: false,
+      public?: true,
+      default: 0
 
     timestamps()
   end
 
   relationships do
-    belongs_to :organization, Organization do
-      allow_nil? false
-      attribute_public? true
-    end
+    belongs_to :organization, Organization,
+      allow_nil?: false,
+      attribute_public?: true
 
-    belongs_to :record, DatasetRecord do
-      allow_nil? false
-      attribute_public? true
-    end
+    belongs_to :record, DatasetRecord,
+      allow_nil?: false,
+      attribute_public?: true
 
-    belongs_to :field_definition, DatasetFieldDefinition do
-      allow_nil? false
-      public? true
-    end
+    belongs_to :field_definition, DatasetFieldDefinition,
+      allow_nil?: false,
+      public?: true
 
-    belongs_to :record_type, DatasetRecordType do
-      allow_nil? false
-      attribute_public? true
-    end
+    belongs_to :record_type, DatasetRecordType,
+      allow_nil?: false,
+      attribute_public?: true
 
-    belongs_to :dataset, Dataset do
-      allow_nil? false
-      attribute_public? true
-    end
+    belongs_to :dataset, Dataset,
+      allow_nil?: false,
+      attribute_public?: true
 
-    belongs_to :schema_version, DatasetSchemaVersion do
-      allow_nil? false
-      attribute_public? true
-    end
+    belongs_to :schema_version, DatasetSchemaVersion,
+      allow_nil?: false,
+      attribute_public?: true
 
     has_one :text_value, Text, public?: true
     has_one :integer_value, Integer, public?: true

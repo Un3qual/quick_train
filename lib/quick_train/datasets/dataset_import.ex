@@ -29,30 +29,25 @@ defmodule QuickTrain.Datasets.DatasetImport do
   end
 
   relationships do
-    belongs_to :organization, Organization do
-      allow_nil? false
-      attribute_public? true
-    end
+    belongs_to :organization, Organization,
+      allow_nil?: false,
+      attribute_public?: true
 
-    belongs_to :dataset, Dataset do
-      allow_nil? false
-      public? true
-    end
+    belongs_to :dataset, Dataset,
+      allow_nil?: false,
+      public?: true
 
-    belongs_to :schema_version, DatasetSchemaVersion do
-      allow_nil? false
-      public? true
-    end
+    belongs_to :schema_version, DatasetSchemaVersion,
+      allow_nil?: false,
+      public?: true
 
-    belongs_to :initiated_by, User do
-      allow_nil? false
-      attribute_public? true
-    end
+    belongs_to :initiated_by, User,
+      allow_nil?: false,
+      attribute_public?: true
 
-    has_many :rows, DatasetImportRow do
-      destination_attribute :import_id
-      public? true
-    end
+    has_many :rows, DatasetImportRow,
+      destination_attribute: :import_id,
+      public?: true
   end
 
   aggregates do

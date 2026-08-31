@@ -18,20 +18,17 @@ defmodule QuickTrain.Datasets.DatasetItem do
   end
 
   relationships do
-    belongs_to :organization, Organization do
-      allow_nil? false
-      attribute_public? true
-    end
+    belongs_to :organization, Organization,
+      allow_nil?: false,
+      attribute_public?: true
 
-    belongs_to :dataset, Dataset do
-      allow_nil? false
-      public? true
-    end
+    belongs_to :dataset, Dataset,
+      allow_nil?: false,
+      public?: true
 
-    has_many :revisions, DatasetItemRevision do
-      destination_attribute :item_id
-      public? true
-    end
+    has_many :revisions, DatasetItemRevision,
+      destination_attribute: :item_id,
+      public?: true
   end
 
   actions do

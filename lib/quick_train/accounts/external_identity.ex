@@ -26,10 +26,9 @@ defmodule QuickTrain.Accounts.ExternalIdentity do
   end
 
   relationships do
-    belongs_to :user, User do
-      allow_nil? false
-      attribute_public? true
-    end
+    belongs_to :user, User,
+      allow_nil?: false,
+      attribute_public?: true
   end
 
   actions do

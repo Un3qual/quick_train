@@ -14,42 +14,33 @@ defmodule QuickTrain.Assets.Asset do
   attributes do
     uuid_primary_key :id, writable?: true
 
-    attribute :state, QuickTrain.Assets.AssetState do
-      allow_nil? false
-      default :pending
-      public? true
-    end
+    attribute :state, QuickTrain.Assets.AssetState,
+      allow_nil?: false,
+      default: :pending,
+      public?: true
 
-    attribute :sha256, QuickTrain.Types.Sha256Digest do
-      allow_nil? false
-      public? true
-    end
+    attribute :sha256, QuickTrain.Types.Sha256Digest,
+      allow_nil?: false,
+      public?: true
 
-    attribute :byte_size, :integer do
-      allow_nil? false
-      public? true
-    end
+    attribute :byte_size, :integer,
+      allow_nil?: false,
+      public?: true
 
-    attribute :media_type, :string do
-      allow_nil? false
-      public? true
-    end
+    attribute :media_type, :string,
+      allow_nil?: false,
+      public?: true
 
     attribute :width, :integer, public?: true
     attribute :height, :integer, public?: true
 
-    attribute :staging_key, :string do
-      allow_nil? false
-      sensitive? true
-    end
+    attribute :staging_key, :string,
+      allow_nil?: false,
+      sensitive?: true
 
-    attribute :sealed_key, :string do
-      sensitive? true
-    end
+    attribute :sealed_key, :string, sensitive?: true
 
-    attribute :staging_expires_at, :utc_datetime_usec do
-      allow_nil? false
-    end
+    attribute :staging_expires_at, :utc_datetime_usec, allow_nil?: false
 
     attribute :staging_cleaned_at, :utc_datetime_usec
     attribute :failure_reason, :string, public?: true
@@ -61,18 +52,13 @@ defmodule QuickTrain.Assets.Asset do
   end
 
   relationships do
-    belongs_to :organization, Organization do
-      allow_nil? false
-      attribute_public? true
-    end
+    belongs_to :organization, Organization,
+      allow_nil?: false,
+      attribute_public?: true
 
-    belongs_to :canonical_asset, __MODULE__ do
-      public? true
-    end
+    belongs_to :canonical_asset, __MODULE__, public?: true
 
-    has_many :duplicate_assets, __MODULE__ do
-      destination_attribute :canonical_asset_id
-    end
+    has_many :duplicate_assets, __MODULE__, destination_attribute: :canonical_asset_id
   end
 
   actions do

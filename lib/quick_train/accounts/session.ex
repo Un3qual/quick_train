@@ -32,10 +32,9 @@ defmodule QuickTrain.Accounts.Session do
   end
 
   relationships do
-    belongs_to :user, User do
-      allow_nil? false
-      filter expr(status == "active")
-    end
+    belongs_to :user, User,
+      allow_nil?: false,
+      filter: expr(status == "active")
   end
 
   actions do

@@ -16,10 +16,9 @@ defmodule QuickTrain.Datasets.DatasetValue.Text do
   end
 
   relationships do
-    belongs_to :dataset_value, DatasetValue do
-      allow_nil? false
-      attribute_public? true
-    end
+    belongs_to :dataset_value, DatasetValue,
+      allow_nil?: false,
+      attribute_public?: true
   end
 
   actions do

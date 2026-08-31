@@ -13,29 +13,25 @@ defmodule QuickTrain.Datasets.DatasetRecordType do
   attributes do
     uuid_primary_key :id
 
-    attribute :key, :string do
-      allow_nil? false
-      public? true
-    end
+    attribute :key, :string,
+      allow_nil?: false,
+      public?: true
 
-    attribute :name, :string do
-      allow_nil? false
-      public? true
-    end
+    attribute :name, :string,
+      allow_nil?: false,
+      public?: true
 
     timestamps()
   end
 
   relationships do
-    belongs_to :schema_version, DatasetSchemaVersion do
-      allow_nil? false
-      public? true
-    end
+    belongs_to :schema_version, DatasetSchemaVersion,
+      allow_nil?: false,
+      public?: true
 
-    has_many :field_definitions, DatasetFieldDefinition do
-      destination_attribute :record_type_id
-      public? true
-    end
+    has_many :field_definitions, DatasetFieldDefinition,
+      destination_attribute: :record_type_id,
+      public?: true
   end
 
   actions do

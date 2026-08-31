@@ -22,49 +22,41 @@ defmodule QuickTrain.Datasets.DatasetItemRevision do
   attributes do
     uuid_primary_key :id
 
-    attribute :revision_number, :integer do
-      allow_nil? false
-      public? true
-    end
+    attribute :revision_number, :integer,
+      allow_nil?: false,
+      public?: true
 
-    attribute :fingerprint, QuickTrain.Types.Sha256Digest do
-      allow_nil? false
-      public? true
-    end
+    attribute :fingerprint, QuickTrain.Types.Sha256Digest,
+      allow_nil?: false,
+      public?: true
 
     timestamps()
   end
 
   relationships do
-    belongs_to :organization, Organization do
-      allow_nil? false
-      attribute_public? true
-    end
+    belongs_to :organization, Organization,
+      allow_nil?: false,
+      attribute_public?: true
 
-    belongs_to :dataset, Dataset do
-      allow_nil? false
-      attribute_public? true
-    end
+    belongs_to :dataset, Dataset,
+      allow_nil?: false,
+      attribute_public?: true
 
-    belongs_to :item, DatasetItem do
-      allow_nil? false
-      public? true
-    end
+    belongs_to :item, DatasetItem,
+      allow_nil?: false,
+      public?: true
 
-    belongs_to :schema_version, DatasetSchemaVersion do
-      allow_nil? false
-      public? true
-    end
+    belongs_to :schema_version, DatasetSchemaVersion,
+      allow_nil?: false,
+      public?: true
 
-    belongs_to :root_record_type, DatasetRecordType do
-      allow_nil? false
-      public? true
-    end
+    belongs_to :root_record_type, DatasetRecordType,
+      allow_nil?: false,
+      public?: true
 
-    belongs_to :root_record, DatasetRecord do
-      allow_nil? false
-      public? true
-    end
+    belongs_to :root_record, DatasetRecord,
+      allow_nil?: false,
+      public?: true
   end
 
   actions do
