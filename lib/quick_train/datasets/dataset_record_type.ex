@@ -29,7 +29,6 @@ defmodule QuickTrain.Datasets.DatasetRecordType do
   relationships do
     belongs_to :schema_version, DatasetSchemaVersion do
       allow_nil? false
-      attribute_public? true
       public? true
     end
 
@@ -44,7 +43,6 @@ defmodule QuickTrain.Datasets.DatasetRecordType do
       primary? true
 
       pagination keyset?: true,
-                 offset?: false,
                  required?: false,
                  default_limit: 50,
                  max_page_size: 100,
@@ -56,8 +54,6 @@ defmodule QuickTrain.Datasets.DatasetRecordType do
       argument :schema_version_id, :uuid, allow_nil?: false
 
       pagination keyset?: true,
-                 offset?: false,
-                 required?: true,
                  default_limit: 50,
                  max_page_size: 100
 

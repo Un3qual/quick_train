@@ -29,7 +29,6 @@ defmodule QuickTrain.Datasets.DatasetValue.Asset do
 
     belongs_to :asset, StoredAsset do
       allow_nil? false
-      attribute_public? true
       public? true
     end
   end

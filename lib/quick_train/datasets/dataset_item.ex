@@ -25,7 +25,6 @@ defmodule QuickTrain.Datasets.DatasetItem do
 
     belongs_to :dataset, Dataset do
       allow_nil? false
-      attribute_public? true
       public? true
     end
 
@@ -40,7 +39,6 @@ defmodule QuickTrain.Datasets.DatasetItem do
       primary? true
 
       pagination keyset?: true,
-                 offset?: false,
                  required?: false,
                  default_limit: 50,
                  max_page_size: 100,
@@ -58,8 +56,6 @@ defmodule QuickTrain.Datasets.DatasetItem do
       prepare build(sort: [inserted_at: :asc, id: :asc])
 
       pagination keyset?: true,
-                 offset?: false,
-                 required?: true,
                  default_limit: 50,
                  max_page_size: 100
     end

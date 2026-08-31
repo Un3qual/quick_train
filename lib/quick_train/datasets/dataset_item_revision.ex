@@ -48,25 +48,21 @@ defmodule QuickTrain.Datasets.DatasetItemRevision do
 
     belongs_to :item, DatasetItem do
       allow_nil? false
-      attribute_public? true
       public? true
     end
 
     belongs_to :schema_version, DatasetSchemaVersion do
       allow_nil? false
-      attribute_public? true
       public? true
     end
 
     belongs_to :root_record_type, DatasetRecordType do
       allow_nil? false
-      attribute_public? true
       public? true
     end
 
     belongs_to :root_record, DatasetRecord do
       allow_nil? false
-      attribute_public? true
       public? true
     end
   end
@@ -76,7 +72,6 @@ defmodule QuickTrain.Datasets.DatasetItemRevision do
       primary? true
 
       pagination keyset?: true,
-                 offset?: false,
                  required?: false,
                  default_limit: 50,
                  max_page_size: 100,
@@ -125,8 +120,6 @@ defmodule QuickTrain.Datasets.DatasetItemRevision do
       prepare build(sort: [revision_number: :desc, id: :desc])
 
       pagination keyset?: true,
-                 offset?: false,
-                 required?: true,
                  default_limit: 50,
                  max_page_size: 100
     end

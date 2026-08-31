@@ -53,7 +53,6 @@ defmodule QuickTrain.Datasets.DatasetValue do
 
     belongs_to :field_definition, DatasetFieldDefinition do
       allow_nil? false
-      attribute_public? true
       public? true
     end
 
@@ -72,29 +71,12 @@ defmodule QuickTrain.Datasets.DatasetValue do
       attribute_public? true
     end
 
-    has_one :text_value, Text,
-      destination_attribute: :dataset_value_id,
-      public?: true
-
-    has_one :integer_value, Integer,
-      destination_attribute: :dataset_value_id,
-      public?: true
-
-    has_one :decimal_value, Decimal,
-      destination_attribute: :dataset_value_id,
-      public?: true
-
-    has_one :boolean_value, Boolean,
-      destination_attribute: :dataset_value_id,
-      public?: true
-
-    has_one :date_time_value, DateTime,
-      destination_attribute: :dataset_value_id,
-      public?: true
-
-    has_one :asset_value, Asset,
-      destination_attribute: :dataset_value_id,
-      public?: true
+    has_one :text_value, Text, public?: true
+    has_one :integer_value, Integer, public?: true
+    has_one :decimal_value, Decimal, public?: true
+    has_one :boolean_value, Boolean, public?: true
+    has_one :date_time_value, DateTime, public?: true
+    has_one :asset_value, Asset, public?: true
   end
 
   actions do
@@ -102,7 +84,6 @@ defmodule QuickTrain.Datasets.DatasetValue do
       primary? true
 
       pagination keyset?: true,
-                 offset?: false,
                  required?: false,
                  default_limit: 50,
                  max_page_size: 100,
@@ -135,8 +116,6 @@ defmodule QuickTrain.Datasets.DatasetValue do
       prepare build(sort: [field_definition_id: :asc, ordinal: :asc, id: :asc])
 
       pagination keyset?: true,
-                 offset?: false,
-                 required?: true,
                  default_limit: 50,
                  max_page_size: 100
     end

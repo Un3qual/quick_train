@@ -36,13 +36,11 @@ defmodule QuickTrain.Datasets.DatasetImport do
 
     belongs_to :dataset, Dataset do
       allow_nil? false
-      attribute_public? true
       public? true
     end
 
     belongs_to :schema_version, DatasetSchemaVersion do
       allow_nil? false
-      attribute_public? true
       public? true
     end
 

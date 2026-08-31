@@ -54,8 +54,6 @@ defmodule QuickTrain.Datasets.Dataset do
       filter expr(organization_id == ^arg(:organization_id))
 
       pagination keyset?: true,
-                 offset?: false,
-                 required?: true,
                  default_limit: 50,
                  max_page_size: 100
     end

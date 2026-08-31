@@ -26,7 +26,6 @@ defmodule QuickTrain.Authentication.OidcExchangeResult do
     end
 
     attribute :user, :struct do
-      public? false
       constraints instance_of: User
     end
   end

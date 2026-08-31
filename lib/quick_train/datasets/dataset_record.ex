@@ -40,7 +40,6 @@ defmodule QuickTrain.Datasets.DatasetRecord do
 
     belongs_to :record_type, DatasetRecordType do
       allow_nil? false
-      attribute_public? true
       public? true
     end
 

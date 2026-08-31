@@ -63,13 +63,10 @@ defmodule QuickTrain.Datasets.DatasetImportRow do
     end
 
     belongs_to :candidate_record, DatasetRecord do
-      allow_nil? true
       attribute_public? true
     end
 
     belongs_to :item_revision, DatasetItemRevision do
-      allow_nil? true
-      attribute_public? true
       public? true
     end
   end
@@ -79,7 +76,6 @@ defmodule QuickTrain.Datasets.DatasetImportRow do
       primary? true
 
       pagination keyset?: true,
-                 offset?: false,
                  required?: false,
                  default_limit: 50,
                  max_page_size: 100,
@@ -107,8 +103,6 @@ defmodule QuickTrain.Datasets.DatasetImportRow do
       prepare build(sort: [source_position: :asc, id: :asc])
 
       pagination keyset?: true,
-                 offset?: false,
-                 required?: true,
                  default_limit: 50,
                  max_page_size: 100
     end

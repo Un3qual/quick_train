@@ -42,7 +42,6 @@ defmodule QuickTrain.EnterpriseIdentity.DirectoryUser do
   relationships do
     belongs_to :enterprise_connection, EnterpriseConnection,
       allow_nil?: false,
-      attribute_public?: true,
       public?: true
 
     belongs_to :membership, Membership,
@@ -51,7 +50,6 @@ defmodule QuickTrain.EnterpriseIdentity.DirectoryUser do
 
     belongs_to :user, User,
       allow_nil?: false,
-      attribute_public?: true,
       public?: true
 
     has_many :directory_memberships, DirectoryMembership, public?: true

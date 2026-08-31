@@ -62,7 +62,7 @@ defmodule QuickTrain.Accounts.User do
     defaults [:read]
 
     read :list_active do
-      pagination required?: false, offset?: false, keyset?: true
+      pagination required?: false, keyset?: true
       filter expr(status == "active")
     end
 

@@ -67,8 +67,6 @@ defmodule QuickTrain.Assets.Asset do
     end
 
     belongs_to :canonical_asset, __MODULE__ do
-      allow_nil? true
-      attribute_public? true
       public? true
     end
 
