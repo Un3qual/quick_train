@@ -88,7 +88,7 @@ defmodule QuickTrainWeb.GraphqlApiTest do
       __schema {
         queryType { fields { name args { name } } }
         mutationType { fields { name args { name } } }
-        types { name }
+        types { name kind enumValues { name } }
       }
     }
     """
@@ -229,6 +229,35 @@ defmodule QuickTrainWeb.GraphqlApiTest do
     refute MapSet.member?(type_names, "Session")
     refute MapSet.member?(type_names, "OidcLoginTransaction")
     refute MapSet.member?(type_names, "ExternalIdentity")
+
+    enum_values =
+      schema["types"]
+      |> Enum.filter(&(&1["kind"] == "ENUM"))
+      |> Map.new(fn type ->
+        {type["name"], MapSet.new(type["enumValues"], & &1["name"])}
+      end)
+
+    assert Map.take(enum_values, [
+             "AssetState",
+             "AssetStorageMethod",
+             "DatasetFieldCardinality",
+             "DatasetImportLifecycle",
+             "DatasetImportPhase",
+             "DatasetImportRowOutcome",
+             "DatasetSchemaState",
+             "DatasetValueFamily"
+           ]) == %{
+             "AssetState" => MapSet.new(~w(DUPLICATE_CONTENT FAILED PENDING READY)),
+             "AssetStorageMethod" => MapSet.new(~w(GET PUT)),
+             "DatasetFieldCardinality" => MapSet.new(~w(SINGLE)),
+             "DatasetImportLifecycle" =>
+               MapSet.new(~w(COMPLETED FAILED OPEN PARTIALLY_FAILED PENDING)),
+             "DatasetImportPhase" => MapSet.new(~w(OPEN SEALED)),
+             "DatasetImportRowOutcome" => MapSet.new(~w(FAILED PENDING SUCCEEDED UNCHANGED)),
+             "DatasetSchemaState" => MapSet.new(~w(DRAFT PUBLISHED)),
+             "DatasetValueFamily" =>
+               MapSet.new(~w(ASSET BOOLEAN DECIMAL INTEGER TEXT UTC_DATETIME))
+           }
 
     version_response = conn |> post("/graphql", %{query: "{ apiVersion }"}) |> json_response(200)
     assert %{"apiVersion" => version} = version_response["data"]

@@ -21,7 +21,7 @@ defmodule QuickTrain.Datasets.DatasetSchemaLifecycleTest do
 
     schema = Datasets.create_schema_version!(organization.id, dataset.id, actor: manager)
     assert schema.version == 1
-    assert schema.state == "draft"
+    assert schema.state == :draft
 
     root =
       Datasets.add_record_type!(
@@ -35,12 +35,12 @@ defmodule QuickTrain.Datasets.DatasetSchemaLifecycleTest do
     fields =
       Enum.map(
         [
-          {"name", "Name", "text", true},
-          {"age", "Age", "integer", false},
-          {"balance", "Balance", "decimal", false},
-          {"active", "Active", "boolean", true},
-          {"joined_at", "Joined At", "utc_datetime", false},
-          {"avatar", "Avatar", "asset", false}
+          {"name", "Name", :text, true},
+          {"age", "Age", :integer, false},
+          {"balance", "Balance", :decimal, false},
+          {"active", "Active", :boolean, true},
+          {"joined_at", "Joined At", :utc_datetime, false},
+          {"avatar", "Avatar", :asset, false}
         ],
         fn {key, name, family, required} ->
           field =
@@ -50,13 +50,13 @@ defmodule QuickTrain.Datasets.DatasetSchemaLifecycleTest do
               key,
               name,
               family,
-              "single",
+              :single,
               required,
               actor: manager
             )
 
           assert field.value_family == family
-          assert field.cardinality == "single"
+          assert field.cardinality == :single
           assert field.required == required
           field
         end
@@ -88,7 +88,7 @@ defmodule QuickTrain.Datasets.DatasetSchemaLifecycleTest do
                actor: manager
              )
 
-    assert Exception.message(family_error) =~ "invalid_value_family"
+    assert Exception.message(family_error) =~ "Invalid value provided for value_family"
 
     assert {:error, cardinality_error} =
              Datasets.add_field_definition(
@@ -102,12 +102,12 @@ defmodule QuickTrain.Datasets.DatasetSchemaLifecycleTest do
                actor: manager
              )
 
-    assert Exception.message(cardinality_error) =~ "invalid_cardinality"
+    assert Exception.message(cardinality_error) =~ "Invalid value provided for cardinality"
 
     published =
       Datasets.publish_schema_version!(organization.id, schema.id, root.id, actor: manager)
 
-    assert published.state == "published"
+    assert published.state == :published
     assert published.root_record_type_id == root.id
     assert %DateTime{} = published.published_at
 
@@ -115,7 +115,7 @@ defmodule QuickTrain.Datasets.DatasetSchemaLifecycleTest do
 
     next_schema = Datasets.create_schema_version!(organization.id, dataset.id, actor: manager)
     assert next_schema.version == 2
-    assert next_schema.state == "draft"
+    assert next_schema.state == :draft
   end
 
   test "draft record types and fields can be edited and deleted", context do
@@ -190,7 +190,7 @@ defmodule QuickTrain.Datasets.DatasetSchemaLifecycleTest do
     assert Exception.message(error) =~ "invalid_schema"
 
     assert Ash.get!(QuickTrain.Datasets.DatasetSchemaVersion, first_schema.id, authorize?: false).state ==
-             "draft"
+             :draft
   end
 
   test "database constraints backstop publication facts and same-schema root ownership",
@@ -294,7 +294,7 @@ defmodule QuickTrain.Datasets.DatasetSchemaLifecycleTest do
 
     send(publisher.pid, :commit_publication)
     assert {:ok, {:ok, published}} = Task.yield(publisher, 5_000)
-    assert published.state == "published"
+    assert published.state == :published
 
     assert {:ok, {:error, edit_error}} = Task.yield(editor, 5_000)
     assert Exception.message(edit_error) =~ "schema_not_draft"

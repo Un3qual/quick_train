@@ -43,7 +43,7 @@ defmodule QuickTrain.Assets.AssetWorkersTest do
     assert first_job.args == %{asset_id: registration.asset.id}
 
     assert :ok = perform_job(VerifyAsset, %{"asset_id" => registration.asset.id})
-    assert Ash.get!(Asset, registration.asset.id, authorize?: false).state == "ready"
+    assert Ash.get!(Asset, registration.asset.id, authorize?: false).state == :ready
   end
 
   test "verification failure before a terminal commit remains retryable", %{
@@ -64,10 +64,10 @@ defmodule QuickTrain.Assets.AssetWorkersTest do
     assert {:error, :staging_missing} =
              perform_job(VerifyAsset, %{"asset_id" => registration.asset.id})
 
-    assert Ash.get!(Asset, registration.asset.id, authorize?: false).state == "pending"
+    assert Ash.get!(Asset, registration.asset.id, authorize?: false).state == :pending
     :ok = TestStorage.put_staging(registration.upload_access, content)
     assert :ok = perform_job(VerifyAsset, %{"asset_id" => registration.asset.id})
-    assert Ash.get!(Asset, registration.asset.id, authorize?: false).state == "ready"
+    assert Ash.get!(Asset, registration.asset.id, authorize?: false).state == :ready
   end
 
   test "cleanup scans expired uncleaned assets and records confirmed absence", %{graph: graph} do
@@ -76,7 +76,7 @@ defmodule QuickTrain.Assets.AssetWorkersTest do
     asset =
       Ash.Seed.seed!(Asset, %{
         organization_id: graph.organization.id,
-        state: "pending",
+        state: :pending,
         sha256: String.duplicate("a", 64),
         byte_size: 4,
         media_type: "text/plain",
@@ -94,7 +94,7 @@ defmodule QuickTrain.Assets.AssetWorkersTest do
     assert :ok = perform_job(AssetStagingCleanup, %{})
 
     cleaned = Ash.get!(Asset, asset.id, authorize?: false)
-    assert cleaned.state == "failed"
+    assert cleaned.state == :failed
     assert cleaned.failure_reason == "staging_expired"
     assert %DateTime{} = cleaned.staging_cleaned_at
     assert is_nil(cleaned.operation_claim_id)
@@ -137,7 +137,7 @@ defmodule QuickTrain.Assets.AssetWorkersTest do
     assert expired.operation_claim_id == live_claim_id
     assert :ok = perform_job(AssetStagingCleanup, %{})
     cleaned = Ash.get!(Asset, claimed.id, authorize?: false)
-    assert cleaned.state == "failed"
+    assert cleaned.state == :failed
     assert %DateTime{} = cleaned.staging_cleaned_at
 
     current_claim_id = Ecto.UUID.generate()
@@ -159,7 +159,7 @@ defmodule QuickTrain.Assets.AssetWorkersTest do
                expected_facts(pending)
              )
 
-    assert Ash.get!(Asset, pending.id, authorize?: false).state == "pending"
+    assert Ash.get!(Asset, pending.id, authorize?: false).state == :pending
   end
 
   test "cleanup adopts a publication that committed before its database transition", %{
@@ -195,7 +195,7 @@ defmodule QuickTrain.Assets.AssetWorkersTest do
 
     assert :ok = perform_job(AssetStagingCleanup, %{})
     reconciled = Ash.get!(Asset, asset.id, authorize?: false)
-    assert reconciled.state == "ready"
+    assert reconciled.state == :ready
 
     Process.sleep(1_100)
     assert :ok = perform_job(AssetStagingCleanup, %{})
@@ -209,7 +209,7 @@ defmodule QuickTrain.Assets.AssetWorkersTest do
 
     duplicate =
       seed_asset(graph.organization.id, %{
-        state: "duplicate_content",
+        state: :duplicate_content,
         sha256: expected.sha256,
         byte_size: expected.byte_size,
         media_type: expected.media_type,
@@ -221,7 +221,7 @@ defmodule QuickTrain.Assets.AssetWorkersTest do
 
     assert :ok = perform_job(AssetStagingCleanup, %{})
     cleaned_duplicate = Ash.get!(Asset, duplicate.id, authorize?: false)
-    assert cleaned_duplicate.state == "duplicate_content"
+    assert cleaned_duplicate.state == :duplicate_content
     assert %DateTime{} = cleaned_duplicate.staging_cleaned_at
     assert {:ok, ^content} = TestStorage.read_sealed(read_access)
   end
@@ -261,7 +261,7 @@ defmodule QuickTrain.Assets.AssetWorkersTest do
              Finalize.finalize(registration.asset.id, graph.organization.id)
 
     published_but_pending = Ash.get!(Asset, registration.asset.id, authorize?: false)
-    assert published_but_pending.state == "pending"
+    assert published_but_pending.state == :pending
     assert TestStorage.sealed?(sealed_key(published_but_pending))
 
     wait_until = published_but_pending.staging_expires_at
@@ -270,7 +270,7 @@ defmodule QuickTrain.Assets.AssetWorkersTest do
 
     assert {:ok, _status} = Cleanup.cleanup(published_but_pending.id)
     reconciled = Ash.get!(Asset, published_but_pending.id, authorize?: false)
-    assert reconciled.state == "ready"
+    assert reconciled.state == :ready
     assert %DateTime{} = reconciled.staging_cleaned_at
     assert TestStorage.sealed?(sealed_key(reconciled))
   end
@@ -305,7 +305,7 @@ defmodule QuickTrain.Assets.AssetWorkersTest do
 
     defaults = %{
       organization_id: organization_id,
-      state: "pending",
+      state: :pending,
       sha256: Base.encode16(:crypto.hash(:sha256, "seed-#{unique}"), case: :lower),
       byte_size: 4,
       media_type: "text/plain",

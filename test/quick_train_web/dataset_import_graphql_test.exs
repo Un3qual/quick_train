@@ -63,11 +63,11 @@ defmodule QuickTrainWeb.DatasetImportGraphqlTest do
         }
       )["openDatasetImport"]
 
-    assert opened["phase"] == "open"
+    assert opened["phase"] == "OPEN"
 
-    for {row_key, source_position, values} <- [
-          {"valid", 0, [%{"field" => "name", "text" => "Alice"}]},
-          {"invalid", 1, []}
+    for {row_key, source_position, values, expected_outcome} <- [
+          {"valid", 0, [%{"field" => "name", "text" => "Alice"}], "PENDING"},
+          {"invalid", 1, [], "FAILED"}
         ] do
       row =
         graphql!(
@@ -99,6 +99,7 @@ defmodule QuickTrainWeb.DatasetImportGraphqlTest do
         )["appendDatasetImportRow"]
 
       assert row["rowKey"] == row_key
+      assert row["outcome"] == expected_outcome
     end
 
     data =
@@ -123,7 +124,7 @@ defmodule QuickTrainWeb.DatasetImportGraphqlTest do
       )
 
     assert data["datasetImport"]["rowCount"] == 2
-    assert data["datasetImport"]["lifecycle"] == "open"
+    assert data["datasetImport"]["lifecycle"] == "OPEN"
 
     assert [%{"cursor" => cursor, "node" => %{"rowKey" => "valid"}}] =
              data["datasetImportRows"]["edges"]

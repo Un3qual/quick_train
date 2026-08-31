@@ -35,7 +35,7 @@ defmodule QuickTrain.Assets.AssetLifecycleTest do
              )
 
     assert registration.asset.organization_id == graph.organization.id
-    assert registration.asset.state == "pending"
+    assert registration.asset.state == :pending
     assert registration.upload_access.max_bytes == byte_size(content)
     refute Map.has_key?(registration, :staging_key)
 
@@ -78,7 +78,7 @@ defmodule QuickTrain.Assets.AssetLifecycleTest do
                actor: manager
              )
 
-    assert finalized.asset.state == "ready"
+    assert finalized.asset.state == :ready
     assert finalized.canonical_asset.id == finalized.asset.id
 
     assert {:ok, access} =
@@ -89,7 +89,7 @@ defmodule QuickTrain.Assets.AssetLifecycleTest do
              )
 
     assert access.asset.id == finalized.asset.id
-    assert access.read_access.method == "GET"
+    assert access.read_access.method == :get
     assert {:ok, ^content} = TestStorage.read_sealed(access.read_access)
 
     assert_raise ArgumentError, ~r/No such update action/, fn ->
@@ -112,7 +112,7 @@ defmodule QuickTrain.Assets.AssetLifecycleTest do
                actor: manager
              )
 
-    assert finalized.asset.state == "failed"
+    assert finalized.asset.state == :failed
     assert finalized.asset.failure_reason == "content_mismatch"
     assert is_nil(finalized.canonical_asset)
     assert TestStorage.sealed_count() == 0
@@ -138,12 +138,12 @@ defmodule QuickTrain.Assets.AssetLifecycleTest do
 
     case overwrite_result do
       :ok ->
-        assert finalized.asset.state == "failed"
+        assert finalized.asset.state == :failed
         assert finalized.asset.failure_reason == "content_mismatch"
         assert TestStorage.sealed_count() == 0
 
       {:error, :staging_fenced} ->
-        assert finalized.asset.state == "ready"
+        assert finalized.asset.state == :ready
 
         access =
           Assets.get_asset_access!(finalized.asset.id, graph.organization.id, actor: manager)
@@ -172,10 +172,10 @@ defmodule QuickTrain.Assets.AssetLifecycleTest do
       end)
       |> Task.await_many()
 
-    [ready_result] = Enum.filter([first_result, second_result], &(&1.asset.state == "ready"))
+    [ready_result] = Enum.filter([first_result, second_result], &(&1.asset.state == :ready))
 
     [duplicate_result] =
-      Enum.filter([first_result, second_result], &(&1.asset.state == "duplicate_content"))
+      Enum.filter([first_result, second_result], &(&1.asset.state == :duplicate_content))
 
     assert duplicate_result.asset.canonical_asset_id == ready_result.asset.id
     assert duplicate_result.canonical_asset.id == ready_result.asset.id

@@ -12,7 +12,12 @@ defmodule QuickTrain.Datasets.DatasetImport do
     uuid_primary_key :id
     attribute :idempotency_key, :string, allow_nil?: false, public?: true
     attribute :open_fingerprint, :string, allow_nil?: false
-    attribute :phase, :string, allow_nil?: false, default: "open", public?: true
+
+    attribute :phase, QuickTrain.Datasets.DatasetImportPhase,
+      allow_nil?: false,
+      default: :open,
+      public?: true
+
     attribute :open_expires_at, :utc_datetime_usec, allow_nil?: false, public?: true
     attribute :sealed_at, :utc_datetime_usec, public?: true
     timestamps()
@@ -49,25 +54,25 @@ defmodule QuickTrain.Datasets.DatasetImport do
     end
 
     count :pending, :rows do
-      filter expr(outcome == "pending")
+      filter expr(outcome == :pending)
       public? true
       authorize? false
     end
 
     count :succeeded, :rows do
-      filter expr(outcome == "succeeded")
+      filter expr(outcome == :succeeded)
       public? true
       authorize? false
     end
 
     count :unchanged, :rows do
-      filter expr(outcome == "unchanged")
+      filter expr(outcome == :unchanged)
       public? true
       authorize? false
     end
 
     count :failed, :rows do
-      filter expr(outcome == "failed")
+      filter expr(outcome == :failed)
       public? true
       authorize? false
     end
@@ -79,15 +84,15 @@ defmodule QuickTrain.Datasets.DatasetImport do
     end
 
     calculate :lifecycle,
-              :string,
+              QuickTrain.Datasets.DatasetImportLifecycle,
               expr(
                 cond do
-                  phase == "open" -> "open"
-                  pending > 0 -> "pending"
-                  row_count == 0 -> "completed"
-                  failed == row_count -> "failed"
-                  failed > 0 -> "partially_failed"
-                  true -> "completed"
+                  phase == :open -> :open
+                  pending > 0 -> :pending
+                  row_count == 0 -> :completed
+                  failed == row_count -> :failed
+                  failed > 0 -> :partially_failed
+                  true -> :completed
                 end
               ) do
       public? true
@@ -146,13 +151,13 @@ defmodule QuickTrain.Datasets.DatasetImport do
         :open_expires_at
       ]
 
-      change set_attribute(:phase, "open")
+      change set_attribute(:phase, :open)
     end
 
     update :seal_internal do
       accept [:sealed_at]
-      validate attribute_equals(:phase, "open")
-      change set_attribute(:phase, "sealed")
+      validate attribute_equals(:phase, :open)
+      change set_attribute(:phase, :sealed)
     end
 
     destroy :destroy_internal
@@ -166,8 +171,6 @@ defmodule QuickTrain.Datasets.DatasetImport do
   end
 
   validations do
-    validate one_of(:phase, ~w(open sealed))
-
     validate match(:open_fingerprint, ~r/\A[0-9a-f]{64}\z/),
       where: [changing(:open_fingerprint)]
   end

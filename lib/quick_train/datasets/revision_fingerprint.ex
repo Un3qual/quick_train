@@ -35,25 +35,25 @@ defmodule QuickTrain.Datasets.RevisionFingerprint do
   defp occurrence_bytes(occurrence) do
     frame([
       frame(uuid_bytes!(occurrence.field.id)),
-      frame(occurrence.family),
+      frame(Atom.to_string(occurrence.family)),
       frame(Integer.to_string(occurrence.ordinal)),
       frame(typed_bytes(occurrence.family, occurrence.value))
     ])
   end
 
-  defp typed_bytes("text", value), do: value
-  defp typed_bytes("integer", value), do: Integer.to_string(value)
-  defp typed_bytes("decimal", value), do: canonical_decimal(value)
-  defp typed_bytes("boolean", true), do: <<1>>
-  defp typed_bytes("boolean", false), do: <<0>>
+  defp typed_bytes(:text, value), do: value
+  defp typed_bytes(:integer, value), do: Integer.to_string(value)
+  defp typed_bytes(:decimal, value), do: canonical_decimal(value)
+  defp typed_bytes(:boolean, true), do: <<1>>
+  defp typed_bytes(:boolean, false), do: <<0>>
 
-  defp typed_bytes("utc_datetime", value) do
+  defp typed_bytes(:utc_datetime, value) do
     value
     |> DateTime.to_unix(:microsecond)
     |> Integer.to_string()
   end
 
-  defp typed_bytes("asset", value), do: uuid_bytes!(value)
+  defp typed_bytes(:asset, value), do: uuid_bytes!(value)
 
   defp uuid_bytes!(uuid) do
     {:ok, bytes} = Ecto.UUID.dump(uuid)

@@ -12,7 +12,7 @@ defmodule QuickTrain.Datasets.DatasetImportRow.Process do
         nil ->
           :missing
 
-        %{outcome: outcome} when outcome != "pending" ->
+        %{outcome: outcome} when outcome != :pending ->
           :terminal
 
         row ->
@@ -24,10 +24,10 @@ defmodule QuickTrain.Datasets.DatasetImportRow.Process do
   def terminalize(row_id, error_code \\ "processing_retries_exhausted") do
     Ash.transact(DatasetImportRow, fn ->
       case locked_row(row_id) do
-        %{outcome: "pending"} = row ->
+        %{outcome: :pending} = row ->
           row
           |> Ash.Changeset.for_update(:complete_internal, %{
-            outcome: "failed",
+            outcome: :failed,
             error_code: error_code,
             item_revision_id: nil
           })
@@ -56,7 +56,7 @@ defmodule QuickTrain.Datasets.DatasetImportRow.Process do
         authorize?: false
       )
 
-    outcome = if result.changed, do: "succeeded", else: "unchanged"
+    outcome = if result.changed, do: :succeeded, else: :unchanged
 
     row
     |> Ash.Changeset.for_update(:complete_internal, %{

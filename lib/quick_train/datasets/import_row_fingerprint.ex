@@ -19,7 +19,11 @@ defmodule QuickTrain.Datasets.ImportRowFingerprint do
       frame(Integer.to_string(source_position)),
       frame(Integer.to_string(length(entries))),
       Enum.map(entries, fn entry ->
-        frame([frame(entry.field), frame(entry.family), frame(canonical_value(entry))])
+        frame([
+          frame(entry.field),
+          frame(Atom.to_string(entry.family)),
+          frame(canonical_value(entry))
+        ])
       end)
     ]
 
@@ -29,19 +33,19 @@ defmodule QuickTrain.Datasets.ImportRowFingerprint do
     |> Base.encode16(case: :lower)
   end
 
-  defp canonical_value(%{family: "text", value: value}), do: value
-  defp canonical_value(%{family: "integer", value: value}), do: Integer.to_string(value)
+  defp canonical_value(%{family: :text, value: value}), do: value
+  defp canonical_value(%{family: :integer, value: value}), do: Integer.to_string(value)
 
-  defp canonical_value(%{family: "decimal", value: value}),
+  defp canonical_value(%{family: :decimal, value: value}),
     do: RevisionFingerprint.canonical_decimal(value)
 
-  defp canonical_value(%{family: "boolean", value: true}), do: <<1>>
-  defp canonical_value(%{family: "boolean", value: false}), do: <<0>>
+  defp canonical_value(%{family: :boolean, value: true}), do: <<1>>
+  defp canonical_value(%{family: :boolean, value: false}), do: <<0>>
 
-  defp canonical_value(%{family: "utc_datetime", value: value}),
+  defp canonical_value(%{family: :utc_datetime, value: value}),
     do: Integer.to_string(DateTime.to_unix(value, :microsecond))
 
-  defp canonical_value(%{family: "asset", value: value}), do: uuid_bytes!(value)
+  defp canonical_value(%{family: :asset, value: value}), do: uuid_bytes!(value)
 
   defp uuid_bytes!(uuid) do
     {:ok, bytes} = Ecto.UUID.dump(uuid)

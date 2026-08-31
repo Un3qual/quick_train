@@ -16,10 +16,10 @@ defmodule QuickTrain.Datasets.DatasetSchemaVersion do
       public? true
     end
 
-    attribute :state, :string do
+    attribute :state, QuickTrain.Datasets.DatasetSchemaState do
       allow_nil? false
       public? true
-      default "draft"
+      default :draft
     end
 
     attribute :published_at, :utc_datetime_usec do
@@ -77,13 +77,13 @@ defmodule QuickTrain.Datasets.DatasetSchemaVersion do
 
     create :create_internal do
       accept [:dataset_id, :version]
-      change set_attribute(:state, "draft")
+      change set_attribute(:state, :draft)
     end
 
     update :publish_internal do
       accept [:root_record_type_id, :published_at]
-      validate attribute_equals(:state, "draft")
-      change set_attribute(:state, "published")
+      validate attribute_equals(:state, :draft)
+      change set_attribute(:state, :published)
     end
   end
 
@@ -101,7 +101,6 @@ defmodule QuickTrain.Datasets.DatasetSchemaVersion do
 
   validations do
     validate compare(:version, greater_than: 0)
-    validate one_of(:state, ~w(draft published))
   end
 
   graphql do

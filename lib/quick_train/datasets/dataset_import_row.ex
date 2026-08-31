@@ -14,7 +14,12 @@ defmodule QuickTrain.Datasets.DatasetImportRow do
     attribute :source_position, :integer, allow_nil?: false, public?: true
     attribute :external_key, :string, public?: true
     attribute :fingerprint, :string, allow_nil?: false
-    attribute :outcome, :string, allow_nil?: false, default: "pending", public?: true
+
+    attribute :outcome, QuickTrain.Datasets.DatasetImportRowOutcome,
+      allow_nil?: false,
+      default: :pending,
+      public?: true
+
     attribute :error_code, :string, public?: true
     timestamps()
   end
@@ -119,7 +124,6 @@ defmodule QuickTrain.Datasets.DatasetImportRow do
 
   validations do
     validate compare(:source_position, greater_than_or_equal_to: 0)
-    validate one_of(:outcome, ~w(pending succeeded unchanged failed))
     validate match(:fingerprint, ~r/\A[0-9a-f]{64}\z/), where: [changing(:fingerprint)]
   end
 

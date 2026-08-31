@@ -11,9 +11,9 @@ defmodule QuickTrain.Assets.Asset do
   attributes do
     uuid_primary_key :id, writable?: true
 
-    attribute :state, :string do
+    attribute :state, QuickTrain.Assets.AssetState do
       allow_nil? false
-      default "pending"
+      default :pending
       public? true
     end
 
@@ -50,7 +50,7 @@ defmodule QuickTrain.Assets.Asset do
 
     attribute :staging_cleaned_at, :utc_datetime_usec
     attribute :failure_reason, :string, public?: true
-    attribute :operation_claim_kind, :string
+    attribute :operation_claim_kind, :atom, constraints: [one_of: [:finalize, :cleanup]]
     attribute :operation_claim_id, :uuid
     attribute :operation_claim_expires_at, :utc_datetime_usec
     attribute :publication_may_finish_at, :utc_datetime_usec
@@ -120,12 +120,12 @@ defmodule QuickTrain.Assets.Asset do
         :staging_expires_at
       ]
 
-      change set_attribute(:state, "pending")
+      change set_attribute(:state, :pending)
     end
 
     update :claim_operation do
       accept [:operation_claim_kind, :operation_claim_id, :operation_claim_expires_at]
-      validate attribute_equals(:state, "pending")
+      validate attribute_equals(:state, :pending)
     end
 
     update :claim_cleanup do
@@ -134,7 +134,7 @@ defmodule QuickTrain.Assets.Asset do
 
     update :start_publication do
       accept [:operation_claim_expires_at, :publication_may_finish_at]
-      validate attribute_equals(:state, "pending")
+      validate attribute_equals(:state, :pending)
     end
 
     update :release_operation_claim do
@@ -146,7 +146,7 @@ defmodule QuickTrain.Assets.Asset do
 
     update :release_unpublished_claim do
       accept []
-      validate attribute_equals(:state, "pending")
+      validate attribute_equals(:state, :pending)
       change set_attribute(:operation_claim_kind, nil)
       change set_attribute(:operation_claim_id, nil)
       change set_attribute(:operation_claim_expires_at, nil)
@@ -155,8 +155,8 @@ defmodule QuickTrain.Assets.Asset do
 
     update :complete_ready do
       accept [:sealed_key, :width, :height]
-      validate attribute_equals(:state, "pending")
-      change set_attribute(:state, "ready")
+      validate attribute_equals(:state, :pending)
+      change set_attribute(:state, :ready)
       change set_attribute(:operation_claim_kind, nil)
       change set_attribute(:operation_claim_id, nil)
       change set_attribute(:operation_claim_expires_at, nil)
@@ -164,8 +164,8 @@ defmodule QuickTrain.Assets.Asset do
 
     update :complete_failed do
       accept [:failure_reason]
-      validate attribute_equals(:state, "pending")
-      change set_attribute(:state, "failed")
+      validate attribute_equals(:state, :pending)
+      change set_attribute(:state, :failed)
       change set_attribute(:operation_claim_kind, nil)
       change set_attribute(:operation_claim_id, nil)
       change set_attribute(:operation_claim_expires_at, nil)
@@ -173,8 +173,8 @@ defmodule QuickTrain.Assets.Asset do
 
     update :complete_duplicate do
       accept [:canonical_asset_id]
-      validate attribute_equals(:state, "pending")
-      change set_attribute(:state, "duplicate_content")
+      validate attribute_equals(:state, :pending)
+      change set_attribute(:state, :duplicate_content)
       change set_attribute(:failure_reason, "duplicate_content")
       change set_attribute(:operation_claim_kind, nil)
       change set_attribute(:operation_claim_id, nil)
@@ -190,8 +190,8 @@ defmodule QuickTrain.Assets.Asset do
 
     update :complete_expired_staging_cleanup do
       accept [:staging_cleaned_at]
-      validate attribute_equals(:state, "pending")
-      change set_attribute(:state, "failed")
+      validate attribute_equals(:state, :pending)
+      change set_attribute(:state, :failed)
       change set_attribute(:failure_reason, "staging_expired")
       change set_attribute(:operation_claim_kind, nil)
       change set_attribute(:operation_claim_id, nil)
@@ -202,12 +202,10 @@ defmodule QuickTrain.Assets.Asset do
   end
 
   validations do
-    validate one_of(:state, ~w(pending ready failed duplicate_content))
     validate match(:sha256, ~r/\A[0-9a-f]{64}\z/), where: [changing(:sha256)]
     validate compare(:byte_size, greater_than: 0)
     validate compare(:width, greater_than: 0)
     validate compare(:height, greater_than: 0)
-    validate one_of(:operation_claim_kind, ~w(finalize cleanup))
   end
 
   policies do

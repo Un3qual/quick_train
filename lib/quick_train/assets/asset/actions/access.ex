@@ -24,14 +24,14 @@ defmodule QuickTrain.Assets.Asset.Actions.Access do
       |> Ash.read_one!(authorize?: false)
 
     case asset do
-      %{state: "ready"} = asset ->
+      %{state: :ready} = asset ->
         {:ok, asset}
 
-      %{state: "duplicate_content", canonical_asset_id: canonical_asset_id} ->
+      %{state: :duplicate_content, canonical_asset_id: canonical_asset_id} ->
         canonical =
           Asset
           |> Ash.Query.filter(
-            id == ^canonical_asset_id and organization_id == ^organization_id and state == "ready"
+            id == ^canonical_asset_id and organization_id == ^organization_id and state == :ready
           )
           |> Ash.read_one!(authorize?: false)
 

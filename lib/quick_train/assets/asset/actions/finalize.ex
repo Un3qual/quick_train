@@ -52,7 +52,7 @@ defmodule QuickTrain.Assets.Asset.Actions.Finalize do
         is_nil(asset) ->
           :missing
 
-        asset.state != "pending" ->
+        asset.state != :pending ->
           {:terminal, asset}
 
         live_claim?(asset, now) ->
@@ -66,7 +66,7 @@ defmodule QuickTrain.Assets.Asset.Actions.Finalize do
           asset =
             asset
             |> Ash.Changeset.for_update(:claim_operation, %{
-              operation_claim_kind: "finalize",
+              operation_claim_kind: :finalize,
               operation_claim_id: claim_id,
               operation_claim_expires_at: claim_expires_at
             })
@@ -122,7 +122,7 @@ defmodule QuickTrain.Assets.Asset.Actions.Finalize do
     Ash.transact(Asset, fn ->
       asset = locked_asset(asset_id, organization_id)
 
-      if asset && asset.state == "pending" && asset.operation_claim_id == claim_id do
+      if asset && asset.state == :pending && asset.operation_claim_id == claim_id do
         asset
         |> Ash.Changeset.for_update(:release_unpublished_claim, %{})
         |> Ash.update!(authorize?: false)
@@ -187,7 +187,7 @@ defmodule QuickTrain.Assets.Asset.Actions.Finalize do
           is_nil(asset) ->
             :missing
 
-          asset.state != "pending" ->
+          asset.state != :pending ->
             {:terminal, asset}
 
           not live_claim_identity?(asset, claim_id, DateTime.utc_now()) ->
@@ -257,7 +257,7 @@ defmodule QuickTrain.Assets.Asset.Actions.Finalize do
 
       cond do
         is_nil(asset) -> :missing
-        asset.state != "pending" -> {:terminal, asset}
+        asset.state != :pending -> {:terminal, asset}
         not live_claim_identity?(asset, claim_id, DateTime.utc_now()) -> :stale
         true -> {:terminal, complete_failed!(asset, sanitized_reason)}
       end
@@ -279,7 +279,7 @@ defmodule QuickTrain.Assets.Asset.Actions.Finalize do
   defp ready_asset(asset) do
     Asset
     |> Ash.Query.filter(
-      organization_id == ^asset.organization_id and sha256 == ^asset.sha256 and state == "ready"
+      organization_id == ^asset.organization_id and sha256 == ^asset.sha256 and state == :ready
     )
     |> Ash.Query.lock(:for_update)
     |> Ash.read_one!(authorize?: false)
@@ -292,12 +292,12 @@ defmodule QuickTrain.Assets.Asset.Actions.Finalize do
     |> Ash.read_one!(authorize?: false)
   end
 
-  defp result(%{state: "duplicate_content"} = asset) do
+  defp result(%{state: :duplicate_content} = asset) do
     canonical = Asset |> Ash.get!(asset.canonical_asset_id, authorize?: false)
     {:ok, AssetFinalizationResult.from(asset, canonical)}
   end
 
-  defp result(%{state: "ready"} = asset),
+  defp result(%{state: :ready} = asset),
     do: {:ok, AssetFinalizationResult.from(asset, asset)}
 
   defp result(asset), do: {:ok, AssetFinalizationResult.from(asset, nil)}
@@ -316,12 +316,12 @@ defmodule QuickTrain.Assets.Asset.Actions.Finalize do
   defp current_claim?(nil, _claim_id, _now), do: false
 
   defp current_claim?(asset, claim_id, now) do
-    asset.state == "pending" and asset.operation_claim_kind == "finalize" and
+    asset.state == :pending and asset.operation_claim_kind == :finalize and
       asset.operation_claim_id == claim_id and live_claim?(asset, now)
   end
 
   defp live_claim_identity?(asset, claim_id, now) do
-    asset.state == "pending" and asset.operation_claim_id == claim_id and live_claim?(asset, now)
+    asset.state == :pending and asset.operation_claim_id == claim_id and live_claim?(asset, now)
   end
 
   defp sanitize_failure(:content_mismatch), do: "content_mismatch"

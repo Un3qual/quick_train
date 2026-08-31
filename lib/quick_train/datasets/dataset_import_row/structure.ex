@@ -6,12 +6,12 @@ defmodule QuickTrain.Datasets.DatasetImportRow.Structure do
   alias QuickTrain.Datasets.RevisionFingerprint
 
   @selectors [
-    text: "text",
-    integer: "integer",
-    decimal: "decimal",
-    boolean: "boolean",
-    utc_datetime: "utc_datetime",
-    asset_id: "asset"
+    text: :text,
+    integer: :integer,
+    decimal: :decimal,
+    boolean: :boolean,
+    utc_datetime: :utc_datetime,
+    asset_id: :asset
   ]
 
   def validate(arguments) do

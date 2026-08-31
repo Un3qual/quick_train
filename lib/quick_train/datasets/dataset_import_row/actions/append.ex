@@ -31,7 +31,7 @@ defmodule QuickTrain.Datasets.DatasetImportRow.Actions.Append do
       nil ->
         {:error, :invalid_import}
 
-      %{phase: "sealed"} ->
+      %{phase: :sealed} ->
         {:error, :import_not_open}
 
       import ->
@@ -109,10 +109,10 @@ defmodule QuickTrain.Datasets.DatasetImportRow.Actions.Append do
     attributes =
       case candidate do
         {:ok, record} ->
-          Map.merge(attributes, %{candidate_record_id: record.id, outcome: "pending"})
+          Map.merge(attributes, %{candidate_record_id: record.id, outcome: :pending})
 
         {:error, error_code} ->
-          Map.merge(attributes, %{outcome: "failed", error_code: error_code})
+          Map.merge(attributes, %{outcome: :failed, error_code: error_code})
       end
 
     DatasetImportRow
@@ -131,7 +131,7 @@ defmodule QuickTrain.Datasets.DatasetImportRow.Actions.Append do
     DatasetSchemaVersion
     |> Ash.Query.filter(
       id == ^import.schema_version_id and dataset_id == ^import.dataset_id and
-        state == "published"
+        state == :published
     )
     |> Ash.Query.load(root_record_type: :field_definitions)
     |> Ash.read_one!(authorize?: false)

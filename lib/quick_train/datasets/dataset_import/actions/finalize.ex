@@ -19,7 +19,7 @@ defmodule QuickTrain.Datasets.DatasetImport.Actions.Finalize do
         nil ->
           {:error, :invalid_import}
 
-        %{phase: "sealed"} = import ->
+        %{phase: :sealed} = import ->
           import
 
         import ->
@@ -35,7 +35,7 @@ defmodule QuickTrain.Datasets.DatasetImport.Actions.Finalize do
   defp seal_and_schedule(import) do
     pending_rows =
       DatasetImportRow
-      |> Ash.Query.filter(import_id == ^import.id and outcome == "pending")
+      |> Ash.Query.filter(import_id == ^import.id and outcome == :pending)
       |> Ash.Query.sort(source_position: :asc, id: :asc)
       |> Ash.read!(authorize?: false)
 

@@ -1,9 +1,6 @@
 defmodule QuickTrain.Datasets.DatasetFieldDefinition do
   @moduledoc "A typed single-cardinality field within one exact dataset record type."
 
-  @value_families ~w(text integer decimal boolean utc_datetime asset)
-  @cardinalities ~w(single)
-
   use Ash.Resource,
     otp_app: :quick_train,
     domain: QuickTrain.Datasets,
@@ -24,15 +21,15 @@ defmodule QuickTrain.Datasets.DatasetFieldDefinition do
       public? true
     end
 
-    attribute :value_family, :string do
+    attribute :value_family, QuickTrain.Datasets.DatasetValueFamily do
       allow_nil? false
       public? true
     end
 
-    attribute :cardinality, :string do
+    attribute :cardinality, QuickTrain.Datasets.DatasetFieldCardinality do
       allow_nil? false
       public? true
-      default "single"
+      default :single
     end
 
     attribute :required, :boolean do
@@ -78,17 +75,9 @@ defmodule QuickTrain.Datasets.DatasetFieldDefinition do
       argument :record_type_id, :uuid, allow_nil?: false
       argument :key, :string, allow_nil?: false
       argument :name, :string, allow_nil?: false
-      argument :value_family, :string, allow_nil?: false
-      argument :cardinality, :string, allow_nil?: false
+      argument :value_family, QuickTrain.Datasets.DatasetValueFamily, allow_nil?: false
+      argument :cardinality, QuickTrain.Datasets.DatasetFieldCardinality, allow_nil?: false
       argument :required, :boolean, allow_nil?: false
-
-      validate one_of(:value_family, @value_families) do
-        message "invalid_value_family"
-      end
-
-      validate one_of(:cardinality, @cardinalities) do
-        message "invalid_cardinality"
-      end
 
       run {Module.concat(["QuickTrain.Datasets.DatasetFieldDefinition.Actions.AddToDraft"]), []}
     end
@@ -100,17 +89,9 @@ defmodule QuickTrain.Datasets.DatasetFieldDefinition do
       argument :field_definition_id, :uuid, allow_nil?: false
       argument :key, :string, allow_nil?: false
       argument :name, :string, allow_nil?: false
-      argument :value_family, :string, allow_nil?: false
-      argument :cardinality, :string, allow_nil?: false
+      argument :value_family, QuickTrain.Datasets.DatasetValueFamily, allow_nil?: false
+      argument :cardinality, QuickTrain.Datasets.DatasetFieldCardinality, allow_nil?: false
       argument :required, :boolean, allow_nil?: false
-
-      validate one_of(:value_family, @value_families) do
-        message "invalid_value_family"
-      end
-
-      validate one_of(:cardinality, @cardinalities) do
-        message "invalid_cardinality"
-      end
 
       run {Module.concat(["QuickTrain.Datasets.DatasetFieldDefinition.Actions.UpdateInDraft"]),
            []}
@@ -153,11 +134,6 @@ defmodule QuickTrain.Datasets.DatasetFieldDefinition do
       authorize_if {QuickTrain.Authorization.Checks.OrganizationCapability,
                     capability: "datasets.manage"}
     end
-  end
-
-  validations do
-    validate one_of(:value_family, @value_families)
-    validate one_of(:cardinality, @cardinalities)
   end
 
   graphql do

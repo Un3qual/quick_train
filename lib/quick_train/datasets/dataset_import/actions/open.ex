@@ -36,7 +36,7 @@ defmodule QuickTrain.Datasets.DatasetImport.Actions.Open do
     DatasetSchemaVersion
     |> Ash.Query.filter(
       id == ^arguments.schema_version_id and dataset_id == ^arguments.dataset_id and
-        state == "published"
+        state == :published
     )
     |> Ash.read_one!(authorize?: false)
   end

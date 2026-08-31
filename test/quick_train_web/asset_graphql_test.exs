@@ -46,7 +46,7 @@ defmodule QuickTrainWeb.AssetGraphqlTest do
       )["registerAsset"]
 
     assert registration["reused"] == false
-    assert registration["asset"]["state"] == "pending"
+    assert registration["asset"]["state"] == "PENDING"
     assert registration["uploadAccess"]["method"] == "PUT"
     assert registration["uploadAccess"]["maxBytes"] == byte_size(content)
     assert registration["uploadAccess"]["uri"] =~ "https://storage.quicktrain.test/"
@@ -78,7 +78,7 @@ defmodule QuickTrainWeb.AssetGraphqlTest do
         }
       )["finalizeAsset"]
 
-    assert finalized["asset"]["state"] == "ready"
+    assert finalized["asset"]["state"] == "READY"
     assert finalized["canonicalAsset"]["id"] == finalized["asset"]["id"]
 
     asset =
@@ -97,7 +97,7 @@ defmodule QuickTrainWeb.AssetGraphqlTest do
         }
       )["asset"]
 
-    assert asset["state"] == "ready"
+    assert asset["state"] == "READY"
 
     access =
       graphql!(

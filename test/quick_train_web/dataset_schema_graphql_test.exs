@@ -57,7 +57,7 @@ defmodule QuickTrainWeb.DatasetSchemaGraphqlTest do
       )["createDatasetSchemaVersion"]
 
     assert schema["version"] == 1
-    assert schema["state"] == "draft"
+    assert schema["state"] == "DRAFT"
 
     root =
       graphql!(
@@ -94,8 +94,8 @@ defmodule QuickTrainWeb.DatasetSchemaGraphqlTest do
           $recordTypeId: ID!,
           $key: String!,
           $name: String!,
-          $valueFamily: String!,
-          $cardinality: String!,
+          $valueFamily: DatasetValueFamily!,
+          $cardinality: DatasetFieldCardinality!,
           $required: Boolean!
         ) {
           addDatasetFieldDefinition(
@@ -114,13 +114,13 @@ defmodule QuickTrainWeb.DatasetSchemaGraphqlTest do
           "recordTypeId" => root["id"],
           "key" => "name",
           "name" => "Name",
-          "valueFamily" => "text",
-          "cardinality" => "single",
+          "valueFamily" => "TEXT",
+          "cardinality" => "SINGLE",
           "required" => true
         }
       )["addDatasetFieldDefinition"]
 
-    assert field["valueFamily"] == "text"
+    assert field["valueFamily"] == "TEXT"
     assert field["required"]
 
     published =
@@ -146,7 +146,7 @@ defmodule QuickTrainWeb.DatasetSchemaGraphqlTest do
         }
       )["publishDatasetSchemaVersion"]
 
-    assert published["state"] == "published"
+    assert published["state"] == "PUBLISHED"
     assert published["rootRecordTypeId"] == root["id"]
 
     reads =
@@ -193,7 +193,7 @@ defmodule QuickTrainWeb.DatasetSchemaGraphqlTest do
     assert is_binary(cursor)
     refute reads["datasets"]["pageInfo"]["hasNextPage"]
     assert dataset_id == dataset["id"]
-    assert reads["datasetSchemaVersion"]["state"] == "published"
+    assert reads["datasetSchemaVersion"]["state"] == "PUBLISHED"
 
     assert [%{"node" => %{"id" => root_id, "key" => "customer"}}] =
              reads["datasetRecordTypes"]["edges"]
@@ -204,8 +204,8 @@ defmodule QuickTrainWeb.DatasetSchemaGraphqlTest do
              %{
                "node" => %{
                  "id" => field_id,
-                 "valueFamily" => "text",
-                 "cardinality" => "single"
+                 "valueFamily" => "TEXT",
+                 "cardinality" => "SINGLE"
                }
              }
            ] = reads["datasetFieldDefinitions"]["edges"]

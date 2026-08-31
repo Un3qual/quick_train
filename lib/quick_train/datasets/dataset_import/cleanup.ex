@@ -10,7 +10,7 @@ defmodule QuickTrain.Datasets.DatasetImport.Cleanup do
 
   def expired(now, limit) do
     DatasetImport
-    |> Ash.Query.filter(phase == "open" and open_expires_at <= ^now)
+    |> Ash.Query.filter(phase == :open and open_expires_at <= ^now)
     |> Ash.Query.sort(open_expires_at: :asc, id: :asc)
     |> Ash.Query.limit(limit)
     |> Ash.read(authorize?: false)
@@ -19,7 +19,7 @@ defmodule QuickTrain.Datasets.DatasetImport.Cleanup do
   def cleanup(import_id, now) do
     Ash.transact([DatasetImport, DatasetImportRow], fn ->
       case locked_import(import_id) do
-        %{phase: "open"} = import ->
+        %{phase: :open} = import ->
           if DateTime.compare(import.open_expires_at, now) != :gt do
             rows =
               DatasetImportRow

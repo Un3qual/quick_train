@@ -9,7 +9,7 @@ defmodule QuickTrain.Assets.AssetSummary do
   attributes do
     uuid_primary_key :id, writable?: true
     attribute :organization_id, :uuid, allow_nil?: false, public?: true
-    attribute :state, :string, allow_nil?: false, public?: true
+    attribute :state, QuickTrain.Assets.AssetState, allow_nil?: false, public?: true
     attribute :sha256, :string, allow_nil?: false, public?: true
     attribute :byte_size, :integer, allow_nil?: false, public?: true
     attribute :media_type, :string, allow_nil?: false, public?: true

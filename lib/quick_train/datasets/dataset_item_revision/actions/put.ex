@@ -26,7 +26,7 @@ defmodule QuickTrain.Datasets.DatasetItemRevision.Actions.Put do
     RevisionFingerprint
   }
 
-  @families ~w(text integer decimal boolean utc_datetime asset)
+  @families ~w(text integer decimal boolean utc_datetime asset)a
   @item_conflicts ["dataset_items_pkey", "dataset_items_dataset_external_key_index"]
   @attempts 2
 
@@ -51,7 +51,7 @@ defmodule QuickTrain.Datasets.DatasetItemRevision.Actions.Put do
       id == ^arguments.schema_version_id and
         dataset_id == ^arguments.dataset_id and
         dataset.organization_id == ^arguments.organization_id and
-        state == "published"
+        state == :published
     )
     |> Ash.Query.load(root_record_type: :field_definitions)
     |> Ash.read_one!(authorize?: false)
@@ -112,36 +112,36 @@ defmodule QuickTrain.Datasets.DatasetItemRevision.Actions.Put do
     end
   end
 
-  defp normalize_family("text", value) when is_binary(value) do
-    if String.valid?(value), do: {:ok, "text", value}, else: {:error, :type_mismatch}
+  defp normalize_family(:text, value) when is_binary(value) do
+    if String.valid?(value), do: {:ok, :text, value}, else: {:error, :type_mismatch}
   end
 
-  defp normalize_family("integer", value) when is_integer(value), do: {:ok, "integer", value}
+  defp normalize_family(:integer, value) when is_integer(value), do: {:ok, :integer, value}
 
-  defp normalize_family("decimal", %Decimal{} = value), do: {:ok, "decimal", value}
+  defp normalize_family(:decimal, %Decimal{} = value), do: {:ok, :decimal, value}
 
-  defp normalize_family("decimal", value) when is_binary(value) do
+  defp normalize_family(:decimal, value) when is_binary(value) do
     case Decimal.parse(value) do
-      {%Decimal{} = decimal, ""} -> {:ok, "decimal", decimal}
+      {%Decimal{} = decimal, ""} -> {:ok, :decimal, decimal}
       _other -> {:error, :type_mismatch}
     end
   end
 
-  defp normalize_family("boolean", value) when is_boolean(value), do: {:ok, "boolean", value}
+  defp normalize_family(:boolean, value) when is_boolean(value), do: {:ok, :boolean, value}
 
-  defp normalize_family("utc_datetime", %DateTime{} = value),
-    do: {:ok, "utc_datetime", DateTime.shift_zone!(value, "Etc/UTC")}
+  defp normalize_family(:utc_datetime, %DateTime{} = value),
+    do: {:ok, :utc_datetime, DateTime.shift_zone!(value, "Etc/UTC")}
 
-  defp normalize_family("utc_datetime", value) when is_binary(value) do
+  defp normalize_family(:utc_datetime, value) when is_binary(value) do
     case DateTime.from_iso8601(value) do
-      {:ok, date_time, _offset} -> {:ok, "utc_datetime", date_time}
+      {:ok, date_time, _offset} -> {:ok, :utc_datetime, date_time}
       _other -> {:error, :type_mismatch}
     end
   end
 
-  defp normalize_family("asset", value) when is_binary(value) do
+  defp normalize_family(:asset, value) when is_binary(value) do
     case Ecto.UUID.cast(value) do
-      {:ok, asset_id} -> {:ok, "asset", asset_id}
+      {:ok, asset_id} -> {:ok, :asset, asset_id}
       :error -> {:error, :type_mismatch}
     end
   end
@@ -276,12 +276,12 @@ defmodule QuickTrain.Datasets.DatasetItemRevision.Actions.Put do
 
   def validate_assets(organization_id, occurrences) do
     occurrences
-    |> Enum.filter(&(&1.family == "asset"))
+    |> Enum.filter(&(&1.family == :asset))
     |> Enum.reduce_while(:ok, fn occurrence, :ok ->
       asset =
         Asset
         |> Ash.Query.filter(
-          id == ^occurrence.value and organization_id == ^organization_id and state == "ready"
+          id == ^occurrence.value and organization_id == ^organization_id and state == :ready
         )
         |> Ash.read_one!(authorize?: false)
 
@@ -346,30 +346,30 @@ defmodule QuickTrain.Datasets.DatasetItemRevision.Actions.Put do
     create_typed_value!(value.id, arguments.organization_id, occurrence)
   end
 
-  defp create_typed_value!(dataset_value_id, _organization_id, %{family: "text", value: value}) do
+  defp create_typed_value!(dataset_value_id, _organization_id, %{family: :text, value: value}) do
     create_scalar!(DatasetTextValue, dataset_value_id, value)
   end
 
-  defp create_typed_value!(dataset_value_id, _organization_id, %{family: "integer", value: value}) do
+  defp create_typed_value!(dataset_value_id, _organization_id, %{family: :integer, value: value}) do
     create_scalar!(DatasetIntegerValue, dataset_value_id, value)
   end
 
-  defp create_typed_value!(dataset_value_id, _organization_id, %{family: "decimal", value: value}) do
+  defp create_typed_value!(dataset_value_id, _organization_id, %{family: :decimal, value: value}) do
     create_scalar!(DatasetDecimalValue, dataset_value_id, value)
   end
 
-  defp create_typed_value!(dataset_value_id, _organization_id, %{family: "boolean", value: value}) do
+  defp create_typed_value!(dataset_value_id, _organization_id, %{family: :boolean, value: value}) do
     create_scalar!(DatasetBooleanValue, dataset_value_id, value)
   end
 
   defp create_typed_value!(dataset_value_id, _organization_id, %{
-         family: "utc_datetime",
+         family: :utc_datetime,
          value: value
        }) do
     create_scalar!(DatasetDateTimeValue, dataset_value_id, value)
   end
 
-  defp create_typed_value!(dataset_value_id, organization_id, %{family: "asset", value: asset_id}) do
+  defp create_typed_value!(dataset_value_id, organization_id, %{family: :asset, value: asset_id}) do
     DatasetAssetValue
     |> Ash.Changeset.for_create(:create_internal, %{
       dataset_value_id: dataset_value_id,
@@ -388,9 +388,9 @@ defmodule QuickTrain.Datasets.DatasetItemRevision.Actions.Put do
     |> Ash.create!(authorize?: false)
   end
 
-  defp selector("utc_datetime"), do: :utc_datetime
-  defp selector("asset"), do: :asset_id
-  defp selector(family), do: String.to_existing_atom(family)
+  defp selector(:utc_datetime), do: :utc_datetime
+  defp selector(:asset), do: :asset_id
+  defp selector(family), do: family
 
   defp present?(map, key), do: not is_nil(fetch(map, key))
 

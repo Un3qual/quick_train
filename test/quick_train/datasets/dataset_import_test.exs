@@ -36,7 +36,7 @@ defmodule QuickTrain.Datasets.DatasetImportTest do
     first = open!(context, "batch-1")
     retry = open!(context, "batch-1")
     assert retry.id == first.id
-    assert first.phase == "open"
+    assert first.phase == :open
     assert DateTime.after?(first.open_expires_at, DateTime.utc_now())
 
     next_schema = published_schema(context.organization.id, context.dataset.id, context.manager)
@@ -64,7 +64,7 @@ defmodule QuickTrain.Datasets.DatasetImportTest do
         %{field: "joined_at", utc_datetime: "2026-01-02T03:04:05+02:00"}
       ])
 
-    assert first.outcome == "pending"
+    assert first.outcome == :pending
     assert first.candidate_record_id
     assert is_nil(first.item_revision_id)
 
@@ -90,7 +90,7 @@ defmodule QuickTrain.Datasets.DatasetImportTest do
         %{field: "balance", decimal: "2"}
       ])
 
-    assert row.outcome == "failed"
+    assert row.outcome == :failed
     assert row.error_code == "required_missing:name"
     assert is_nil(row.candidate_record_id)
     assert Ash.count!(DatasetRecord, authorize?: false) == 0
@@ -201,7 +201,7 @@ defmodule QuickTrain.Datasets.DatasetImportTest do
     import = open!(context, "keyless")
     row = append!(context, import, "row-keyless", nil, 0, [%{field: "name", text: "Keyless"}])
 
-    assert row.outcome == "pending"
+    assert row.outcome == :pending
     assert Ash.count!(DatasetItem, authorize?: false) == 0
   end
 
@@ -212,10 +212,10 @@ defmodule QuickTrain.Datasets.DatasetImportTest do
       append!(context, import, "valid", "customer-1", 0, [%{field: "name", text: "Alice"}])
 
     failed = append!(context, import, "invalid", nil, 1, [%{field: "balance", decimal: "1"}])
-    assert failed.outcome == "failed"
+    assert failed.outcome == :failed
 
     sealed = Datasets.finalize_import!(context.organization.id, import.id, actor: context.manager)
-    assert sealed.phase == "sealed"
+    assert sealed.phase == :sealed
     assert %DateTime{} = sealed.sealed_at
 
     assert [%Oban.Job{args: %{"row_id" => pending_id}}] =
@@ -227,12 +227,12 @@ defmodule QuickTrain.Datasets.DatasetImportTest do
     assert length(all_enqueued(worker: ProcessImportRow)) == 1
 
     before = Datasets.inspect_import!(context.organization.id, import.id, actor: context.manager)
-    assert before.lifecycle == "pending"
+    assert before.lifecycle == :pending
     assert {before.row_count, before.pending, before.failed} == {2, 1, 1}
 
     assert :ok = perform_job(ProcessImportRow, %{"row_id" => pending.id})
     completed = Ash.get!(DatasetImportRow, pending.id, authorize?: false)
-    assert completed.outcome == "succeeded"
+    assert completed.outcome == :succeeded
     assert completed.item_revision_id
 
     assert :ok = perform_job(ProcessImportRow, %{"row_id" => pending.id})
@@ -241,7 +241,7 @@ defmodule QuickTrain.Datasets.DatasetImportTest do
     after_processing =
       Datasets.inspect_import!(context.organization.id, import.id, actor: context.manager)
 
-    assert after_processing.lifecycle == "partially_failed"
+    assert after_processing.lifecycle == :partially_failed
 
     assert {after_processing.pending, after_processing.succeeded, after_processing.failed} ==
              {0, 1, 1}
@@ -285,7 +285,7 @@ defmodule QuickTrain.Datasets.DatasetImportTest do
 
     assert Exception.message(error) =~ "simulated_schedule_failure"
     persisted = Ash.get!(DatasetImport, import.id, authorize?: false)
-    assert persisted.phase == "open"
+    assert persisted.phase == :open
     assert is_nil(persisted.sealed_at)
     assert all_enqueued(worker: ProcessImportRow) == []
   end
@@ -305,7 +305,7 @@ defmodule QuickTrain.Datasets.DatasetImportTest do
     assert :ok = perform_job(ImportRowTerminalization, %{})
 
     terminal = Ash.get!(DatasetImportRow, row.id, authorize?: false)
-    assert terminal.outcome == "failed"
+    assert terminal.outcome == :failed
     assert terminal.error_code == "processing_retries_exhausted"
     assert is_nil(terminal.item_revision_id)
     assert Ash.count!(DatasetItem, authorize?: false) == 0
@@ -323,7 +323,7 @@ defmodule QuickTrain.Datasets.DatasetImportTest do
         %{field: "balance", decimal: "1"}
       ])
 
-    assert old_row.outcome == "failed"
+    assert old_row.outcome == :failed
 
     for _index <- 1..100 do
       %{row_id: old_row.id}
@@ -349,7 +349,7 @@ defmodule QuickTrain.Datasets.DatasetImportTest do
     assert :ok = perform_job(ImportRowTerminalization, %{})
 
     terminal = Ash.get!(DatasetImportRow, target_row.id, authorize?: false)
-    assert terminal.outcome == "failed"
+    assert terminal.outcome == :failed
     assert terminal.error_code == "processing_retries_exhausted"
   end
 

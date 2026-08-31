@@ -7,7 +7,7 @@ defmodule QuickTrain.Assets.StorageAccess do
     extensions: [AshGraphql.Resource]
 
   attributes do
-    attribute :method, :string, allow_nil?: false, public?: true
+    attribute :method, QuickTrain.Assets.StorageMethod, allow_nil?: false, public?: true
     attribute :uri, :string, allow_nil?: false, public?: true, sensitive?: true
     attribute :headers, :map, allow_nil?: false, public?: true, default: %{}
     attribute :expires_at, :utc_datetime_usec, allow_nil?: false, public?: true
@@ -24,7 +24,7 @@ defmodule QuickTrain.Assets.StorageAccess do
 
   def from(descriptor) do
     struct!(__MODULE__, %{
-      method: descriptor.method |> Atom.to_string() |> String.upcase(),
+      method: descriptor.method,
       uri: URI.to_string(descriptor.uri),
       headers: Map.new(descriptor.headers),
       expires_at: descriptor.expires_at,

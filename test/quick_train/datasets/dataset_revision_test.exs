@@ -4,7 +4,15 @@ defmodule QuickTrain.Datasets.DatasetRevisionTest do
   alias Ecto.Adapters.SQL.Sandbox
   alias QuickTrain.{Accounts, Assets, Datasets}
   alias QuickTrain.Assets.Storage.Test, as: TestStorage
-  alias QuickTrain.Datasets.{DatasetItem, DatasetItemRevision, DatasetRecord, DatasetValue}
+
+  alias QuickTrain.Datasets.{
+    DatasetItem,
+    DatasetItemRevision,
+    DatasetRecord,
+    DatasetValue,
+    ImportRowFingerprint,
+    RevisionFingerprint
+  }
 
   setup do
     :ok = TestStorage.reset()
@@ -17,6 +25,28 @@ defmodule QuickTrain.Datasets.DatasetRevisionTest do
     graph = published_schema(graph.organization.id, manager)
 
     Map.merge(graph, %{manager: manager, organization: graph.organization, asset: asset})
+  end
+
+  test "enum-backed value families preserve version one fingerprint identities" do
+    schema_id = "11111111-1111-1111-1111-111111111111"
+    root_id = "22222222-2222-2222-2222-222222222222"
+    field = %{id: "33333333-3333-3333-3333-333333333333"}
+
+    revision_fingerprint =
+      RevisionFingerprint.encode(schema_id, root_id, [
+        %{field: field, family: :text, ordinal: 0, value: "Alice"}
+      ])
+
+    import_fingerprint =
+      ImportRowFingerprint.encode(schema_id, "row-1", "customer-1", 7, [
+        %{field: "name", family: :text, value: "Alice"}
+      ])
+
+    assert revision_fingerprint ==
+             "aabd266a1733aaa09d2bcfd2f77c880fc4f749acf81d1a020a4363ce23cf59ad"
+
+    assert import_fingerprint ==
+             "4dd8e574b1b5092f01bd98d8043ab31eb2756306c641573390ddba19eb275518"
   end
 
   test "constructs all six typed values and preserves immutable historical revisions", context do
@@ -477,12 +507,12 @@ defmodule QuickTrain.Datasets.DatasetRevisionTest do
     Map.new(revision.root_record.values, fn value ->
       typed =
         case value.field_definition.value_family do
-          "text" -> value.text_value.value
-          "integer" -> value.integer_value.value
-          "decimal" -> value.decimal_value.value
-          "boolean" -> value.boolean_value.value
-          "utc_datetime" -> value.date_time_value.value
-          "asset" -> value.asset_value.asset_id
+          :text -> value.text_value.value
+          :integer -> value.integer_value.value
+          :decimal -> value.decimal_value.value
+          :boolean -> value.boolean_value.value
+          :utc_datetime -> value.date_time_value.value
+          :asset -> value.asset_value.asset_id
         end
 
       {value.field_definition.key, typed}

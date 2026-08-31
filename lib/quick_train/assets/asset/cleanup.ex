@@ -47,7 +47,7 @@ defmodule QuickTrain.Assets.Asset.Cleanup do
           claimed =
             asset
             |> Ash.Changeset.for_update(:claim_cleanup, %{
-              operation_claim_kind: "cleanup",
+              operation_claim_kind: :cleanup,
               operation_claim_id: claim_id,
               operation_claim_expires_at: expires_at
             })
@@ -63,7 +63,7 @@ defmodule QuickTrain.Assets.Asset.Cleanup do
     expected = %{sha256: asset.sha256, byte_size: asset.byte_size, media_type: asset.media_type}
 
     case Storage.verify_sealed(sealed_key, expected, config(:publication_deadline_ms)) do
-      {:ok, facts} when asset.state == "pending" ->
+      {:ok, facts} when asset.state == :pending ->
         with {:ok, _result} <-
                Finalize.reconcile_verified(
                  asset.id,
@@ -75,10 +75,10 @@ defmodule QuickTrain.Assets.Asset.Cleanup do
           cleanup(asset.id, now)
         end
 
-      {:ok, _facts} when asset.state in ["ready", "duplicate_content"] ->
+      {:ok, _facts} when asset.state in [:ready, :duplicate_content] ->
         retire(asset, claim_id, now)
 
-      {:ok, _facts} when asset.state == "failed" ->
+      {:ok, _facts} when asset.state == :failed ->
         if canonical_accounted?(asset) do
           retire(asset, claim_id, now)
         else
@@ -120,7 +120,7 @@ defmodule QuickTrain.Assets.Asset.Cleanup do
     Ash.transact(Asset, fn ->
       asset = locked_asset(asset_id)
 
-      if asset && asset.operation_claim_kind == "cleanup" &&
+      if asset && asset.operation_claim_kind == :cleanup &&
            asset.operation_claim_id == claim_id do
         asset
         |> Ash.Changeset.for_update(:release_operation_claim, %{})
@@ -146,7 +146,7 @@ defmodule QuickTrain.Assets.Asset.Cleanup do
         not current_cleanup_claim?(asset, claim_id, DateTime.utc_now()) ->
           :stale
 
-        asset.state == "pending" ->
+        asset.state == :pending ->
           asset
           |> Ash.Changeset.for_update(:complete_expired_staging_cleanup, %{
             staging_cleaned_at: now
@@ -173,7 +173,7 @@ defmodule QuickTrain.Assets.Asset.Cleanup do
   defp canonical_accounted?(asset) do
     Asset
     |> Ash.Query.filter(
-      organization_id == ^asset.organization_id and sha256 == ^asset.sha256 and state == "ready"
+      organization_id == ^asset.organization_id and sha256 == ^asset.sha256 and state == :ready
     )
     |> Ash.exists?(authorize?: false)
   end
@@ -190,7 +190,7 @@ defmodule QuickTrain.Assets.Asset.Cleanup do
 
     is_nil(asset.staging_cleaned_at) and
       DateTime.compare(asset.staging_expires_at, cutoff) != :gt and
-      asset.state in ["pending", "failed", "duplicate_content", "ready"]
+      asset.state in [:pending, :failed, :duplicate_content, :ready]
   end
 
   defp live_claim?(%{operation_claim_id: nil}, _now), do: false
@@ -199,7 +199,7 @@ defmodule QuickTrain.Assets.Asset.Cleanup do
     do: DateTime.compare(expires_at, now) == :gt
 
   defp current_cleanup_claim?(asset, claim_id, now) do
-    asset.operation_claim_kind == "cleanup" and asset.operation_claim_id == claim_id and
+    asset.operation_claim_kind == :cleanup and asset.operation_claim_id == claim_id and
       live_claim?(asset, now)
   end
 

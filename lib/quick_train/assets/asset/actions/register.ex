@@ -34,7 +34,7 @@ defmodule QuickTrain.Assets.Asset.Actions.Register do
   defp ready_asset(organization_id, sha256) do
     Asset
     |> Ash.Query.filter(
-      organization_id == ^organization_id and sha256 == ^sha256 and state == "ready"
+      organization_id == ^organization_id and sha256 == ^sha256 and state == :ready
     )
     |> Ash.read_one!(authorize?: false)
   end
