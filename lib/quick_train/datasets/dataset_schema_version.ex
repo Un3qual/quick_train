@@ -33,19 +33,32 @@ defmodule QuickTrain.Datasets.DatasetSchemaVersion do
     belongs_to :dataset, QuickTrain.Datasets.Dataset do
       allow_nil? false
       attribute_public? true
+      public? true
     end
 
     belongs_to :root_record_type, QuickTrain.Datasets.DatasetRecordType do
       allow_nil? true
       attribute_public? true
+      public? true
     end
 
-    has_many :record_types, QuickTrain.Datasets.DatasetRecordType,
-      destination_attribute: :schema_version_id
+    has_many :record_types, QuickTrain.Datasets.DatasetRecordType do
+      destination_attribute :schema_version_id
+      public? true
+    end
   end
 
   actions do
-    defaults [:read]
+    read :read do
+      primary? true
+
+      pagination keyset?: true,
+                 offset?: false,
+                 required?: false,
+                 default_limit: 50,
+                 max_page_size: 100,
+                 stable_sort: [version: :desc, id: :desc]
+    end
 
     read :get_scoped do
       get? true
@@ -88,6 +101,28 @@ defmodule QuickTrain.Datasets.DatasetSchemaVersion do
   end
 
   policies do
+    policy action(:read) do
+      authorize_if accessing_from(
+                     Module.concat(["QuickTrain.Datasets.Dataset"]),
+                     :schema_versions
+                   )
+
+      authorize_if accessing_from(
+                     Module.concat(["QuickTrain.Datasets.DatasetRecordType"]),
+                     :schema_version
+                   )
+
+      authorize_if accessing_from(
+                     Module.concat(["QuickTrain.Datasets.DatasetItemRevision"]),
+                     :schema_version
+                   )
+
+      authorize_if accessing_from(
+                     Module.concat(["QuickTrain.Datasets.DatasetImport"]),
+                     :schema_version
+                   )
+    end
+
     policy action(:get_scoped) do
       authorize_if {QuickTrain.Authorization.Checks.OrganizationCapability,
                     capability: "datasets.read"}
@@ -107,6 +142,8 @@ defmodule QuickTrain.Datasets.DatasetSchemaVersion do
     derive_filter? false
     derive_sort? false
     type :dataset_schema_version
+    relationships [:dataset, :root_record_type, :record_types]
+    paginate_relationship_with record_types: :relay
   end
 
   postgres do

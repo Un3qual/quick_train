@@ -31,9 +31,13 @@ defmodule QuickTrain.Datasets.DatasetRecord do
     belongs_to :record_type, QuickTrain.Datasets.DatasetRecordType do
       allow_nil? false
       attribute_public? true
+      public? true
     end
 
-    has_many :values, QuickTrain.Datasets.DatasetValue, destination_attribute: :record_id
+    has_many :values, QuickTrain.Datasets.DatasetValue do
+      destination_attribute :record_id
+      public? true
+    end
 
     has_one :root_revision, QuickTrain.Datasets.DatasetItemRevision,
       destination_attribute: :root_record_id
@@ -53,6 +57,8 @@ defmodule QuickTrain.Datasets.DatasetRecord do
     derive_filter? false
     derive_sort? false
     type :dataset_record
+    relationships [:record_type, :values]
+    paginate_relationship_with values: :relay
   end
 
   postgres do

@@ -15,7 +15,7 @@
 - [x] 2.6 Implement concurrent ready-content and sealed-object convergence plus canonical-asset-linked `duplicate_content` handling while preserving organization-scoped authorization and exact metadata agreement.
 - [x] 2.7 Implement the responsibility-named verification worker with idempotent enqueue and resource-identity-only job arguments.
 - [x] 2.8 Implement periodic staging cleanup over the expired-and-not-cleaned index using a bounded mutually exclusive claim with expired-claim replacement and eligibility recheck; after replacing a finalization claim, treat canonical absence as provisional until its bounded provider publication window ends and recheck it; reconcile any prior canonical publication before cleanup completion, retire the staging identity only after upload descriptors and bounded in-flight writes expire or further writes are fenced, and record cleanup completion only after deletion or absence confirmation without holding a database transaction across storage I/O or deleting sealed reads.
-- [x] 2.9 Expose only registration, finalization, authorized access, and scoped read operations through authenticated GraphQL.
+- [x] 2.9 Expose only registration, finalization, authorized access, scoped read operations, and the typed canonical-asset relationship through authenticated GraphQL.
 - [x] 2.10 Add focused adapter and resource tests for enforced upload caps and fail-closed unsupported adapters, finalization byte and decompression-bomb limits, mismatch rejection before canonical publication, immutable canonical sealing and reverification, overwrite races, active-format rejection, deduplication without sealed-copy leaks, metadata conflicts, secure access, and cross-organization denial.
 - [x] 2.11 Add focused worker tests for verification retry, finalization/cleanup serialization, abandoned-claim replacement and stale-worker fencing, post-publication claim-loss reconciliation, claim expiry during bounded canonical publication, late-upload recreation prevention, abandoned and duplicate staging cleanup, cleanup-marker retry, scan exclusion, overlap prevention, and sealed-object preservation.
 
@@ -25,7 +25,7 @@
 - [x] 3.2 Implement draft-only record-type and field editing for text, integer, decimal, boolean, UTC date-time, and asset families with `single` cardinality and requiredness.
 - [x] 3.3 Make every schema child edit lock and recheck the parent version so no mutation can commit after publication.
 - [x] 3.4 Implement atomic schema publication with exactly one same-schema designated root type and immutable post-publication behavior.
-- [x] 3.5 Expose deliberate dataset and schema lifecycle actions plus scoped typed reads through required keyset-paginated Relay connections in GraphQL.
+- [x] 3.5 Expose deliberate dataset and schema lifecycle actions, typed singular relationships, and scoped to-many reads through keyset-paginated Relay connections in GraphQL.
 - [x] 3.6 Add focused policy, lifecycle, validation, same-schema constraint, publication-race, and GraphQL tests.
 
 ## 4. Normalized Items, Revisions, and Typed Values
@@ -36,7 +36,7 @@
 - [x] 4.4 Implement transactional flat-record construction that resolves fields only within the exact root record type and enforces required or optional single-cardinality occurrence counts.
 - [x] 4.5 Implement the versioned revision fingerprint encoder with canonical typed bytes, schema-aware identity, lowercase hexadecimal boundary representation, and native 32-byte database storage.
 - [x] 4.6 Implement atomic stable-item get-or-create and item-locked immutable revision creation with monotonic revision numbers and unchanged detection.
-- [x] 4.7 Implement required keyset-paginated Relay connections for typed item and revision reads without generic update or delete mutations for immutable content.
+- [x] 4.7 Implement typed item, revision, record, field, and schema relationship traversal with every to-many read represented by a keyset-paginated Relay connection, without generic update or delete mutations for immutable content.
 - [x] 4.8 Add focused tests for typed round trips, invalid child combinations, cross-boundary references, field cardinality, fingerprint equivalence and divergence, first-item races, revision ordering, unchanged detection, and historical immutability.
 
 ## 5. Simplified Programmatic Imports
@@ -50,7 +50,7 @@
 - [x] 5.7 Implement import-locked finalization that atomically seals the accepted row set and inserts the complete unique bounded-retry row-job set, rolling back sealing on any scheduling failure and preserving safe concurrent and lost-response retries.
 - [x] 5.8 Implement unique bounded-retry row jobs with terminal-row checks and atomic item-revision/outcome commits; add the responsibility-specific bounded terminalization reconciler justified by Oban 2.24.0, with exact-worker filtering, immutable row-identity arguments, overlap-preventing uniqueness, row locking and terminal recheck, sanitized `processing_retries_exhausted` outcomes for discarded or cancelled jobs, and terminal-job retention through the recovery window, without leases, fences, persisted row attempt counters, per-attempt recovery jobs, aggregate counters, or a generic recovery domain.
 - [x] 5.9 Implement automatic expired-open-import cleanup under the same import lock while preserving every sealed import and finalized provenance row.
-- [x] 5.10 Implement derived batch counts and lifecycle queries plus a bounded keyset-paginated Relay connection for row-outcome inspection over indexed rows, exposing row key, source position, current outcome, sanitized errors, and any resulting revision reference without persisted aggregate counters or a separate processing state.
+- [x] 5.10 Implement derived batch counts and lifecycle queries plus a bounded keyset-paginated Relay connection for nested and root row-outcome inspection over indexed rows, exposing row key, source position, current outcome, sanitized errors, and any resulting typed revision relationship without persisted aggregate counters or a separate processing state.
 - [x] 5.11 Add focused import tests for batch and row idempotency, structurally rejected input, domain-invalid provenance, equivalent fingerprints, duplicate external keys, keyless identity, partial completion, bounded row-outcome pagination, and schema or asset scope.
 - [x] 5.12 Add focused concurrency and worker tests for append/finalize and finalize/cleanup races, atomic row-job scheduling rollback, row failure before commit, retry after terminal commit, retry-exhaustion and cancellation reconciliation, reconciliation versus late terminal commit, terminal evidence retention before pruning, concurrent item revisions, derived progress, and cross-organization denial.
 

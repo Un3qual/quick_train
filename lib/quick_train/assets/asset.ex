@@ -66,6 +66,7 @@ defmodule QuickTrain.Assets.Asset do
     belongs_to :canonical_asset, __MODULE__ do
       allow_nil? true
       attribute_public? true
+      public? true
     end
 
     has_many :duplicate_assets, __MODULE__ do
@@ -208,6 +209,15 @@ defmodule QuickTrain.Assets.Asset do
   end
 
   policies do
+    policy action(:read) do
+      authorize_if accessing_from(__MODULE__, :canonical_asset)
+
+      authorize_if accessing_from(
+                     Module.concat(["QuickTrain.Datasets.DatasetAssetValue"]),
+                     :asset
+                   )
+    end
+
     policy action(:get_scoped) do
       authorize_if {QuickTrain.Authorization.Checks.OrganizationCapability,
                     capability: "assets.read"}
@@ -232,6 +242,7 @@ defmodule QuickTrain.Assets.Asset do
   graphql do
     derive_filter? false
     type :asset
+    relationships [:canonical_asset]
   end
 
   postgres do

@@ -116,7 +116,7 @@ The system SHALL assign stable identity and ordinal position to value occurrence
 - **THEN** the system returns an unsupported-structure error and does not serialize the nested value into an opaque column
 
 ### Requirement: Deliberate GraphQL dataset API
-The system SHALL expose authenticated GraphQL actions for dataset and schema lifecycle operations and paginated typed reads. Every GraphQL collection SHALL use bounded required keyset pagination and SHALL be represented as a Relay connection; offset pagination and unbounded list results SHALL NOT be exposed. It SHALL NOT expose unrestricted mutation of published schemas or immutable item revisions.
+The system SHALL expose authenticated GraphQL actions for dataset and schema lifecycle operations and paginated typed reads. Useful singular product relationships SHALL expose the related typed resource, including schema ownership and root type, item revision context, record type, and field definition. Useful to-many product relationships SHALL expose bounded keyset-paginated Relay connections, including dataset schema versions and items, schema record types, record-type field definitions, item revisions, and record values. The explicit GraphQL relationship allowlist SHALL use destination primary reads that authorize only through their declared already-authorized parent relationship. Internal ownership, staging, and reverse bookkeeping relationships SHALL remain private. Every GraphQL collection SHALL use bounded keyset pagination and SHALL be represented as a Relay connection; offset pagination and unbounded list results SHALL NOT be exposed. It SHALL NOT expose unrestricted mutation of published schemas or immutable item revisions.
 
 #### Scenario: Typed revision is queried
 - **WHEN** an authorized actor queries an item revision
@@ -129,3 +129,7 @@ The system SHALL expose authenticated GraphQL actions for dataset and schema lif
 #### Scenario: Typed collection is paginated
 - **WHEN** an authorized caller reads datasets, schema children, item revisions, or import-row outcomes through GraphQL
 - **THEN** the API returns a bounded Relay connection backed only by keyset cursors
+
+#### Scenario: Typed relationships are traversed
+- **WHEN** an authorized caller traverses from a dataset through its schema structure or from an item through a revision and normalized record
+- **THEN** each singular relationship returns its typed resource and each to-many relationship returns a bounded keyset Relay connection without opening an unscoped root read

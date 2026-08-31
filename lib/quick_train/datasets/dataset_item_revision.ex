@@ -38,16 +38,19 @@ defmodule QuickTrain.Datasets.DatasetItemRevision do
     belongs_to :item, QuickTrain.Datasets.DatasetItem do
       allow_nil? false
       attribute_public? true
+      public? true
     end
 
     belongs_to :schema_version, QuickTrain.Datasets.DatasetSchemaVersion do
       allow_nil? false
       attribute_public? true
+      public? true
     end
 
     belongs_to :root_record_type, QuickTrain.Datasets.DatasetRecordType do
       allow_nil? false
       attribute_public? true
+      public? true
     end
 
     belongs_to :root_record, QuickTrain.Datasets.DatasetRecord do
@@ -58,7 +61,16 @@ defmodule QuickTrain.Datasets.DatasetItemRevision do
   end
 
   actions do
-    defaults [:read]
+    read :read do
+      primary? true
+
+      pagination keyset?: true,
+                 offset?: false,
+                 required?: false,
+                 default_limit: 50,
+                 max_page_size: 100,
+                 stable_sort: [revision_number: :desc, id: :desc]
+    end
 
     action :put, :struct do
       allow_nil? false
@@ -110,6 +122,18 @@ defmodule QuickTrain.Datasets.DatasetItemRevision do
   end
 
   policies do
+    policy action(:read) do
+      authorize_if accessing_from(
+                     Module.concat(["QuickTrain.Datasets.DatasetItem"]),
+                     :revisions
+                   )
+
+      authorize_if accessing_from(
+                     Module.concat(["QuickTrain.Datasets.DatasetImportRow"]),
+                     :item_revision
+                   )
+    end
+
     policy action(:put) do
       authorize_if {QuickTrain.Authorization.Checks.OrganizationCapability,
                     capability: "datasets.manage"}
@@ -129,6 +153,7 @@ defmodule QuickTrain.Datasets.DatasetItemRevision do
     derive_filter? false
     derive_sort? false
     type :dataset_item_revision
+    relationships [:item, :schema_version, :root_record_type, :root_record]
   end
 
   postgres do

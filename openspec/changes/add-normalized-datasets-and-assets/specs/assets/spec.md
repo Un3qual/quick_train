@@ -55,7 +55,7 @@ The system SHALL identify ready asset content by a SHA-256 hash represented at r
 - **THEN** the system rejects the mutation and requires registration of a new asset
 
 ### Requirement: Ready-content deduplication is recoverable
-The system SHALL enforce organization-scoped content-hash uniqueness only for ready assets. Failed uploads SHALL NOT reserve that ready identity permanently. Reuse of a canonical ready asset SHALL require the registering hash, byte size, and media type to match its immutable facts exactly; the system SHALL return an asset-identity conflict rather than silently returning a canonical asset with different facts. Concurrent finalization of identical content SHALL select one canonical ready asset deterministically and SHALL not expose a mutable or ambiguous content reference.
+The system SHALL enforce organization-scoped content-hash uniqueness only for ready assets. Failed uploads SHALL NOT reserve that ready identity permanently. Reuse of a canonical ready asset SHALL require the registering hash, byte size, and media type to match its immutable facts exactly; the system SHALL return an asset-identity conflict rather than silently returning a canonical asset with different facts. Concurrent finalization of identical content SHALL select one canonical ready asset deterministically and SHALL not expose a mutable or ambiguous content reference. An authorized GraphQL read of a duplicate SHALL expose its canonical asset as the related typed resource in addition to the canonical identifier.
 
 #### Scenario: Correct upload follows a failed upload
 - **WHEN** an organization registers a new upload for content whose earlier pending asset failed verification

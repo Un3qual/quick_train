@@ -2,6 +2,7 @@ defmodule QuickTrainWeb.AssetGraphqlTest do
   use QuickTrain.ConnCase, async: false
 
   alias QuickTrain.{Accounts, Datasets}
+  alias QuickTrain.Assets.Asset
   alias QuickTrain.Assets.Storage.Test, as: TestStorage
 
   setup %{conn: conn} do
@@ -98,6 +99,42 @@ defmodule QuickTrainWeb.AssetGraphqlTest do
       )["asset"]
 
     assert asset["state"] == "READY"
+
+    duplicate =
+      Asset
+      |> Ash.Changeset.for_create(:create_pending, %{
+        id: Ecto.UUID.generate(),
+        organization_id: graph.organization.id,
+        sha256: sha256(content),
+        byte_size: byte_size(content),
+        media_type: "text/plain",
+        staging_key: "assets/staging/#{graph.organization.id}/duplicate",
+        staging_expires_at: DateTime.add(DateTime.utc_now(), 300, :second)
+      })
+      |> Ash.create!(authorize?: false)
+      |> Ash.Changeset.for_update(:complete_duplicate, %{
+        canonical_asset_id: finalized["asset"]["id"]
+      })
+      |> Ash.update!(authorize?: false)
+
+    duplicate_asset =
+      graphql!(
+        conn,
+        """
+        query DuplicateAsset($assetId: ID!, $organizationId: ID!) {
+          asset(assetId: $assetId, organizationId: $organizationId) {
+            id state canonicalAssetId
+            canonicalAsset { id state sha256 }
+          }
+        }
+        """,
+        %{"assetId" => duplicate.id, "organizationId" => graph.organization.id}
+      )["asset"]
+
+    assert duplicate_asset["state"] == "DUPLICATE_CONTENT"
+    assert duplicate_asset["canonicalAsset"]["id"] == finalized["asset"]["id"]
+    assert duplicate_asset["canonicalAsset"]["state"] == "READY"
+    assert duplicate_asset["canonicalAsset"]["sha256"] == sha256(content)
 
     access =
       graphql!(

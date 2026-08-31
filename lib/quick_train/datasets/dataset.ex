@@ -30,7 +30,13 @@ defmodule QuickTrain.Datasets.Dataset do
       attribute_public? true
     end
 
-    has_many :schema_versions, QuickTrain.Datasets.DatasetSchemaVersion
+    has_many :schema_versions, QuickTrain.Datasets.DatasetSchemaVersion do
+      public? true
+    end
+
+    has_many :items, QuickTrain.Datasets.DatasetItem do
+      public? true
+    end
   end
 
   actions do
@@ -53,6 +59,16 @@ defmodule QuickTrain.Datasets.Dataset do
   end
 
   policies do
+    policy action(:read) do
+      authorize_if accessing_from(
+                     Module.concat(["QuickTrain.Datasets.DatasetSchemaVersion"]),
+                     :dataset
+                   )
+
+      authorize_if accessing_from(Module.concat(["QuickTrain.Datasets.DatasetItem"]), :dataset)
+      authorize_if accessing_from(Module.concat(["QuickTrain.Datasets.DatasetImport"]), :dataset)
+    end
+
     policy action(:create_dataset) do
       authorize_if {QuickTrain.Authorization.Checks.OrganizationCapability,
                     capability: "datasets.manage"}
@@ -68,6 +84,8 @@ defmodule QuickTrain.Datasets.Dataset do
     derive_filter? false
     derive_sort? false
     type :dataset
+    relationships [:schema_versions, :items]
+    paginate_relationship_with schema_versions: :relay, items: :relay
   end
 
   postgres do

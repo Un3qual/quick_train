@@ -26,6 +26,7 @@ defmodule QuickTrain.Datasets.DatasetAssetValue do
     belongs_to :asset, QuickTrain.Assets.Asset do
       allow_nil? false
       attribute_public? true
+      public? true
     end
   end
 
@@ -43,6 +44,7 @@ defmodule QuickTrain.Datasets.DatasetAssetValue do
     derive_filter? false
     derive_sort? false
     type :dataset_asset_value
+    relationships [:asset]
   end
 
   postgres do

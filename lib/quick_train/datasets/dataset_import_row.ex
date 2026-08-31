@@ -58,11 +58,21 @@ defmodule QuickTrain.Datasets.DatasetImportRow do
     belongs_to :item_revision, QuickTrain.Datasets.DatasetItemRevision do
       allow_nil? true
       attribute_public? true
+      public? true
     end
   end
 
   actions do
-    defaults [:read]
+    read :read do
+      primary? true
+
+      pagination keyset?: true,
+                 offset?: false,
+                 required?: false,
+                 default_limit: 50,
+                 max_page_size: 100,
+                 stable_sort: [source_position: :asc, id: :asc]
+    end
 
     action :append, :struct do
       allow_nil? false
@@ -116,6 +126,10 @@ defmodule QuickTrain.Datasets.DatasetImportRow do
   end
 
   policies do
+    policy action(:read) do
+      authorize_if accessing_from(Module.concat(["QuickTrain.Datasets.DatasetImport"]), :rows)
+    end
+
     policy action([:append, :list_scoped]) do
       authorize_if {QuickTrain.Authorization.Checks.OrganizationCapability,
                     capability: "dataset_imports.manage"}
@@ -130,6 +144,7 @@ defmodule QuickTrain.Datasets.DatasetImportRow do
     derive_filter? false
     derive_sort? false
     type :dataset_import_row
+    relationships [:item_revision]
   end
 
   postgres do

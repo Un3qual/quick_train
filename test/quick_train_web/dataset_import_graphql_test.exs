@@ -1,7 +1,9 @@
 defmodule QuickTrainWeb.DatasetImportGraphqlTest do
   use QuickTrain.ConnCase, async: false
+  use Oban.Testing, repo: QuickTrain.Repo
 
   alias QuickTrain.{Accounts, Datasets}
+  alias QuickTrain.Datasets.Workers.ProcessImportRow
 
   setup %{conn: conn} do
     manager = Accounts.register_user!("graphql-imports@example.test", "GraphQL Imports")
@@ -102,6 +104,26 @@ defmodule QuickTrainWeb.DatasetImportGraphqlTest do
       assert row["outcome"] == expected_outcome
     end
 
+    finalized =
+      graphql!(
+        context.conn,
+        """
+        mutation Finalize($organizationId: ID!, $importId: ID!) {
+          finalizeDatasetImport(organizationId: $organizationId, importId: $importId) {
+            id phase
+          }
+        }
+        """,
+        %{"organizationId" => context.organization.id, "importId" => opened["id"]}
+      )["finalizeDatasetImport"]
+
+    assert finalized["phase"] == "SEALED"
+
+    assert [%Oban.Job{args: %{"row_id" => row_id}}] =
+             all_enqueued(worker: ProcessImportRow)
+
+    assert :ok = perform_job(ProcessImportRow, %{"row_id" => row_id})
+
     data =
       graphql!(
         context.conn,
@@ -109,6 +131,18 @@ defmodule QuickTrainWeb.DatasetImportGraphqlTest do
         query Inspect($organizationId: ID!, $importId: ID!) {
           datasetImport(organizationId: $organizationId, importId: $importId) {
             importId phase lifecycle rowCount pending succeeded unchanged failed
+            dataset { id key }
+            schemaVersion { id version }
+            rows(first: 1) {
+              edges {
+                cursor
+                node {
+                  id rowKey outcome
+                  itemRevision { id revisionNumber }
+                }
+              }
+              pageInfo { hasNextPage endCursor }
+            }
           }
           datasetImportRows(
             organizationId: $organizationId,
@@ -124,7 +158,20 @@ defmodule QuickTrainWeb.DatasetImportGraphqlTest do
       )
 
     assert data["datasetImport"]["rowCount"] == 2
-    assert data["datasetImport"]["lifecycle"] == "OPEN"
+    assert data["datasetImport"]["lifecycle"] == "PARTIALLY_FAILED"
+    assert data["datasetImport"]["dataset"]["id"] == context.dataset.id
+    assert data["datasetImport"]["schemaVersion"]["id"] == context.schema.id
+
+    assert [%{"cursor" => nested_cursor, "node" => nested_row}] =
+             data["datasetImport"]["rows"]["edges"]
+
+    assert is_binary(nested_cursor)
+    assert nested_row["rowKey"] == "valid"
+    assert nested_row["outcome"] == "SUCCEEDED"
+    assert is_binary(nested_row["itemRevision"]["id"])
+    assert nested_row["itemRevision"]["revisionNumber"] == 1
+    assert data["datasetImport"]["rows"]["pageInfo"]["hasNextPage"]
+    assert is_binary(data["datasetImport"]["rows"]["pageInfo"]["endCursor"])
 
     assert [%{"cursor" => cursor, "node" => %{"rowKey" => "valid"}}] =
              data["datasetImportRows"]["edges"]

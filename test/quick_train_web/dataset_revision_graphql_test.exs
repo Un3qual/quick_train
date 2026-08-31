@@ -1,9 +1,12 @@
 defmodule QuickTrainWeb.DatasetRevisionGraphqlTest do
   use QuickTrain.ConnCase, async: false
 
-  alias QuickTrain.{Accounts, Datasets}
+  alias QuickTrain.{Accounts, Assets, Datasets}
+  alias QuickTrain.Assets.Storage.Test, as: TestStorage
 
   setup %{conn: conn} do
+    :ok = TestStorage.reset()
+
     manager = Accounts.register_user!("graphql-revisions@example.test", "GraphQL Revisions")
 
     graph =
@@ -34,6 +37,20 @@ defmodule QuickTrainWeb.DatasetRevisionGraphqlTest do
         actor: manager
       )
 
+    asset_field =
+      Datasets.add_field_definition!(
+        graph.organization.id,
+        root.id,
+        "avatar",
+        "Avatar",
+        "asset",
+        "single",
+        false,
+        actor: manager
+      )
+
+    asset = ready_asset!(graph.organization.id, manager, "avatar bytes")
+
     schema =
       Datasets.publish_schema_version!(graph.organization.id, schema.id, root.id, actor: manager)
 
@@ -44,7 +61,7 @@ defmodule QuickTrainWeb.DatasetRevisionGraphqlTest do
         schema.id,
         nil,
         "customer-1",
-        [%{field: "name", text: "Alice"}],
+        [%{field: "name", text: "Alice"}, %{field: "avatar", asset_id: asset.id}],
         actor: manager
       )
 
@@ -53,6 +70,8 @@ defmodule QuickTrainWeb.DatasetRevisionGraphqlTest do
       organization: graph.organization,
       dataset: dataset,
       field: field,
+      asset_field: asset_field,
+      asset: asset,
       result: result
     }
   end
@@ -68,12 +87,58 @@ defmodule QuickTrainWeb.DatasetRevisionGraphqlTest do
           $itemId: ID!,
           $revisionId: ID!
         ) {
+          datasets(organizationId: $organizationId, first: 1) {
+            edges {
+              cursor
+              node {
+                id
+                items(first: 1) {
+                  edges { cursor node { id externalKey } }
+                  pageInfo { hasNextPage endCursor }
+                }
+              }
+            }
+            pageInfo { hasNextPage endCursor }
+          }
           datasetItems(
             organizationId: $organizationId,
             datasetId: $datasetId,
             first: 1
           ) {
-            edges { cursor node { id datasetId externalKey } }
+            edges {
+              cursor
+              node {
+                id datasetId externalKey
+                dataset { id key }
+                revisions(first: 1) {
+                  edges {
+                    cursor
+                    node {
+                      id
+                      item { id }
+                      schemaVersion { id }
+                      rootRecordType { id }
+                      rootRecord {
+                        recordType { id }
+                        values(first: 2) {
+                          edges {
+                            cursor
+                            node {
+                              id
+                              fieldDefinition { id key }
+                              textValue { value }
+                              assetValue { asset { id state } }
+                            }
+                          }
+                          pageInfo { hasNextPage endCursor }
+                        }
+                      }
+                    }
+                  }
+                  pageInfo { hasNextPage endCursor }
+                }
+              }
+            }
             pageInfo { hasNextPage endCursor }
           }
           datasetItemRevisions(
@@ -92,13 +157,15 @@ defmodule QuickTrainWeb.DatasetRevisionGraphqlTest do
           datasetValues(
             organizationId: $organizationId,
             revisionId: $revisionId,
-            first: 1
+            first: 2
           ) {
             edges {
               cursor
               node {
                 id fieldDefinitionId ordinal
+                fieldDefinition { id key }
                 textValue { value }
+                assetValue { asset { id state } }
               }
             }
             pageInfo { hasNextPage endCursor }
@@ -113,10 +180,53 @@ defmodule QuickTrainWeb.DatasetRevisionGraphqlTest do
         }
       )
 
+    assert [%{"cursor" => dataset_cursor, "node" => nested_dataset}] = data["datasets"]["edges"]
+    assert is_binary(dataset_cursor)
+    assert nested_dataset["id"] == context.dataset.id
+
+    assert [%{"cursor" => nested_item_cursor, "node" => nested_item}] =
+             nested_dataset["items"]["edges"]
+
+    assert is_binary(nested_item_cursor)
+    assert nested_item["id"] == context.result.item.id
+    assert nested_item["externalKey"] == "customer-1"
+    refute nested_dataset["items"]["pageInfo"]["hasNextPage"]
+    assert is_binary(nested_dataset["items"]["pageInfo"]["endCursor"])
+
     assert [%{"cursor" => item_cursor, "node" => item}] = data["datasetItems"]["edges"]
     assert is_binary(item_cursor)
     assert item["id"] == context.result.item.id
     assert item["externalKey"] == "customer-1"
+    assert item["dataset"]["id"] == context.dataset.id
+
+    assert [%{"cursor" => nested_revision_cursor, "node" => nested_revision}] =
+             item["revisions"]["edges"]
+
+    assert is_binary(nested_revision_cursor)
+    assert nested_revision["id"] == context.result.revision.id
+    assert nested_revision["item"]["id"] == context.result.item.id
+    assert nested_revision["schemaVersion"]["id"] == context.result.revision.schema_version_id
+    assert nested_revision["rootRecordType"]["id"] == context.result.revision.root_record_type_id
+
+    assert nested_revision["rootRecord"]["recordType"]["id"] ==
+             context.result.revision.root_record_type_id
+
+    nested_values =
+      Map.new(nested_revision["rootRecord"]["values"]["edges"], fn edge ->
+        assert is_binary(edge["cursor"])
+        {edge["node"]["fieldDefinition"]["key"], edge["node"]}
+      end)
+
+    assert nested_values["name"]["fieldDefinition"]["id"] == context.field.id
+    assert nested_values["name"]["textValue"]["value"] == "Alice"
+    assert nested_values["avatar"]["fieldDefinition"]["id"] == context.asset_field.id
+    assert nested_values["avatar"]["assetValue"]["asset"]["id"] == context.asset.id
+    assert nested_values["avatar"]["assetValue"]["asset"]["state"] == "READY"
+
+    for connection <- [item["revisions"], nested_revision["rootRecord"]["values"]] do
+      refute connection["pageInfo"]["hasNextPage"]
+      assert is_binary(connection["pageInfo"]["endCursor"])
+    end
 
     assert [%{"cursor" => revision_cursor, "node" => revision}] =
              data["datasetItemRevisions"]["edges"]
@@ -125,13 +235,19 @@ defmodule QuickTrainWeb.DatasetRevisionGraphqlTest do
     assert revision["id"] == context.result.revision.id
     assert revision["revisionNumber"] == 1
 
-    assert [%{"cursor" => value_cursor, "node" => value}] = data["datasetValues"]["edges"]
-    assert is_binary(value_cursor)
-    assert value["fieldDefinitionId"] == context.field.id
-    assert value["ordinal"] == 0
-    assert value["textValue"]["value"] == "Alice"
+    values =
+      Map.new(data["datasetValues"]["edges"], fn edge ->
+        assert is_binary(edge["cursor"])
+        {edge["node"]["fieldDefinition"]["key"], edge["node"]}
+      end)
 
-    for connection <- ~w(datasetItems datasetItemRevisions datasetValues) do
+    assert values["name"]["fieldDefinitionId"] == context.field.id
+    assert values["name"]["ordinal"] == 0
+    assert values["name"]["textValue"]["value"] == "Alice"
+    assert values["avatar"]["fieldDefinitionId"] == context.asset_field.id
+    assert values["avatar"]["assetValue"]["asset"]["id"] == context.asset.id
+
+    for connection <- ~w(datasets datasetItems datasetItemRevisions datasetValues) do
       refute data[connection]["pageInfo"]["hasNextPage"]
       assert is_binary(data[connection]["pageInfo"]["endCursor"])
     end
@@ -143,5 +259,19 @@ defmodule QuickTrainWeb.DatasetRevisionGraphqlTest do
 
     assert is_nil(response["errors"]), inspect(response["errors"])
     response["data"]
+  end
+
+  defp ready_asset!(organization_id, manager, content) do
+    registration =
+      Assets.register_asset!(
+        organization_id,
+        Base.encode16(:crypto.hash(:sha256, content), case: :lower),
+        byte_size(content),
+        "text/plain",
+        actor: manager
+      )
+
+    :ok = TestStorage.put_staging(registration.upload_access, content)
+    Assets.finalize_asset!(registration.asset.id, organization_id, actor: manager).asset
   end
 end

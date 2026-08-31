@@ -155,7 +155,43 @@ defmodule QuickTrainWeb.DatasetSchemaGraphqlTest do
         """
         query ReadSchema($organizationId: ID!, $schemaVersionId: ID!, $recordTypeId: ID!) {
           datasets(organizationId: $organizationId, first: 50) {
-            edges { node { id key name } cursor }
+            edges {
+              cursor
+              node {
+                id key name
+                schemaVersions(first: 1) {
+                  edges {
+                    cursor
+                    node {
+                      id
+                      dataset { id }
+                      rootRecordType { id }
+                      recordTypes(first: 1) {
+                        edges {
+                          cursor
+                          node {
+                            id
+                            schemaVersion { id }
+                            fieldDefinitions(first: 1) {
+                              edges {
+                                cursor
+                                node {
+                                  id key valueFamily
+                                  recordType { id }
+                                }
+                              }
+                              pageInfo { hasNextPage endCursor }
+                            }
+                          }
+                        }
+                        pageInfo { hasNextPage endCursor }
+                      }
+                    }
+                  }
+                  pageInfo { hasNextPage endCursor }
+                }
+              }
+            }
             pageInfo { hasNextPage endCursor }
           }
           datasetSchemaVersion(
@@ -193,6 +229,33 @@ defmodule QuickTrainWeb.DatasetSchemaGraphqlTest do
     assert is_binary(cursor)
     refute reads["datasets"]["pageInfo"]["hasNextPage"]
     assert dataset_id == dataset["id"]
+
+    [schema_edge] =
+      reads["datasets"]["edges"] |> hd() |> get_in(["node", "schemaVersions", "edges"])
+
+    assert is_binary(schema_edge["cursor"])
+    assert schema_edge["node"]["id"] == schema["id"]
+    assert schema_edge["node"]["dataset"]["id"] == dataset["id"]
+    assert schema_edge["node"]["rootRecordType"]["id"] == root["id"]
+
+    [record_type_edge] = schema_edge["node"]["recordTypes"]["edges"]
+    assert is_binary(record_type_edge["cursor"])
+    assert record_type_edge["node"]["schemaVersion"]["id"] == schema["id"]
+
+    [field_edge] = record_type_edge["node"]["fieldDefinitions"]["edges"]
+    assert is_binary(field_edge["cursor"])
+    assert field_edge["node"]["id"] == field["id"]
+    assert field_edge["node"]["recordType"]["id"] == root["id"]
+
+    for connection <- [
+          reads["datasets"]["edges"] |> hd() |> get_in(["node", "schemaVersions"]),
+          schema_edge["node"]["recordTypes"],
+          record_type_edge["node"]["fieldDefinitions"]
+        ] do
+      refute connection["pageInfo"]["hasNextPage"]
+      assert is_binary(connection["pageInfo"]["endCursor"])
+    end
+
     assert reads["datasetSchemaVersion"]["state"] == "PUBLISHED"
 
     assert [%{"node" => %{"id" => root_id, "key" => "customer"}}] =

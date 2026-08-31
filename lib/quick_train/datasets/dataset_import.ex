@@ -32,11 +32,13 @@ defmodule QuickTrain.Datasets.DatasetImport do
     belongs_to :dataset, QuickTrain.Datasets.Dataset do
       allow_nil? false
       attribute_public? true
+      public? true
     end
 
     belongs_to :schema_version, QuickTrain.Datasets.DatasetSchemaVersion do
       allow_nil? false
       attribute_public? true
+      public? true
     end
 
     belongs_to :initiated_by, QuickTrain.Accounts.User do
@@ -44,7 +46,10 @@ defmodule QuickTrain.Datasets.DatasetImport do
       attribute_public? true
     end
 
-    has_many :rows, QuickTrain.Datasets.DatasetImportRow, destination_attribute: :import_id
+    has_many :rows, QuickTrain.Datasets.DatasetImportRow do
+      destination_attribute :import_id
+      public? true
+    end
   end
 
   aggregates do
@@ -174,6 +179,8 @@ defmodule QuickTrain.Datasets.DatasetImport do
     derive_filter? false
     derive_sort? false
     type :dataset_import
+    relationships [:dataset, :schema_version, :rows]
+    paginate_relationship_with rows: :relay
   end
 
   postgres do

@@ -28,14 +28,26 @@ defmodule QuickTrain.Datasets.DatasetRecordType do
     belongs_to :schema_version, QuickTrain.Datasets.DatasetSchemaVersion do
       allow_nil? false
       attribute_public? true
+      public? true
     end
 
-    has_many :field_definitions, QuickTrain.Datasets.DatasetFieldDefinition,
-      destination_attribute: :record_type_id
+    has_many :field_definitions, QuickTrain.Datasets.DatasetFieldDefinition do
+      destination_attribute :record_type_id
+      public? true
+    end
   end
 
   actions do
-    defaults [:read]
+    read :read do
+      primary? true
+
+      pagination keyset?: true,
+                 offset?: false,
+                 required?: false,
+                 default_limit: 50,
+                 max_page_size: 100,
+                 stable_sort: [inserted_at: :asc, id: :asc]
+    end
 
     read :list_scoped do
       argument :organization_id, :uuid, allow_nil?: false
@@ -92,6 +104,33 @@ defmodule QuickTrain.Datasets.DatasetRecordType do
   end
 
   policies do
+    policy action(:read) do
+      authorize_if accessing_from(
+                     Module.concat(["QuickTrain.Datasets.DatasetSchemaVersion"]),
+                     :root_record_type
+                   )
+
+      authorize_if accessing_from(
+                     Module.concat(["QuickTrain.Datasets.DatasetSchemaVersion"]),
+                     :record_types
+                   )
+
+      authorize_if accessing_from(
+                     Module.concat(["QuickTrain.Datasets.DatasetFieldDefinition"]),
+                     :record_type
+                   )
+
+      authorize_if accessing_from(
+                     Module.concat(["QuickTrain.Datasets.DatasetItemRevision"]),
+                     :root_record_type
+                   )
+
+      authorize_if accessing_from(
+                     Module.concat(["QuickTrain.Datasets.DatasetRecord"]),
+                     :record_type
+                   )
+    end
+
     policy action(:list_scoped) do
       authorize_if {QuickTrain.Authorization.Checks.OrganizationCapability,
                     capability: "datasets.read"}
@@ -107,6 +146,8 @@ defmodule QuickTrain.Datasets.DatasetRecordType do
     derive_filter? false
     derive_sort? false
     type :dataset_record_type
+    relationships [:schema_version, :field_definitions]
+    paginate_relationship_with field_definitions: :relay
   end
 
   postgres do
