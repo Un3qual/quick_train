@@ -11,7 +11,7 @@ defmodule QuickTrain.Datasets.DatasetImport do
   attributes do
     uuid_primary_key :id
     attribute :idempotency_key, :string, allow_nil?: false, public?: true
-    attribute :open_fingerprint, :string, allow_nil?: false
+    attribute :open_fingerprint, QuickTrain.Types.Sha256Digest, allow_nil?: false
 
     attribute :phase, QuickTrain.Datasets.DatasetImportPhase,
       allow_nil?: false,
@@ -170,11 +170,6 @@ defmodule QuickTrain.Datasets.DatasetImport do
     end
   end
 
-  validations do
-    validate match(:open_fingerprint, ~r/\A[0-9a-f]{64}\z/),
-      where: [changing(:open_fingerprint)]
-  end
-
   graphql do
     derive_filter? false
     derive_sort? false
@@ -223,8 +218,8 @@ defmodule QuickTrain.Datasets.DatasetImport do
         message: "does not match lifecycle facts"
 
       check_constraint :open_fingerprint, "dataset_imports_open_fingerprint_format",
-        check: "open_fingerprint ~ '^[0-9a-f]{64}$'",
-        message: "must be exactly 64 lowercase hexadecimal characters"
+        check: "octet_length(open_fingerprint) = 32",
+        message: "must be exactly 32 bytes"
     end
   end
 

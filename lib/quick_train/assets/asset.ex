@@ -17,7 +17,7 @@ defmodule QuickTrain.Assets.Asset do
       public? true
     end
 
-    attribute :sha256, :string do
+    attribute :sha256, QuickTrain.Types.Sha256Digest do
       allow_nil? false
       public? true
     end
@@ -202,7 +202,6 @@ defmodule QuickTrain.Assets.Asset do
   end
 
   validations do
-    validate match(:sha256, ~r/\A[0-9a-f]{64}\z/), where: [changing(:sha256)]
     validate compare(:byte_size, greater_than: 0)
     validate compare(:width, greater_than: 0)
     validate compare(:height, greater_than: 0)
@@ -276,8 +275,8 @@ defmodule QuickTrain.Assets.Asset do
 
     check_constraints do
       check_constraint :sha256, "assets_sha256_format",
-        check: "sha256 ~ '^[0-9a-f]{64}$'",
-        message: "must be exactly 64 lowercase hexadecimal characters"
+        check: "octet_length(sha256) = 32",
+        message: "must be exactly 32 bytes"
 
       check_constraint :byte_size, "assets_byte_size_positive",
         check: "byte_size > 0",

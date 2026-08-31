@@ -16,7 +16,7 @@ defmodule QuickTrain.Datasets.DatasetItemRevision do
       public? true
     end
 
-    attribute :fingerprint, :string do
+    attribute :fingerprint, QuickTrain.Types.Sha256Digest do
       allow_nil? false
       public? true
     end
@@ -123,7 +123,6 @@ defmodule QuickTrain.Datasets.DatasetItemRevision do
 
   validations do
     validate compare(:revision_number, greater_than: 0)
-    validate match(:fingerprint, ~r/\A[0-9a-f]{64}\z/), where: [changing(:fingerprint)]
   end
 
   graphql do
@@ -195,8 +194,8 @@ defmodule QuickTrain.Datasets.DatasetItemRevision do
         message: "must be positive"
 
       check_constraint :fingerprint, "dataset_item_revisions_fingerprint_format",
-        check: "fingerprint ~ '^[0-9a-f]{64}$'",
-        message: "must be exactly 64 lowercase hexadecimal characters"
+        check: "octet_length(fingerprint) = 32",
+        message: "must be exactly 32 bytes"
     end
   end
 

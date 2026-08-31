@@ -7,7 +7,7 @@
 
 ## 2. Immutable Asset Domain
 
-- [x] 2.1 Generate the Asset resource, snapshot, and migration, then refine organization ownership, lifecycle, canonical SHA-256, finite configurable byte and image bounds, size, media type, image dimensions, staging and canonical sealed keys, staging expiry, cleanup completion, bounded operation-claim facts, ready-only uniqueness, constraints, and indexes.
+- [x] 2.1 Generate the Asset resource, snapshot, and migration, then refine organization ownership, lifecycle, canonical SHA-256 with lowercase hexadecimal boundary representation and native 32-byte database storage, finite configurable byte and image bounds, size, media type, image dimensions, staging and canonical sealed keys, staging expiry, cleanup completion, bounded operation-claim facts, ready-only uniqueness, constraints, and indexes.
 - [x] 2.2 Define `QuickTrain.Assets.Storage` and deterministic development and test adapters for staging access that enforces the declared byte cap or fails closed, staging-byte verification before canonical-key conditional publication, a finite publication deadline and bounded provider in-flight window, late-write-safe staging retirement, and short-lived sealed reads without per-registration sealed copies.
 - [x] 2.3 Enforce encrypted approved destinations and credential-safe redirect handling in storage access descriptors without exposing persistent storage keys or credentials through GraphQL.
 - [x] 2.4 Implement authorized asset registration that returns writable staging access only when the adapter enforces the declared byte cap, with canonical ready-asset reuse only when hash, byte size, and media type all match.
@@ -34,7 +34,7 @@
 - [x] 4.2 Add composite same-dataset, same-schema, exact-record-type, designated-root-type, item, revision, field, and asset relationships with required identities, foreign keys, and indexes.
 - [x] 4.3 Add the generated deferred constraint trigger that enforces exactly one compatible typed child per value occurrence and cover the database boundary directly.
 - [x] 4.4 Implement transactional flat-record construction that resolves fields only within the exact root record type and enforces required or optional single-cardinality occurrence counts.
-- [x] 4.5 Implement the versioned revision fingerprint encoder with canonical typed bytes and schema-aware identity.
+- [x] 4.5 Implement the versioned revision fingerprint encoder with canonical typed bytes, schema-aware identity, lowercase hexadecimal boundary representation, and native 32-byte database storage.
 - [x] 4.6 Implement atomic stable-item get-or-create and item-locked immutable revision creation with monotonic revision numbers and unchanged detection.
 - [x] 4.7 Implement required keyset-paginated Relay connections for typed item and revision reads without generic update or delete mutations for immutable content.
 - [x] 4.8 Add focused tests for typed round trips, invalid child combinations, cross-boundary references, field cardinality, fingerprint equivalence and divergence, first-item races, revision ordering, unchanged detection, and historical immutability.
@@ -44,7 +44,7 @@
 - [x] 5.1 Generate DatasetImport and DatasetImportRow resources with snapshots and migrations for `open` or `sealed` phase, expiry, idempotency identities, source provenance, pending or terminal row outcomes, candidate-record references, and progress-query indexes.
 - [x] 5.2 Implement atomic import open-or-return behavior over organization, dataset, idempotency key, immutable parameters, and a same-dataset published schema.
 - [x] 5.3 Define the one-row flat GraphQL input; select, test, and document safe default request, import-row, field-count, scalar-byte, and text-byte limits; and ensure oversized input, malformed scalar shapes, unsupported structures, and nesting fail before canonicalization or row acceptance.
-- [x] 5.4 Implement canonical fingerprints for structurally accepted rows, including the external-key presence marker and persisted value, plus atomic row-key and source-position retry handling and pre-persistence duplicate-external-key rejection.
+- [x] 5.4 Implement canonical fingerprints for import opens and structurally accepted rows with native 32-byte database storage, including the external-key presence marker and persisted value, plus atomic row-key and source-position retry handling and pre-persistence duplicate-external-key rejection.
 - [x] 5.5 Implement append-time schema validation that stores valid normalized candidates as pending rows and domain-invalid inputs as terminal failed provenance without opaque payloads or partial graphs.
 - [x] 5.6 Use the import-row UUID as the stable target item UUID for keyless valid rows without creating an item during append.
 - [x] 5.7 Implement import-locked finalization that atomically seals the accepted row set and inserts the complete unique bounded-retry row-job set, rolling back sealing on any scheduling failure and preserving safe concurrent and lost-response retries.
@@ -56,7 +56,7 @@
 
 ## 6. Integration and Verification
 
-- [x] 6.1 Review all generated AshPostgres snapshots and migrations together, including composite keys, typed-child enforcement, asset partial uniqueness, canonical hash constraints, import idempotency, expiry cleanup, row outcomes, and supporting indexes.
+- [x] 6.1 Review all generated AshPostgres snapshots and migrations together, including composite keys, typed-child enforcement, asset partial uniqueness, native binary digest storage and constraints, import idempotency, expiry cleanup, row outcomes, and supporting indexes.
 - [x] 6.2 Exercise the complete authenticated workflow: create and publish a schema, register and seal an asset, import mixed valid and invalid rows, retry open and append requests, finalize and process rows, inspect paginated row outcomes, and query typed historical revisions under organization authorization.
 - [x] 6.3 Document required product capability bootstrap, production storage configuration, asset staging lifetime, import open lifetime, and responsibility-specific Oban schedules without selecting a storage provider.
 - [x] 6.4 Run `mise run openspec.validate`, format and compile the implementation, inspect relevant logs and focused tests, and finish with `mise run verify` from a clean migrated database.

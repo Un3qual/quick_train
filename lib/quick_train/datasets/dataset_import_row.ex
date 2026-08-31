@@ -13,7 +13,7 @@ defmodule QuickTrain.Datasets.DatasetImportRow do
     attribute :row_key, :string, allow_nil?: false, public?: true
     attribute :source_position, :integer, allow_nil?: false, public?: true
     attribute :external_key, :string, public?: true
-    attribute :fingerprint, :string, allow_nil?: false
+    attribute :fingerprint, QuickTrain.Types.Sha256Digest, allow_nil?: false
 
     attribute :outcome, QuickTrain.Datasets.DatasetImportRowOutcome,
       allow_nil?: false,
@@ -124,7 +124,6 @@ defmodule QuickTrain.Datasets.DatasetImportRow do
 
   validations do
     validate compare(:source_position, greater_than_or_equal_to: 0)
-    validate match(:fingerprint, ~r/\A[0-9a-f]{64}\z/), where: [changing(:fingerprint)]
   end
 
   graphql do
@@ -214,8 +213,8 @@ defmodule QuickTrain.Datasets.DatasetImportRow do
         message: "does not match outcome facts"
 
       check_constraint :fingerprint, "dataset_import_rows_fingerprint_format",
-        check: "fingerprint ~ '^[0-9a-f]{64}$'",
-        message: "must be exactly 64 lowercase hexadecimal characters"
+        check: "octet_length(fingerprint) = 32",
+        message: "must be exactly 32 bytes"
     end
   end
 
