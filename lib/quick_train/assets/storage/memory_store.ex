@@ -22,16 +22,17 @@ defmodule QuickTrain.Assets.Storage.MemoryStore do
   def put_staging(server, descriptor, bytes),
     do: GenServer.call(server, {:put_staging, token(descriptor), bytes})
 
-  def pin_staging(server, key), do: GenServer.call(server, {:pin_staging, key})
+  def pin_staging(server, key, timeout \\ 5_000),
+    do: GenServer.call(server, {:pin_staging, key}, timeout)
 
-  def publish(server, key, bytes, facts),
-    do: GenServer.call(server, {:publish, key, bytes, facts})
+  def publish(server, key, bytes, facts, timeout \\ 5_000),
+    do: GenServer.call(server, {:publish, key, bytes, facts}, timeout)
 
-  def verify_sealed(server, key, expected),
-    do: GenServer.call(server, {:verify_sealed, key, expected})
+  def verify_sealed(server, key, expected, timeout \\ 5_000),
+    do: GenServer.call(server, {:verify_sealed, key, expected}, timeout)
 
-  def retire_staging(server, key, not_before),
-    do: GenServer.call(server, {:retire_staging, key, not_before})
+  def retire_staging(server, key, not_before, timeout \\ 5_000),
+    do: GenServer.call(server, {:retire_staging, key, not_before}, timeout)
 
   def issue_read(server, key, expires_at),
     do: GenServer.call(server, {:issue_read, key, expires_at})

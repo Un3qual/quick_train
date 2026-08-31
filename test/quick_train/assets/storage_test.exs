@@ -189,6 +189,26 @@ defmodule QuickTrain.Assets.StorageTest do
     assert TestStorage.sealed_count() == 1
   end
 
+  test "publication returns a controlled error when its adapter deadline elapses" do
+    staging_key = "staging/deadline"
+    sealed_key = "sealed/deadline"
+    content = "deadline-bound"
+    expires_at = DateTime.add(DateTime.utc_now(), 60, :second)
+
+    descriptor = Storage.writable_staging_access!(staging_key, byte_size(content), expires_at)
+    :ok = TestStorage.put_staging(descriptor, content)
+    :ok = TestStorage.set_publish_delay(75)
+
+    expected = %{
+      sha256: Base.encode16(:crypto.hash(:sha256, content), case: :lower),
+      byte_size: byte_size(content),
+      media_type: "text/plain"
+    }
+
+    assert {:error, :storage_deadline_exceeded} =
+             Storage.verify_and_publish(staging_key, sealed_key, expected, 10)
+  end
+
   test "mismatched or active staging bytes never occupy the canonical key" do
     expires_at = DateTime.add(DateTime.utc_now(), 60, :second)
     descriptor = Storage.writable_staging_access!("staging/mismatch", 64, expires_at)
