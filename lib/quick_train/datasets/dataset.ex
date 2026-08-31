@@ -80,6 +80,10 @@ defmodule QuickTrain.Datasets.Dataset do
     end
 
     custom_indexes do
+      index [:id, :organization_id],
+        unique: true,
+        name: "datasets_id_organization_id_index"
+
       index [:organization_id], name: "datasets_organization_id_index"
     end
   end

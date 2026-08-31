@@ -30,9 +30,9 @@
 
 ## 4. Normalized Items, Revisions, and Typed Values
 
-- [ ] 4.1 Generate DatasetItem, DatasetItemRevision, DatasetRecord, DatasetValue, and the six scalar or asset typed-value resources with snapshots and migrations.
-- [ ] 4.2 Add composite same-dataset, same-schema, exact-record-type, designated-root-type, item, revision, field, and asset relationships with required identities, foreign keys, and indexes.
-- [ ] 4.3 Add the generated deferred constraint trigger that enforces exactly one compatible typed child per value occurrence and cover the database boundary directly.
+- [x] 4.1 Generate DatasetItem, DatasetItemRevision, DatasetRecord, DatasetValue, and the six scalar or asset typed-value resources with snapshots and migrations.
+- [x] 4.2 Add composite same-dataset, same-schema, exact-record-type, designated-root-type, item, revision, field, and asset relationships with required identities, foreign keys, and indexes.
+- [x] 4.3 Add the generated deferred constraint trigger that enforces exactly one compatible typed child per value occurrence and cover the database boundary directly.
 - [ ] 4.4 Implement transactional flat-record construction that resolves fields only within the exact root record type and enforces required or optional single-cardinality occurrence counts.
 - [ ] 4.5 Implement the versioned revision fingerprint encoder with canonical typed bytes and schema-aware identity.
 - [ ] 4.6 Implement atomic stable-item get-or-create and item-locked immutable revision creation with monotonic revision numbers and unchanged detection.

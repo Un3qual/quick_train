@@ -128,6 +128,14 @@ defmodule QuickTrain.Datasets.DatasetSchemaVersion do
     end
 
     custom_indexes do
+      index [:id, :dataset_id],
+        unique: true,
+        name: "dataset_schema_versions_id_dataset_id_index"
+
+      index [:id, :dataset_id, :root_record_type_id],
+        unique: true,
+        name: "dataset_schema_versions_id_dataset_root_index"
+
       index [:dataset_id, :state], name: "dataset_schema_versions_dataset_state_index"
     end
 

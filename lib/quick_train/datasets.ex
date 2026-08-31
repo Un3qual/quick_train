@@ -149,5 +149,16 @@ defmodule QuickTrain.Datasets do
         action: :get_scoped,
         args: [:organization_id, :schema_version_id]
     end
+
+    resource QuickTrain.Datasets.DatasetItem
+    resource QuickTrain.Datasets.DatasetItemRevision
+    resource QuickTrain.Datasets.DatasetRecord
+    resource QuickTrain.Datasets.DatasetValue
+    resource QuickTrain.Datasets.DatasetTextValue
+    resource QuickTrain.Datasets.DatasetIntegerValue
+    resource QuickTrain.Datasets.DatasetDecimalValue
+    resource QuickTrain.Datasets.DatasetBooleanValue
+    resource QuickTrain.Datasets.DatasetDateTimeValue
+    resource QuickTrain.Datasets.DatasetAssetValue
   end
 end

@@ -1,0 +1,204 @@
+defmodule QuickTrain.Datasets.DatasetValue do
+  @moduledoc "Stable ordinal occurrence of one exact field in a normalized record."
+
+  alias QuickTrain.Datasets.DatasetValue.TypedChildConstraint
+
+  use Ash.Resource,
+    otp_app: :quick_train,
+    domain: QuickTrain.Datasets,
+    extensions: [AshGraphql.Resource],
+    data_layer: AshPostgres.DataLayer
+
+  attributes do
+    uuid_primary_key :id
+
+    attribute :ordinal, :integer do
+      allow_nil? false
+      public? true
+      default 0
+    end
+
+    timestamps()
+  end
+
+  relationships do
+    belongs_to :organization, QuickTrain.Organizations.Organization do
+      allow_nil? false
+      attribute_public? true
+    end
+
+    belongs_to :record, QuickTrain.Datasets.DatasetRecord do
+      allow_nil? false
+      attribute_public? true
+    end
+
+    belongs_to :field_definition, QuickTrain.Datasets.DatasetFieldDefinition do
+      allow_nil? false
+      attribute_public? true
+    end
+
+    belongs_to :record_type, QuickTrain.Datasets.DatasetRecordType do
+      allow_nil? false
+      attribute_public? true
+    end
+
+    belongs_to :dataset, QuickTrain.Datasets.Dataset do
+      allow_nil? false
+      attribute_public? true
+    end
+
+    belongs_to :schema_version, QuickTrain.Datasets.DatasetSchemaVersion do
+      allow_nil? false
+      attribute_public? true
+    end
+
+    has_one :text_value, QuickTrain.Datasets.DatasetTextValue,
+      destination_attribute: :dataset_value_id
+
+    has_one :integer_value, QuickTrain.Datasets.DatasetIntegerValue,
+      destination_attribute: :dataset_value_id
+
+    has_one :decimal_value, QuickTrain.Datasets.DatasetDecimalValue,
+      destination_attribute: :dataset_value_id
+
+    has_one :boolean_value, QuickTrain.Datasets.DatasetBooleanValue,
+      destination_attribute: :dataset_value_id
+
+    has_one :date_time_value, QuickTrain.Datasets.DatasetDateTimeValue,
+      destination_attribute: :dataset_value_id
+
+    has_one :asset_value, QuickTrain.Datasets.DatasetAssetValue,
+      destination_attribute: :dataset_value_id
+  end
+
+  actions do
+    defaults [:read]
+  end
+
+  validations do
+    validate compare(:ordinal, greater_than_or_equal_to: 0)
+  end
+
+  graphql do
+    derive_filter? false
+    derive_sort? false
+    type :dataset_value
+  end
+
+  postgres do
+    table "dataset_values"
+    repo QuickTrain.Repo
+    identity_index_names record_field_ordinal: "dataset_values_record_field_ordinal_index"
+
+    references do
+      reference :organization,
+        on_delete: :restrict,
+        name: "dataset_values_organization_id_fkey"
+
+      reference :dataset,
+        on_delete: :restrict,
+        name: "dataset_values_dataset_id_organization_id_fkey",
+        match_with: [organization_id: :organization_id]
+
+      reference :schema_version,
+        on_delete: :restrict,
+        name: "dataset_values_schema_version_id_dataset_id_fkey",
+        match_with: [dataset_id: :dataset_id]
+
+      reference :record_type,
+        on_delete: :restrict,
+        name: "dataset_values_record_type_id_schema_version_id_fkey",
+        match_with: [schema_version_id: :schema_version_id]
+
+      reference :record,
+        on_delete: :restrict,
+        name: "dataset_values_record_full_scope_fkey",
+        match_with: [
+          organization_id: :organization_id,
+          dataset_id: :dataset_id,
+          schema_version_id: :schema_version_id,
+          record_type_id: :record_type_id
+        ]
+
+      reference :field_definition,
+        on_delete: :restrict,
+        name: "dataset_values_field_definition_record_type_id_fkey",
+        match_with: [record_type_id: :record_type_id]
+    end
+
+    custom_indexes do
+      index [:id, :organization_id],
+        unique: true,
+        name: "dataset_values_id_organization_id_index"
+
+      index [:record_id, :field_definition_id, :ordinal, :id],
+        name: "dataset_values_record_cursor_index"
+    end
+
+    check_constraints do
+      check_constraint :ordinal, "dataset_values_ordinal_nonnegative",
+        check: "ordinal >= 0",
+        message: "must be nonnegative"
+    end
+
+    custom_statements do
+      statement :dataset_values_validate_typed_child_function do
+        after_tables TypedChildConstraint.tables()
+        up TypedChildConstraint.validate_function()
+        down "DROP FUNCTION IF EXISTS quick_train_validate_dataset_value(uuid);"
+      end
+
+      statement :dataset_values_enforce_typed_child_function do
+        after_tables TypedChildConstraint.tables()
+        up TypedChildConstraint.enforce_function()
+        down "DROP FUNCTION IF EXISTS quick_train_enforce_dataset_value_typed_child();"
+      end
+
+      statement :dataset_values_typed_child_trigger do
+        after_tables ["dataset_values"]
+        up TypedChildConstraint.trigger("dataset_values")
+        down TypedChildConstraint.drop_trigger("dataset_values")
+      end
+
+      statement :dataset_text_values_typed_child_trigger do
+        after_tables ["dataset_text_values"]
+        up TypedChildConstraint.trigger("dataset_text_values")
+        down TypedChildConstraint.drop_trigger("dataset_text_values")
+      end
+
+      statement :dataset_integer_values_typed_child_trigger do
+        after_tables ["dataset_integer_values"]
+        up TypedChildConstraint.trigger("dataset_integer_values")
+        down TypedChildConstraint.drop_trigger("dataset_integer_values")
+      end
+
+      statement :dataset_decimal_values_typed_child_trigger do
+        after_tables ["dataset_decimal_values"]
+        up TypedChildConstraint.trigger("dataset_decimal_values")
+        down TypedChildConstraint.drop_trigger("dataset_decimal_values")
+      end
+
+      statement :dataset_boolean_values_typed_child_trigger do
+        after_tables ["dataset_boolean_values"]
+        up TypedChildConstraint.trigger("dataset_boolean_values")
+        down TypedChildConstraint.drop_trigger("dataset_boolean_values")
+      end
+
+      statement :dataset_date_time_values_typed_child_trigger do
+        after_tables ["dataset_date_time_values"]
+        up TypedChildConstraint.trigger("dataset_date_time_values")
+        down TypedChildConstraint.drop_trigger("dataset_date_time_values")
+      end
+
+      statement :dataset_asset_values_typed_child_trigger do
+        after_tables ["dataset_asset_values"]
+        up TypedChildConstraint.trigger("dataset_asset_values")
+        down TypedChildConstraint.drop_trigger("dataset_asset_values")
+      end
+    end
+  end
+
+  identities do
+    identity :record_field_ordinal, [:record_id, :field_definition_id, :ordinal]
+  end
+end
