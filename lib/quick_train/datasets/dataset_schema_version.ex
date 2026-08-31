@@ -169,10 +169,6 @@ defmodule QuickTrain.Datasets.DatasetSchemaVersion do
         check: "version > 0",
         message: "must be positive"
 
-      check_constraint :state, "dataset_schema_versions_state_valid",
-        check: "state IN ('draft', 'published')",
-        message: "is invalid"
-
       check_constraint :state, "dataset_schema_versions_publication_facts_valid",
         check:
           "(state = 'draft' AND published_at IS NULL) OR (state = 'published' AND published_at IS NOT NULL AND root_record_type_id IS NOT NULL)",

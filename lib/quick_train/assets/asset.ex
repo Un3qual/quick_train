@@ -291,10 +291,6 @@ defmodule QuickTrain.Assets.Asset do
         check: "(width IS NULL AND height IS NULL) OR (width > 0 AND height > 0)",
         message: "must both be absent or positive"
 
-      check_constraint :state, "assets_state_valid",
-        check: "state IN ('pending', 'ready', 'failed', 'duplicate_content')",
-        message: "is invalid"
-
       check_constraint :state, "assets_lifecycle_facts_valid",
         check: """
         (state = 'pending' AND sealed_key IS NULL AND canonical_asset_id IS NULL AND failure_reason IS NULL) OR

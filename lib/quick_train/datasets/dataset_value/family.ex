@@ -3,5 +3,6 @@ defmodule QuickTrain.Datasets.DatasetValue.Family do
 
   use Ash.Type.Enum, values: [:text, :integer, :decimal, :boolean, :utc_datetime, :asset]
 
+  def storage_type, do: :dataset_value_family
   def graphql_type(_constraints), do: :dataset_value_family
 end

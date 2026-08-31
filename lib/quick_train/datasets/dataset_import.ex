@@ -214,10 +214,6 @@ defmodule QuickTrain.Datasets.DatasetImport do
     end
 
     check_constraints do
-      check_constraint :phase, "dataset_imports_phase_valid",
-        check: "phase IN ('open', 'sealed')",
-        message: "is invalid"
-
       check_constraint :phase, "dataset_imports_phase_facts_valid",
         check:
           "(phase = 'open' AND sealed_at IS NULL) OR (phase = 'sealed' AND sealed_at IS NOT NULL)",

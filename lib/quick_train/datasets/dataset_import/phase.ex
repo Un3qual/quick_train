@@ -3,5 +3,6 @@ defmodule QuickTrain.Datasets.DatasetImport.Phase do
 
   use Ash.Type.Enum, values: [:open, :sealed]
 
+  def storage_type, do: :dataset_import_phase
   def graphql_type(_constraints), do: :dataset_import_phase
 end

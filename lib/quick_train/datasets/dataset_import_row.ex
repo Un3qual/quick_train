@@ -215,10 +215,6 @@ defmodule QuickTrain.Datasets.DatasetImportRow do
         check: "source_position >= 0",
         message: "must be nonnegative"
 
-      check_constraint :outcome, "dataset_import_rows_outcome_valid",
-        check: "outcome IN ('pending', 'succeeded', 'unchanged', 'failed')",
-        message: "is invalid"
-
       check_constraint :outcome, "dataset_import_rows_outcome_facts_valid",
         check:
           "(outcome = 'pending' AND candidate_record_id IS NOT NULL AND item_revision_id IS NULL AND error_code IS NULL) OR " <>

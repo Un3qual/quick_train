@@ -179,17 +179,6 @@ defmodule QuickTrain.Datasets.DatasetFieldDefinition do
 
       index [:record_type_id], name: "dataset_field_definitions_record_type_id_index"
     end
-
-    check_constraints do
-      check_constraint :value_family, "dataset_field_definitions_value_family_valid",
-        check:
-          "value_family IN ('text', 'integer', 'decimal', 'boolean', 'utc_datetime', 'asset')",
-        message: "is invalid"
-
-      check_constraint :cardinality, "dataset_field_definitions_cardinality_valid",
-        check: "cardinality = 'single'",
-        message: "is invalid"
-    end
   end
 
   identities do
