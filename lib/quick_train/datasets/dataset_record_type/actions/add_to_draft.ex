@@ -13,7 +13,6 @@ defmodule QuickTrain.Datasets.DatasetRecordType.Actions.AddToDraft do
     SchemaVersionBoundary.with_draft(
       organization_id,
       schema_version_id,
-      [DatasetRecordType],
       fn schema ->
         DatasetRecordType
         |> Ash.Changeset.for_create(:create_internal, %{

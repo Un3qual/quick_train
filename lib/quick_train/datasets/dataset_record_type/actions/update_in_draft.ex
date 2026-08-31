@@ -3,7 +3,7 @@ defmodule QuickTrain.Datasets.DatasetRecordType.Actions.UpdateInDraft do
 
   use Ash.Resource.Actions.Implementation
 
-  alias QuickTrain.Datasets.{DatasetRecordType, SchemaVersionBoundary}
+  alias QuickTrain.Datasets.SchemaVersionBoundary
 
   @impl true
   def run(input, _opts, _context) do
@@ -12,8 +12,8 @@ defmodule QuickTrain.Datasets.DatasetRecordType.Actions.UpdateInDraft do
     SchemaVersionBoundary.with_record_type(
       organization_id,
       record_type_id,
-      [DatasetRecordType],
-      fn _schema, record_type ->
+      [],
+      fn record_type ->
         record_type
         |> Ash.Changeset.for_update(:update_internal, %{
           key: input.arguments.key,

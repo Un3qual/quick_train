@@ -31,9 +31,6 @@ defmodule QuickTrain.Datasets.ProductCapabilities.Actions.GrantToManager do
     case Ash.transact(resources, fn ->
            grant_in_transaction(organization_id, user_id)
          end) do
-      {:ok, {:ok, keys}} ->
-        {:ok, keys}
-
       {:ok, keys} when is_list(keys) ->
         {:ok, keys}
 

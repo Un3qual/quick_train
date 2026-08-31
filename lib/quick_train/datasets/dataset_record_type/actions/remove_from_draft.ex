@@ -3,7 +3,7 @@ defmodule QuickTrain.Datasets.DatasetRecordType.Actions.RemoveFromDraft do
 
   use Ash.Resource.Actions.Implementation
 
-  alias QuickTrain.Datasets.{DatasetRecordType, SchemaVersionBoundary}
+  alias QuickTrain.Datasets.SchemaVersionBoundary
 
   @impl true
   def run(input, _opts, _context) do
@@ -12,13 +12,9 @@ defmodule QuickTrain.Datasets.DatasetRecordType.Actions.RemoveFromDraft do
     SchemaVersionBoundary.with_record_type(
       organization_id,
       record_type_id,
-      [DatasetRecordType],
-      fn _schema, record_type ->
-        case Ash.destroy(record_type, action: :destroy_internal, authorize?: false) do
-          :ok -> :ok
-          {:ok, _record} -> :ok
-          {:error, error} -> {:error, error}
-        end
+      [],
+      fn record_type ->
+        Ash.destroy(record_type, action: :destroy_internal, authorize?: false)
       end
     )
   end

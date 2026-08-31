@@ -13,7 +13,7 @@ defmodule QuickTrain.Datasets.DatasetFieldDefinition.Actions.AddToDraft do
       organization_id,
       record_type_id,
       [DatasetFieldDefinition],
-      fn _schema, record_type ->
+      fn record_type ->
         attributes =
           input.arguments
           |> Map.take([:key, :name, :value_family, :cardinality, :required])

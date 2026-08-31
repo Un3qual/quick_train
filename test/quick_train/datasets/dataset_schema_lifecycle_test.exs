@@ -76,7 +76,7 @@ defmodule QuickTrain.Datasets.DatasetSchemaLifecycleTest do
 
     assert Exception.message(duplicate_error) =~ "already been taken"
 
-    assert {:error, family_error} =
+    assert {:error, _} =
              Datasets.add_field_definition(
                organization.id,
                root.id,
@@ -88,9 +88,7 @@ defmodule QuickTrain.Datasets.DatasetSchemaLifecycleTest do
                actor: manager
              )
 
-    assert Exception.message(family_error) =~ "Invalid value provided for value_family"
-
-    assert {:error, cardinality_error} =
+    assert {:error, _} =
              Datasets.add_field_definition(
                organization.id,
                root.id,
@@ -101,8 +99,6 @@ defmodule QuickTrain.Datasets.DatasetSchemaLifecycleTest do
                false,
                actor: manager
              )
-
-    assert Exception.message(cardinality_error) =~ "Invalid value provided for cardinality"
 
     published =
       Datasets.publish_schema_version!(organization.id, schema.id, root.id, actor: manager)

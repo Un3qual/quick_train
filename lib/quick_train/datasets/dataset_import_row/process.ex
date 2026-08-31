@@ -4,7 +4,6 @@ defmodule QuickTrain.Datasets.DatasetImportRow.Process do
   require Ash.Query
 
   alias QuickTrain.Datasets.{DatasetImportRow, DatasetRecord}
-  alias QuickTrain.Datasets.DatasetImportRow.CandidateInput
 
   def process(row_id) do
     Ash.transact([DatasetImportRow, DatasetRecord], fn ->
@@ -43,7 +42,7 @@ defmodule QuickTrain.Datasets.DatasetImportRow.Process do
 
   defp create_revision_and_complete(row) do
     record = Ash.get!(DatasetRecord, row.candidate_record_id, authorize?: false)
-    values = CandidateInput.from_record(record)
+    values = values_from_record(record)
 
     result =
       QuickTrain.Datasets.put_item_revision!(
@@ -65,6 +64,38 @@ defmodule QuickTrain.Datasets.DatasetImportRow.Process do
       item_revision_id: result.revision.id
     })
     |> Ash.update!(authorize?: false)
+  end
+
+  defp values_from_record(record) do
+    record =
+      Ash.load!(
+        record,
+        [
+          values: [
+            :field_definition,
+            :text_value,
+            :integer_value,
+            :decimal_value,
+            :boolean_value,
+            :date_time_value,
+            :asset_value
+          ]
+        ],
+        authorize?: false
+      )
+
+    Enum.map(record.values, fn value ->
+      key = value.field_definition.key
+
+      case value.field_definition.value_family do
+        :text -> %{field: key, text: value.text_value.value}
+        :integer -> %{field: key, integer: value.integer_value.value}
+        :decimal -> %{field: key, decimal: value.decimal_value.value}
+        :boolean -> %{field: key, boolean: value.boolean_value.value}
+        :utc_datetime -> %{field: key, utc_datetime: value.date_time_value.value}
+        :asset -> %{field: key, asset_id: value.asset_value.asset_id}
+      end
+    end)
   end
 
   defp locked_row(row_id) do

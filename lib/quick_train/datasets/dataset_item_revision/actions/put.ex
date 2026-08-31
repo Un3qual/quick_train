@@ -26,7 +26,7 @@ defmodule QuickTrain.Datasets.DatasetItemRevision.Actions.Put do
     RevisionFingerprint
   }
 
-  @families ~w(text integer decimal boolean utc_datetime asset)a
+  @families QuickTrain.Datasets.DatasetValueFamily.values()
   @item_conflicts ["dataset_items_pkey", "dataset_items_dataset_external_key_index"]
   @attempts 2
 

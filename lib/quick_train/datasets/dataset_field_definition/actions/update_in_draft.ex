@@ -13,8 +13,7 @@ defmodule QuickTrain.Datasets.DatasetFieldDefinition.Actions.UpdateInDraft do
     SchemaVersionBoundary.with_field_definition(
       organization_id,
       field_definition_id,
-      [],
-      fn _schema, field ->
+      fn field ->
         attributes =
           Map.take(input.arguments, [:key, :name, :value_family, :cardinality, :required])
 

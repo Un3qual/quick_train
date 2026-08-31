@@ -18,7 +18,6 @@ defmodule QuickTrain.Datasets.DatasetSchemaVersion.Actions.Publish do
     SchemaVersionBoundary.with_draft(
       organization_id,
       schema_version_id,
-      [DatasetRecordType],
       fn schema -> publish(schema, root_record_type_id) end
     )
   end
