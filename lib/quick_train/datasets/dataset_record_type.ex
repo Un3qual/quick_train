@@ -41,6 +41,12 @@ defmodule QuickTrain.Datasets.DatasetRecordType do
       argument :organization_id, :uuid, allow_nil?: false
       argument :schema_version_id, :uuid, allow_nil?: false
 
+      pagination keyset?: true,
+                 offset?: false,
+                 required?: true,
+                 default_limit: 50,
+                 max_page_size: 100
+
       filter expr(
                schema_version_id == ^arg(:schema_version_id) and
                  schema_version.dataset.organization_id == ^arg(:organization_id)

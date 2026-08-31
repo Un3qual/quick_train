@@ -43,6 +43,12 @@ defmodule QuickTrain.Datasets.Dataset do
     read :list_scoped do
       argument :organization_id, :uuid, allow_nil?: false
       filter expr(organization_id == ^arg(:organization_id))
+
+      pagination keyset?: true,
+                 offset?: false,
+                 required?: true,
+                 default_limit: 50,
+                 max_page_size: 100
     end
   end
 

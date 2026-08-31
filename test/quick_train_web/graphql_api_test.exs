@@ -105,10 +105,26 @@ defmodule QuickTrainWeb.GraphqlApiTest do
              "apiVersion" => MapSet.new(),
              "asset" => MapSet.new(["assetId", "organizationId"]),
              "assetAccess" => MapSet.new(["assetId", "organizationId"]),
-             "datasetFieldDefinitions" => MapSet.new(["organizationId", "recordTypeId"]),
-             "datasetRecordTypes" => MapSet.new(["organizationId", "schemaVersionId"]),
+             "datasetFieldDefinitions" =>
+               MapSet.new([
+                 "after",
+                 "before",
+                 "first",
+                 "last",
+                 "organizationId",
+                 "recordTypeId"
+               ]),
+             "datasetRecordTypes" =>
+               MapSet.new([
+                 "after",
+                 "before",
+                 "first",
+                 "last",
+                 "organizationId",
+                 "schemaVersionId"
+               ]),
              "datasetSchemaVersion" => MapSet.new(["organizationId", "schemaVersionId"]),
-             "datasets" => MapSet.new(["organizationId"])
+             "datasets" => MapSet.new(["after", "before", "first", "last", "organizationId"])
            }
 
     mutations =

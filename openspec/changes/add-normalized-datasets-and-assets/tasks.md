@@ -25,7 +25,7 @@
 - [x] 3.2 Implement draft-only record-type and field editing for text, integer, decimal, boolean, UTC date-time, and asset families with `single` cardinality and requiredness.
 - [x] 3.3 Make every schema child edit lock and recheck the parent version so no mutation can commit after publication.
 - [x] 3.4 Implement atomic schema publication with exactly one same-schema designated root type and immutable post-publication behavior.
-- [x] 3.5 Expose deliberate dataset and schema lifecycle actions plus scoped typed reads through GraphQL.
+- [x] 3.5 Expose deliberate dataset and schema lifecycle actions plus scoped typed reads through required keyset-paginated Relay connections in GraphQL.
 - [x] 3.6 Add focused policy, lifecycle, validation, same-schema constraint, publication-race, and GraphQL tests.
 
 ## 4. Normalized Items, Revisions, and Typed Values
@@ -36,7 +36,7 @@
 - [ ] 4.4 Implement transactional flat-record construction that resolves fields only within the exact root record type and enforces required or optional single-cardinality occurrence counts.
 - [ ] 4.5 Implement the versioned revision fingerprint encoder with canonical typed bytes and schema-aware identity.
 - [ ] 4.6 Implement atomic stable-item get-or-create and item-locked immutable revision creation with monotonic revision numbers and unchanged detection.
-- [ ] 4.7 Implement paginated typed item and revision reads without generic update or delete mutations for immutable content.
+- [ ] 4.7 Implement required keyset-paginated Relay connections for typed item and revision reads without generic update or delete mutations for immutable content.
 - [ ] 4.8 Add focused tests for typed round trips, invalid child combinations, cross-boundary references, field cardinality, fingerprint equivalence and divergence, first-item races, revision ordering, unchanged detection, and historical immutability.
 
 ## 5. Simplified Programmatic Imports
@@ -50,7 +50,7 @@
 - [ ] 5.7 Implement import-locked finalization that atomically seals the accepted row set and inserts the complete unique bounded-retry row-job set, rolling back sealing on any scheduling failure and preserving safe concurrent and lost-response retries.
 - [ ] 5.8 Implement unique bounded-retry row jobs with terminal-row checks and atomic item-revision/outcome commits; add the responsibility-specific bounded terminalization reconciler justified by Oban 2.24.0, with exact-worker filtering, immutable row-identity arguments, overlap-preventing uniqueness, row locking and terminal recheck, sanitized `processing_retries_exhausted` outcomes for discarded or cancelled jobs, and terminal-job retention through the recovery window, without leases, fences, persisted row attempt counters, per-attempt recovery jobs, aggregate counters, or a generic recovery domain.
 - [ ] 5.9 Implement automatic expired-open-import cleanup under the same import lock while preserving every sealed import and finalized provenance row.
-- [ ] 5.10 Implement derived batch counts and lifecycle queries plus bounded cursor-paginated row-outcome inspection over indexed rows, exposing row key, source position, current outcome, sanitized errors, and any resulting revision reference without persisted aggregate counters or a separate processing state.
+- [ ] 5.10 Implement derived batch counts and lifecycle queries plus a bounded keyset-paginated Relay connection for row-outcome inspection over indexed rows, exposing row key, source position, current outcome, sanitized errors, and any resulting revision reference without persisted aggregate counters or a separate processing state.
 - [ ] 5.11 Add focused import tests for batch and row idempotency, structurally rejected input, domain-invalid provenance, equivalent fingerprints, duplicate external keys, keyless identity, partial completion, bounded row-outcome pagination, and schema or asset scope.
 - [ ] 5.12 Add focused concurrency and worker tests for append/finalize and finalize/cleanup races, atomic row-job scheduling rollback, row failure before commit, retry after terminal commit, retry-exhaustion and cancellation reconciliation, reconciliation versus late terminal commit, terminal evidence retention before pruning, concurrent item revisions, derived progress, and cross-organization denial.
 

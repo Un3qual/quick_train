@@ -55,6 +55,12 @@ defmodule QuickTrain.Datasets.DatasetFieldDefinition do
       argument :organization_id, :uuid, allow_nil?: false
       argument :record_type_id, :uuid, allow_nil?: false
 
+      pagination keyset?: true,
+                 offset?: false,
+                 required?: true,
+                 default_limit: 50,
+                 max_page_size: 100
+
       filter expr(
                record_type_id == ^arg(:record_type_id) and
                  record_type.schema_version.dataset.organization_id ==

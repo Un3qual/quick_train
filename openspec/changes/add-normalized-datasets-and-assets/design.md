@@ -151,7 +151,7 @@ No product content is public. Cross-organization failures do not disclose whethe
 
 ### 8. Expose deliberate GraphQL lifecycle actions
 
-Public operations cover asset registration, finalization and authorized access; dataset and draft-schema lifecycle; import open, append, finalize, derived progress, and bounded paginated row-outcome inspection; and paginated typed reads. There are no generic mutations for ready asset content, published schemas, item revisions, records, or typed values.
+Public operations cover asset registration, finalization and authorized access; dataset and draft-schema lifecycle; import open, append, finalize, derived progress, and bounded paginated row-outcome inspection; and paginated typed reads. Every GraphQL collection is a bounded required keyset-paginated Relay connection; offset pagination and unbounded list results are not exposed. There are no generic mutations for ready asset content, published schemas, item revisions, records, or typed values.
 
 Stable error codes include `forbidden`, `invalid_schema`, `invalid_value`, `asset_not_ready`, `asset_identity_conflict`, `idempotency_conflict`, `import_not_open`, and `import_expired`.
 

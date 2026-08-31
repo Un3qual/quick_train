@@ -154,19 +154,30 @@ defmodule QuickTrainWeb.DatasetSchemaGraphqlTest do
         conn,
         """
         query ReadSchema($organizationId: ID!, $schemaVersionId: ID!, $recordTypeId: ID!) {
-          datasets(organizationId: $organizationId) { id key name }
+          datasets(organizationId: $organizationId, first: 50) {
+            edges { node { id key name } cursor }
+            pageInfo { hasNextPage endCursor }
+          }
           datasetSchemaVersion(
             organizationId: $organizationId,
             schemaVersionId: $schemaVersionId
           ) { id state rootRecordTypeId }
           datasetRecordTypes(
             organizationId: $organizationId,
-            schemaVersionId: $schemaVersionId
-          ) { id key name }
+            schemaVersionId: $schemaVersionId,
+            first: 50
+          ) {
+            edges { node { id key name } cursor }
+            pageInfo { hasNextPage endCursor }
+          }
           datasetFieldDefinitions(
             organizationId: $organizationId,
-            recordTypeId: $recordTypeId
-          ) { id key valueFamily cardinality required }
+            recordTypeId: $recordTypeId,
+            first: 50
+          ) {
+            edges { node { id key valueFamily cardinality required } cursor }
+            pageInfo { hasNextPage endCursor }
+          }
         }
         """,
         %{
@@ -176,14 +187,28 @@ defmodule QuickTrainWeb.DatasetSchemaGraphqlTest do
         }
       )
 
-    assert [%{"id" => dataset_id, "key" => "customers"}] = reads["datasets"]
+    assert [%{"node" => %{"id" => dataset_id, "key" => "customers"}, "cursor" => cursor}] =
+             reads["datasets"]["edges"]
+
+    assert is_binary(cursor)
+    refute reads["datasets"]["pageInfo"]["hasNextPage"]
     assert dataset_id == dataset["id"]
     assert reads["datasetSchemaVersion"]["state"] == "published"
-    assert [%{"id" => root_id, "key" => "customer"}] = reads["datasetRecordTypes"]
+
+    assert [%{"node" => %{"id" => root_id, "key" => "customer"}}] =
+             reads["datasetRecordTypes"]["edges"]
+
     assert root_id == root["id"]
 
-    assert [%{"id" => field_id, "valueFamily" => "text", "cardinality" => "single"}] =
-             reads["datasetFieldDefinitions"]
+    assert [
+             %{
+               "node" => %{
+                 "id" => field_id,
+                 "valueFamily" => "text",
+                 "cardinality" => "single"
+               }
+             }
+           ] = reads["datasetFieldDefinitions"]["edges"]
 
     assert field_id == field["id"]
   end

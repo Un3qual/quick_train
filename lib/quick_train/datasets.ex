@@ -12,10 +12,16 @@ defmodule QuickTrain.Datasets do
 
   graphql do
     queries do
-      list Dataset, :datasets, :list_scoped
+      list Dataset, :datasets, :list_scoped, relay?: true, paginate_with: :keyset
       read_one DatasetSchemaVersion, :dataset_schema_version, :get_scoped
-      list DatasetRecordType, :dataset_record_types, :list_scoped
-      list DatasetFieldDefinition, :dataset_field_definitions, :list_scoped
+
+      list DatasetRecordType, :dataset_record_types, :list_scoped,
+        relay?: true,
+        paginate_with: :keyset
+
+      list DatasetFieldDefinition, :dataset_field_definitions, :list_scoped,
+        relay?: true,
+        paginate_with: :keyset
     end
 
     mutations do

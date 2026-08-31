@@ -116,7 +116,7 @@ The system SHALL assign stable identity and ordinal position to value occurrence
 - **THEN** the system returns an unsupported-structure error and does not serialize the nested value into an opaque column
 
 ### Requirement: Deliberate GraphQL dataset API
-The system SHALL expose authenticated GraphQL actions for dataset and schema lifecycle operations and paginated typed reads. It SHALL NOT expose unrestricted mutation of published schemas or immutable item revisions.
+The system SHALL expose authenticated GraphQL actions for dataset and schema lifecycle operations and paginated typed reads. Every GraphQL collection SHALL use bounded required keyset pagination and SHALL be represented as a Relay connection; offset pagination and unbounded list results SHALL NOT be exposed. It SHALL NOT expose unrestricted mutation of published schemas or immutable item revisions.
 
 #### Scenario: Typed revision is queried
 - **WHEN** an authorized actor queries an item revision
@@ -125,3 +125,7 @@ The system SHALL expose authenticated GraphQL actions for dataset and schema lif
 #### Scenario: Immutable revision mutation is denied
 - **WHEN** a caller attempts to update or delete value content through a generic mutation
 - **THEN** no such public mutation is available and the record remains unchanged
+
+#### Scenario: Typed collection is paginated
+- **WHEN** an authorized caller reads datasets, schema children, item revisions, or import-row outcomes through GraphQL
+- **THEN** the API returns a bounded Relay connection backed only by keyset cursors
