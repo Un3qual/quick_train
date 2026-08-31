@@ -60,7 +60,7 @@ defmodule QuickTrain.Datasets.DatasetRecordType do
       argument :schema_version_id, :uuid, allow_nil?: false
       argument :key, :string, allow_nil?: false
       argument :name, :string, allow_nil?: false
-      run QuickTrain.Datasets.DatasetRecordType.Actions.AddToDraft
+      run {Module.concat(["QuickTrain.Datasets.DatasetRecordType.Actions.AddToDraft"]), []}
     end
 
     action :update_in_draft, :struct do
@@ -70,14 +70,14 @@ defmodule QuickTrain.Datasets.DatasetRecordType do
       argument :record_type_id, :uuid, allow_nil?: false
       argument :key, :string, allow_nil?: false
       argument :name, :string, allow_nil?: false
-      run QuickTrain.Datasets.DatasetRecordType.Actions.UpdateInDraft
+      run {Module.concat(["QuickTrain.Datasets.DatasetRecordType.Actions.UpdateInDraft"]), []}
     end
 
     action :remove_from_draft, :atom do
       allow_nil? false
       argument :organization_id, :uuid, allow_nil?: false
       argument :record_type_id, :uuid, allow_nil?: false
-      run QuickTrain.Datasets.DatasetRecordType.Actions.RemoveFromDraft
+      run {Module.concat(["QuickTrain.Datasets.DatasetRecordType.Actions.RemoveFromDraft"]), []}
     end
 
     create :create_internal do

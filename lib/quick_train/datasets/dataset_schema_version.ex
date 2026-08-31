@@ -63,7 +63,7 @@ defmodule QuickTrain.Datasets.DatasetSchemaVersion do
       constraints instance_of: __MODULE__
       argument :organization_id, :uuid, allow_nil?: false
       argument :dataset_id, :uuid, allow_nil?: false
-      run QuickTrain.Datasets.DatasetSchemaVersion.Actions.CreateDraft
+      run {Module.concat(["QuickTrain.Datasets.DatasetSchemaVersion.Actions.CreateDraft"]), []}
     end
 
     action :publish, :struct do
@@ -72,7 +72,7 @@ defmodule QuickTrain.Datasets.DatasetSchemaVersion do
       argument :organization_id, :uuid, allow_nil?: false
       argument :schema_version_id, :uuid, allow_nil?: false
       argument :root_record_type_id, :uuid, allow_nil?: false
-      run QuickTrain.Datasets.DatasetSchemaVersion.Actions.Publish
+      run {Module.concat(["QuickTrain.Datasets.DatasetSchemaVersion.Actions.Publish"]), []}
     end
 
     create :create_internal do

@@ -70,7 +70,7 @@ defmodule QuickTrain.Datasets.DatasetImportRow do
 
       argument :values, {:array, QuickTrain.Datasets.DatasetImportValueInput}, allow_nil?: false
 
-      run QuickTrain.Datasets.DatasetImportRow.Actions.Append
+      run {Module.concat(["QuickTrain.Datasets.DatasetImportRow.Actions.Append"]), []}
     end
 
     read :list_scoped do

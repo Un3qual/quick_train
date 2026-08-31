@@ -6,9 +6,11 @@ defmodule QuickTrain.Assets.AssetRegistrationResult do
     data_layer: :embedded,
     extensions: [AshGraphql.Resource]
 
+  alias QuickTrain.Assets.{AssetSummary, StorageAccess}
+
   attributes do
-    attribute :asset, QuickTrain.Assets.AssetSummary, allow_nil?: false, public?: true
-    attribute :upload_access, QuickTrain.Assets.StorageAccess, public?: true
+    attribute :asset, AssetSummary, allow_nil?: false, public?: true
+    attribute :upload_access, StorageAccess, public?: true
     attribute :reused, :boolean, allow_nil?: false, public?: true
   end
 
@@ -18,8 +20,8 @@ defmodule QuickTrain.Assets.AssetRegistrationResult do
 
   def from(asset, upload_access, reused?) do
     struct!(__MODULE__, %{
-      asset: QuickTrain.Assets.AssetSummary.from(asset),
-      upload_access: QuickTrain.Assets.StorageAccess.from(upload_access),
+      asset: AssetSummary.from(asset),
+      upload_access: StorageAccess.from(upload_access),
       reused: reused?
     })
   end

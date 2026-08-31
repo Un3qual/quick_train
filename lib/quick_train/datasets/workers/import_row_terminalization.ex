@@ -1,4 +1,6 @@
 defmodule QuickTrain.Datasets.Workers.ImportRowTerminalization do
+  # Each terminal Oban row is reduced through an explicit fail-fast reconciliation branch.
+  # credo:disable-for-this-file Credo.Check.Refactor.Nesting
   @moduledoc false
 
   use Oban.Worker,

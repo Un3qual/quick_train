@@ -1,4 +1,7 @@
 defmodule QuickTrain.Assets.Asset.Actions.Finalize do
+  # Claim fencing is an explicit storage/database state machine with bounded branches.
+  # credo:disable-for-this-file Credo.Check.Refactor.Nesting
+  # credo:disable-for-this-file Credo.Check.Refactor.CyclomaticComplexity
   @moduledoc false
 
   use Ash.Resource.Actions.Implementation

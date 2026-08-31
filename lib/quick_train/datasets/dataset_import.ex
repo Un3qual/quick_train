@@ -52,7 +52,7 @@ defmodule QuickTrain.Datasets.DatasetImport do
       argument :dataset_id, :uuid, allow_nil?: false
       argument :schema_version_id, :uuid, allow_nil?: false
       argument :idempotency_key, :string, allow_nil?: false
-      run QuickTrain.Datasets.DatasetImport.Actions.Open
+      run {Module.concat(["QuickTrain.Datasets.DatasetImport.Actions.Open"]), []}
     end
 
     action :finalize, :struct do
@@ -60,14 +60,14 @@ defmodule QuickTrain.Datasets.DatasetImport do
       constraints instance_of: __MODULE__
       argument :organization_id, :uuid, allow_nil?: false
       argument :import_id, :uuid, allow_nil?: false
-      run QuickTrain.Datasets.DatasetImport.Actions.Finalize
+      run {Module.concat(["QuickTrain.Datasets.DatasetImport.Actions.Finalize"]), []}
     end
 
     action :inspect, QuickTrain.Datasets.DatasetImportSummary do
       allow_nil? false
       argument :organization_id, :uuid, allow_nil?: false
       argument :import_id, :uuid, allow_nil?: false
-      run QuickTrain.Datasets.DatasetImport.Actions.Inspect
+      run {Module.concat(["QuickTrain.Datasets.DatasetImport.Actions.Inspect"]), []}
     end
 
     create :create_internal do

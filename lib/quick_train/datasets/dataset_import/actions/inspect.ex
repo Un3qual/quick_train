@@ -22,17 +22,14 @@ defmodule QuickTrain.Datasets.DatasetImport.Actions.Inspect do
   end
 
   defp summary(import) do
-    counts =
-      for outcome <- ~w(pending succeeded unchanged failed), into: %{} do
-        count =
-          DatasetImportRow
-          |> Ash.Query.filter(import_id == ^import.id and outcome == ^outcome)
-          |> Ash.count!(authorize?: false)
+    counts = %{
+      pending: count(import.id, "pending"),
+      succeeded: count(import.id, "succeeded"),
+      unchanged: count(import.id, "unchanged"),
+      failed: count(import.id, "failed")
+    }
 
-        {String.to_atom(outcome), count}
-      end
-
-    row_count = Enum.sum(Map.values(counts))
+    row_count = Enum.reduce(counts, 0, fn {_outcome, count}, total -> total + count end)
 
     struct!(DatasetImportSummary, %{
       import_id: import.id,
@@ -44,6 +41,12 @@ defmodule QuickTrain.Datasets.DatasetImport.Actions.Inspect do
       unchanged: counts.unchanged,
       failed: counts.failed
     })
+  end
+
+  defp count(import_id, outcome) do
+    DatasetImportRow
+    |> Ash.Query.filter(import_id == ^import_id and outcome == ^outcome)
+    |> Ash.count!(authorize?: false)
   end
 
   defp lifecycle("open", _row_count, _counts), do: "open"

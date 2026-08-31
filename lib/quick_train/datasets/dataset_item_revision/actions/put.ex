@@ -1,4 +1,6 @@
 defmodule QuickTrain.Datasets.DatasetItemRevision.Actions.Put do
+  # The nested branch is the item-lock transaction's explicit rollback state machine.
+  # credo:disable-for-this-file Credo.Check.Refactor.Nesting
   @moduledoc false
 
   use Ash.Resource.Actions.Implementation

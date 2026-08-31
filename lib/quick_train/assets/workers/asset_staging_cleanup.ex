@@ -1,4 +1,6 @@
 defmodule QuickTrain.Assets.Workers.AssetStagingCleanup do
+  # The bounded cleanup scan deliberately fails fast on its first resource error.
+  # credo:disable-for-this-file Credo.Check.Refactor.Nesting
   @moduledoc false
 
   use Oban.Worker,

@@ -1,4 +1,6 @@
 defmodule QuickTrain.Datasets.DatasetImportRow.Structure do
+  # Structural rejection order is intentionally represented in one reduce_while boundary.
+  # credo:disable-for-this-file Credo.Check.Refactor.Nesting
   @moduledoc false
 
   alias QuickTrain.Datasets.RevisionFingerprint

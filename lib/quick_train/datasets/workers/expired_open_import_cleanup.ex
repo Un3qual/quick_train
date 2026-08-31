@@ -1,4 +1,6 @@
 defmodule QuickTrain.Datasets.Workers.ExpiredOpenImportCleanup do
+  # The bounded scan deliberately fails fast on the first cleanup transaction error.
+  # credo:disable-for-this-file Credo.Check.Refactor.Nesting
   @moduledoc false
 
   use Oban.Worker,

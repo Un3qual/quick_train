@@ -4,8 +4,10 @@ defmodule QuickTrain.Datasets.DatasetImportTest do
 
   require Ash.Query
 
+  alias Ecto.Adapters.SQL.Sandbox
   alias QuickTrain.{Accounts, Datasets}
   alias QuickTrain.Datasets.{DatasetImport, DatasetImportRow, DatasetItem, DatasetRecord}
+  alias QuickTrain.Datasets.DatasetImportRow.Process, as: ImportRowProcess
 
   alias QuickTrain.Datasets.Workers.{
     ExpiredOpenImportCleanup,
@@ -332,11 +334,11 @@ defmodule QuickTrain.Datasets.DatasetImportTest do
       for row <- [first, second] do
         Task.async(fn ->
           send(parent, {:ready, self()})
-          receive do: (:go -> QuickTrain.Datasets.DatasetImportRow.Process.process(row.id))
+          receive do: (:go -> ImportRowProcess.process(row.id))
         end)
       end
 
-    Enum.each(tasks, &Ecto.Adapters.SQL.Sandbox.allow(QuickTrain.Repo, self(), &1.pid))
+    Enum.each(tasks, &Sandbox.allow(QuickTrain.Repo, self(), &1.pid))
     for _task <- tasks, do: assert_receive({:ready, _pid}, 5_000)
     Enum.each(tasks, &send(&1.pid, :go))
     assert Enum.all?(tasks, &match?({:ok, _}, Task.await(&1, 5_000)))

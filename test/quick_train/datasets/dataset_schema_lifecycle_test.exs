@@ -1,7 +1,9 @@
 defmodule QuickTrain.Datasets.DatasetSchemaLifecycleTest do
   use QuickTrain.DataCase, async: true
 
+  alias Ecto.Adapters.SQL.Sandbox
   alias QuickTrain.{Accounts, AshError, Datasets}
+  alias QuickTrain.Datasets.DatasetRecordType
 
   setup do
     manager = Accounts.register_user!("dataset-manager@example.test", "Dataset Manager")
@@ -266,7 +268,7 @@ defmodule QuickTrain.Datasets.DatasetSchemaLifecycleTest do
         )
       end)
 
-    Ecto.Adapters.SQL.Sandbox.allow(QuickTrain.Repo, self(), publisher.pid)
+    Sandbox.allow(QuickTrain.Repo, self(), publisher.pid)
     send(publisher.pid, :start)
     assert_receive {:publication_locked, publisher_pid}, 5_000
     assert publisher_pid == publisher.pid
@@ -286,7 +288,7 @@ defmodule QuickTrain.Datasets.DatasetSchemaLifecycleTest do
         )
       end)
 
-    Ecto.Adapters.SQL.Sandbox.allow(QuickTrain.Repo, self(), editor.pid)
+    Sandbox.allow(QuickTrain.Repo, self(), editor.pid)
     send(editor.pid, :start)
     assert Task.yield(editor, 100) == nil
 
@@ -297,7 +299,7 @@ defmodule QuickTrain.Datasets.DatasetSchemaLifecycleTest do
     assert {:ok, {:error, edit_error}} = Task.yield(editor, 5_000)
     assert Exception.message(edit_error) =~ "schema_not_draft"
 
-    unchanged = Ash.get!(QuickTrain.Datasets.DatasetRecordType, root.id, authorize?: false)
+    unchanged = Ash.get!(DatasetRecordType, root.id, authorize?: false)
     assert unchanged.key == "customer"
   end
 

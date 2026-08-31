@@ -11,9 +11,8 @@ defmodule QuickTrain.Assets.Asset.Actions.Register do
   def run(input, _opts, _context) do
     arguments = input.arguments
 
-    with :ok <- validate_declared_facts(arguments),
-         {:ok, result} <- register(input.resource, arguments) do
-      {:ok, result}
+    with :ok <- validate_declared_facts(arguments) do
+      register(input.resource, arguments)
     end
   end
 

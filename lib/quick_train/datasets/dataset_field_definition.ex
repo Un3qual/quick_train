@@ -78,7 +78,7 @@ defmodule QuickTrain.Datasets.DatasetFieldDefinition do
       argument :value_family, :string, allow_nil?: false
       argument :cardinality, :string, allow_nil?: false
       argument :required, :boolean, allow_nil?: false
-      run QuickTrain.Datasets.DatasetFieldDefinition.Actions.AddToDraft
+      run {Module.concat(["QuickTrain.Datasets.DatasetFieldDefinition.Actions.AddToDraft"]), []}
     end
 
     action :update_in_draft, :struct do
@@ -91,14 +91,18 @@ defmodule QuickTrain.Datasets.DatasetFieldDefinition do
       argument :value_family, :string, allow_nil?: false
       argument :cardinality, :string, allow_nil?: false
       argument :required, :boolean, allow_nil?: false
-      run QuickTrain.Datasets.DatasetFieldDefinition.Actions.UpdateInDraft
+
+      run {Module.concat(["QuickTrain.Datasets.DatasetFieldDefinition.Actions.UpdateInDraft"]),
+           []}
     end
 
     action :remove_from_draft, :atom do
       allow_nil? false
       argument :organization_id, :uuid, allow_nil?: false
       argument :field_definition_id, :uuid, allow_nil?: false
-      run QuickTrain.Datasets.DatasetFieldDefinition.Actions.RemoveFromDraft
+
+      run {Module.concat(["QuickTrain.Datasets.DatasetFieldDefinition.Actions.RemoveFromDraft"]),
+           []}
     end
 
     create :create_internal do

@@ -4,7 +4,7 @@ defmodule QuickTrain.Assets.AssetWorkersTest do
 
   alias QuickTrain.{Accounts, Assets, Datasets}
   alias QuickTrain.Assets.Asset
-  alias QuickTrain.Assets.Asset.{Cleanup, Actions.Finalize}
+  alias QuickTrain.Assets.Asset.{Actions.Finalize, Cleanup}
   alias QuickTrain.Assets.Storage
   alias QuickTrain.Assets.Storage.Test, as: TestStorage
   alias QuickTrain.Assets.Workers.{AssetStagingCleanup, VerifyAsset}

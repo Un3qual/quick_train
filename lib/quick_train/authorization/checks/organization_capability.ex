@@ -44,6 +44,14 @@ defmodule QuickTrain.Authorization.Checks.OrganizationCapability do
   defp allowed?(user_id, organization_id, capability) do
     Authorization.allowed?(user_id, organization_id, capability)
   rescue
-    _error -> false
+    _error in [
+      Ash.Error.Forbidden,
+      Ash.Error.Framework,
+      Ash.Error.Invalid,
+      Ash.Error.Unknown,
+      DBConnection.ConnectionError,
+      Postgrex.Error
+    ] ->
+      false
   end
 end

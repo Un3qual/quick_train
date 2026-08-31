@@ -57,6 +57,6 @@
 ## 6. Integration and Verification
 
 - [x] 6.1 Review all generated AshPostgres snapshots and migrations together, including composite keys, typed-child enforcement, asset partial uniqueness, canonical hash constraints, import idempotency, expiry cleanup, row outcomes, and supporting indexes.
-- [ ] 6.2 Exercise the complete authenticated workflow: create and publish a schema, register and seal an asset, import mixed valid and invalid rows, retry open and append requests, finalize and process rows, inspect paginated row outcomes, and query typed historical revisions under organization authorization.
+- [x] 6.2 Exercise the complete authenticated workflow: create and publish a schema, register and seal an asset, import mixed valid and invalid rows, retry open and append requests, finalize and process rows, inspect paginated row outcomes, and query typed historical revisions under organization authorization.
 - [x] 6.3 Document required product capability bootstrap, production storage configuration, asset staging lifetime, import open lifetime, and responsibility-specific Oban schedules without selecting a storage provider.
-- [ ] 6.4 Run `mise run openspec.validate`, format and compile the implementation, inspect relevant logs and focused tests, and finish with `mise run verify` from a clean migrated database.
+- [x] 6.4 Run `mise run openspec.validate`, format and compile the implementation, inspect relevant logs and focused tests, and finish with `mise run verify` from a clean migrated database.

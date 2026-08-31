@@ -1,4 +1,6 @@
 defmodule QuickTrain.Datasets.DatasetImport.Actions.Finalize do
+  # Sealing and complete job insertion intentionally share one transaction state machine.
+  # credo:disable-for-this-file Credo.Check.Refactor.Nesting
   @moduledoc false
 
   use Ash.Resource.Actions.Implementation

@@ -6,9 +6,11 @@ defmodule QuickTrain.Assets.AssetFinalizationResult do
     data_layer: :embedded,
     extensions: [AshGraphql.Resource]
 
+  alias QuickTrain.Assets.AssetSummary
+
   attributes do
-    attribute :asset, QuickTrain.Assets.AssetSummary, allow_nil?: false, public?: true
-    attribute :canonical_asset, QuickTrain.Assets.AssetSummary, public?: true
+    attribute :asset, AssetSummary, allow_nil?: false, public?: true
+    attribute :canonical_asset, AssetSummary, public?: true
   end
 
   graphql do
@@ -17,8 +19,8 @@ defmodule QuickTrain.Assets.AssetFinalizationResult do
 
   def from(asset, canonical_asset) do
     struct!(__MODULE__, %{
-      asset: QuickTrain.Assets.AssetSummary.from(asset),
-      canonical_asset: canonical_asset && QuickTrain.Assets.AssetSummary.from(canonical_asset)
+      asset: AssetSummary.from(asset),
+      canonical_asset: canonical_asset && AssetSummary.from(canonical_asset)
     })
   end
 end

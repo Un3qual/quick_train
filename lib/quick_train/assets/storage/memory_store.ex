@@ -3,6 +3,8 @@ defmodule QuickTrain.Assets.Storage.MemoryStore do
 
   use GenServer
 
+  alias QuickTrain.Assets.Storage.Content
+
   def start_link(opts) do
     name = Keyword.fetch!(opts, :name)
     host = Keyword.fetch!(opts, :host)
@@ -141,7 +143,7 @@ defmodule QuickTrain.Assets.Storage.MemoryStore do
   def handle_call({:verify_sealed, key, expected}, _from, state) do
     case Map.get(state.sealed, key) do
       %{bytes: bytes} ->
-        {:reply, QuickTrain.Assets.Storage.Content.verify(bytes, expected), state}
+        {:reply, Content.verify(bytes, expected), state}
 
       nil ->
         {:reply, {:error, :sealed_missing}, state}

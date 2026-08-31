@@ -1,6 +1,7 @@
 defmodule QuickTrain.Datasets.DatasetRevisionTest do
   use QuickTrain.DataCase, async: false
 
+  alias Ecto.Adapters.SQL.Sandbox
   alias QuickTrain.{Accounts, Assets, Datasets}
   alias QuickTrain.Assets.Storage.Test, as: TestStorage
   alias QuickTrain.Datasets.{DatasetItem, DatasetItemRevision, DatasetRecord, DatasetValue}
@@ -181,7 +182,7 @@ defmodule QuickTrain.Datasets.DatasetRevisionTest do
       end
 
     Enum.each(tasks, fn task ->
-      Ecto.Adapters.SQL.Sandbox.allow(QuickTrain.Repo, self(), task.pid)
+      Sandbox.allow(QuickTrain.Repo, self(), task.pid)
     end)
 
     for _task <- tasks, do: assert_receive({:ready, _pid}, 5_000)

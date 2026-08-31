@@ -1,4 +1,6 @@
 defmodule QuickTrain.Datasets.DatasetImportRow.Actions.Append do
+  # The nested branch mirrors the import-lock lifecycle and rollback decisions.
+  # credo:disable-for-this-file Credo.Check.Refactor.Nesting
   @moduledoc false
 
   use Ash.Resource.Actions.Implementation

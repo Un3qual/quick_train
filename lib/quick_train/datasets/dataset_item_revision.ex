@@ -69,7 +69,7 @@ defmodule QuickTrain.Datasets.DatasetItemRevision do
       argument :item_id, :uuid
       argument :external_key, :string
       argument :values, {:array, :map}, allow_nil?: false
-      run QuickTrain.Datasets.DatasetItemRevision.Actions.Put
+      run {Module.concat(["QuickTrain.Datasets.DatasetItemRevision.Actions.Put"]), []}
     end
 
     create :create_internal do

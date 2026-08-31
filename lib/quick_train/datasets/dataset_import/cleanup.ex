@@ -1,4 +1,6 @@
 defmodule QuickTrain.Datasets.DatasetImport.Cleanup do
+  # Cleanup keeps lock recheck and graph retirement visibly inside one transaction.
+  # credo:disable-for-this-file Credo.Check.Refactor.Nesting
   @moduledoc false
 
   require Ash.Query
