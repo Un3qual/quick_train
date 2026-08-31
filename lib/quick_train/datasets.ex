@@ -220,12 +220,12 @@ defmodule QuickTrain.Datasets do
         args: [:organization_id, :revision_id]
     end
 
-    resource QuickTrain.Datasets.DatasetTextValue
-    resource QuickTrain.Datasets.DatasetIntegerValue
-    resource QuickTrain.Datasets.DatasetDecimalValue
-    resource QuickTrain.Datasets.DatasetBooleanValue
-    resource QuickTrain.Datasets.DatasetDateTimeValue
-    resource QuickTrain.Datasets.DatasetAssetValue
+    resource QuickTrain.Datasets.DatasetValue.Text
+    resource QuickTrain.Datasets.DatasetValue.Integer
+    resource QuickTrain.Datasets.DatasetValue.Decimal
+    resource QuickTrain.Datasets.DatasetValue.Boolean
+    resource QuickTrain.Datasets.DatasetValue.DateTime
+    resource QuickTrain.Datasets.DatasetValue.Asset
 
     resource QuickTrain.Datasets.DatasetImport do
       define :open_import,

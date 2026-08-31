@@ -1,4 +1,4 @@
-defmodule QuickTrain.Datasets.DatasetImportPhase do
+defmodule QuickTrain.Datasets.DatasetImport.Phase do
   @moduledoc "Persisted acceptance phase for a dataset import."
 
   use Ash.Type.Enum, values: [:open, :sealed]

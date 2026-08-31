@@ -1,5 +1,5 @@
-defmodule QuickTrain.Datasets.DatasetDecimalValue do
-  @moduledoc "Normalized arbitrary-precision decimal representation for one occurrence."
+defmodule QuickTrain.Datasets.DatasetValue.Boolean do
+  @moduledoc "Normalized boolean representation for one dataset value occurrence."
 
   use Ash.Resource,
     otp_app: :quick_train,
@@ -9,7 +9,7 @@ defmodule QuickTrain.Datasets.DatasetDecimalValue do
 
   attributes do
     uuid_primary_key :id
-    attribute :value, :decimal, allow_nil?: false, public?: true
+    attribute :value, :boolean, allow_nil?: false, public?: true
     timestamps()
   end
 
@@ -33,18 +33,18 @@ defmodule QuickTrain.Datasets.DatasetDecimalValue do
   graphql do
     derive_filter? false
     derive_sort? false
-    type :dataset_decimal_value
+    type :dataset_boolean_value
   end
 
   postgres do
-    table "dataset_decimal_values"
+    table "dataset_boolean_values"
     repo QuickTrain.Repo
-    identity_index_names dataset_value: "dataset_decimal_values_dataset_value_index"
+    identity_index_names dataset_value: "dataset_boolean_values_dataset_value_index"
 
     references do
       reference :dataset_value,
         on_delete: :restrict,
-        name: "dataset_decimal_values_dataset_value_id_fkey"
+        name: "dataset_boolean_values_dataset_value_id_fkey"
     end
   end
 

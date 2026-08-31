@@ -16,7 +16,7 @@ defmodule QuickTrain.Datasets.DatasetSchemaVersion do
       public? true
     end
 
-    attribute :state, QuickTrain.Datasets.DatasetSchemaState do
+    attribute :state, QuickTrain.Datasets.DatasetSchemaVersion.State do
       allow_nil? false
       public? true
       default :draft

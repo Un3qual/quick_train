@@ -74,7 +74,7 @@ defmodule QuickTrain.Datasets.DatasetItemRevision do
 
     action :put, :struct do
       allow_nil? false
-      constraints instance_of: QuickTrain.Datasets.DatasetRevisionResult
+      constraints instance_of: QuickTrain.Datasets.DatasetItemRevision.Result
       argument :organization_id, :uuid, allow_nil?: false
       argument :dataset_id, :uuid, allow_nil?: false
       argument :schema_version_id, :uuid, allow_nil?: false

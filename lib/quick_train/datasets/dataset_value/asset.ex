@@ -1,4 +1,4 @@
-defmodule QuickTrain.Datasets.DatasetAssetValue do
+defmodule QuickTrain.Datasets.DatasetValue.Asset do
   @moduledoc "Organization-safe immutable asset representation for one occurrence."
 
   use Ash.Resource,

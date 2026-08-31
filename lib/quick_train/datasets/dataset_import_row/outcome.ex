@@ -1,4 +1,4 @@
-defmodule QuickTrain.Datasets.DatasetImportRowOutcome do
+defmodule QuickTrain.Datasets.DatasetImportRow.Outcome do
   @moduledoc "Processing outcome for one accepted dataset import row."
 
   use Ash.Type.Enum, values: [:pending, :succeeded, :unchanged, :failed]

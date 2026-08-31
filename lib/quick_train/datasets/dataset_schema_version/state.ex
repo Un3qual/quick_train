@@ -1,4 +1,4 @@
-defmodule QuickTrain.Datasets.DatasetSchemaState do
+defmodule QuickTrain.Datasets.DatasetSchemaVersion.State do
   @moduledoc "Lifecycle state for a dataset schema version."
 
   use Ash.Type.Enum, values: [:draft, :published]

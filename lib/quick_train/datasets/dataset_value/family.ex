@@ -1,4 +1,4 @@
-defmodule QuickTrain.Datasets.DatasetValueFamily do
+defmodule QuickTrain.Datasets.DatasetValue.Family do
   @moduledoc "Supported normalized value representations for dataset fields."
 
   use Ash.Type.Enum, values: [:text, :integer, :decimal, :boolean, :utc_datetime, :asset]

@@ -1,5 +1,5 @@
-defmodule QuickTrain.Datasets.DatasetDateTimeValue do
-  @moduledoc "Normalized UTC microsecond date-time representation for one occurrence."
+defmodule QuickTrain.Datasets.DatasetValue.Text do
+  @moduledoc "Normalized text representation for one dataset value occurrence."
 
   use Ash.Resource,
     otp_app: :quick_train,
@@ -9,7 +9,7 @@ defmodule QuickTrain.Datasets.DatasetDateTimeValue do
 
   attributes do
     uuid_primary_key :id
-    attribute :value, :utc_datetime_usec, allow_nil?: false, public?: true
+    attribute :value, :string, allow_nil?: false, public?: true
     timestamps()
   end
 
@@ -33,18 +33,18 @@ defmodule QuickTrain.Datasets.DatasetDateTimeValue do
   graphql do
     derive_filter? false
     derive_sort? false
-    type :dataset_date_time_value
+    type :dataset_text_value
   end
 
   postgres do
-    table "dataset_date_time_values"
+    table "dataset_text_values"
     repo QuickTrain.Repo
-    identity_index_names dataset_value: "dataset_date_time_values_dataset_value_index"
+    identity_index_names dataset_value: "dataset_text_values_dataset_value_index"
 
     references do
       reference :dataset_value,
         on_delete: :restrict,
-        name: "dataset_date_time_values_dataset_value_id_fkey"
+        name: "dataset_text_values_dataset_value_id_fkey"
     end
   end
 

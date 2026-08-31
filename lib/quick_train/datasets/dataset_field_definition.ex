@@ -21,12 +21,12 @@ defmodule QuickTrain.Datasets.DatasetFieldDefinition do
       public? true
     end
 
-    attribute :value_family, QuickTrain.Datasets.DatasetValueFamily do
+    attribute :value_family, QuickTrain.Datasets.DatasetValue.Family do
       allow_nil? false
       public? true
     end
 
-    attribute :cardinality, QuickTrain.Datasets.DatasetFieldCardinality do
+    attribute :cardinality, QuickTrain.Datasets.DatasetFieldDefinition.Cardinality do
       allow_nil? false
       public? true
       default :single
@@ -85,8 +85,11 @@ defmodule QuickTrain.Datasets.DatasetFieldDefinition do
       argument :record_type_id, :uuid, allow_nil?: false
       argument :key, :string, allow_nil?: false
       argument :name, :string, allow_nil?: false
-      argument :value_family, QuickTrain.Datasets.DatasetValueFamily, allow_nil?: false
-      argument :cardinality, QuickTrain.Datasets.DatasetFieldCardinality, allow_nil?: false
+      argument :value_family, QuickTrain.Datasets.DatasetValue.Family, allow_nil?: false
+
+      argument :cardinality, QuickTrain.Datasets.DatasetFieldDefinition.Cardinality,
+        allow_nil?: false
+
       argument :required, :boolean, allow_nil?: false
 
       run {Module.concat(["QuickTrain.Datasets.DatasetFieldDefinition.Actions.AddToDraft"]), []}
@@ -99,8 +102,11 @@ defmodule QuickTrain.Datasets.DatasetFieldDefinition do
       argument :field_definition_id, :uuid, allow_nil?: false
       argument :key, :string, allow_nil?: false
       argument :name, :string, allow_nil?: false
-      argument :value_family, QuickTrain.Datasets.DatasetValueFamily, allow_nil?: false
-      argument :cardinality, QuickTrain.Datasets.DatasetFieldCardinality, allow_nil?: false
+      argument :value_family, QuickTrain.Datasets.DatasetValue.Family, allow_nil?: false
+
+      argument :cardinality, QuickTrain.Datasets.DatasetFieldDefinition.Cardinality,
+        allow_nil?: false
+
       argument :required, :boolean, allow_nil?: false
 
       run {Module.concat(["QuickTrain.Datasets.DatasetFieldDefinition.Actions.UpdateInDraft"]),

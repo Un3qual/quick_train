@@ -213,7 +213,7 @@ defmodule QuickTrain.Assets.Asset do
       authorize_if accessing_from(__MODULE__, :canonical_asset)
 
       authorize_if accessing_from(
-                     Module.concat(["QuickTrain.Datasets.DatasetAssetValue"]),
+                     Module.concat(["QuickTrain.Datasets.DatasetValue.Asset"]),
                      :asset
                    )
     end

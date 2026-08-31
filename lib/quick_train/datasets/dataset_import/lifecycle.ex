@@ -1,4 +1,4 @@
-defmodule QuickTrain.Datasets.DatasetImportLifecycle do
+defmodule QuickTrain.Datasets.DatasetImport.Lifecycle do
   @moduledoc "Lifecycle derived from an import phase and its row outcomes."
 
   use Ash.Type.Enum, values: [:open, :pending, :completed, :failed, :partially_failed]

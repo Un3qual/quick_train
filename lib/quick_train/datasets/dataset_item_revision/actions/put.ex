@@ -11,22 +11,23 @@ defmodule QuickTrain.Datasets.DatasetItemRevision.Actions.Put do
   alias QuickTrain.Assets.Asset
 
   alias QuickTrain.Datasets.{
-    DatasetAssetValue,
-    DatasetBooleanValue,
-    DatasetDateTimeValue,
-    DatasetDecimalValue,
-    DatasetIntegerValue,
     DatasetItem,
     DatasetItemRevision,
     DatasetRecord,
-    DatasetRevisionResult,
     DatasetSchemaVersion,
-    DatasetTextValue,
     DatasetValue,
     RevisionFingerprint
   }
 
-  @families QuickTrain.Datasets.DatasetValueFamily.values()
+  alias QuickTrain.Datasets.DatasetItemRevision.Result, as: RevisionResult
+  alias QuickTrain.Datasets.DatasetValue.Asset, as: AssetValue
+  alias QuickTrain.Datasets.DatasetValue.Boolean, as: BooleanValue
+  alias QuickTrain.Datasets.DatasetValue.DateTime, as: DateTimeValue
+  alias QuickTrain.Datasets.DatasetValue.Decimal, as: DecimalValue
+  alias QuickTrain.Datasets.DatasetValue.Integer, as: IntegerValue
+  alias QuickTrain.Datasets.DatasetValue.Text, as: TextValue
+
+  @families QuickTrain.Datasets.DatasetValue.Family.values()
   @item_conflicts ["dataset_items_pkey", "dataset_items_dataset_external_key_index"]
   @attempts 2
 
@@ -170,12 +171,12 @@ defmodule QuickTrain.Datasets.DatasetItemRevision.Actions.Put do
       DatasetItemRevision,
       DatasetRecord,
       DatasetValue,
-      DatasetTextValue,
-      DatasetIntegerValue,
-      DatasetDecimalValue,
-      DatasetBooleanValue,
-      DatasetDateTimeValue,
-      DatasetAssetValue,
+      TextValue,
+      IntegerValue,
+      DecimalValue,
+      BooleanValue,
+      DateTimeValue,
+      AssetValue,
       Asset
     ]
 
@@ -188,10 +189,10 @@ defmodule QuickTrain.Datasets.DatasetItemRevision.Actions.Put do
           latest = latest_revision(item.id)
 
           if latest && latest.fingerprint == fingerprint do
-            %DatasetRevisionResult{changed: false, item: item, revision: latest}
+            %RevisionResult{changed: false, item: item, revision: latest}
           else
             revision = create_revision!(arguments, schema, item, latest, occurrences, fingerprint)
-            %DatasetRevisionResult{changed: true, item: item, revision: revision}
+            %RevisionResult{changed: true, item: item, revision: revision}
           end
         else
           nil -> {:error, :invalid_item}
@@ -200,7 +201,7 @@ defmodule QuickTrain.Datasets.DatasetItemRevision.Actions.Put do
       end)
 
     case result do
-      {:ok, %DatasetRevisionResult{} = revision_result} ->
+      {:ok, %RevisionResult{} = revision_result} ->
         {:ok, revision_result}
 
       {:error, error} when attempts > 1 ->
@@ -347,30 +348,30 @@ defmodule QuickTrain.Datasets.DatasetItemRevision.Actions.Put do
   end
 
   defp create_typed_value!(dataset_value_id, _organization_id, %{family: :text, value: value}) do
-    create_scalar!(DatasetTextValue, dataset_value_id, value)
+    create_scalar!(TextValue, dataset_value_id, value)
   end
 
   defp create_typed_value!(dataset_value_id, _organization_id, %{family: :integer, value: value}) do
-    create_scalar!(DatasetIntegerValue, dataset_value_id, value)
+    create_scalar!(IntegerValue, dataset_value_id, value)
   end
 
   defp create_typed_value!(dataset_value_id, _organization_id, %{family: :decimal, value: value}) do
-    create_scalar!(DatasetDecimalValue, dataset_value_id, value)
+    create_scalar!(DecimalValue, dataset_value_id, value)
   end
 
   defp create_typed_value!(dataset_value_id, _organization_id, %{family: :boolean, value: value}) do
-    create_scalar!(DatasetBooleanValue, dataset_value_id, value)
+    create_scalar!(BooleanValue, dataset_value_id, value)
   end
 
   defp create_typed_value!(dataset_value_id, _organization_id, %{
          family: :utc_datetime,
          value: value
        }) do
-    create_scalar!(DatasetDateTimeValue, dataset_value_id, value)
+    create_scalar!(DateTimeValue, dataset_value_id, value)
   end
 
   defp create_typed_value!(dataset_value_id, organization_id, %{family: :asset, value: asset_id}) do
-    DatasetAssetValue
+    AssetValue
     |> Ash.Changeset.for_create(:create_internal, %{
       dataset_value_id: dataset_value_id,
       organization_id: organization_id,

@@ -1,4 +1,4 @@
-defmodule QuickTrain.Datasets.DatasetImportValueInput do
+defmodule QuickTrain.Datasets.DatasetImportRow.ValueInput do
   @moduledoc "Fixed flat typed input accepted by one import row."
 
   use Ash.Resource,

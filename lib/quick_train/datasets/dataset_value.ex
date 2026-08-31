@@ -54,27 +54,27 @@ defmodule QuickTrain.Datasets.DatasetValue do
       attribute_public? true
     end
 
-    has_one :text_value, QuickTrain.Datasets.DatasetTextValue,
+    has_one :text_value, QuickTrain.Datasets.DatasetValue.Text,
       destination_attribute: :dataset_value_id,
       public?: true
 
-    has_one :integer_value, QuickTrain.Datasets.DatasetIntegerValue,
+    has_one :integer_value, QuickTrain.Datasets.DatasetValue.Integer,
       destination_attribute: :dataset_value_id,
       public?: true
 
-    has_one :decimal_value, QuickTrain.Datasets.DatasetDecimalValue,
+    has_one :decimal_value, QuickTrain.Datasets.DatasetValue.Decimal,
       destination_attribute: :dataset_value_id,
       public?: true
 
-    has_one :boolean_value, QuickTrain.Datasets.DatasetBooleanValue,
+    has_one :boolean_value, QuickTrain.Datasets.DatasetValue.Boolean,
       destination_attribute: :dataset_value_id,
       public?: true
 
-    has_one :date_time_value, QuickTrain.Datasets.DatasetDateTimeValue,
+    has_one :date_time_value, QuickTrain.Datasets.DatasetValue.DateTime,
       destination_attribute: :dataset_value_id,
       public?: true
 
-    has_one :asset_value, QuickTrain.Datasets.DatasetAssetValue,
+    has_one :asset_value, QuickTrain.Datasets.DatasetValue.Asset,
       destination_attribute: :dataset_value_id,
       public?: true
   end

@@ -166,12 +166,12 @@ defmodule QuickTrain.Datasets.DatasetImportRow.Actions.Append do
       DatasetSchemaVersion,
       QuickTrain.Datasets.DatasetRecord,
       QuickTrain.Datasets.DatasetValue,
-      QuickTrain.Datasets.DatasetTextValue,
-      QuickTrain.Datasets.DatasetIntegerValue,
-      QuickTrain.Datasets.DatasetDecimalValue,
-      QuickTrain.Datasets.DatasetBooleanValue,
-      QuickTrain.Datasets.DatasetDateTimeValue,
-      QuickTrain.Datasets.DatasetAssetValue,
+      QuickTrain.Datasets.DatasetValue.Text,
+      QuickTrain.Datasets.DatasetValue.Integer,
+      QuickTrain.Datasets.DatasetValue.Decimal,
+      QuickTrain.Datasets.DatasetValue.Boolean,
+      QuickTrain.Datasets.DatasetValue.DateTime,
+      QuickTrain.Datasets.DatasetValue.Asset,
       QuickTrain.Assets.Asset
     ]
   end

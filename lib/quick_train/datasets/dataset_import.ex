@@ -13,7 +13,7 @@ defmodule QuickTrain.Datasets.DatasetImport do
     attribute :idempotency_key, :string, allow_nil?: false, public?: true
     attribute :open_fingerprint, QuickTrain.Types.Sha256Digest, allow_nil?: false
 
-    attribute :phase, QuickTrain.Datasets.DatasetImportPhase,
+    attribute :phase, QuickTrain.Datasets.DatasetImport.Phase,
       allow_nil?: false,
       default: :open,
       public?: true
@@ -89,7 +89,7 @@ defmodule QuickTrain.Datasets.DatasetImport do
     end
 
     calculate :lifecycle,
-              QuickTrain.Datasets.DatasetImportLifecycle,
+              QuickTrain.Datasets.DatasetImport.Lifecycle,
               expr(
                 cond do
                   phase == :open -> :open

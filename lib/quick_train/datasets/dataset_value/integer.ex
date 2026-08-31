@@ -1,4 +1,4 @@
-defmodule QuickTrain.Datasets.DatasetIntegerValue do
+defmodule QuickTrain.Datasets.DatasetValue.Integer do
   @moduledoc "Normalized signed integer representation for one dataset value occurrence."
 
   use Ash.Resource,

@@ -1,4 +1,4 @@
-defmodule QuickTrain.Datasets.DatasetFieldCardinality do
+defmodule QuickTrain.Datasets.DatasetFieldDefinition.Cardinality do
   @moduledoc "Supported occurrence cardinalities for dataset fields."
 
   use Ash.Type.Enum, values: [:single]

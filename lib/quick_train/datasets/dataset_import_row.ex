@@ -15,7 +15,7 @@ defmodule QuickTrain.Datasets.DatasetImportRow do
     attribute :external_key, :string, public?: true
     attribute :fingerprint, QuickTrain.Types.Sha256Digest, allow_nil?: false
 
-    attribute :outcome, QuickTrain.Datasets.DatasetImportRowOutcome,
+    attribute :outcome, QuickTrain.Datasets.DatasetImportRow.Outcome,
       allow_nil?: false,
       default: :pending,
       public?: true
@@ -83,7 +83,8 @@ defmodule QuickTrain.Datasets.DatasetImportRow do
       argument :external_key, :string
       argument :source_position, :integer, allow_nil?: false
 
-      argument :values, {:array, QuickTrain.Datasets.DatasetImportValueInput}, allow_nil?: false
+      argument :values, {:array, QuickTrain.Datasets.DatasetImportRow.ValueInput},
+        allow_nil?: false
 
       run {Module.concat(["QuickTrain.Datasets.DatasetImportRow.Actions.Append"]), []}
     end
