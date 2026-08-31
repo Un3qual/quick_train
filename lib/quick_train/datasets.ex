@@ -40,7 +40,7 @@ defmodule QuickTrain.Datasets do
         relay?: true,
         paginate_with: :keyset
 
-      action DatasetImport, :dataset_import, :inspect
+      read_one DatasetImport, :dataset_import, :inspect
 
       list DatasetImportRow, :dataset_import_rows, :list_scoped,
         relay?: true,

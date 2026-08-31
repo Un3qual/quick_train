@@ -69,6 +69,16 @@ defmodule QuickTrain.Datasets.DatasetItemRevision do
       argument :item_id, :uuid
       argument :external_key, :string
       argument :values, {:array, :map}, allow_nil?: false
+
+      validate present([:item_id, :external_key], at_least: 1) do
+        message "missing_item_identity"
+      end
+
+      validate match(:external_key, ~r/\S/) do
+        where present(:external_key)
+        message "missing_item_identity"
+      end
+
       run {Module.concat(["QuickTrain.Datasets.DatasetItemRevision.Actions.Put"]), []}
     end
 

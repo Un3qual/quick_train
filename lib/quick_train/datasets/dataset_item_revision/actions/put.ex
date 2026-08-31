@@ -34,8 +34,7 @@ defmodule QuickTrain.Datasets.DatasetItemRevision.Actions.Put do
   def run(input, _opts, _context) do
     arguments = input.arguments
 
-    with :ok <- valid_identity(arguments.item_id, arguments.external_key),
-         %{} = schema <- published_schema(arguments),
+    with %{} = schema <- published_schema(arguments),
          {:ok, occurrences} <- normalize(schema, arguments.values),
          fingerprint <-
            RevisionFingerprint.encode(schema.id, schema.root_record_type_id, occurrences) do
@@ -45,15 +44,6 @@ defmodule QuickTrain.Datasets.DatasetItemRevision.Actions.Put do
       {:error, reason} -> {:error, reason}
     end
   end
-
-  defp valid_identity(nil, external_key) when external_key in [nil, ""],
-    do: {:error, :missing_item_identity}
-
-  defp valid_identity(_item_id, external_key) when is_binary(external_key) do
-    if String.trim(external_key) == "", do: {:error, :missing_item_identity}, else: :ok
-  end
-
-  defp valid_identity(_item_id, _external_key), do: :ok
 
   defp published_schema(arguments) do
     DatasetSchemaVersion

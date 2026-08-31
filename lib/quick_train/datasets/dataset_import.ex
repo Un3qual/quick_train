@@ -42,6 +42,58 @@ defmodule QuickTrain.Datasets.DatasetImport do
     has_many :rows, QuickTrain.Datasets.DatasetImportRow, destination_attribute: :import_id
   end
 
+  aggregates do
+    count :row_count, :rows do
+      public? true
+      authorize? false
+    end
+
+    count :pending, :rows do
+      filter expr(outcome == "pending")
+      public? true
+      authorize? false
+    end
+
+    count :succeeded, :rows do
+      filter expr(outcome == "succeeded")
+      public? true
+      authorize? false
+    end
+
+    count :unchanged, :rows do
+      filter expr(outcome == "unchanged")
+      public? true
+      authorize? false
+    end
+
+    count :failed, :rows do
+      filter expr(outcome == "failed")
+      public? true
+      authorize? false
+    end
+  end
+
+  calculations do
+    calculate :import_id, :uuid, expr(id) do
+      public? true
+    end
+
+    calculate :lifecycle,
+              :string,
+              expr(
+                cond do
+                  phase == "open" -> "open"
+                  pending > 0 -> "pending"
+                  row_count == 0 -> "completed"
+                  failed == row_count -> "failed"
+                  failed > 0 -> "partially_failed"
+                  true -> "completed"
+                end
+              ) do
+      public? true
+    end
+  end
+
   actions do
     defaults [:read]
 
@@ -63,11 +115,24 @@ defmodule QuickTrain.Datasets.DatasetImport do
       run {Module.concat(["QuickTrain.Datasets.DatasetImport.Actions.Finalize"]), []}
     end
 
-    action :inspect, QuickTrain.Datasets.DatasetImportSummary do
-      allow_nil? false
+    read :inspect do
+      get? true
       argument :organization_id, :uuid, allow_nil?: false
       argument :import_id, :uuid, allow_nil?: false
-      run {Module.concat(["QuickTrain.Datasets.DatasetImport.Actions.Inspect"]), []}
+
+      filter expr(id == ^arg(:import_id) and organization_id == ^arg(:organization_id))
+
+      prepare build(
+                load: [
+                  :import_id,
+                  :lifecycle,
+                  :row_count,
+                  :pending,
+                  :succeeded,
+                  :unchanged,
+                  :failed
+                ]
+              )
     end
 
     create :create_internal do

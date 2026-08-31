@@ -1,6 +1,9 @@
 defmodule QuickTrain.Datasets.DatasetFieldDefinition do
   @moduledoc "A typed single-cardinality field within one exact dataset record type."
 
+  @value_families ~w(text integer decimal boolean utc_datetime asset)
+  @cardinalities ~w(single)
+
   use Ash.Resource,
     otp_app: :quick_train,
     domain: QuickTrain.Datasets,
@@ -78,6 +81,15 @@ defmodule QuickTrain.Datasets.DatasetFieldDefinition do
       argument :value_family, :string, allow_nil?: false
       argument :cardinality, :string, allow_nil?: false
       argument :required, :boolean, allow_nil?: false
+
+      validate one_of(:value_family, @value_families) do
+        message "invalid_value_family"
+      end
+
+      validate one_of(:cardinality, @cardinalities) do
+        message "invalid_cardinality"
+      end
+
       run {Module.concat(["QuickTrain.Datasets.DatasetFieldDefinition.Actions.AddToDraft"]), []}
     end
 
@@ -91,6 +103,14 @@ defmodule QuickTrain.Datasets.DatasetFieldDefinition do
       argument :value_family, :string, allow_nil?: false
       argument :cardinality, :string, allow_nil?: false
       argument :required, :boolean, allow_nil?: false
+
+      validate one_of(:value_family, @value_families) do
+        message "invalid_value_family"
+      end
+
+      validate one_of(:cardinality, @cardinalities) do
+        message "invalid_cardinality"
+      end
 
       run {Module.concat(["QuickTrain.Datasets.DatasetFieldDefinition.Actions.UpdateInDraft"]),
            []}
@@ -136,8 +156,8 @@ defmodule QuickTrain.Datasets.DatasetFieldDefinition do
   end
 
   validations do
-    validate one_of(:value_family, ~w(text integer decimal boolean utc_datetime asset))
-    validate one_of(:cardinality, ~w(single))
+    validate one_of(:value_family, @value_families)
+    validate one_of(:cardinality, @cardinalities)
   end
 
   graphql do
