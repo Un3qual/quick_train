@@ -33,11 +33,11 @@
 - [x] 4.1 Generate DatasetItem, DatasetItemRevision, DatasetRecord, DatasetValue, and the six scalar or asset typed-value resources with snapshots and migrations.
 - [x] 4.2 Add composite same-dataset, same-schema, exact-record-type, designated-root-type, item, revision, field, and asset relationships with required identities, foreign keys, and indexes.
 - [x] 4.3 Add the generated deferred constraint trigger that enforces exactly one compatible typed child per value occurrence and cover the database boundary directly.
-- [ ] 4.4 Implement transactional flat-record construction that resolves fields only within the exact root record type and enforces required or optional single-cardinality occurrence counts.
-- [ ] 4.5 Implement the versioned revision fingerprint encoder with canonical typed bytes and schema-aware identity.
-- [ ] 4.6 Implement atomic stable-item get-or-create and item-locked immutable revision creation with monotonic revision numbers and unchanged detection.
-- [ ] 4.7 Implement required keyset-paginated Relay connections for typed item and revision reads without generic update or delete mutations for immutable content.
-- [ ] 4.8 Add focused tests for typed round trips, invalid child combinations, cross-boundary references, field cardinality, fingerprint equivalence and divergence, first-item races, revision ordering, unchanged detection, and historical immutability.
+- [x] 4.4 Implement transactional flat-record construction that resolves fields only within the exact root record type and enforces required or optional single-cardinality occurrence counts.
+- [x] 4.5 Implement the versioned revision fingerprint encoder with canonical typed bytes and schema-aware identity.
+- [x] 4.6 Implement atomic stable-item get-or-create and item-locked immutable revision creation with monotonic revision numbers and unchanged detection.
+- [x] 4.7 Implement required keyset-paginated Relay connections for typed item and revision reads without generic update or delete mutations for immutable content.
+- [x] 4.8 Add focused tests for typed round trips, invalid child combinations, cross-boundary references, field cardinality, fingerprint equivalence and divergence, first-item races, revision ordering, unchanged detection, and historical immutability.
 
 ## 5. Simplified Programmatic Imports
 

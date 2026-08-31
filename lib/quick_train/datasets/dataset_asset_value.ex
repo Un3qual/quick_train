@@ -31,6 +31,10 @@ defmodule QuickTrain.Datasets.DatasetAssetValue do
 
   actions do
     defaults [:read]
+
+    create :create_internal do
+      accept [:organization_id, :dataset_value_id, :asset_id]
+    end
   end
 
   graphql do

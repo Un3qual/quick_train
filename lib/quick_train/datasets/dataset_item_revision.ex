@@ -5,7 +5,8 @@ defmodule QuickTrain.Datasets.DatasetItemRevision do
     otp_app: :quick_train,
     domain: QuickTrain.Datasets,
     extensions: [AshGraphql.Resource],
-    data_layer: AshPostgres.DataLayer
+    data_layer: AshPostgres.DataLayer,
+    authorizers: [Ash.Policy.Authorizer]
 
   attributes do
     uuid_primary_key :id
@@ -52,11 +53,62 @@ defmodule QuickTrain.Datasets.DatasetItemRevision do
     belongs_to :root_record, QuickTrain.Datasets.DatasetRecord do
       allow_nil? false
       attribute_public? true
+      public? true
     end
   end
 
   actions do
     defaults [:read]
+
+    action :put, :struct do
+      allow_nil? false
+      constraints instance_of: QuickTrain.Datasets.DatasetRevisionResult
+      argument :organization_id, :uuid, allow_nil?: false
+      argument :dataset_id, :uuid, allow_nil?: false
+      argument :schema_version_id, :uuid, allow_nil?: false
+      argument :item_id, :uuid
+      argument :external_key, :string
+      argument :values, {:array, :map}, allow_nil?: false
+      run QuickTrain.Datasets.DatasetItemRevision.Actions.Put
+    end
+
+    create :create_internal do
+      accept [
+        :organization_id,
+        :dataset_id,
+        :item_id,
+        :schema_version_id,
+        :root_record_type_id,
+        :root_record_id,
+        :revision_number,
+        :fingerprint
+      ]
+    end
+
+    read :list_scoped do
+      argument :organization_id, :uuid, allow_nil?: false
+      argument :item_id, :uuid, allow_nil?: false
+      filter expr(organization_id == ^arg(:organization_id) and item_id == ^arg(:item_id))
+      prepare build(sort: [revision_number: :desc, id: :desc])
+
+      pagination keyset?: true,
+                 offset?: false,
+                 required?: true,
+                 default_limit: 50,
+                 max_page_size: 100
+    end
+  end
+
+  policies do
+    policy action(:put) do
+      authorize_if {QuickTrain.Authorization.Checks.OrganizationCapability,
+                    capability: "datasets.manage"}
+    end
+
+    policy action(:list_scoped) do
+      authorize_if {QuickTrain.Authorization.Checks.OrganizationCapability,
+                    capability: "datasets.read"}
+    end
   end
 
   validations do

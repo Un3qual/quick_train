@@ -5,7 +5,8 @@ defmodule QuickTrain.Datasets.DatasetItem do
     otp_app: :quick_train,
     domain: QuickTrain.Datasets,
     extensions: [AshGraphql.Resource],
-    data_layer: AshPostgres.DataLayer
+    data_layer: AshPostgres.DataLayer,
+    authorizers: [Ash.Policy.Authorizer]
 
   attributes do
     uuid_primary_key :id, writable?: true
@@ -29,6 +30,30 @@ defmodule QuickTrain.Datasets.DatasetItem do
 
   actions do
     defaults [:read]
+
+    create :create_internal do
+      accept [:id, :organization_id, :dataset_id, :external_key]
+    end
+
+    read :list_scoped do
+      argument :organization_id, :uuid, allow_nil?: false
+      argument :dataset_id, :uuid, allow_nil?: false
+      filter expr(organization_id == ^arg(:organization_id) and dataset_id == ^arg(:dataset_id))
+      prepare build(sort: [inserted_at: :asc, id: :asc])
+
+      pagination keyset?: true,
+                 offset?: false,
+                 required?: true,
+                 default_limit: 50,
+                 max_page_size: 100
+    end
+  end
+
+  policies do
+    policy action(:list_scoped) do
+      authorize_if {QuickTrain.Authorization.Checks.OrganizationCapability,
+                    capability: "datasets.read"}
+    end
   end
 
   graphql do

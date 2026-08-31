@@ -7,7 +7,8 @@ defmodule QuickTrain.Datasets.DatasetValue do
     otp_app: :quick_train,
     domain: QuickTrain.Datasets,
     extensions: [AshGraphql.Resource],
-    data_layer: AshPostgres.DataLayer
+    data_layer: AshPostgres.DataLayer,
+    authorizers: [Ash.Policy.Authorizer]
 
   attributes do
     uuid_primary_key :id
@@ -53,26 +54,69 @@ defmodule QuickTrain.Datasets.DatasetValue do
     end
 
     has_one :text_value, QuickTrain.Datasets.DatasetTextValue,
-      destination_attribute: :dataset_value_id
+      destination_attribute: :dataset_value_id,
+      public?: true
 
     has_one :integer_value, QuickTrain.Datasets.DatasetIntegerValue,
-      destination_attribute: :dataset_value_id
+      destination_attribute: :dataset_value_id,
+      public?: true
 
     has_one :decimal_value, QuickTrain.Datasets.DatasetDecimalValue,
-      destination_attribute: :dataset_value_id
+      destination_attribute: :dataset_value_id,
+      public?: true
 
     has_one :boolean_value, QuickTrain.Datasets.DatasetBooleanValue,
-      destination_attribute: :dataset_value_id
+      destination_attribute: :dataset_value_id,
+      public?: true
 
     has_one :date_time_value, QuickTrain.Datasets.DatasetDateTimeValue,
-      destination_attribute: :dataset_value_id
+      destination_attribute: :dataset_value_id,
+      public?: true
 
     has_one :asset_value, QuickTrain.Datasets.DatasetAssetValue,
-      destination_attribute: :dataset_value_id
+      destination_attribute: :dataset_value_id,
+      public?: true
   end
 
   actions do
     defaults [:read]
+
+    create :create_internal do
+      accept [
+        :organization_id,
+        :dataset_id,
+        :schema_version_id,
+        :record_type_id,
+        :record_id,
+        :field_definition_id,
+        :ordinal
+      ]
+    end
+
+    read :list_scoped do
+      argument :organization_id, :uuid, allow_nil?: false
+      argument :revision_id, :uuid, allow_nil?: false
+
+      filter expr(
+               organization_id == ^arg(:organization_id) and
+                 record.root_revision.id == ^arg(:revision_id)
+             )
+
+      prepare build(sort: [field_definition_id: :asc, ordinal: :asc, id: :asc])
+
+      pagination keyset?: true,
+                 offset?: false,
+                 required?: true,
+                 default_limit: 50,
+                 max_page_size: 100
+    end
+  end
+
+  policies do
+    policy action(:list_scoped) do
+      authorize_if {QuickTrain.Authorization.Checks.OrganizationCapability,
+                    capability: "datasets.read"}
+    end
   end
 
   validations do

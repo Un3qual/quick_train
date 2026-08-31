@@ -6,8 +6,11 @@ defmodule QuickTrain.Datasets do
   alias QuickTrain.Datasets.{
     Dataset,
     DatasetFieldDefinition,
+    DatasetItem,
+    DatasetItemRevision,
     DatasetRecordType,
-    DatasetSchemaVersion
+    DatasetSchemaVersion,
+    DatasetValue
   }
 
   graphql do
@@ -20,6 +23,18 @@ defmodule QuickTrain.Datasets do
         paginate_with: :keyset
 
       list DatasetFieldDefinition, :dataset_field_definitions, :list_scoped,
+        relay?: true,
+        paginate_with: :keyset
+
+      list DatasetItem, :dataset_items, :list_scoped,
+        relay?: true,
+        paginate_with: :keyset
+
+      list DatasetItemRevision, :dataset_item_revisions, :list_scoped,
+        relay?: true,
+        paginate_with: :keyset
+
+      list DatasetValue, :dataset_values, :list_scoped,
         relay?: true,
         paginate_with: :keyset
     end
@@ -150,10 +165,37 @@ defmodule QuickTrain.Datasets do
         args: [:organization_id, :schema_version_id]
     end
 
-    resource QuickTrain.Datasets.DatasetItem
-    resource QuickTrain.Datasets.DatasetItemRevision
+    resource QuickTrain.Datasets.DatasetItem do
+      define :list_items,
+        action: :list_scoped,
+        args: [:organization_id, :dataset_id]
+    end
+
+    resource QuickTrain.Datasets.DatasetItemRevision do
+      define :put_item_revision,
+        action: :put,
+        args: [
+          :organization_id,
+          :dataset_id,
+          :schema_version_id,
+          :item_id,
+          :external_key,
+          :values
+        ]
+
+      define :list_item_revisions,
+        action: :list_scoped,
+        args: [:organization_id, :item_id]
+    end
+
     resource QuickTrain.Datasets.DatasetRecord
-    resource QuickTrain.Datasets.DatasetValue
+
+    resource QuickTrain.Datasets.DatasetValue do
+      define :list_values,
+        action: :list_scoped,
+        args: [:organization_id, :revision_id]
+    end
+
     resource QuickTrain.Datasets.DatasetTextValue
     resource QuickTrain.Datasets.DatasetIntegerValue
     resource QuickTrain.Datasets.DatasetDecimalValue

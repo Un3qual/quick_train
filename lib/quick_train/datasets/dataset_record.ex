@@ -34,10 +34,17 @@ defmodule QuickTrain.Datasets.DatasetRecord do
     end
 
     has_many :values, QuickTrain.Datasets.DatasetValue, destination_attribute: :record_id
+
+    has_one :root_revision, QuickTrain.Datasets.DatasetItemRevision,
+      destination_attribute: :root_record_id
   end
 
   actions do
     defaults [:read]
+
+    create :create_internal do
+      accept [:organization_id, :dataset_id, :schema_version_id, :record_type_id]
+    end
   end
 
   graphql do

@@ -22,6 +22,10 @@ defmodule QuickTrain.Datasets.DatasetTextValue do
 
   actions do
     defaults [:read]
+
+    create :create_internal do
+      accept [:dataset_value_id, :value]
+    end
   end
 
   graphql do

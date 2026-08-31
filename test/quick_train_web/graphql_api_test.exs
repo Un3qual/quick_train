@@ -114,6 +114,24 @@ defmodule QuickTrainWeb.GraphqlApiTest do
                  "organizationId",
                  "recordTypeId"
                ]),
+             "datasetItemRevisions" =>
+               MapSet.new([
+                 "after",
+                 "before",
+                 "first",
+                 "itemId",
+                 "last",
+                 "organizationId"
+               ]),
+             "datasetItems" =>
+               MapSet.new([
+                 "after",
+                 "before",
+                 "datasetId",
+                 "first",
+                 "last",
+                 "organizationId"
+               ]),
              "datasetRecordTypes" =>
                MapSet.new([
                  "after",
@@ -124,6 +142,15 @@ defmodule QuickTrainWeb.GraphqlApiTest do
                  "schemaVersionId"
                ]),
              "datasetSchemaVersion" => MapSet.new(["organizationId", "schemaVersionId"]),
+             "datasetValues" =>
+               MapSet.new([
+                 "after",
+                 "before",
+                 "first",
+                 "last",
+                 "organizationId",
+                 "revisionId"
+               ]),
              "datasets" => MapSet.new(["after", "before", "first", "last", "organizationId"])
            }
 
