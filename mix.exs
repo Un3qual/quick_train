@@ -89,7 +89,11 @@ defmodule QuickTrain.MixProject do
       "ecto.reset": ["ecto.drop", "ecto.setup"],
       test: ["ecto.create --quiet", "ecto.migrate --quiet", "test"],
       "dependency.audit": ["cmd mix hex.audit"],
-      "static.analysis": ["credo --strict", "reach.check --arch --smells --strict"],
+      "static.analysis": [
+        "credo --strict",
+        "ex_dna --max-clones 0",
+        "reach.check --arch --smells --strict"
+      ],
       typecheck: ["dialyzer --quiet-with-result"],
       "architecture.check": [
         "xref graph --format cycles --label compile-connected --fail-above 0"
