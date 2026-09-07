@@ -11,8 +11,8 @@ defmodule QuickTrain.Assets.Workers.VerifyAsset do
       states: [:available, :scheduled, :executing, :retryable]
     ]
 
+  alias QuickTrain.{AshError, Assets}
   alias QuickTrain.Assets.Asset
-  alias QuickTrain.Assets.Asset.Actions.Finalize
 
   def enqueue(asset_id) do
     %{asset_id: asset_id}
@@ -27,14 +27,22 @@ defmodule QuickTrain.Assets.Workers.VerifyAsset do
         :ok
 
       {:ok, asset} ->
-        case Finalize.finalize(asset.id, asset.organization_id) do
-          {:ok, _result} -> :ok
-          {:error, :asset_operation_in_progress} -> {:snooze, 10}
-          {:error, error} -> {:error, error}
+        case Assets.finalize_asset(asset.id, asset.organization_id, authorize?: false) do
+          {:ok, _result} ->
+            :ok
+
+          {:error, error} ->
+            verification_failure(error)
         end
 
       {:error, error} ->
         {:error, error}
     end
+  end
+
+  defp verification_failure(error) do
+    if AshError.reason?(error, :asset_operation_in_progress),
+      do: {:snooze, 10},
+      else: {:error, error}
   end
 end

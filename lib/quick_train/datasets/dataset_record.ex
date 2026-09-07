@@ -15,7 +15,8 @@ defmodule QuickTrain.Datasets.DatasetRecord do
     otp_app: :quick_train,
     domain: QuickTrain.Datasets,
     extensions: [AshGraphql.Resource],
-    data_layer: AshPostgres.DataLayer
+    data_layer: AshPostgres.DataLayer,
+    authorizers: [Ash.Policy.Authorizer]
 
   attributes do
     uuid_primary_key :id
@@ -53,7 +54,19 @@ defmodule QuickTrain.Datasets.DatasetRecord do
       accept [:organization_id, :dataset_id, :schema_version_id, :record_type_id]
     end
 
+    create :construct_internal do
+      accept [:organization_id, :dataset_id, :schema_version_id, :record_type_id]
+      argument :occurrences, {:array, :map}, allow_nil?: false
+      change {Module.concat(["QuickTrain.Datasets.DatasetRecord.Changes.CreateValues"]), []}
+    end
+
     destroy :destroy_internal
+  end
+
+  policies do
+    policy action(:read) do
+      authorize_if accessing_from(DatasetItemRevision, :root_record)
+    end
   end
 
   graphql do

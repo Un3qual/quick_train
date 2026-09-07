@@ -2,9 +2,8 @@ defmodule QuickTrain.Assets.AssetWorkersTest do
   use QuickTrain.DataCase, async: false
   use Oban.Testing, repo: QuickTrain.Repo
 
-  alias QuickTrain.{Accounts, Assets, Datasets}
+  alias QuickTrain.{Accounts, AshError, Assets, Datasets}
   alias QuickTrain.Assets.Asset
-  alias QuickTrain.Assets.Asset.{Actions.Finalize, Cleanup}
   alias QuickTrain.Assets.Storage
   alias QuickTrain.Assets.Storage.Test, as: TestStorage
   alias QuickTrain.Assets.Workers.{AssetStagingCleanup, VerifyAsset}
@@ -61,9 +60,10 @@ defmodule QuickTrain.Assets.AssetWorkersTest do
         actor: manager
       )
 
-    assert {:error, :staging_missing} =
+    assert {:error, error} =
              perform_job(VerifyAsset, %{"asset_id" => registration.asset.id})
 
+    assert AshError.reason?(error, :staging_missing)
     assert Ash.get!(Asset, registration.asset.id, authorize?: false).state == :pending
     :ok = TestStorage.put_staging(registration.upload_access, content)
     assert :ok = perform_job(VerifyAsset, %{"asset_id" => registration.asset.id})
@@ -104,7 +104,12 @@ defmodule QuickTrain.Assets.AssetWorkersTest do
     assert Ash.get!(Asset, asset.id, authorize?: false).staging_cleaned_at ==
              cleaned.staging_cleaned_at
 
-    assert {:ok, remaining} = Cleanup.expired_assets(DateTime.utc_now(), 100)
+    assert {:ok, remaining} =
+             Assets.list_expired_staging_assets(DateTime.add(DateTime.utc_now(), -900, :second),
+               query: [limit: 100],
+               authorize?: false
+             )
+
     refute Enum.any?(remaining, &(&1.id == asset.id))
   end
 
@@ -150,15 +155,17 @@ defmodule QuickTrain.Assets.AssetWorkersTest do
         operation_claim_expires_at: DateTime.add(now, 1, :hour)
       })
 
-    assert {:error, :stale_asset_claim} =
-             Finalize.reconcile_verified(
+    assert {:error, error} =
+             Assets.reconcile_asset_publication(
                pending.id,
                pending.organization_id,
                Ecto.UUID.generate(),
                sealed_key(pending),
-               expected_facts(pending)
+               expected_facts(pending),
+               authorize?: false
              )
 
+    assert AshError.reason?(error, :stale_asset_claim)
     assert Ash.get!(Asset, pending.id, authorize?: false).state == :pending
   end
 
@@ -257,9 +264,12 @@ defmodule QuickTrain.Assets.AssetWorkersTest do
 
     :ok = TestStorage.put_staging(registration.upload_access, content)
 
-    assert {:error, :stale_asset_claim} =
-             Finalize.finalize(registration.asset.id, graph.organization.id)
+    assert {:error, error} =
+             Assets.finalize_asset(registration.asset.id, graph.organization.id,
+               authorize?: false
+             )
 
+    assert AshError.reason?(error, :stale_asset_claim)
     published_but_pending = Ash.get!(Asset, registration.asset.id, authorize?: false)
     assert published_but_pending.state == :pending
     assert TestStorage.sealed?(sealed_key(published_but_pending))
@@ -268,7 +278,9 @@ defmodule QuickTrain.Assets.AssetWorkersTest do
     remaining_ms = max(DateTime.diff(wait_until, DateTime.utc_now(), :millisecond) + 50, 0)
     Process.sleep(remaining_ms)
 
-    assert {:ok, _status} = Cleanup.cleanup(published_but_pending.id)
+    assert {:ok, _status} =
+             Assets.cleanup_asset_staging(published_but_pending.id, authorize?: false)
+
     reconciled = Ash.get!(Asset, published_but_pending.id, authorize?: false)
     assert reconciled.state == :ready
     assert %DateTime{} = reconciled.staging_cleaned_at

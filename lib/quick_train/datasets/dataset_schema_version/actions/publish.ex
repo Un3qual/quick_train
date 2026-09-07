@@ -1,6 +1,8 @@
 defmodule QuickTrain.Datasets.DatasetSchemaVersion.Actions.Publish do
   @moduledoc false
 
+  alias QuickTrain.ProductError
+
   use Ash.Resource.Actions.Implementation
 
   require Ash.Query
@@ -36,7 +38,7 @@ defmodule QuickTrain.Datasets.DatasetSchemaVersion.Actions.Publish do
       })
       |> Ash.update!(authorize?: false)
     else
-      {:error, :invalid_schema}
+      ProductError.invalid(:invalid_schema)
     end
   end
 end

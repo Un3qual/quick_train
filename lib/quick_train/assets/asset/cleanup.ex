@@ -1,13 +1,20 @@
 defmodule QuickTrain.Assets.Asset.Cleanup do
   @moduledoc false
 
+  use Ash.Resource.Actions.Implementation
+
   require Ash.Query
 
+  alias QuickTrain.{Assets, ProductError}
   alias QuickTrain.Assets.Asset
-  alias QuickTrain.Assets.Asset.Actions.Finalize
   alias QuickTrain.Assets.Storage
 
-  def cleanup(asset_id, now \\ DateTime.utc_now()) do
+  @impl true
+  def run(input, _opts, _context) do
+    ProductError.wrap(cleanup(input.arguments.asset_id, input.arguments.now))
+  end
+
+  defp cleanup(asset_id, now) do
     claim_id = Ecto.UUID.generate()
 
     case acquire_claim(asset_id, claim_id, now) do
@@ -15,16 +22,6 @@ defmodule QuickTrain.Assets.Asset.Cleanup do
       {:ok, status} when status in [:missing, :ineligible, :busy] -> {:ok, status}
       {:error, error} -> {:error, error}
     end
-  end
-
-  def expired_assets(now, limit) do
-    cutoff = DateTime.add(now, -config(:cleanup_grace_seconds), :second)
-
-    Asset
-    |> Ash.Query.filter(is_nil(staging_cleaned_at) and staging_expires_at <= ^cutoff)
-    |> Ash.Query.sort(staging_expires_at: :asc, id: :asc)
-    |> Ash.Query.limit(limit)
-    |> Ash.read(authorize?: false)
   end
 
   defp acquire_claim(asset_id, claim_id, now) do
@@ -65,12 +62,13 @@ defmodule QuickTrain.Assets.Asset.Cleanup do
     case Storage.verify_sealed(sealed_key, expected, config(:publication_deadline_ms)) do
       {:ok, facts} when asset.state == :pending ->
         with {:ok, _result} <-
-               Finalize.reconcile_verified(
+               Assets.reconcile_asset_publication(
                  asset.id,
                  asset.organization_id,
                  claim_id,
                  sealed_key,
-                 facts
+                 facts,
+                 authorize?: false
                ) do
           cleanup(asset.id, now)
         end

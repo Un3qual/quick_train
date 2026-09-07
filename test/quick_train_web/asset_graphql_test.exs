@@ -18,6 +18,23 @@ defmodule QuickTrainWeb.AssetGraphqlTest do
     %{conn: authenticated_conn, manager: manager, graph: graph}
   end
 
+  test "expected registration failures have stable GraphQL codes", %{conn: conn, graph: graph} do
+    response =
+      conn
+      |> post("/graphql", %{
+        query: """
+        mutation {
+          registerAsset(organizationId: "#{graph.organization.id}", sha256: "invalid",
+            byteSize: 4, mediaType: "text/plain") { reused }
+        }
+        """
+      })
+      |> json_response(200)
+
+    assert [%{"code" => "invalid_asset_hash", "message" => "invalid_asset_hash"}] =
+             response["errors"]
+  end
+
   test "authenticated asset workflow exposes only safe typed results", %{conn: conn, graph: graph} do
     content = "graphql asset"
 

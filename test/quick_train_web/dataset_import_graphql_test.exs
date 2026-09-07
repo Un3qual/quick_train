@@ -43,6 +43,23 @@ defmodule QuickTrainWeb.DatasetImportGraphqlTest do
     }
   end
 
+  test "transactional import failures have stable GraphQL codes", context do
+    response =
+      context.conn
+      |> post("/graphql", %{
+        query: """
+        mutation {
+          openDatasetImport(organizationId: "#{context.organization.id}",
+            datasetId: "#{context.dataset.id}", schemaVersionId: "#{Ash.UUID.generate()}",
+            idempotencyKey: "invalid-schema") { id }
+        }
+        """
+      })
+      |> json_response(200)
+
+    assert [%{"code" => "invalid_schema", "message" => "invalid_schema"}] = response["errors"]
+  end
+
   test "GraphQL import lifecycle uses fixed flat input and a keyset Relay row connection",
        context do
     opened =

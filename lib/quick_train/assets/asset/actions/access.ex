@@ -1,6 +1,8 @@
 defmodule QuickTrain.Assets.Asset.Actions.Access do
   @moduledoc false
 
+  alias QuickTrain.ProductError
+
   use Ash.Resource.Actions.Implementation
 
   require Ash.Query
@@ -8,7 +10,9 @@ defmodule QuickTrain.Assets.Asset.Actions.Access do
   alias QuickTrain.Assets.{Asset, AssetAccessResult, Storage}
 
   @impl true
-  def run(input, _opts, _context) do
+  def run(input, _opts, _context), do: ProductError.wrap(execute(input))
+
+  defp execute(input) do
     %{asset_id: asset_id, organization_id: organization_id} = input.arguments
 
     with {:ok, asset} <- accessible_asset(asset_id, organization_id),

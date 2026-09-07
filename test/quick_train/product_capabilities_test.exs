@@ -14,6 +14,36 @@ defmodule QuickTrain.ProductCapabilitiesTest do
     dataset_imports.manage
   )
 
+  test "internal lifecycle actions reject even an organization manager" do
+    user = Accounts.register_user!("internal-manager@example.test", "Internal Manager")
+    graph = Accounts.bootstrap_first_manager!(user.id, "internal-org", "Internal Org")
+    Datasets.grant_product_capabilities!(graph.organization.id, user.id)
+    id = Ash.UUID.generate()
+
+    operations = [
+      fn -> QuickTrain.Assets.cleanup_asset_staging(id, actor: user) end,
+      fn ->
+        QuickTrain.Assets.reconcile_asset_publication(
+          id,
+          graph.organization.id,
+          id,
+          "sealed",
+          %{}, actor: user)
+      end,
+      fn -> Datasets.cleanup_expired_import(id, actor: user) end,
+      fn -> Datasets.process_import_row(id, actor: user) end,
+      fn -> Datasets.terminalize_import_row(id, actor: user) end,
+      fn ->
+        Datasets.put_candidate_revision(graph.organization.id, id, id, id, nil, id, actor: user)
+      end,
+      fn -> Datasets.construct_record(graph.organization.id, id, id, id, [], actor: user) end
+    ]
+
+    for operation <- operations do
+      assert {:error, %Ash.Error.Forbidden{}} = operation.()
+    end
+  end
+
   test "grants the exact product capabilities to an existing manager idempotently" do
     user = Accounts.register_user!("product-manager@example.test", "Product Manager")
     graph = Accounts.bootstrap_first_manager!(user.id, "product-org", "Product Org")

@@ -3,19 +3,18 @@ defmodule QuickTrain.Datasets.DatasetImport.Cleanup do
   # credo:disable-for-this-file Credo.Check.Refactor.Nesting
   @moduledoc false
 
+  use Ash.Resource.Actions.Implementation
+
   require Ash.Query
 
   alias QuickTrain.Datasets.{DatasetImport, DatasetImportRow, DatasetRecord}
 
-  def expired(now, limit) do
-    DatasetImport
-    |> Ash.Query.filter(phase == :open and open_expires_at <= ^now)
-    |> Ash.Query.sort(open_expires_at: :asc, id: :asc)
-    |> Ash.Query.limit(limit)
-    |> Ash.read(authorize?: false)
+  @impl true
+  def run(input, _opts, _context) do
+    cleanup(input.arguments.import_id, input.arguments.now)
   end
 
-  def cleanup(import_id, now) do
+  defp cleanup(import_id, now) do
     Ash.transact([DatasetImport, DatasetImportRow], fn ->
       case locked_import(import_id) do
         %{phase: :open} = import ->

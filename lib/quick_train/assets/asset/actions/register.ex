@@ -1,6 +1,8 @@
 defmodule QuickTrain.Assets.Asset.Actions.Register do
   @moduledoc false
 
+  alias QuickTrain.ProductError
+
   use Ash.Resource.Actions.Implementation
 
   require Ash.Query
@@ -8,7 +10,9 @@ defmodule QuickTrain.Assets.Asset.Actions.Register do
   alias QuickTrain.Assets.{Asset, AssetRegistrationResult, Storage}
 
   @impl true
-  def run(input, _opts, _context) do
+  def run(input, _opts, _context), do: ProductError.wrap(execute(input))
+
+  defp execute(input) do
     arguments = input.arguments
 
     with :ok <- validate_declared_facts(arguments) do

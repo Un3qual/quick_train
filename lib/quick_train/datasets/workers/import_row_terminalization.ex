@@ -14,7 +14,7 @@ defmodule QuickTrain.Datasets.Workers.ImportRowTerminalization do
 
   import Ecto.Query
 
-  alias QuickTrain.Datasets.DatasetImportRow.Process
+  alias QuickTrain.Datasets
   alias QuickTrain.Datasets.Workers.ProcessImportRow
 
   @page_size 100
@@ -45,7 +45,7 @@ defmodule QuickTrain.Datasets.Workers.ImportRowTerminalization do
   defp terminalize(terminal_jobs) do
     Enum.reduce_while(terminal_jobs, :ok, fn job, :ok ->
       with %{"row_id" => row_id} <- job.args,
-           {:ok, _status} <- Process.terminalize(row_id) do
+           {:ok, _status} <- Datasets.terminalize_import_row(row_id, authorize?: false) do
         {:cont, :ok}
       else
         %{} -> {:cont, :ok}

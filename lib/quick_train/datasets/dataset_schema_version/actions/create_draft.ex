@@ -1,6 +1,8 @@
 defmodule QuickTrain.Datasets.DatasetSchemaVersion.Actions.CreateDraft do
   @moduledoc false
 
+  alias QuickTrain.ProductError
+
   use Ash.Resource.Actions.Implementation
 
   require Ash.Query
@@ -14,7 +16,7 @@ defmodule QuickTrain.Datasets.DatasetSchemaVersion.Actions.CreateDraft do
     Ash.transact([Dataset, DatasetSchemaVersion], fn ->
       case locked_dataset(organization_id, dataset_id) do
         nil ->
-          {:error, :invalid_schema}
+          ProductError.invalid(:invalid_schema)
 
         dataset ->
           DatasetSchemaVersion

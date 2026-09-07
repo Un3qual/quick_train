@@ -4,6 +4,8 @@ defmodule QuickTrain.Assets.Asset.Actions.Finalize do
   # credo:disable-for-this-file Credo.Check.Refactor.CyclomaticComplexity
   @moduledoc false
 
+  alias QuickTrain.ProductError
+
   use Ash.Resource.Actions.Implementation
 
   require Ash.Query
@@ -20,12 +22,24 @@ defmodule QuickTrain.Assets.Asset.Actions.Finalize do
   @commit_attempts 2
 
   @impl true
-  def run(input, _opts, _context) do
-    %{asset_id: asset_id, organization_id: organization_id} = input.arguments
-    finalize(asset_id, organization_id)
+  def run(%{action: %{name: :reconcile_publication}, arguments: args}, _opts, _context) do
+    ProductError.wrap(
+      commit_success(
+        args.asset_id,
+        args.organization_id,
+        args.claim_id,
+        args.sealed_key,
+        args.facts
+      )
+    )
   end
 
-  def finalize(asset_id, organization_id) do
+  def run(input, _opts, _context) do
+    %{asset_id: asset_id, organization_id: organization_id} = input.arguments
+    ProductError.wrap(finalize(asset_id, organization_id))
+  end
+
+  defp finalize(asset_id, organization_id) do
     claim_id = Ecto.UUID.generate()
 
     case acquire_claim(asset_id, organization_id, claim_id) do
@@ -35,10 +49,6 @@ defmodule QuickTrain.Assets.Asset.Actions.Finalize do
       {:ok, :missing} -> {:error, :asset_not_found}
       {:error, error} -> {:error, error}
     end
-  end
-
-  def reconcile_verified(asset_id, organization_id, claim_id, sealed_key, facts) do
-    commit_success(asset_id, organization_id, claim_id, sealed_key, facts)
   end
 
   defp acquire_claim(asset_id, organization_id, claim_id) do

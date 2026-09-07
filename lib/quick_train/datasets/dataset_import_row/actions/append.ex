@@ -3,6 +3,8 @@ defmodule QuickTrain.Datasets.DatasetImportRow.Actions.Append do
   # credo:disable-for-this-file Credo.Check.Refactor.Nesting
   @moduledoc false
 
+  alias QuickTrain.ProductError
+
   use Ash.Resource.Actions.Implementation
 
   require Ash.Query
@@ -15,28 +17,32 @@ defmodule QuickTrain.Datasets.DatasetImportRow.Actions.Append do
   }
 
   alias QuickTrain.Datasets.DatasetImportRow.Structure
-  alias QuickTrain.Datasets.DatasetItemRevision.Actions.Put
+  alias QuickTrain.Datasets.DatasetRecord.Values
 
   @impl true
   def run(input, _opts, _context) do
     arguments = Map.put_new(input.arguments, :external_key, nil)
 
-    with {:ok, entries} <- Structure.validate(arguments) do
-      Ash.transact(import_resources(), fn -> append_locked(arguments, entries) end)
+    case Structure.validate(arguments) do
+      {:ok, entries} ->
+        Ash.transact(import_resources(), fn -> append_locked(arguments, entries) end)
+
+      {:error, reason} ->
+        ProductError.wrap({:error, reason})
     end
   end
 
   defp append_locked(arguments, entries) do
     case locked_import(arguments.organization_id, arguments.import_id) do
       nil ->
-        {:error, :invalid_import}
+        ProductError.invalid(:invalid_import)
 
       %{phase: :sealed} ->
-        {:error, :import_not_open}
+        ProductError.invalid(:import_not_open)
 
       import ->
         if DateTime.compare(import.open_expires_at, DateTime.utc_now()) != :gt do
-          {:error, :import_expired}
+          ProductError.invalid(:import_expired)
         else
           schema = published_schema(import)
 
@@ -52,7 +58,7 @@ defmodule QuickTrain.Datasets.DatasetImportRow.Actions.Append do
 
             accept_or_retry(import, schema, arguments, entries, fingerprint)
           else
-            {:error, :invalid_schema}
+            ProductError.invalid(:invalid_schema)
           end
         end
     end
@@ -66,17 +72,17 @@ defmodule QuickTrain.Datasets.DatasetImportRow.Actions.Append do
         row_by_key
 
       row_by_key ->
-        {:error, :idempotency_conflict}
+        ProductError.invalid(:idempotency_conflict)
 
       row_by(import.id, :source_position, arguments.source_position) ->
-        {:error, :idempotency_conflict}
+        ProductError.invalid(:idempotency_conflict)
 
       arguments.external_key && row_by(import.id, :external_key, arguments.external_key) ->
-        {:error, :duplicate_external_key}
+        ProductError.invalid(:duplicate_external_key)
 
       Ash.count!(Ash.Query.filter(DatasetImportRow, import_id == ^import.id), authorize?: false) >=
           Application.fetch_env!(:quick_train, :dataset_imports)[:max_rows_per_import] ->
-        {:error, :import_row_limit_exceeded}
+        ProductError.invalid(:import_row_limit_exceeded)
 
       true ->
         persist_row(import, schema, arguments, entries, fingerprint)
@@ -87,9 +93,17 @@ defmodule QuickTrain.Datasets.DatasetImportRow.Actions.Append do
     inputs = Enum.map(entries, & &1.input)
 
     candidate =
-      with {:ok, occurrences} <- Put.normalize(schema, inputs),
-           :ok <- Put.validate_assets(import.organization_id, occurrences) do
-        {:ok, Put.create_normalized_record!(import, schema, occurrences)}
+      with {:ok, occurrences} <- Values.normalize(schema, inputs),
+           :ok <- Values.validate_assets(import.organization_id, occurrences) do
+        {:ok,
+         QuickTrain.Datasets.construct_record!(
+           import.organization_id,
+           import.dataset_id,
+           schema.id,
+           schema.root_record_type_id,
+           occurrences,
+           authorize?: false
+         )}
       else
         {:error, reason} -> {:error, sanitize(reason)}
       end

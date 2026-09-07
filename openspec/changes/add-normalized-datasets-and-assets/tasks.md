@@ -60,3 +60,12 @@
 - [x] 6.2 Exercise the complete authenticated workflow: create and publish a schema, register and seal an asset, import mixed valid and invalid rows, retry open and append requests, finalize and process rows, inspect paginated row outcomes, and query typed historical revisions under organization authorization.
 - [x] 6.3 Document required product capability bootstrap, production storage configuration, asset staging lifetime, import open lifetime, and responsibility-specific Oban schedules without selecting a storage provider.
 - [x] 6.4 Run `mise run openspec.validate`, format and compile the implementation, inspect relevant logs and focused tests, and finish with `mise run verify` from a clean migrated database.
+
+## 7. Approved code-quality review follow-through
+
+- [x] 7.1 Return typed product errors from asset, schema, and import lifecycle actions; verify stable GraphQL codes for expected failures without exposing unexpected errors.
+- [x] 7.2 Use user-before-organization locking for manager bootstrap and capability grants; exercise overlapping operations and first-item/import writes with independent database connections and committed fixtures.
+- [x] 7.3 Batch distinct ready-asset lookups in record validation and cover query growth and organization scope.
+- [x] 7.4 Move normalized-record validation and construction out of the revision action implementation; share record-owned operations between append and revision creation without changing fingerprints or import provenance.
+- [x] 7.5 Route asset verification, staging cleanup, import processing, terminalization, and open-import cleanup through explicit internal Ash actions and code interfaces while preserving retry and claim behavior.
+- [ ] 7.6 Run focused checks and the repository verification gate, address compatible dependency advisory fixes needed by the gate, and record the results.

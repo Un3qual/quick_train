@@ -1,7 +1,6 @@
 defmodule QuickTrain.Datasets.DatasetRevisionTest do
   use QuickTrain.DataCase, async: false
 
-  alias Ecto.Adapters.SQL.Sandbox
   alias QuickTrain.{Accounts, Assets, Datasets}
   alias QuickTrain.Assets.Storage.Test, as: TestStorage
 
@@ -186,39 +185,25 @@ defmodule QuickTrain.Datasets.DatasetRevisionTest do
     assert second.revision.id == first.revision.id
   end
 
+  @tag :committed_db
   test "concurrent first writes converge on one stable item and revision", context do
-    parent = self()
     input = values(context.asset.id, "Concurrent", "1", "2026-01-02T01:04:05Z")
 
-    tasks =
-      for _index <- 1..2 do
-        Task.async(fn ->
-          send(parent, {:ready, self()})
-
-          receive do
-            :go -> :ok
+    results =
+      concurrently(
+        for _index <- 1..2 do
+          fn ->
+            Datasets.put_item_revision(
+              context.organization.id,
+              context.dataset.id,
+              context.schema.id,
+              nil,
+              "concurrent-customer",
+              input, actor: context.manager)
           end
+        end
+      )
 
-          Datasets.put_item_revision(
-            context.organization.id,
-            context.dataset.id,
-            context.schema.id,
-            nil,
-            "concurrent-customer",
-            input,
-            actor: context.manager
-          )
-        end)
-      end
-
-    Enum.each(tasks, fn task ->
-      Sandbox.allow(QuickTrain.Repo, self(), task.pid)
-    end)
-
-    for _task <- tasks, do: assert_receive({:ready, _pid}, 5_000)
-    Enum.each(tasks, &send(&1.pid, :go))
-
-    results = Enum.map(tasks, &Task.await(&1, 5_000))
     assert Enum.all?(results, &match?({:ok, %{}}, &1))
 
     revision_results = Enum.map(results, fn {:ok, result} -> result end)

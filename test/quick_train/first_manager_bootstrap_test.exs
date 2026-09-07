@@ -3,10 +3,65 @@ defmodule QuickTrain.FirstManagerBootstrapTest do
 
   import ExUnit.CaptureIO
 
+  require Ash.Query
+
+  alias Ecto.Adapters.SQL.Sandbox
   alias Mix.Tasks.QuickTrain.BootstrapFirstManager
-  alias QuickTrain.Accounts
+  alias QuickTrain.{Accounts, Datasets}
+  alias QuickTrain.Accounts.User
   alias QuickTrain.Authorization.{Capability, Role, RoleAssignment, RoleCapability}
   alias QuickTrain.Organizations.{Membership, Organization}
+
+  @tag :committed_db
+  test "a capability grant waiting for the user cannot deadlock manager bootstrap" do
+    user = Accounts.register_user!("lock-manager@example.test", "Lock Manager")
+    graph = Accounts.bootstrap_first_manager!(user.id, "lock-org", "Lock Org")
+    parent = self()
+
+    grant =
+      Task.async(fn ->
+        Sandbox.unboxed_run(Repo, fn ->
+          %{rows: [[backend_id]]} = Repo.query!("SELECT pg_backend_pid()")
+          send(parent, {:grant_connection, backend_id})
+          receive do: (:go -> Datasets.grant_product_capabilities(graph.organization.id, user.id))
+        end)
+      end)
+
+    try do
+      assert_receive {:grant_connection, backend_id}, 5_000
+
+      assert {:ok, _graph} =
+               Ash.transact(User, fn ->
+                 User
+                 |> Ash.Query.filter(id == ^user.id)
+                 |> Ash.Query.lock(:for_update)
+                 |> Ash.read_one!(authorize?: false)
+
+                 send(grant.pid, :go)
+                 await_database_lock(backend_id, System.monotonic_time(:millisecond) + 5_000)
+                 Accounts.bootstrap_first_manager!(user.id, "lock-org", "Lock Org")
+               end)
+
+      assert {:ok, capabilities} = Task.await(grant, 5_000)
+      assert "datasets.manage" in capabilities
+    after
+      Task.shutdown(grant, :brutal_kill)
+    end
+  end
+
+  defp await_database_lock(backend_id, deadline) do
+    case Repo.query!("SELECT pg_blocking_pids($1)", [backend_id]).rows do
+      [[[_blocker | _rest]]] ->
+        :ok
+
+      [[[]]] ->
+        assert System.monotonic_time(:millisecond) < deadline,
+               "grant did not reach its database lock"
+
+        Process.sleep(10)
+        await_database_lock(backend_id, deadline)
+    end
+  end
 
   test "bootstraps the exact first-manager graph without capability grants" do
     user = Accounts.register_user!("manager@example.test", "Manager")
@@ -35,6 +90,7 @@ defmodule QuickTrain.FirstManagerBootstrapTest do
     assert Ash.count!(RoleCapability, authorize?: false) == 0
   end
 
+  @tag :committed_db
   test "matching repeated and concurrent requests converge on one graph" do
     user = Accounts.register_user!("repeat-manager@example.test", "Manager")
 
@@ -47,13 +103,11 @@ defmodule QuickTrain.FirstManagerBootstrapTest do
     assert second.assignment.id == first.assignment.id
 
     concurrent_results =
-      1..2
-      |> Enum.map(fn _attempt ->
-        Task.async(fn ->
-          Accounts.bootstrap_first_manager(user.id, "concurrent-org", "Concurrent Org")
-        end)
-      end)
-      |> Task.await_many()
+      concurrently(
+        for _attempt <- 1..2 do
+          fn -> Accounts.bootstrap_first_manager(user.id, "concurrent-org", "Concurrent Org") end
+        end
+      )
 
     assert Enum.all?(concurrent_results, &match?({:ok, _graph}, &1))
 

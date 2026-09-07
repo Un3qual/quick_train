@@ -196,6 +196,17 @@ defmodule QuickTrain.Datasets do
     end
 
     resource QuickTrain.Datasets.DatasetItemRevision do
+      define :put_candidate_revision,
+        action: :put_candidate,
+        args: [
+          :organization_id,
+          :dataset_id,
+          :schema_version_id,
+          :item_id,
+          :external_key,
+          :candidate_record_id
+        ]
+
       define :put_item_revision,
         action: :put,
         args: [
@@ -212,7 +223,11 @@ defmodule QuickTrain.Datasets do
         args: [:organization_id, :item_id]
     end
 
-    resource QuickTrain.Datasets.DatasetRecord
+    resource QuickTrain.Datasets.DatasetRecord do
+      define :construct_record,
+        action: :construct_internal,
+        args: [:organization_id, :dataset_id, :schema_version_id, :record_type_id, :occurrences]
+    end
 
     resource QuickTrain.Datasets.DatasetValue do
       define :list_values,
@@ -228,6 +243,9 @@ defmodule QuickTrain.Datasets do
     resource QuickTrain.Datasets.DatasetValue.Asset
 
     resource QuickTrain.Datasets.DatasetImport do
+      define :cleanup_expired_import, action: :cleanup_expired, args: [:import_id]
+      define :list_expired_open_imports, action: :expired_open, args: [:now]
+
       define :open_import,
         action: :open,
         args: [:organization_id, :dataset_id, :schema_version_id, :idempotency_key]
@@ -242,6 +260,9 @@ defmodule QuickTrain.Datasets do
     end
 
     resource QuickTrain.Datasets.DatasetImportRow do
+      define :process_import_row, action: :process_internal, args: [:row_id]
+      define :terminalize_import_row, action: :terminalize_internal, args: [:row_id]
+
       define :append_import_row,
         action: :append,
         args: [

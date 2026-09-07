@@ -104,6 +104,29 @@ defmodule QuickTrain.Assets.Asset do
       run {Module.concat(["QuickTrain.Assets.Asset.Actions.Access"]), []}
     end
 
+    action :cleanup_staging, :atom do
+      allow_nil? false
+      argument :asset_id, :uuid, allow_nil?: false
+      argument :now, :utc_datetime_usec, allow_nil?: false, default: &DateTime.utc_now/0
+      run {Module.concat(["QuickTrain.Assets.Asset.Cleanup"]), []}
+    end
+
+    action :reconcile_publication, AssetFinalizationResult do
+      allow_nil? false
+      argument :asset_id, :uuid, allow_nil?: false
+      argument :organization_id, :uuid, allow_nil?: false
+      argument :claim_id, :uuid, allow_nil?: false
+      argument :sealed_key, :string, allow_nil?: false, sensitive?: true
+      argument :facts, :map, allow_nil?: false
+      run {Module.concat(["QuickTrain.Assets.Asset.Actions.Finalize"]), []}
+    end
+
+    read :expired_staging do
+      argument :cutoff, :utc_datetime_usec, allow_nil?: false
+      filter expr(is_nil(staging_cleaned_at) and staging_expires_at <= ^arg(:cutoff))
+      prepare build(sort: [staging_expires_at: :asc, id: :asc])
+    end
+
     create :create_pending do
       accept [
         :id,

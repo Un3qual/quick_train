@@ -4,10 +4,8 @@ defmodule QuickTrain.Datasets.DatasetImportTest do
 
   require Ash.Query
 
-  alias Ecto.Adapters.SQL.Sandbox
   alias QuickTrain.{Accounts, Datasets}
   alias QuickTrain.Datasets.{DatasetImport, DatasetImportRow, DatasetItem, DatasetRecord}
-  alias QuickTrain.Datasets.DatasetImportRow.Process, as: ImportRowProcess
 
   alias QuickTrain.Datasets.Workers.{
     ExpiredOpenImportCleanup,
@@ -405,6 +403,7 @@ defmodule QuickTrain.Datasets.DatasetImportTest do
     assert Ash.get!(DatasetImportRow, target_row.id, authorize?: false).outcome == :failed
   end
 
+  @tag :committed_db
   test "concurrent row workers serialize revisions for one unseen external key", context do
     first_import = open!(context, "concurrent-first")
     second_import = open!(context, "concurrent-second")
@@ -418,20 +417,26 @@ defmodule QuickTrain.Datasets.DatasetImportTest do
     Datasets.finalize_import!(context.organization.id, first_import.id, actor: context.manager)
     Datasets.finalize_import!(context.organization.id, second_import.id, actor: context.manager)
 
-    parent = self()
+    results =
+      concurrently(
+        for row <- [first, second],
+            do: fn -> Datasets.process_import_row(row.id, authorize?: false) end
+      )
 
-    tasks =
-      for row <- [first, second] do
-        Task.async(fn ->
-          send(parent, {:ready, self()})
-          receive do: (:go -> ImportRowProcess.process(row.id))
-        end)
-      end
+    # A first-item uniqueness race rolls back the losing row transaction. Oban
+    # retries that still-pending row using the now-committed stable item.
+    Enum.each(results, fn
+      {:ok, _row} ->
+        :ok
 
-    Enum.each(tasks, &Sandbox.allow(QuickTrain.Repo, self(), &1.pid))
-    for _task <- tasks, do: assert_receive({:ready, _pid}, 5_000)
-    Enum.each(tasks, &send(&1.pid, :go))
-    assert Enum.all?(tasks, &match?({:ok, _}, Task.await(&1, 5_000)))
+      {:error, error} ->
+        assert QuickTrain.AshError.constraint?(error, ["dataset_items_dataset_external_key_index"])
+    end)
+
+    for row <- [first, second] do
+      assert :ok = perform_job(ProcessImportRow, %{"row_id" => row.id})
+      assert Ash.get!(DatasetImportRow, row.id, authorize?: false).outcome == :succeeded
+    end
 
     [item] = Ash.read!(QuickTrain.Datasets.DatasetItem, authorize?: false)
 

@@ -1,6 +1,8 @@
 defmodule QuickTrain.Datasets.DatasetImport.Actions.Open do
   @moduledoc false
 
+  alias QuickTrain.ProductError
+
   use Ash.Resource.Actions.Implementation
 
   require Ash.Query
@@ -19,7 +21,7 @@ defmodule QuickTrain.Datasets.DatasetImport.Actions.Open do
            {:ok, result} <- existing_or_create(arguments, actor_id, fingerprint) do
         result
       else
-        nil -> {:error, :invalid_schema}
+        nil -> ProductError.invalid(:invalid_schema)
         {:error, reason} -> {:error, reason}
       end
     end)
@@ -55,7 +57,7 @@ defmodule QuickTrain.Datasets.DatasetImport.Actions.Open do
         {:ok, existing}
 
       existing ->
-        {:error, :idempotency_conflict}
+        ProductError.invalid(:idempotency_conflict)
 
       true ->
         expires_at =

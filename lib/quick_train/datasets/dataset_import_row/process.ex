@@ -1,11 +1,24 @@
 defmodule QuickTrain.Datasets.DatasetImportRow.Process do
   @moduledoc false
 
+  use Ash.Resource.Actions.Implementation
+
   require Ash.Query
 
   alias QuickTrain.Datasets.{DatasetImportRow, DatasetRecord}
 
-  def process(row_id) do
+  @impl true
+  def run(%{action: %{name: :process_internal}, arguments: %{row_id: row_id}}, _opts, _context),
+    do: process(row_id)
+
+  def run(
+        %{action: %{name: :terminalize_internal}, arguments: %{row_id: row_id}},
+        _opts,
+        _context
+      ),
+      do: terminalize(row_id)
+
+  defp process(row_id) do
     Ash.transact([DatasetImportRow, DatasetRecord], fn ->
       case locked_row(row_id) do
         nil ->
@@ -16,18 +29,19 @@ defmodule QuickTrain.Datasets.DatasetImportRow.Process do
 
         row ->
           create_revision_and_complete(row)
+          :processed
       end
     end)
   end
 
-  def terminalize(row_id, error_code \\ "processing_retries_exhausted") do
+  defp terminalize(row_id) do
     Ash.transact(DatasetImportRow, fn ->
       case locked_row(row_id) do
         %{outcome: :pending} = row ->
           row
           |> Ash.Changeset.for_update(:complete_internal, %{
             outcome: :failed,
-            error_code: error_code,
+            error_code: "processing_retries_exhausted",
             item_revision_id: nil
           })
           |> Ash.update!(authorize?: false)
@@ -41,17 +55,14 @@ defmodule QuickTrain.Datasets.DatasetImportRow.Process do
   end
 
   defp create_revision_and_complete(row) do
-    record = Ash.get!(DatasetRecord, row.candidate_record_id, authorize?: false)
-    values = values_from_record(record)
-
     result =
-      QuickTrain.Datasets.put_item_revision!(
+      QuickTrain.Datasets.put_candidate_revision!(
         row.organization_id,
         row.dataset_id,
         row.schema_version_id,
         if(row.external_key, do: nil, else: row.id),
         row.external_key,
-        values,
+        row.candidate_record_id,
         authorize?: false
       )
 
@@ -64,38 +75,6 @@ defmodule QuickTrain.Datasets.DatasetImportRow.Process do
       item_revision_id: result.revision.id
     })
     |> Ash.update!(authorize?: false)
-  end
-
-  defp values_from_record(record) do
-    record =
-      Ash.load!(
-        record,
-        [
-          values: [
-            :field_definition,
-            :text_value,
-            :integer_value,
-            :decimal_value,
-            :boolean_value,
-            :date_time_value,
-            :asset_value
-          ]
-        ],
-        authorize?: false
-      )
-
-    Enum.map(record.values, fn value ->
-      key = value.field_definition.key
-
-      case value.field_definition.value_family do
-        :text -> %{field: key, text: value.text_value.value}
-        :integer -> %{field: key, integer: value.integer_value.value}
-        :decimal -> %{field: key, decimal: value.decimal_value.value}
-        :boolean -> %{field: key, boolean: value.boolean_value.value}
-        :utc_datetime -> %{field: key, utc_datetime: value.date_time_value.value}
-        :asset -> %{field: key, asset_id: value.asset_value.asset_id}
-      end
-    end)
   end
 
   defp locked_row(row_id) do

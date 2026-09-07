@@ -2,11 +2,44 @@ defmodule QuickTrain.ValidationBatchingTest do
   use QuickTrain.DataCase, async: false
 
   alias QuickTrain.{Accounts, Authorization, EnterpriseIdentity, Organizations}
+  alias QuickTrain.Assets.Asset
+  alias QuickTrain.Datasets.DatasetRecord.Values
   alias QuickTrain.EnterpriseIdentity.{DirectoryUser, ExternalGroupRoleMapping}
 
   alias QuickTrain.EnterpriseIdentity.DirectoryUser.Validations.IdentityScope
 
   alias QuickTrain.EnterpriseIdentity.ExternalGroupRoleMapping.Validations.MappingScope
+
+  test "record asset validation batches duplicate identities and keeps organization scope" do
+    organization = Organizations.create_organization!("Asset Batch", "asset-batch")
+    other = Organizations.create_organization!("Other Asset Batch", "other-asset-batch")
+
+    asset =
+      Ash.Seed.seed!(Asset, %{
+        organization_id: organization.id,
+        state: :ready,
+        sha256: String.duplicate("a", 64),
+        byte_size: 4,
+        media_type: "text/plain",
+        staging_key: "batch/staging",
+        sealed_key: "batch/sealed",
+        staging_expires_at: DateTime.utc_now()
+      })
+
+    occurrences = List.duplicate(%{family: :asset, value: asset.id}, 20)
+
+    {result, query_count} =
+      count_repo_queries(fn -> Values.validate_assets(organization.id, occurrences) end)
+
+    assert result == :ok
+    assert query_count == 1
+    assert {:error, :invalid_asset} = Values.validate_assets(other.id, occurrences)
+
+    assert {:error, :invalid_asset} =
+             Values.validate_assets(organization.id, [
+               %{family: :asset, value: Ash.UUID.generate()}
+             ])
+  end
 
   test "authorization decisions use one filterable existence query" do
     {:ok, user} = Accounts.register_user("query-user@example.com", "Query User")

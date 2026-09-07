@@ -152,6 +152,7 @@ defmodule QuickTrain.Assets.AssetLifecycleTest do
     end
   end
 
+  @tag :committed_db
   test "concurrent-ready content converges and matching registration reuses the canonical asset",
        %{
          manager: manager,
@@ -164,13 +165,11 @@ defmodule QuickTrain.Assets.AssetLifecycleTest do
     :ok = TestStorage.put_staging(second.upload_access, content)
 
     [first_result, second_result] =
-      [first.asset.id, second.asset.id]
-      |> Enum.map(fn asset_id ->
-        Task.async(fn ->
-          Assets.finalize_asset!(asset_id, graph.organization.id, actor: manager)
-        end)
-      end)
-      |> Task.await_many()
+      concurrently(
+        for asset_id <- [first.asset.id, second.asset.id] do
+          fn -> Assets.finalize_asset!(asset_id, graph.organization.id, actor: manager) end
+        end
+      )
 
     [ready_result] = Enum.filter([first_result, second_result], &(&1.asset.state == :ready))
 

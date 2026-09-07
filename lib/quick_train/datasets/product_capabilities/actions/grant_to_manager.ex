@@ -50,8 +50,8 @@ defmodule QuickTrain.Datasets.ProductCapabilities.Actions.GrantToManager do
   end
 
   defp grant_in_transaction(organization_id, user_id) do
-    with {:ok, _organization} <- active_organization(organization_id),
-         {:ok, _user} <- active_user(user_id),
+    with {:ok, _user} <- active_user(user_id),
+         {:ok, _organization} <- active_organization(organization_id),
          {:ok, _membership} <- active_membership(organization_id, user_id),
          {:ok, role} <- manager_role(organization_id),
          {:ok, _assignment} <- manager_assignment(organization_id, user_id, role.id),

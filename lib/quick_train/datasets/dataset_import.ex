@@ -104,6 +104,19 @@ defmodule QuickTrain.Datasets.DatasetImport do
   end
 
   actions do
+    action :cleanup_expired, :atom do
+      allow_nil? false
+      argument :import_id, :uuid, allow_nil?: false
+      argument :now, :utc_datetime_usec, allow_nil?: false, default: &DateTime.utc_now/0
+      run {Module.concat(["QuickTrain.Datasets.DatasetImport.Cleanup"]), []}
+    end
+
+    read :expired_open do
+      argument :now, :utc_datetime_usec, allow_nil?: false
+      filter expr(phase == :open and open_expires_at <= ^arg(:now))
+      prepare build(sort: [open_expires_at: :asc, id: :asc])
+    end
+
     defaults [:read]
 
     action :open, :struct do

@@ -65,6 +65,18 @@ defmodule QuickTrain.Datasets.DatasetImportRow do
   end
 
   actions do
+    action :process_internal, :atom do
+      allow_nil? false
+      argument :row_id, :uuid, allow_nil?: false
+      run {Module.concat(["QuickTrain.Datasets.DatasetImportRow.Process"]), []}
+    end
+
+    action :terminalize_internal, :atom do
+      allow_nil? false
+      argument :row_id, :uuid, allow_nil?: false
+      run {Module.concat(["QuickTrain.Datasets.DatasetImportRow.Process"]), []}
+    end
+
     read :read do
       primary? true
 

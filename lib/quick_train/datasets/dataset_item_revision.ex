@@ -93,6 +93,19 @@ defmodule QuickTrain.Datasets.DatasetItemRevision do
       run {Module.concat(["QuickTrain.Datasets.DatasetItemRevision.Actions.Put"]), []}
     end
 
+    action :put_candidate, :struct do
+      allow_nil? false
+      constraints instance_of: Result
+      argument :organization_id, :uuid, allow_nil?: false
+      argument :dataset_id, :uuid, allow_nil?: false
+      argument :schema_version_id, :uuid, allow_nil?: false
+      argument :item_id, :uuid
+      argument :external_key, :string
+      argument :candidate_record_id, :uuid, allow_nil?: false
+      validate present([:item_id, :external_key], at_least: 1)
+      run {Module.concat(["QuickTrain.Datasets.DatasetItemRevision.Actions.Put"]), []}
+    end
+
     create :create_internal do
       accept [
         :organization_id,

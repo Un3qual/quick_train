@@ -12,7 +12,7 @@ defmodule QuickTrain.Assets.Workers.AssetStagingCleanup do
       states: [:available, :scheduled, :executing, :retryable]
     ]
 
-  alias QuickTrain.Assets.Asset.Cleanup
+  alias QuickTrain.Assets
 
   @page_size 100
 
@@ -20,10 +20,21 @@ defmodule QuickTrain.Assets.Workers.AssetStagingCleanup do
   def perform(%Oban.Job{}) do
     now = DateTime.utc_now()
 
-    with {:ok, assets} <- Cleanup.expired_assets(now, @page_size) do
+    cutoff =
+      DateTime.add(
+        now,
+        -Application.fetch_env!(:quick_train, :assets)[:cleanup_grace_seconds],
+        :second
+      )
+
+    with {:ok, assets} <-
+           Assets.list_expired_staging_assets(cutoff,
+             query: [limit: @page_size],
+             authorize?: false
+           ) do
       errors =
         Enum.reduce(assets, [], fn asset, errors ->
-          case Cleanup.cleanup(asset.id, now) do
+          case Assets.cleanup_asset_staging(asset.id, %{now: now}, authorize?: false) do
             {:ok, _status} -> errors
             {:error, error} -> [error | errors]
           end

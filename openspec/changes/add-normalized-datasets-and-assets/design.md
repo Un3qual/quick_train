@@ -167,6 +167,14 @@ This change reuses the stable pinned Oban dependency established by the authenti
 
 QuickTrain does not recreate generic Operations, Integrations, Audit, or DurableDelivery domains.
 
+### 11. Keep lifecycle entry points and record construction cohesive
+
+Expected product failures use typed Ash errors with stable GraphQL codes. Unexpected exceptions retain the framework's sanitized response. Internal workers invoke resource actions through domain code interfaces with explicit authorization bypass for their already-authorized immutable resource identities; internal lifecycle actions are not exposed through GraphQL and fail closed for ordinary callers. Storage I/O remains outside database transactions.
+
+Normalized-record validation and construction belong to DatasetRecord. Append and revision creation share that implementation rather than calling one another's action helpers. Processing reads typed occurrences directly from its immutable candidate; candidate provenance remains retained, and revision fingerprint and unchanged semantics stay identical. Asset validation reads distinct ready assets in one organization-scoped query.
+
+Manager bootstrap and product capability grants acquire their shared authority locks in user-before-organization order. Database race tests use independently checked-out connections and committed fixtures, with deterministic cleanup, so PostgreSQL uniqueness and row locks are actually exercised.
+
 ## Risks / Trade-offs
 
 - **[More rows and joins than JSONB]** -> Index record, field, ordinal, latest-revision, and import-status paths; benchmark representative imports before adding caches.
