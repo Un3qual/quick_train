@@ -7,13 +7,13 @@ defmodule QuickTrain.Datasets.DatasetImport.Actions.Open do
 
   require Ash.Query
 
-  alias QuickTrain.Datasets.{Dataset, DatasetImport, DatasetSchemaVersion}
+  alias QuickTrain.Datasets.{Dataset, DatasetImport, DatasetSchemaVersion, Fingerprint}
 
   @impl true
   def run(input, _opts, context) do
     arguments = input.arguments
     actor_id = context.actor.id
-    fingerprint = fingerprint(arguments.schema_version_id, actor_id)
+    fingerprint = Fingerprint.import_open(arguments.schema_version_id, actor_id)
 
     Ash.transact([Dataset, DatasetImport, DatasetSchemaVersion], fn ->
       with %{} <- locked_dataset(arguments.organization_id, arguments.dataset_id),
@@ -79,11 +79,5 @@ defmodule QuickTrain.Datasets.DatasetImport.Actions.Open do
         })
         |> Ash.create(authorize?: false)
     end
-  end
-
-  defp fingerprint(schema_version_id, actor_id) do
-    "quick_train.dataset-import-open:v1:#{schema_version_id}:#{actor_id}"
-    |> then(&:crypto.hash(:sha256, &1))
-    |> Base.encode16(case: :lower)
   end
 end

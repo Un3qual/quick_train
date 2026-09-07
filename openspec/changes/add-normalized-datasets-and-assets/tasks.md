@@ -91,3 +91,12 @@ production build, and strict OpenSpec validation passed. Focused coverage preser
 fingerprint bytes across all value families, candidate reuse, unchanged provenance, and
 transactional rollback when a referenced record cannot be destroyed.
 Independent review of `165a7ff..0448bee` found no actionable issues.
+
+## 9. Consolidate fingerprint ownership
+
+- [x] 9.1 Consolidate dataset fingerprint formats and private encoding helpers into one module; retain the distinct shared Ash digest type and all existing fingerprint bytes.
+- [x] 9.2 Run the repository gate and independent OpenSpec validation, then record the results.
+
+Consolidation verification on 2026-09-07: `mise run verify` passed with 146 tests,
+including unchanged version-one fingerprint vectors, and all compilation, static analysis,
+Dialyzer, dependency audit, production-build, and OpenSpec checks.

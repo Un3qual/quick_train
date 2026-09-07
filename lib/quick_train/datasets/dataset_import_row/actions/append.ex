@@ -13,7 +13,7 @@ defmodule QuickTrain.Datasets.DatasetImportRow.Actions.Append do
     DatasetImport,
     DatasetImportRow,
     DatasetSchemaVersion,
-    ImportRowFingerprint
+    Fingerprint
   }
 
   alias QuickTrain.Datasets.DatasetImportRow.Structure
@@ -48,7 +48,7 @@ defmodule QuickTrain.Datasets.DatasetImportRow.Actions.Append do
 
           if schema do
             fingerprint =
-              ImportRowFingerprint.encode(
+              Fingerprint.import_row(
                 import.schema_version_id,
                 arguments.row_key,
                 arguments.external_key,

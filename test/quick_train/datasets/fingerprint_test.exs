@@ -2,7 +2,7 @@ defmodule QuickTrain.Datasets.FingerprintTest do
   use ExUnit.Case, async: true
 
   test "version-one fingerprints retain their persisted encoding across all value families" do
-    alias QuickTrain.Datasets.{ImportRowFingerprint, RevisionFingerprint}
+    alias QuickTrain.Datasets.Fingerprint
     schema = "00000000-0000-4000-8000-000000000001"
     root = "00000000-0000-4000-8000-000000000002"
 
@@ -21,10 +21,10 @@ defmodule QuickTrain.Datasets.FingerprintTest do
         Map.merge(entry, %{field: %{id: "00000000-0000-4000-8000-0000000000#{i}"}, ordinal: 0})
       end)
 
-    assert RevisionFingerprint.encode(schema, root, occurrences) ==
+    assert Fingerprint.revision(schema, root, occurrences) ==
              "82d067f516fa8fa3f198d4b5313d349bdfadcbeaec4d72c7da1545c68827efde"
 
-    assert ImportRowFingerprint.encode(schema, "row", nil, 7, entries) ==
+    assert Fingerprint.import_row(schema, "row", nil, 7, entries) ==
              "dce99f4a9aebd285f7afb124fef86a1c3c0731bbaa4eaf2e0da8c728d5b86ee6"
   end
 end

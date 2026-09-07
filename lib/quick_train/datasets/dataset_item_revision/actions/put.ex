@@ -14,7 +14,7 @@ defmodule QuickTrain.Datasets.DatasetItemRevision.Actions.Put do
     DatasetItemRevision,
     DatasetRecord,
     DatasetSchemaVersion,
-    RevisionFingerprint
+    Fingerprint
   }
 
   alias QuickTrain.Datasets.DatasetItemRevision.Result, as: RevisionResult
@@ -30,7 +30,7 @@ defmodule QuickTrain.Datasets.DatasetItemRevision.Actions.Put do
     with %{} = schema <- published_schema(arguments),
          {:ok, occurrences} <- occurrences(schema, arguments),
          fingerprint <-
-           RevisionFingerprint.encode(schema.id, schema.root_record_type_id, occurrences) do
+           Fingerprint.revision(schema.id, schema.root_record_type_id, occurrences) do
       put(arguments, schema, occurrences, fingerprint, @attempts)
     else
       nil -> ProductError.invalid(:invalid_schema)

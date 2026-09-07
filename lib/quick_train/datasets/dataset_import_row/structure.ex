@@ -3,7 +3,7 @@ defmodule QuickTrain.Datasets.DatasetImportRow.Structure do
   # credo:disable-for-this-file Credo.Check.Refactor.Nesting
   @moduledoc false
 
-  alias QuickTrain.Datasets.FingerprintEncoding
+  alias QuickTrain.Datasets.Fingerprint
 
   @selectors [
     text: :text,
@@ -77,7 +77,7 @@ defmodule QuickTrain.Datasets.DatasetImportRow.Structure do
   defp normalize_value(:decimal, value) when is_binary(value) do
     case Decimal.parse(value) do
       {%Decimal{} = decimal, ""} ->
-        canonical = FingerprintEncoding.canonical_decimal(decimal)
+        canonical = Fingerprint.canonical_decimal(decimal)
         {:ok, decimal, byte_size(canonical)}
 
       _other ->

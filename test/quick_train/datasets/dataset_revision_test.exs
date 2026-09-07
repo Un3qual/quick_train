@@ -9,8 +9,7 @@ defmodule QuickTrain.Datasets.DatasetRevisionTest do
     DatasetItemRevision,
     DatasetRecord,
     DatasetValue,
-    ImportRowFingerprint,
-    RevisionFingerprint
+    Fingerprint
   }
 
   setup do
@@ -32,12 +31,12 @@ defmodule QuickTrain.Datasets.DatasetRevisionTest do
     field = %{id: "33333333-3333-3333-3333-333333333333"}
 
     revision_fingerprint =
-      RevisionFingerprint.encode(schema_id, root_id, [
+      Fingerprint.revision(schema_id, root_id, [
         %{field: field, family: :text, ordinal: 0, value: "Alice"}
       ])
 
     import_fingerprint =
-      ImportRowFingerprint.encode(schema_id, "row-1", "customer-1", 7, [
+      Fingerprint.import_row(schema_id, "row-1", "customer-1", 7, [
         %{field: "name", family: :text, value: "Alice"}
       ])
 
