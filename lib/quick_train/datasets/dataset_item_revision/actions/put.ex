@@ -178,7 +178,9 @@ defmodule QuickTrain.Datasets.DatasetItemRevision.Actions.Put do
         arguments.dataset_id,
         schema.id,
         schema.root_record_type_id,
-        occurrences, authorize?: false)
+        occurrences,
+        authorize?: false
+      )
 
     DatasetItemRevision
     |> Ash.Changeset.for_create(:create_internal, %{

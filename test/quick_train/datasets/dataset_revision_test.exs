@@ -199,7 +199,9 @@ defmodule QuickTrain.Datasets.DatasetRevisionTest do
               context.schema.id,
               nil,
               "concurrent-customer",
-              input, actor: context.manager)
+              input,
+              actor: context.manager
+            )
           end
         end
       )

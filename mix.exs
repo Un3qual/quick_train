@@ -52,7 +52,7 @@ defmodule QuickTrain.MixProject do
       {:phoenix_ecto, "== 4.7.0"},
       {:ecto_sql, "== 3.14.0"},
       {:postgrex, "== 0.22.4"},
-      {:ash, "== 3.32.1"},
+      {:ash, "== 3.33.0"},
       {:ash_postgres, "== 2.13.0"},
       {:ash_graphql, "== 1.11.0"},
       {:absinthe, "== 1.11.0"},

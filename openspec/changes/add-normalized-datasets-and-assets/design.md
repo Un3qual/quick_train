@@ -175,6 +175,8 @@ Normalized-record validation and construction belong to DatasetRecord. Append an
 
 Manager bootstrap and product capability grants acquire their shared authority locks in user-before-organization order. Database race tests use independently checked-out connections and committed fixtures, with deterministic cleanup, so PostgreSQL uniqueness and row locks are actually exercised.
 
+The dependency audit requires Ash 3.33.0 and Mint 1.10.0. Ash string-length constraints count Unicode codepoints, matching PostgreSQL; import payload limits continue to count bytes independently.
+
 ## Risks / Trade-offs
 
 - **[More rows and joins than JSONB]** -> Index record, field, ordinal, latest-revision, and import-status paths; benchmark representative imports before adding caches.

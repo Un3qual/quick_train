@@ -28,7 +28,9 @@ defmodule QuickTrain.ProductCapabilitiesTest do
           graph.organization.id,
           id,
           "sealed",
-          %{}, actor: user)
+          %{},
+          actor: user
+        )
       end,
       fn -> Datasets.cleanup_expired_import(id, actor: user) end,
       fn -> Datasets.process_import_row(id, actor: user) end,

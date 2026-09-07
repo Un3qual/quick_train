@@ -188,8 +188,9 @@ hashes and issuer/subject identities cannot be reconstructed as the legacy schem
 ## Verification
 
 `mise run verify` first validates all OpenSpec artifacts in strict, non-interactive mode, then runs
-formatting, boundary and dependency-cycle checks, static analysis, Dialyzer, Hex's retired-package
-audit, a production compile, and the test suite. Generate migrations and resource snapshots after
+formatting, boundary and dependency-cycle checks, static analysis, Dialyzer, Hex's security-advisory
+and retired-package audit, a production compile, and the test suite. Run `mise run dependency.audit`
+to check dependencies independently. Generate migrations and resource snapshots after
 changing Ash resources:
 
 ```sh

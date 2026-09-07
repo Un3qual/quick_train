@@ -1,5 +1,7 @@
 import Config
 
+config :ash, default_string_length_count: :codepoints
+
 config :quick_train, Oban,
   engine: Oban.Engines.Basic,
   notifier: Oban.Notifiers.Postgres,
