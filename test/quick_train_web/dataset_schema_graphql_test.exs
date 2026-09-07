@@ -275,12 +275,4 @@ defmodule QuickTrainWeb.DatasetSchemaGraphqlTest do
 
     assert field_id == field["id"]
   end
-
-  defp graphql!(conn, query, variables) do
-    response =
-      conn |> post("/graphql", %{query: query, variables: variables}) |> json_response(200)
-
-    assert is_nil(response["errors"]), inspect(response["errors"])
-    response["data"]
-  end
 end

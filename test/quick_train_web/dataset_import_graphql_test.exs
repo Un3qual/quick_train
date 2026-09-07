@@ -197,12 +197,4 @@ defmodule QuickTrainWeb.DatasetImportGraphqlTest do
     assert data["datasetImportRows"]["pageInfo"]["hasNextPage"]
     assert is_binary(data["datasetImportRows"]["pageInfo"]["endCursor"])
   end
-
-  defp graphql!(conn, query, variables) do
-    response =
-      conn |> post("/graphql", %{query: query, variables: variables}) |> json_response(200)
-
-    assert is_nil(response["errors"]), inspect(response["errors"])
-    response["data"]
-  end
 end

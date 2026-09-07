@@ -142,35 +142,17 @@ defmodule QuickTrain.Datasets.ProductCapabilities.Actions.GrantToManager do
   end
 
   defp grant_capabilities(role_id, capabilities) do
-    Enum.reduce_while(capabilities, :ok, fn capability, :ok ->
-      case grant_capability(role_id, capability.id) do
-        :ok -> {:cont, :ok}
-        {:error, error} -> {:halt, {:error, error}}
-      end
-    end)
-  end
+    inputs = Enum.map(capabilities, &%{role_id: role_id, capability_id: &1.id})
 
-  defp grant_capability(role_id, capability_id) do
-    case RoleCapability
-         |> Ash.Query.filter(role_id == ^role_id and capability_id == ^capability_id)
-         |> Ash.Query.lock(:for_update)
-         |> Ash.read_one(authorize?: false) do
-      {:ok, nil} ->
-        case RoleCapability
-             |> Ash.Changeset.for_create(:grant, %{
-               role_id: role_id,
-               capability_id: capability_id
-             })
-             |> Ash.create(authorize?: false) do
-          {:ok, _grant} -> :ok
-          {:error, error} -> {:error, error}
-        end
-
-      {:ok, %RoleCapability{}} ->
-        :ok
-
-      {:error, error} ->
-        {:error, error}
+    case Ash.bulk_create(inputs, RoleCapability, :grant,
+           upsert?: true,
+           upsert_identity: :role_capability,
+           upsert_fields: [],
+           authorize?: false,
+           return_errors?: true
+         ) do
+      %Ash.BulkResult{status: :success} -> :ok
+      %Ash.BulkResult{errors: errors} -> {:error, Ash.Error.to_error_class(errors)}
     end
   end
 

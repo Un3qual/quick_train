@@ -122,3 +122,21 @@ Ponytail verification on 2026-09-07: `mise run verify` passed with 146 tests and
 compilation, static analysis, Dialyzer, dependency audit, production-build, and code-generation
 checks. Independent OpenSpec validation passed all three items. Independent review found no
 actionable issues. Existing tests cover the shared adapter, safe summaries, and import identities.
+
+## 12. Approved repository audit simplifications
+
+- [x] 12.1 Merge the in-memory adapter and its private store, preserving deadlines, fencing, and test controls.
+- [x] 12.2 Reuse the existing independent-connection helper for OIDC race tests and share GraphQL request assertions in ConnCase.
+- [x] 12.3 Replace product grant lookup/insertion with Ash bulk upsert while preserving manager checks and transactional failure handling.
+- [x] 12.4 Run the repository gate and independent OpenSpec validation, then record results.
+
+The user explicitly retained the foundation GraphQL declarations and metrics scaffold for
+planned future work. They and their dependencies are outside this simplification pass.
+
+Repository audit follow-up verification on 2026-09-07: `mise run verify` passed with
+146 tests and all compilation, static analysis, Dialyzer, dependency audit, production-build,
+and code-generation checks. Independent OpenSpec validation passed all three items.
+Independent code review found no actionable issues. Existing
+coverage exercises storage deadlines and fencing, OIDC races, GraphQL requests, and
+idempotent manager grants. The changes remove 115 application/test lines without adding
+dependencies or migrations.

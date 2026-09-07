@@ -257,14 +257,6 @@ defmodule QuickTrainWeb.DatasetRevisionGraphqlTest do
     end
   end
 
-  defp graphql!(conn, query, variables) do
-    response =
-      conn |> post("/graphql", %{query: query, variables: variables}) |> json_response(200)
-
-    assert is_nil(response["errors"]), inspect(response["errors"])
-    response["data"]
-  end
-
   defp ready_asset!(organization_id, manager, content) do
     registration =
       Assets.register_asset!(

@@ -185,7 +185,11 @@ Structural import validation remains separate from schema validation: malformed 
 
 Storage recovery continues to use the persisted publication window established before external I/O. The unused `provider_in_flight_until` response field is removed because no lifecycle code consumes it and neither current nor deferred specs require it.
 
-Development and tests share one `Storage.InMemory` adapter and its deterministic staging and inspection controls. Asset summaries derive their copied attribute names from the embedded Ash resource, which excludes storage keys and claims. Import row lookups share one Ash keyword filter scoped to the import identity.
+Development and tests share one `Storage.InMemory` adapter and its deterministic staging and inspection controls. The adapter owns its GenServer directly; deadline accounting and initial content verification still execute in the calling process. Asset summaries derive their copied attribute names from the embedded Ash resource, which excludes storage keys and claims. Import row lookups share one Ash keyword filter scoped to the import identity.
+
+OIDC race tests reuse the independent-connection helper, and GraphQL tests share their request/assertion helper in ConnCase. Product capability grants use Ash bulk upsert against the existing role/capability identity with no replacement fields, inside the existing manager-validation transaction. Bulk errors return through the existing rollback and conflict handling.
+
+Foundation GraphQL declarations and the metrics scaffold are explicitly retained for planned future work.
 
 Record and value destroy actions use Ash's built-in cascade changes before deleting their parents, matching the existing restrictive foreign keys. Import cleanup owns eligibility and the import lock; resource actions own graph retirement. No new recovery subsystem, custom cascade framework, or database schema change is needed.
 

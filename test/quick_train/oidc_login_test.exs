@@ -627,65 +627,22 @@ defmodule QuickTrain.OidcLoginTest do
   end
 
   defp concurrent_begins(callback_key, count) do
-    parent = self()
-
-    tasks =
+    operations =
       for attempt <- 1..count do
-        Task.async(fn -> await_concurrent_begin(parent, callback_key, attempt) end)
+        fn -> begin_oidc_login(callback_key, "198.51.100.#{attempt}") end
       end
 
-    task_pids =
-      for _attempt <- 1..count do
-        assert_receive {:begin_ready, task_pid}
-        task_pid
-      end
-
-    Enum.each(task_pids, &send(&1, :begin))
-    Task.await_many(tasks, 15_000)
+    concurrently(operations)
   end
 
   defp concurrent_exchanges(logins) do
-    parent = self()
-
-    tasks =
-      Enum.map(logins, fn login ->
-        Task.async(fn -> await_concurrent_exchange(parent, login) end)
-      end)
-
-    task_pids =
-      for _login <- logins do
-        assert_receive {:exchange_ready, task_pid}
-        task_pid
+    logins
+    |> Enum.map(fn login ->
+      fn ->
+        Authentication.exchange_oidc_login("provider-code", login.state, login.client_proof)
       end
-
-    Enum.each(task_pids, &send(&1, :exchange))
-    Task.await_many(tasks, 15_000)
-  end
-
-  defp await_concurrent_exchange(parent, login) do
-    send(parent, {:exchange_ready, self()})
-
-    receive do
-      :exchange ->
-        Sandbox.unboxed_run(Repo, fn ->
-          Authentication.exchange_oidc_login(
-            "provider-code",
-            login.state,
-            login.client_proof
-          )
-        end)
-    end
-  end
-
-  defp await_concurrent_begin(parent, callback_key, attempt) do
-    send(parent, {:begin_ready, self()})
-
-    receive do
-      :begin ->
-        Sandbox.unboxed_run(Repo, fn ->
-          begin_oidc_login(callback_key, "198.51.100.#{attempt}")
-        end)
-    end
+    end)
+    |> concurrently()
   end
 
   defp count_non_expired_transactions(callback_key) do

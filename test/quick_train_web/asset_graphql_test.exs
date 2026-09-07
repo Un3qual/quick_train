@@ -205,14 +205,6 @@ defmodule QuickTrainWeb.AssetGraphqlTest do
     refute MapSet.member?(asset_fields, "operationClaimId")
   end
 
-  defp graphql!(conn, query, variables \\ %{}) do
-    response =
-      conn |> post("/graphql", %{query: query, variables: variables}) |> json_response(200)
-
-    assert is_nil(response["errors"]), inspect(response["errors"])
-    response["data"]
-  end
-
   defp sha256(content),
     do: Base.encode16(:crypto.hash(:sha256, content), case: :lower)
 end
