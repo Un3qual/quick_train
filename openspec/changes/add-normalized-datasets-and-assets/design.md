@@ -171,11 +171,21 @@ QuickTrain does not recreate generic Operations, Integrations, Audit, or Durable
 
 Expected product failures use typed Ash errors with stable GraphQL codes. Unexpected exceptions retain the framework's sanitized response. Internal workers invoke resource actions through domain code interfaces with explicit authorization bypass for their already-authorized immutable resource identities; internal lifecycle actions are not exposed through GraphQL and fail closed for ordinary callers. Storage I/O remains outside database transactions.
 
-Normalized-record validation and construction belong to DatasetRecord. Append and revision creation share that implementation rather than calling one another's action helpers. Processing reads typed occurrences directly from its immutable candidate; candidate provenance remains retained, and revision fingerprint and unchanged semantics stay identical. Asset validation reads distinct ready assets in one organization-scoped query.
+Normalized-record validation and construction belong to DatasetRecord. Append and revision creation share that implementation rather than calling one another's action helpers. Processing reads typed occurrences directly from its immutable candidate and reuses that record as a new revision root; candidate provenance remains retained, and revision fingerprint and unchanged semantics stay identical. Asset validation reads distinct ready assets in one organization-scoped query.
 
 Manager bootstrap and product capability grants acquire their shared authority locks in user-before-organization order. Database race tests use independently checked-out connections and committed fixtures, with deterministic cleanup, so PostgreSQL uniqueness and row locks are actually exercised.
 
 The dependency audit requires Ash 3.33.0 and Mint 1.10.0. Ash string-length constraints count Unicode codepoints, matching PostgreSQL; import payload limits continue to count bytes independently.
+
+### 12. Validated simplifications against the future architecture
+
+The deferred `record-future-product-architecture` design requires immutable dataset revisions and stable source value identities for task inputs and annotations (sections C, D, and I). It does not require separate copies of an import candidate and its revision graph. New imported revisions therefore reference the accepted immutable candidate directly. Unchanged imports keep their candidate provenance and point to the existing revision. Expired-open cleanup still cannot delete sealed imports, and restrictive revision foreign keys protect referenced records.
+
+Structural import validation remains separate from schema validation: malformed requests reserve no row identity, while domain-invalid inputs retain failed provenance. Schema binding consumes already-normalized entries directly. Import and revision fingerprints retain their separate domains and ordering, sharing only their version-one canonical scalar and framing encoding. Future response persistence stays separate; no cross-product type framework is introduced.
+
+Storage recovery continues to use the persisted publication window established before external I/O. The unused `provider_in_flight_until` response field is removed because no lifecycle code consumes it and neither current nor deferred specs require it.
+
+Record and value destroy actions use Ash's built-in cascade changes before deleting their parents, matching the existing restrictive foreign keys. Import cleanup owns eligibility and the import lock; resource actions own graph retirement. No new recovery subsystem, custom cascade framework, or database schema change is needed.
 
 ## Risks / Trade-offs
 

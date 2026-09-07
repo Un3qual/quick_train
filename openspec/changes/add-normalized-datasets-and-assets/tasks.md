@@ -74,3 +74,12 @@ Verification on 2026-09-07: `mise run verify` passed with 143 tests, zero Dialyz
 no static-analysis findings or duplicate-code clones, no retired packages or security advisories,
 and successful compilation, formatting, code-generation, boundary, architecture, production-build,
 and OpenSpec checks. Independent review of the application fixes found no actionable issues.
+
+## 8. Validated simplification follow-through
+
+- [x] 8.1 Reuse an imported immutable candidate as the new revision root, preserving scope, unchanged detection, and sealed provenance.
+- [x] 8.2 Bind structurally normalized import entries to the schema without converting them back to input maps or parsing twice.
+- [x] 8.3 Share the existing canonical scalar and framing encoding while preserving version-one fingerprint bytes.
+- [x] 8.4 Remove unused publication-result timing metadata; retain persisted claim and publication windows.
+- [x] 8.5 Move graph retirement to resource destroy actions using Ash cascade changes, preserving transactional rollback and foreign-key protection.
+- [ ] 8.6 Verify focused behavior, run the full repository gate and independent OpenSpec validation, and record results.

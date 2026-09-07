@@ -14,17 +14,7 @@ defmodule QuickTrain.Assets.Storage.InMemory do
            call_before(deadline, &MemoryStore.publish(server, sealed_key, bytes, facts, &1)),
          {:ok, ^facts} <-
            call_before(deadline, &MemoryStore.verify_sealed(server, sealed_key, expected, &1)) do
-      in_flight_seconds =
-        :quick_train
-        |> Application.fetch_env!(:assets)
-        |> Keyword.fetch!(:provider_in_flight_seconds)
-
-      {:ok,
-       %{
-         sealed_key: sealed_key,
-         facts: facts,
-         provider_in_flight_until: DateTime.add(DateTime.utc_now(), in_flight_seconds, :second)
-       }}
+      {:ok, %{sealed_key: sealed_key, facts: facts}}
     end
   end
 

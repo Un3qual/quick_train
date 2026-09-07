@@ -233,6 +233,23 @@ defmodule QuickTrain.Datasets.DatasetImportTest do
     assert completed.outcome == :succeeded
     assert completed.item_revision_id
 
+    revision =
+      Ash.get!(QuickTrain.Datasets.DatasetItemRevision, completed.item_revision_id,
+        authorize?: false
+      )
+
+    assert revision.root_record_id == pending.candidate_record_id
+    assert Ash.count!(DatasetRecord, authorize?: false) == 1
+
+    assert {:ok, :skipped} =
+             Datasets.cleanup_expired_import(
+               import.id,
+               %{now: DateTime.add(import.open_expires_at, 1, :second)},
+               authorize?: false
+             )
+
+    assert Ash.get!(DatasetRecord, revision.root_record_id, authorize?: false)
+
     assert :ok = perform_job(ProcessImportRow, %{"row_id" => pending.id})
     assert Ash.count!(QuickTrain.Datasets.DatasetItemRevision, authorize?: false) == 1
 
@@ -265,6 +282,43 @@ defmodule QuickTrain.Datasets.DatasetImportTest do
 
     assert :ok = perform_job(ProcessImportRow, %{"row_id" => row.id})
     assert Ash.get!(DatasetItem, row.id, authorize?: false).id == row.id
+  end
+
+  test "unchanged imports retain their candidate while referencing the existing revision",
+       context do
+    [first, unchanged] =
+      for key <- ["first-import", "unchanged-import"] do
+        import = open!(context, key)
+
+        row =
+          append!(context, import, "same-row", "same-customer", 0, [
+            %{field: "name", text: "Same"}
+          ])
+
+        Datasets.finalize_import!(context.organization.id, import.id, actor: context.manager)
+        assert :ok = perform_job(ProcessImportRow, %{"row_id" => row.id})
+        Ash.get!(DatasetImportRow, row.id, authorize?: false)
+      end
+
+    assert first.outcome == :succeeded
+    assert unchanged.outcome == :unchanged
+    assert unchanged.item_revision_id == first.item_revision_id
+    refute unchanged.candidate_record_id == first.candidate_record_id
+    assert Ash.count!(DatasetRecord, authorize?: false) == 2
+  end
+
+  @tag :committed_db
+  test "destroying a referenced candidate rolls back its child deletions", context do
+    import = open!(context, "protected-candidate")
+    row = append!(context, import, "protected", nil, 0, [%{field: "name", text: "Retain"}])
+    Datasets.finalize_import!(context.organization.id, import.id, actor: context.manager)
+    assert :ok = perform_job(ProcessImportRow, %{"row_id" => row.id})
+    record = Ash.get!(DatasetRecord, row.candidate_record_id, authorize?: false)
+
+    assert {:error, _error} = Ash.destroy(record, action: :destroy_internal, authorize?: false)
+
+    record = Ash.load!(record, [values: :text_value], authorize?: false)
+    assert [%{text_value: %{value: "Retain"}}] = record.values
   end
 
   test "a row-job scheduling failure rolls sealing back atomically", context do
@@ -461,7 +515,14 @@ defmodule QuickTrain.Datasets.DatasetImportTest do
     on_exit(fn -> Application.put_env(:quick_train, :dataset_imports, original) end)
 
     import = open!(context, "expire")
-    row = append!(context, import, "expire-row", nil, 0, [%{field: "name", text: "Expire"}])
+
+    row =
+      append!(context, import, "expire-row", nil, 0, [
+        %{field: "name", text: "Expire"},
+        %{field: "balance", decimal: "1.2"},
+        %{field: "joined_at", utc_datetime: "2026-01-02T03:04:05Z"}
+      ])
+
     assert row.candidate_record_id
     Process.sleep(1_050)
 

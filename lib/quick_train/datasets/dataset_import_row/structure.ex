@@ -3,7 +3,7 @@ defmodule QuickTrain.Datasets.DatasetImportRow.Structure do
   # credo:disable-for-this-file Credo.Check.Refactor.Nesting
   @moduledoc false
 
-  alias QuickTrain.Datasets.RevisionFingerprint
+  alias QuickTrain.Datasets.FingerprintEncoding
 
   @selectors [
     text: :text,
@@ -48,8 +48,7 @@ defmodule QuickTrain.Datasets.DatasetImportRow.Structure do
            true <- bytes <= limits[:max_text_bytes] or selector != :text,
            next_bytes = total_bytes + byte_size(field) + bytes,
            true <- next_bytes <= limits[:max_scalar_bytes_per_row] do
-        input = %{selector => normalized, field: field}
-        entry = %{field: field, family: family, value: normalized, input: input}
+        entry = %{field: field, family: family, value: normalized}
         {:cont, {:ok, [entry | entries], next_bytes}}
       else
         [] -> {:halt, {:error, :malformed_scalar_shape}}
@@ -78,7 +77,7 @@ defmodule QuickTrain.Datasets.DatasetImportRow.Structure do
   defp normalize_value(:decimal, value) when is_binary(value) do
     case Decimal.parse(value) do
       {%Decimal{} = decimal, ""} ->
-        canonical = RevisionFingerprint.canonical_decimal(decimal)
+        canonical = FingerprintEncoding.canonical_decimal(decimal)
         {:ok, decimal, byte_size(canonical)}
 
       _other ->

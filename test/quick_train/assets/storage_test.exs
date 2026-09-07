@@ -176,7 +176,6 @@ defmodule QuickTrain.Assets.StorageTest do
     assert result.facts.width == 2
     assert result.facts.height == 3
     assert result.facts.media_type == "image/png"
-    assert DateTime.after?(result.provider_in_flight_until, DateTime.utc_now())
 
     assert {:error, :staging_fenced} = TestStorage.put_staging(descriptor, "replacement")
     facts = result.facts

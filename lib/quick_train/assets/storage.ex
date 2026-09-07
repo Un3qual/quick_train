@@ -30,8 +30,7 @@ defmodule QuickTrain.Assets.Storage do
 
   @type publish_result :: %{
           required(:sealed_key) => object_key(),
-          required(:facts) => verified_facts(),
-          required(:provider_in_flight_until) => DateTime.t()
+          required(:facts) => verified_facts()
         }
 
   @callback enforces_byte_cap?() :: boolean()

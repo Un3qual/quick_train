@@ -90,10 +90,8 @@ defmodule QuickTrain.Datasets.DatasetImportRow.Actions.Append do
   end
 
   defp persist_row(import, schema, arguments, entries, fingerprint) do
-    inputs = Enum.map(entries, & &1.input)
-
     candidate =
-      with {:ok, occurrences} <- Values.normalize(schema, inputs),
+      with {:ok, occurrences} <- Values.bind(schema, entries),
            :ok <- Values.validate_assets(import.organization_id, occurrences) do
         {:ok,
          QuickTrain.Datasets.construct_record!(

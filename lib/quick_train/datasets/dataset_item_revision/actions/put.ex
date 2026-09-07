@@ -172,15 +172,16 @@ defmodule QuickTrain.Datasets.DatasetItemRevision.Actions.Put do
   end
 
   defp create_revision!(arguments, schema, item, latest, occurrences, fingerprint) do
-    record =
-      QuickTrain.Datasets.construct_record!(
-        arguments.organization_id,
-        arguments.dataset_id,
-        schema.id,
-        schema.root_record_type_id,
-        occurrences,
-        authorize?: false
-      )
+    record_id =
+      arguments[:candidate_record_id] ||
+        QuickTrain.Datasets.construct_record!(
+          arguments.organization_id,
+          arguments.dataset_id,
+          schema.id,
+          schema.root_record_type_id,
+          occurrences,
+          authorize?: false
+        ).id
 
     DatasetItemRevision
     |> Ash.Changeset.for_create(:create_internal, %{
@@ -189,7 +190,7 @@ defmodule QuickTrain.Datasets.DatasetItemRevision.Actions.Put do
       item_id: item.id,
       schema_version_id: schema.id,
       root_record_type_id: schema.root_record_type_id,
-      root_record_id: record.id,
+      root_record_id: record_id,
       revision_number: if(latest, do: latest.revision_number + 1, else: 1),
       fingerprint: fingerprint
     })

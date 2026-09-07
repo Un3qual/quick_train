@@ -16,23 +16,30 @@ defmodule QuickTrain.Datasets.DatasetRecord.Values do
     :asset_value
   ]
 
-  def normalize(schema, values) when is_list(values) do
+  def normalize(schema, values) when is_list(values),
+    do: resolve(schema, values, &normalize_typed_value/1)
+
+  def normalize(_schema, _values), do: {:error, :unsupported_structure}
+
+  def bind(schema, entries) do
+    resolve(schema, entries, fn %{family: family, value: value} -> {:ok, family, value} end)
+  end
+
+  defp resolve(schema, values, value_parser) do
     fields = Map.new(schema.root_record_type.field_definitions, &{&1.key, &1})
 
-    with {:ok, occurrences} <- normalize_entries(values, fields),
+    with {:ok, occurrences} <- normalize_entries(values, fields, value_parser),
          :ok <- required_fields_present(fields, occurrences) do
       {:ok, occurrences}
     end
   end
 
-  def normalize(_schema, _values), do: {:error, :unsupported_structure}
-
-  defp normalize_entries(values, fields) do
+  defp normalize_entries(values, fields, value_parser) do
     Enum.reduce_while(values, {:ok, [], MapSet.new()}, fn value, {:ok, entries, seen} ->
       with {:ok, field_key} <- fetch_field(value),
            %{} = field <- Map.get(fields, field_key),
            false <- MapSet.member?(seen, field.id),
-           {:ok, family, normalized} <- normalize_typed_value(value),
+           {:ok, family, normalized} <- value_parser.(value),
            true <- family == field.value_family do
         occurrence = %{field: field, family: family, ordinal: 0, value: normalized}
         {:cont, {:ok, [occurrence | entries], MapSet.put(seen, field.id)}}
