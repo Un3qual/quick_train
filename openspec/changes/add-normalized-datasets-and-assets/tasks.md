@@ -82,4 +82,12 @@ and OpenSpec checks. Independent review of the application fixes found no action
 - [x] 8.3 Share the existing canonical scalar and framing encoding while preserving version-one fingerprint bytes.
 - [x] 8.4 Remove unused publication-result timing metadata; retain persisted claim and publication windows.
 - [x] 8.5 Move graph retirement to resource destroy actions using Ash cascade changes, preserving transactional rollback and foreign-key protection.
-- [ ] 8.6 Verify focused behavior, run the full repository gate and independent OpenSpec validation, and record results.
+- [x] 8.6 Verify focused behavior, run the full repository gate and independent OpenSpec validation, and record results.
+
+Simplification verification on 2026-09-07: `mise run verify` passed with 146 tests,
+zero Dialyzer errors, no static-analysis findings or duplicate-code clones, and no retired
+packages or security advisories. Compile, formatting, code generation, boundaries, architecture,
+production build, and strict OpenSpec validation passed. Focused coverage preserves version-one
+fingerprint bytes across all value families, candidate reuse, unchanged provenance, and
+transactional rollback when a referenced record cannot be destroyed.
+Independent review of `165a7ff..0448bee` found no actionable issues.
