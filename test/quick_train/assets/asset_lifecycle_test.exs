@@ -36,6 +36,11 @@ defmodule QuickTrain.Assets.AssetLifecycleTest do
 
     assert registration.asset.organization_id == graph.organization.id
     assert registration.asset.state == :pending
+    assert registration.asset.sha256 == :crypto.hash(:sha256, content)
+
+    assert Ash.get!(Asset, registration.asset.id, authorize?: false).sha256 ==
+             registration.asset.sha256
+
     assert registration.upload_access.max_bytes == byte_size(content)
     refute Map.has_key?(registration, :staging_key)
 

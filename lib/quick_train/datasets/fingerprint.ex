@@ -53,12 +53,7 @@ defmodule QuickTrain.Datasets.Fingerprint do
     digest("quick_train.dataset-import-open:v1:#{schema_version_id}:#{actor_id}")
   end
 
-  defp digest(payload) do
-    payload
-    |> IO.iodata_to_binary()
-    |> then(&:crypto.hash(:sha256, &1))
-    |> Base.encode16(case: :lower)
-  end
+  defp digest(payload), do: :crypto.hash(:sha256, payload)
 
   def canonical_decimal(%Decimal{} = decimal) do
     if Decimal.equal?(decimal, 0) do

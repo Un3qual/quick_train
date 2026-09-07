@@ -162,7 +162,7 @@ defmodule QuickTrain.Assets.StorageTest do
     staging_key = "staging/image"
     sealed_key = "sealed/org/hash"
     expires_at = DateTime.add(DateTime.utc_now(), 60, :second)
-    sha256 = Base.encode16(:crypto.hash(:sha256, @png), case: :lower)
+    sha256 = :crypto.hash(:sha256, @png)
 
     descriptor = Storage.writable_staging_access!(staging_key, byte_size(@png), expires_at)
     :ok = TestStorage.put_staging(descriptor, @png)
@@ -199,7 +199,7 @@ defmodule QuickTrain.Assets.StorageTest do
     :ok = TestStorage.set_publish_delay(75)
 
     expected = %{
-      sha256: Base.encode16(:crypto.hash(:sha256, content), case: :lower),
+      sha256: :crypto.hash(:sha256, content),
       byte_size: byte_size(content),
       media_type: "text/plain"
     }
@@ -214,7 +214,7 @@ defmodule QuickTrain.Assets.StorageTest do
     :ok = TestStorage.put_staging(descriptor, "different")
 
     expected = %{
-      sha256: String.duplicate("0", 64),
+      sha256: <<0::256>>,
       byte_size: byte_size("different"),
       media_type: "text/plain"
     }
@@ -234,7 +234,7 @@ defmodule QuickTrain.Assets.StorageTest do
     :ok = TestStorage.put_staging(active_descriptor, html)
 
     active_expected = %{
-      sha256: Base.encode16(:crypto.hash(:sha256, html), case: :lower),
+      sha256: :crypto.hash(:sha256, html),
       byte_size: byte_size(html),
       media_type: "text/plain"
     }
@@ -260,7 +260,7 @@ defmodule QuickTrain.Assets.StorageTest do
     :ok = TestStorage.put_staging(descriptor, active)
 
     expected = %{
-      sha256: Base.encode16(:crypto.hash(:sha256, active), case: :lower),
+      sha256: :crypto.hash(:sha256, active),
       byte_size: byte_size(active),
       media_type: "text/plain"
     }
@@ -285,7 +285,7 @@ defmodule QuickTrain.Assets.StorageTest do
     :ok = TestStorage.put_staging(descriptor, @jpeg)
 
     expected = %{
-      sha256: Base.encode16(:crypto.hash(:sha256, @jpeg), case: :lower),
+      sha256: :crypto.hash(:sha256, @jpeg),
       byte_size: byte_size(@jpeg),
       media_type: "image/jpeg"
     }
@@ -318,7 +318,7 @@ defmodule QuickTrain.Assets.StorageTest do
                "staging/actual-size",
                "sealed/actual-size",
                %{
-                 sha256: Base.encode16(:crypto.hash(:sha256, bytes), case: :lower),
+                 sha256: :crypto.hash(:sha256, bytes),
                  byte_size: 32,
                  media_type: "text/plain"
                },
@@ -346,7 +346,7 @@ defmodule QuickTrain.Assets.StorageTest do
                "staging/image-bounds",
                "sealed/image-bounds",
                %{
-                 sha256: Base.encode16(:crypto.hash(:sha256, @png), case: :lower),
+                 sha256: :crypto.hash(:sha256, @png),
                  byte_size: byte_size(@png),
                  media_type: "image/png"
                },
@@ -362,7 +362,7 @@ defmodule QuickTrain.Assets.StorageTest do
     :ok = TestStorage.put_staging(descriptor, "readable")
 
     expected = %{
-      sha256: Base.encode16(:crypto.hash(:sha256, "readable"), case: :lower),
+      sha256: :crypto.hash(:sha256, "readable"),
       byte_size: 8,
       media_type: "text/plain"
     }

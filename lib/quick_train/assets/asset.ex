@@ -9,7 +9,6 @@ defmodule QuickTrain.Assets.Asset do
   }
 
   alias QuickTrain.Organizations.Organization
-  alias QuickTrain.Types.Sha256Digest
 
   use Ash.Resource,
     otp_app: :quick_train,
@@ -26,7 +25,7 @@ defmodule QuickTrain.Assets.Asset do
       default: :pending,
       public?: true
 
-    attribute :sha256, Sha256Digest,
+    attribute :sha256, :binary,
       allow_nil?: false,
       public?: true
 
@@ -257,6 +256,7 @@ defmodule QuickTrain.Assets.Asset do
   end
 
   graphql do
+    attribute_types sha256: :string
     derive_filter? false
     type :asset
     relationships [:canonical_asset]

@@ -316,7 +316,8 @@ defmodule QuickTrain.Assets.Asset.Actions.Finalize do
     %{sha256: asset.sha256, byte_size: asset.byte_size, media_type: asset.media_type}
   end
 
-  defp sealed_key(asset), do: "assets/sealed/#{asset.organization_id}/#{asset.sha256}"
+  defp sealed_key(asset),
+    do: "assets/sealed/#{asset.organization_id}/#{Base.encode16(asset.sha256, case: :lower)}"
 
   defp live_claim?(%{operation_claim_id: nil}, _now), do: false
 

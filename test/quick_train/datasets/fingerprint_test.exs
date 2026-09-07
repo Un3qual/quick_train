@@ -22,9 +22,13 @@ defmodule QuickTrain.Datasets.FingerprintTest do
       end)
 
     assert Fingerprint.revision(schema, root, occurrences) ==
-             "82d067f516fa8fa3f198d4b5313d349bdfadcbeaec4d72c7da1545c68827efde"
+             Base.decode16!("82d067f516fa8fa3f198d4b5313d349bdfadcbeaec4d72c7da1545c68827efde",
+               case: :lower
+             )
 
     assert Fingerprint.import_row(schema, "row", nil, 7, entries) ==
-             "dce99f4a9aebd285f7afb124fef86a1c3c0731bbaa4eaf2e0da8c728d5b86ee6"
+             Base.decode16!("dce99f4a9aebd285f7afb124fef86a1c3c0731bbaa4eaf2e0da8c728d5b86ee6",
+               case: :lower
+             )
   end
 end

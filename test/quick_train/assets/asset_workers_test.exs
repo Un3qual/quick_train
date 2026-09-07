@@ -77,7 +77,7 @@ defmodule QuickTrain.Assets.AssetWorkersTest do
       Ash.Seed.seed!(Asset, %{
         organization_id: graph.organization.id,
         state: :pending,
-        sha256: String.duplicate("a", 64),
+        sha256: <<170::256>>,
         byte_size: 4,
         media_type: "text/plain",
         staging_key: "assets/staging/#{graph.organization.id}/abandoned",
@@ -176,7 +176,10 @@ defmodule QuickTrain.Assets.AssetWorkersTest do
     now = DateTime.utc_now()
     staging_key = "assets/staging/#{graph.organization.id}/published-before-commit"
     expected = expected(content)
-    sealed_key = "assets/sealed/#{graph.organization.id}/#{expected.sha256}"
+
+    sealed_key =
+      "assets/sealed/#{graph.organization.id}/#{Base.encode16(expected.sha256, case: :lower)}"
+
     access_expires_at = DateTime.add(now, 1, :second)
 
     descriptor =
@@ -303,14 +306,19 @@ defmodule QuickTrain.Assets.AssetWorkersTest do
     do: Base.encode16(:crypto.hash(:sha256, content), case: :lower)
 
   defp expected(content) do
-    %{sha256: sha256(content), byte_size: byte_size(content), media_type: "text/plain"}
+    %{
+      sha256: :crypto.hash(:sha256, content),
+      byte_size: byte_size(content),
+      media_type: "text/plain"
+    }
   end
 
   defp expected_facts(asset) do
     %{sha256: asset.sha256, byte_size: asset.byte_size, media_type: asset.media_type}
   end
 
-  defp sealed_key(asset), do: "assets/sealed/#{asset.organization_id}/#{asset.sha256}"
+  defp sealed_key(asset),
+    do: "assets/sealed/#{asset.organization_id}/#{Base.encode16(asset.sha256, case: :lower)}"
 
   defp seed_asset(organization_id, overrides) do
     unique = System.unique_integer([:positive])
@@ -318,7 +326,7 @@ defmodule QuickTrain.Assets.AssetWorkersTest do
     defaults = %{
       organization_id: organization_id,
       state: :pending,
-      sha256: Base.encode16(:crypto.hash(:sha256, "seed-#{unique}"), case: :lower),
+      sha256: :crypto.hash(:sha256, "seed-#{unique}"),
       byte_size: 4,
       media_type: "text/plain",
       staging_key: "assets/staging/#{organization_id}/seed-#{unique}",

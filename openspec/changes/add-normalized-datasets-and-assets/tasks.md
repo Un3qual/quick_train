@@ -94,9 +94,20 @@ Independent review of `165a7ff..0448bee` found no actionable issues.
 
 ## 9. Consolidate fingerprint ownership
 
-- [x] 9.1 Consolidate dataset fingerprint formats and private encoding helpers into one module; retain the distinct shared Ash digest type and all existing fingerprint bytes.
+- [x] 9.1 Consolidate dataset fingerprint formats and private encoding helpers into one module; preserve all existing fingerprint bytes. The initial separate Ash digest type is removed by section 10.
 - [x] 9.2 Run the repository gate and independent OpenSpec validation, then record the results.
 
 Consolidation verification on 2026-09-07: `mise run verify` passed with 146 tests,
 including unchanged version-one fingerprint vectors, and all compilation, static analysis,
 Dialyzer, dependency audit, production-build, and OpenSpec checks.
+
+## 10. Keep digests binary internally
+
+- [x] 10.1 Remove the custom digest type and retain raw SHA-256 bytes in Elixir, adapters, and PostgreSQL; validate/decode registration input once and encode only GraphQL output and textual keys.
+- [x] 10.2 Verify unchanged stored hashes and GraphQL string output, run the full gate and independent OpenSpec validation, and record results.
+
+Raw-digest verification on 2026-09-07: `mise run verify` passed with 146 tests,
+including raw registration/load equality, rejection of malformed and uppercase 64-character
+hashes, canonical fingerprint compatibility, and unchanged GraphQL hex output. All static
+analysis, Dialyzer, dependency audit, production build, and code-generation checks passed.
+Existing bytea storage and length constraints are unchanged; no database migration was generated.

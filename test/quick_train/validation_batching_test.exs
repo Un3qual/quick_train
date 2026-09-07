@@ -18,7 +18,7 @@ defmodule QuickTrain.ValidationBatchingTest do
       Ash.Seed.seed!(Asset, %{
         organization_id: organization.id,
         state: :ready,
-        sha256: String.duplicate("a", 64),
+        sha256: <<170::256>>,
         byte_size: 4,
         media_type: "text/plain",
         staging_key: "batch/staging",

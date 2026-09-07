@@ -19,20 +19,22 @@ defmodule QuickTrainWeb.AssetGraphqlTest do
   end
 
   test "expected registration failures have stable GraphQL codes", %{conn: conn, graph: graph} do
-    response =
-      conn
-      |> post("/graphql", %{
-        query: """
-        mutation {
-          registerAsset(organizationId: "#{graph.organization.id}", sha256: "invalid",
-            byteSize: 4, mediaType: "text/plain") { reused }
-        }
-        """
-      })
-      |> json_response(200)
+    for hash <- ["invalid", String.duplicate("g", 64), String.duplicate("A", 64)] do
+      response =
+        conn
+        |> post("/graphql", %{
+          query: """
+          mutation {
+            registerAsset(organizationId: "#{graph.organization.id}", sha256: "#{hash}",
+              byteSize: 4, mediaType: "text/plain") { reused }
+          }
+          """
+        })
+        |> json_response(200)
 
-    assert [%{"code" => "invalid_asset_hash", "message" => "invalid_asset_hash"}] =
-             response["errors"]
+      assert [%{"code" => "invalid_asset_hash", "message" => "invalid_asset_hash"}] =
+               response["errors"]
+    end
   end
 
   test "authenticated asset workflow exposes only safe typed results", %{conn: conn, graph: graph} do
@@ -122,7 +124,7 @@ defmodule QuickTrainWeb.AssetGraphqlTest do
       |> Ash.Changeset.for_create(:create_pending, %{
         id: Ecto.UUID.generate(),
         organization_id: graph.organization.id,
-        sha256: sha256(content),
+        sha256: :crypto.hash(:sha256, content),
         byte_size: byte_size(content),
         media_type: "text/plain",
         staging_key: "assets/staging/#{graph.organization.id}/duplicate",

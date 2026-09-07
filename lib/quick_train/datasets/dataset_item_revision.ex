@@ -11,7 +11,6 @@ defmodule QuickTrain.Datasets.DatasetItemRevision do
 
   alias QuickTrain.Datasets.DatasetItemRevision.Result
   alias QuickTrain.Organizations.Organization
-  alias QuickTrain.Types.Sha256Digest
 
   use Ash.Resource,
     otp_app: :quick_train,
@@ -27,7 +26,7 @@ defmodule QuickTrain.Datasets.DatasetItemRevision do
       allow_nil?: false,
       public?: true
 
-    attribute :fingerprint, Sha256Digest,
+    attribute :fingerprint, :binary,
       allow_nil?: false,
       public?: true
 
@@ -160,6 +159,7 @@ defmodule QuickTrain.Datasets.DatasetItemRevision do
   end
 
   graphql do
+    attribute_types fingerprint: :string
     derive_filter? false
     derive_sort? false
     type :dataset_item_revision

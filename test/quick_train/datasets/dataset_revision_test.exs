@@ -41,10 +41,14 @@ defmodule QuickTrain.Datasets.DatasetRevisionTest do
       ])
 
     assert revision_fingerprint ==
-             "aabd266a1733aaa09d2bcfd2f77c880fc4f749acf81d1a020a4363ce23cf59ad"
+             Base.decode16!("aabd266a1733aaa09d2bcfd2f77c880fc4f749acf81d1a020a4363ce23cf59ad",
+               case: :lower
+             )
 
     assert import_fingerprint ==
-             "4dd8e574b1b5092f01bd98d8043ab31eb2756306c641573390ddba19eb275518"
+             Base.decode16!("4dd8e574b1b5092f01bd98d8043ab31eb2756306c641573390ddba19eb275518",
+               case: :lower
+             )
   end
 
   test "constructs all six typed values and preserves immutable historical revisions", context do
@@ -66,7 +70,7 @@ defmodule QuickTrain.Datasets.DatasetRevisionTest do
     assert first.revision.revision_number == 1
     assert first.revision.schema_version_id == context.schema.id
     assert first.revision.root_record_type_id == context.root.id
-    assert Regex.match?(~r/\A[0-9a-f]{64}\z/, first.revision.fingerprint)
+    assert byte_size(first.revision.fingerprint) == 32
 
     loaded_first = load_revision(first.revision)
     assert [_, _, _, _, _, _] = loaded_first.root_record.values

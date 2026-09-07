@@ -56,7 +56,9 @@ defmodule QuickTrain.Assets.Asset.Cleanup do
   end
 
   defp reconcile_or_retire(asset, claim_id, now) do
-    sealed_key = "assets/sealed/#{asset.organization_id}/#{asset.sha256}"
+    sealed_key =
+      "assets/sealed/#{asset.organization_id}/#{Base.encode16(asset.sha256, case: :lower)}"
+
     expected = %{sha256: asset.sha256, byte_size: asset.byte_size, media_type: asset.media_type}
 
     case Storage.verify_sealed(sealed_key, expected, config(:publication_deadline_ms)) do

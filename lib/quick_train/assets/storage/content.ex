@@ -50,8 +50,8 @@ defmodule QuickTrain.Assets.Storage.Content do
   defp bounded_size(_bytes, _expected, _config), do: {:error, :content_mismatch}
 
   defp matching_hash(bytes, %{sha256: expected_hash})
-       when is_binary(expected_hash) and byte_size(expected_hash) == 64 do
-    actual_hash = Base.encode16(:crypto.hash(:sha256, bytes), case: :lower)
+       when is_binary(expected_hash) and byte_size(expected_hash) == 32 do
+    actual_hash = :crypto.hash(:sha256, bytes)
     if actual_hash == expected_hash, do: :ok, else: {:error, :content_mismatch}
   end
 

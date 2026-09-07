@@ -15,13 +15,13 @@ defmodule QuickTrain.Assets.Storage do
         }
 
   @type expected_facts :: %{
-          required(:sha256) => String.t(),
+          required(:sha256) => <<_::256>>,
           required(:byte_size) => pos_integer(),
           required(:media_type) => String.t()
         }
 
   @type verified_facts :: %{
-          required(:sha256) => String.t(),
+          required(:sha256) => <<_::256>>,
           required(:byte_size) => pos_integer(),
           required(:media_type) => String.t(),
           optional(:width) => pos_integer(),

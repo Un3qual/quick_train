@@ -15,7 +15,10 @@ defmodule QuickTrain.Assets.Asset.Actions.Register do
   defp execute(input) do
     arguments = input.arguments
 
-    with :ok <- validate_declared_facts(arguments) do
+    with {:ok, sha256} <- decode_hash(arguments.sha256),
+         :ok <- validate_declared_facts(arguments) do
+      arguments = %{arguments | sha256: sha256}
+
       case ready_asset(arguments.organization_id, arguments.sha256) do
         nil -> create_pending(arguments)
         asset -> reuse_ready(asset, arguments)
@@ -23,11 +26,19 @@ defmodule QuickTrain.Assets.Asset.Actions.Register do
     end
   end
 
-  defp validate_declared_facts(%{sha256: sha256, byte_size: byte_size, media_type: media_type}) do
+  defp decode_hash(hash) when byte_size(hash) == 64 do
+    case Base.decode16(hash, case: :lower) do
+      {:ok, digest} -> {:ok, digest}
+      :error -> {:error, :invalid_asset_hash}
+    end
+  end
+
+  defp decode_hash(_hash), do: {:error, :invalid_asset_hash}
+
+  defp validate_declared_facts(%{byte_size: byte_size, media_type: media_type}) do
     max_bytes = Application.fetch_env!(:quick_train, :assets)[:max_bytes]
 
     cond do
-      not Regex.match?(~r/\A[0-9a-f]{64}\z/, sha256) -> {:error, :invalid_asset_hash}
       byte_size <= 0 -> {:error, :invalid_asset_size}
       byte_size > max_bytes -> {:error, :asset_too_large}
       String.trim(media_type) == "" -> {:error, :invalid_media_type}

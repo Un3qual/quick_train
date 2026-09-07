@@ -181,6 +181,10 @@ defmodule QuickTrainWeb.DatasetRevisionGraphqlTest do
       )
 
     assert [%{"cursor" => dataset_cursor, "node" => nested_dataset}] = data["datasets"]["edges"]
+
+    assert hd(data["datasetItemRevisions"]["edges"])["node"]["fingerprint"] ==
+             Base.encode16(context.result.revision.fingerprint, case: :lower)
+
     assert is_binary(dataset_cursor)
     assert nested_dataset["id"] == context.dataset.id
 
