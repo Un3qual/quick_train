@@ -353,6 +353,58 @@ defmodule QuickTrain.Datasets.DatasetImportTest do
     assert terminal.error_code == "processing_retries_exhausted"
   end
 
+  test "terminal-job reconciliation continues after a full bounded page", context do
+    backlog_import = open!(context, "terminalize-backlog")
+
+    backlog_rows =
+      for source_position <- 0..99 do
+        append!(
+          context,
+          backlog_import,
+          "backlog-#{source_position}",
+          "backlog-customer-#{source_position}",
+          source_position,
+          [%{field: "name", text: "Backlog #{source_position}"}]
+        )
+      end
+
+    Datasets.finalize_import!(
+      context.organization.id,
+      backlog_import.id,
+      actor: context.manager
+    )
+
+    for job <- all_enqueued(worker: ProcessImportRow), do: :ok = Oban.cancel_job(job.id)
+
+    target_import = open!(context, "terminalize-after-backlog")
+
+    target_row =
+      append!(context, target_import, "target", "customer-after-backlog", 0, [
+        %{field: "name", text: "Target"}
+      ])
+
+    Datasets.finalize_import!(
+      context.organization.id,
+      target_import.id,
+      actor: context.manager
+    )
+
+    [target_job] = all_enqueued(worker: ProcessImportRow, args: %{row_id: target_row.id})
+    assert :ok = Oban.cancel_job(target_job.id)
+
+    assert {:snooze, 1} = perform_job(ImportRowTerminalization, %{})
+
+    assert Enum.all?(
+             backlog_rows,
+             &(Ash.get!(DatasetImportRow, &1.id, authorize?: false).outcome == :failed)
+           )
+
+    assert Ash.get!(DatasetImportRow, target_row.id, authorize?: false).outcome == :pending
+
+    assert :ok = perform_job(ImportRowTerminalization, %{})
+    assert Ash.get!(DatasetImportRow, target_row.id, authorize?: false).outcome == :failed
+  end
+
   test "concurrent row workers serialize revisions for one unseen external key", context do
     first_import = open!(context, "concurrent-first")
     second_import = open!(context, "concurrent-second")

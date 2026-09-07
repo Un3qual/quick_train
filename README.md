@@ -158,10 +158,11 @@ short-lived access descriptors.
 
 The default asset staging lifetime is one hour. Open imports also expire after one hour and accept
 at most 10,000 rows, 100 fields per row, 256 KiB of scalar data per row, 64 KiB per text value, and
-512 KiB per request. Asset staging cleanup and import-row terminalization reconciliation run every
-10 minutes; expired open-import cleanup runs hourly at minute 23. Import row jobs have eight
-bounded attempts, terminal Oban evidence is retained for one day, and all GraphQL collections use
-bounded keyset-paginated Relay connections.
+512 KiB per request. Asset staging cleanup and import-row terminalization reconciliation start every
+10 minutes; a full terminalization page schedules the same bounded job to continue draining its
+backlog. Expired open-import cleanup runs hourly at minute 23. Import row jobs have eight bounded
+attempts, terminal Oban evidence is retained for one day, and all GraphQL collections use bounded
+keyset-paginated Relay connections.
 
 Production additionally requires `DATABASE_URL` and `SECRET_KEY_BASE`; the other runtime settings
 are documented in `.env.example`.
