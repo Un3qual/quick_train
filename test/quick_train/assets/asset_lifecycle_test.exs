@@ -3,7 +3,7 @@ defmodule QuickTrain.Assets.AssetLifecycleTest do
 
   alias QuickTrain.{Accounts, Assets, Datasets, Organizations}
   alias QuickTrain.Assets.Asset
-  alias QuickTrain.Assets.Storage.Test, as: TestStorage
+  alias QuickTrain.Assets.Storage.InMemory, as: TestStorage
 
   setup do
     :ok = TestStorage.reset()

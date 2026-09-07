@@ -149,21 +149,11 @@ defmodule QuickTrain.Datasets.DatasetImportRow.Actions.Append do
     |> Ash.read_one!(authorize?: false)
   end
 
-  defp row_by(import_id, :row_key, value) do
-    DatasetImportRow
-    |> Ash.Query.filter(import_id == ^import_id and row_key == ^value)
-    |> Ash.read_one!(authorize?: false)
-  end
+  defp row_by(import_id, field, value) do
+    filter = [{:import_id, import_id}, {field, value}]
 
-  defp row_by(import_id, :source_position, value) do
     DatasetImportRow
-    |> Ash.Query.filter(import_id == ^import_id and source_position == ^value)
-    |> Ash.read_one!(authorize?: false)
-  end
-
-  defp row_by(import_id, :external_key, value) do
-    DatasetImportRow
-    |> Ash.Query.filter(import_id == ^import_id and external_key == ^value)
+    |> Ash.Query.filter(^filter)
     |> Ash.read_one!(authorize?: false)
   end
 

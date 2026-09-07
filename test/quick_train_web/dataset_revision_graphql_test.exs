@@ -2,7 +2,7 @@ defmodule QuickTrainWeb.DatasetRevisionGraphqlTest do
   use QuickTrain.ConnCase, async: false
 
   alias QuickTrain.{Accounts, Assets, Datasets}
-  alias QuickTrain.Assets.Storage.Test, as: TestStorage
+  alias QuickTrain.Assets.Storage.InMemory, as: TestStorage
 
   setup %{conn: conn} do
     :ok = TestStorage.reset()

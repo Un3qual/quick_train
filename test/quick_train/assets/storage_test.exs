@@ -2,11 +2,11 @@ defmodule QuickTrain.Assets.StorageTest do
   use ExUnit.Case, async: false
 
   alias QuickTrain.Assets.Storage
-  alias QuickTrain.Assets.Storage.Test, as: TestStorage
+  alias QuickTrain.Assets.Storage.InMemory, as: TestStorage
 
   defmodule UnenforcedStorage do
     def enforces_byte_cap?, do: false
-    def approved_hosts, do: ["storage.quicktrain.test"]
+    def approved_hosts, do: ["storage.quicktrain.local"]
   end
 
   defmodule OverlongStatelessStorage do
@@ -16,7 +16,7 @@ defmodule QuickTrain.Assets.StorageTest do
     def enforces_byte_cap?, do: true
 
     @impl true
-    def approved_hosts, do: ["storage.quicktrain.test"]
+    def approved_hosts, do: ["storage.quicktrain.local"]
 
     @impl true
     def writable_staging_access(staging_key, byte_cap, expires_at) do
@@ -41,7 +41,7 @@ defmodule QuickTrain.Assets.StorageTest do
     defp descriptor(method, key, expires_at, byte_cap) do
       %{
         method: method,
-        uri: URI.parse("https://storage.quicktrain.test/#{key}"),
+        uri: URI.parse("https://storage.quicktrain.local/#{key}"),
         headers: [],
         expires_at: expires_at,
         cache_control: "no-store",
@@ -130,7 +130,7 @@ defmodule QuickTrain.Assets.StorageTest do
 
     assert descriptor.method == :put
     assert descriptor.uri.scheme == "https"
-    assert descriptor.uri.host == "storage.quicktrain.test"
+    assert descriptor.uri.host == "storage.quicktrain.local"
     assert descriptor.max_bytes == 4
     assert descriptor.cache_control == "no-store"
     assert descriptor.referrer_policy == "no-referrer"
@@ -382,7 +382,7 @@ defmodule QuickTrain.Assets.StorageTest do
     assert {:error, :insecure_storage_destination} =
              Storage.validate_redirect(
                read_descriptor,
-               URI.parse("http://storage.quicktrain.test/x")
+               URI.parse("http://storage.quicktrain.local/x")
              )
 
     assert {:error, :unapproved_storage_destination} =

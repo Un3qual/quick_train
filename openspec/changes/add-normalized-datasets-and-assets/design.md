@@ -185,6 +185,8 @@ Structural import validation remains separate from schema validation: malformed 
 
 Storage recovery continues to use the persisted publication window established before external I/O. The unused `provider_in_flight_until` response field is removed because no lifecycle code consumes it and neither current nor deferred specs require it.
 
+Development and tests share one `Storage.InMemory` adapter and its deterministic staging and inspection controls. Asset summaries derive their copied attribute names from the embedded Ash resource, which excludes storage keys and claims. Import row lookups share one Ash keyword filter scoped to the import identity.
+
 Record and value destroy actions use Ash's built-in cascade changes before deleting their parents, matching the existing restrictive foreign keys. Import cleanup owns eligibility and the import lock; resource actions own graph retirement. No new recovery subsystem, custom cascade framework, or database schema change is needed.
 
 ## Risks / Trade-offs
@@ -203,7 +205,7 @@ Record and value destroy actions use Ash's built-in cascade changes before delet
 1. Apply and verify `add-api-authentication`, including its Oban dependency and jobs table.
 2. Generate the Assets and Datasets Ash domains and resource skeletons, then refine attributes, actions, policies, relationships, and GraphQL exposure.
 3. Generate and review AshPostgres snapshots and migrations for schemas, exact record types, stable items, revisions, typed values, asset lifecycle, and simplified import rows.
-4. Add the storage behavior, deterministic adapters, asset lifecycle actions, verification worker, and staging cleanup.
+4. Add the storage behavior, the shared in-memory adapter, asset lifecycle actions, verification worker, and staging cleanup.
 5. Add schema publication, normalized record construction, revision fingerprinting, and immutable item revision actions.
 6. Add import open, append, finalize with atomic row-job insertion, cleanup, idempotent row processing, bounded terminal-job reconciliation, and derived progress queries.
 7. Run focused policy, resource, adapter, worker, concurrency, migration, and GraphQL tests; then run `mise run openspec.validate` and `mise run verify` from a clean migrated database.

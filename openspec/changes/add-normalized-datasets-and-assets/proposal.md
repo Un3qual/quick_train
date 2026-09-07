@@ -39,5 +39,5 @@ None.
 - Adds AshPostgres tables, constraints, indexes, migrations, and resource snapshots for assets, dataset definitions, item revisions, records, typed values, and imports.
 - Uses the Oban dependency and jobs table established by `add-api-authentication` for responsibility-specific asset and import workers.
 - Extends the authenticated GraphQL schema with active-organization, membership, and capability-scoped product actions.
-- Adds a configurable asset-storage adapter plus deterministic development and test implementations; no production vendor is selected here.
+- Adds a configurable asset-storage adapter plus one deterministic in-memory implementation shared by development and tests; no production vendor is selected here.
 - Establishes typed value-family conventions that later Forms and Tasks changes can share in code without sharing persistence tables.

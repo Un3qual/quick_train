@@ -149,8 +149,9 @@ This grants only `assets.read`, `assets.manage`, `datasets.read`, `datasets.mana
 `dataset_imports.manage` to that organization's manager role. It does not create an account,
 membership, organization, wildcard, or global grant.
 
-Development and test use deterministic local storage adapters. Production deliberately ships
-without a selected storage provider and therefore fails closed with `storage_not_configured`.
+Development and test share the deterministic `QuickTrain.Assets.Storage.InMemory` adapter.
+Production deliberately ships without a selected storage provider and therefore fails closed
+with `storage_not_configured`.
 Configure an implementation of `QuickTrain.Assets.Storage` under
 `config :quick_train, :assets, storage_adapter: YourAdapter`; it must enforce upload byte caps,
 encrypted approved destinations, bounded verification/publication, immutable sealed objects, and

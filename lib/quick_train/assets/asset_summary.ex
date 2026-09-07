@@ -1,6 +1,7 @@
 defmodule QuickTrain.Assets.AssetSummary do
   @moduledoc "Public asset metadata without storage keys or operation claims."
 
+  alias Ash.Resource.Info
   alias QuickTrain.Assets.AssetState
 
   use Ash.Resource,
@@ -30,23 +31,7 @@ defmodule QuickTrain.Assets.AssetSummary do
   end
 
   def from(asset) do
-    struct!(__MODULE__, Map.take(Map.from_struct(asset), public_fields()))
-  end
-
-  defp public_fields do
-    [
-      :id,
-      :organization_id,
-      :state,
-      :sha256,
-      :byte_size,
-      :media_type,
-      :width,
-      :height,
-      :failure_reason,
-      :canonical_asset_id,
-      :staging_expires_at,
-      :staging_cleaned_at
-    ]
+    fields = __MODULE__ |> Info.attribute_names() |> MapSet.to_list()
+    struct!(__MODULE__, Map.take(Map.from_struct(asset), fields))
   end
 end

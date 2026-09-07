@@ -8,7 +8,7 @@
 ## 2. Immutable Asset Domain
 
 - [x] 2.1 Generate the Asset resource, snapshot, and migration, then refine organization ownership, lifecycle, canonical SHA-256 with lowercase hexadecimal boundary representation and native 32-byte database storage, finite configurable byte and image bounds, size, media type, image dimensions, staging and canonical sealed keys, staging expiry, cleanup completion, bounded operation-claim facts, ready-only uniqueness, constraints, and indexes.
-- [x] 2.2 Define `QuickTrain.Assets.Storage` and deterministic development and test adapters for staging access that enforces the declared byte cap or fails closed, staging-byte verification before canonical-key conditional publication, a finite publication deadline and bounded provider in-flight window, late-write-safe staging retirement, and short-lived sealed reads without per-registration sealed copies.
+- [x] 2.2 Define `QuickTrain.Assets.Storage` and one deterministic in-memory adapter shared by development and tests for staging access that enforces the declared byte cap or fails closed, staging-byte verification before canonical-key conditional publication, a finite publication deadline and bounded provider in-flight window, late-write-safe staging retirement, and short-lived sealed reads without per-registration sealed copies.
 - [x] 2.3 Enforce encrypted approved destinations and credential-safe redirect handling in storage access descriptors without exposing persistent storage keys or credentials through GraphQL.
 - [x] 2.4 Implement authorized asset registration that returns writable staging access only when the adapter enforces the declared byte cap, with canonical ready-asset reuse only when hash, byte size, and media type all match.
 - [x] 2.5 Implement bounded, recoverable, atomically claimed idempotent finalization that pins or fences and verifies staging bytes before canonical publication, rechecks the live claim immediately before starting a deadline-bounded publication, reconciles and reverifies an already-published canonical object after claim takeover, checks claim identity on completion, enforces bounded reads and image metadata, rejects active formats, records sanitized failures, and performs the immutable ready transition without holding a database transaction across storage I/O.
@@ -111,3 +111,14 @@ including raw registration/load equality, rejection of malformed and uppercase 6
 hashes, canonical fingerprint compatibility, and unchanged GraphQL hex output. All static
 analysis, Dialyzer, dependency audit, production build, and code-generation checks passed.
 Existing bytea storage and length constraints are unchanged; no database migration was generated.
+
+## 11. Approved Ponytail review simplifications
+
+- [x] 11.1 Share one in-memory storage adapter between development and tests, preserving test controls and the storage contract.
+- [x] 11.2 Derive asset summary fields from Ash resource metadata and replace the three import row lookups with one scoped keyword filter.
+- [x] 11.3 Run the repository gate and independent OpenSpec validation, then record results.
+
+Ponytail verification on 2026-09-07: `mise run verify` passed with 146 tests and all
+compilation, static analysis, Dialyzer, dependency audit, production-build, and code-generation
+checks. Independent OpenSpec validation passed all three items. Independent review found no
+actionable issues. Existing tests cover the shared adapter, safe summaries, and import identities.

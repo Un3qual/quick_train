@@ -2,7 +2,7 @@ defmodule QuickTrain.Datasets.DatasetRevisionTest do
   use QuickTrain.DataCase, async: false
 
   alias QuickTrain.{Accounts, Assets, Datasets}
-  alias QuickTrain.Assets.Storage.Test, as: TestStorage
+  alias QuickTrain.Assets.Storage.InMemory, as: TestStorage
 
   alias QuickTrain.Datasets.{
     DatasetItem,

@@ -3,7 +3,7 @@ defmodule QuickTrainWeb.AssetGraphqlTest do
 
   alias QuickTrain.{Accounts, Datasets}
   alias QuickTrain.Assets.Asset
-  alias QuickTrain.Assets.Storage.Test, as: TestStorage
+  alias QuickTrain.Assets.Storage.InMemory, as: TestStorage
 
   setup %{conn: conn} do
     :ok = TestStorage.reset()
@@ -69,7 +69,7 @@ defmodule QuickTrainWeb.AssetGraphqlTest do
     assert registration["asset"]["state"] == "PENDING"
     assert registration["uploadAccess"]["method"] == "PUT"
     assert registration["uploadAccess"]["maxBytes"] == byte_size(content)
-    assert registration["uploadAccess"]["uri"] =~ "https://storage.quicktrain.test/"
+    assert registration["uploadAccess"]["uri"] =~ "https://storage.quicktrain.local/"
 
     refute Map.has_key?(registration["asset"], "stagingKey")
     refute Map.has_key?(registration["asset"], "sealedKey")
