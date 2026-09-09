@@ -1,7 +1,7 @@
 defmodule QuickTrain.Assets.Asset.Actions.Register do
   @moduledoc false
 
-  alias QuickTrain.ProductError
+  alias QuickTrain.DatasetAssetError
 
   use Ash.Resource.Actions.Implementation
 
@@ -10,7 +10,7 @@ defmodule QuickTrain.Assets.Asset.Actions.Register do
   alias QuickTrain.Assets.{Asset, AssetRegistrationResult, Storage}
 
   @impl true
-  def run(input, _opts, _context), do: ProductError.wrap(execute(input))
+  def run(input, _opts, _context), do: DatasetAssetError.wrap(execute(input))
 
   defp execute(input) do
     arguments = input.arguments

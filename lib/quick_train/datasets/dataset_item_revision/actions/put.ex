@@ -7,7 +7,7 @@ defmodule QuickTrain.Datasets.DatasetItemRevision.Actions.Put do
 
   require Ash.Query
 
-  alias QuickTrain.{AshError, ProductError}
+  alias QuickTrain.{AshError, DatasetAssetError}
 
   alias QuickTrain.Datasets.{
     DatasetItem,
@@ -33,8 +33,8 @@ defmodule QuickTrain.Datasets.DatasetItemRevision.Actions.Put do
            Fingerprint.revision(schema.id, schema.root_record_type_id, occurrences) do
       put(arguments, schema, occurrences, fingerprint, @attempts)
     else
-      nil -> ProductError.invalid(:invalid_schema)
-      {:error, reason} -> ProductError.wrap({:error, reason})
+      nil -> DatasetAssetError.invalid(:invalid_schema)
+      {:error, reason} -> DatasetAssetError.wrap({:error, reason})
     end
   end
 
@@ -48,7 +48,7 @@ defmodule QuickTrain.Datasets.DatasetItemRevision.Actions.Put do
       )
       |> Ash.read_one!(authorize?: false)
 
-    if record, do: {:ok, Values.load(record)}, else: ProductError.invalid(:invalid_value)
+    if record, do: {:ok, Values.load(record)}, else: DatasetAssetError.invalid(:invalid_value)
   end
 
   defp occurrences(schema, arguments), do: Values.normalize(schema, arguments.values)
@@ -83,8 +83,8 @@ defmodule QuickTrain.Datasets.DatasetItemRevision.Actions.Put do
             %RevisionResult{changed: true, item: item, revision: revision}
           end
         else
-          nil -> ProductError.invalid(:invalid_item)
-          {:error, reason} -> ProductError.wrap({:error, reason})
+          nil -> DatasetAssetError.invalid(:invalid_item)
+          {:error, reason} -> DatasetAssetError.wrap({:error, reason})
         end
       end)
 

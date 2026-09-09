@@ -23,7 +23,12 @@ defmodule QuickTrain.FirstManagerBootstrapTest do
         Sandbox.unboxed_run(Repo, fn ->
           %{rows: [[backend_id]]} = Repo.query!("SELECT pg_backend_pid()")
           send(parent, {:grant_connection, backend_id})
-          receive do: (:go -> Datasets.grant_product_capabilities(graph.organization.id, user.id))
+
+          receive do: (:go ->
+                         Datasets.grant_dataset_and_asset_capabilities(
+                           graph.organization.id,
+                           user.id
+                         ))
         end)
       end)
 

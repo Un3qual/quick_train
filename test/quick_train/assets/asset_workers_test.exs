@@ -13,7 +13,7 @@ defmodule QuickTrain.Assets.AssetWorkersTest do
 
     manager = Accounts.register_user!("asset-worker@example.test", "Asset Worker")
     graph = Accounts.bootstrap_first_manager!(manager.id, "asset-worker-org", "Asset Worker Org")
-    Datasets.grant_product_capabilities!(graph.organization.id, manager.id)
+    Datasets.grant_dataset_and_asset_capabilities!(graph.organization.id, manager.id)
 
     %{manager: manager, graph: graph}
   end

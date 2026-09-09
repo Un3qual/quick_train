@@ -1,4 +1,4 @@
-defmodule QuickTrain.ProductError do
+defmodule QuickTrain.DatasetAssetError do
   @moduledoc "Expected asset and dataset lifecycle failures shared by Ash and GraphQL."
 
   use Splode.Error, fields: [:category, :detail], class: :invalid
@@ -19,10 +19,10 @@ defmodule QuickTrain.ProductError do
   def public_message(%{category: category, detail: detail}), do: "#{category}:#{detail}"
 end
 
-defimpl AshGraphql.Error, for: QuickTrain.ProductError do
+defimpl AshGraphql.Error, for: QuickTrain.DatasetAssetError do
   def to_error(error) do
     %{
-      message: QuickTrain.ProductError.public_message(error),
+      message: QuickTrain.DatasetAssetError.public_message(error),
       short_message: Atom.to_string(error.category),
       code: Atom.to_string(error.category),
       fields: [],

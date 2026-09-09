@@ -1,4 +1,4 @@
-defmodule QuickTrain.Datasets.ProductCapabilities.Actions.GrantToManager do
+defmodule QuickTrain.Datasets.DatasetAssetCapabilities.Actions.GrantToManager do
   @moduledoc false
 
   use Ash.Resource.Actions.Implementation
@@ -38,14 +38,14 @@ defmodule QuickTrain.Datasets.ProductCapabilities.Actions.GrantToManager do
         if uniqueness_conflict?(error) do
           grant(organization_id, user_id, attempts - 1)
         else
-          {:error, :product_capability_grant_conflict}
+          {:error, :dataset_asset_capability_grant_conflict}
         end
 
       {:error, _error} ->
-        {:error, :product_capability_grant_conflict}
+        {:error, :dataset_asset_capability_grant_conflict}
 
       _other ->
-        {:error, :product_capability_grant_conflict}
+        {:error, :dataset_asset_capability_grant_conflict}
     end
   end
 
@@ -86,7 +86,7 @@ defmodule QuickTrain.Datasets.ProductCapabilities.Actions.GrantToManager do
   end
 
   defp active_result({:ok, %{status: "active"} = record}), do: {:ok, record}
-  defp active_result(_result), do: {:error, :product_capability_grant_conflict}
+  defp active_result(_result), do: {:error, :dataset_asset_capability_grant_conflict}
 
   defp manager_role(organization_id) do
     case Role
@@ -94,7 +94,7 @@ defmodule QuickTrain.Datasets.ProductCapabilities.Actions.GrantToManager do
          |> Ash.Query.lock(:for_update)
          |> Ash.read_one(authorize?: false) do
       {:ok, %{} = role} -> {:ok, role}
-      _result -> {:error, :product_capability_grant_conflict}
+      _result -> {:error, :dataset_asset_capability_grant_conflict}
     end
   end
 
@@ -106,7 +106,7 @@ defmodule QuickTrain.Datasets.ProductCapabilities.Actions.GrantToManager do
          |> Ash.Query.lock(:for_update)
          |> Ash.read_one(authorize?: false) do
       {:ok, %{} = assignment} -> {:ok, assignment}
-      _result -> {:error, :product_capability_grant_conflict}
+      _result -> {:error, :dataset_asset_capability_grant_conflict}
     end
   end
 
@@ -137,7 +137,7 @@ defmodule QuickTrain.Datasets.ProductCapabilities.Actions.GrantToManager do
         {:ok, capability}
 
       _result ->
-        {:error, :product_capability_grant_conflict}
+        {:error, :dataset_asset_capability_grant_conflict}
     end
   end
 

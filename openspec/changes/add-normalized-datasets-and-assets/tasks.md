@@ -140,3 +140,19 @@ Independent code review found no actionable issues. Existing
 coverage exercises storage deadlines and fencing, OIDC races, GraphQL requests, and
 idempotent manager grants. The changes remove 115 application/test lines without adding
 dependencies or migrations.
+
+## 13. Explicit naming and bootstrap cleanup
+
+- [x] 13.1 Replace ambiguous Product capability and error names with dataset/asset names and update callers and operator instructions.
+- [x] 13.2 Remove unused bootstrap code interfaces and reuse equivalent organization, role, and assignment actions; preserve insert-only membership creation and bootstrap conflict guarantees.
+- [x] 13.3 Clarify the deferred operator onboarding workflow without adding runtime scaffolding.
+- [x] 13.4 Run the repository gate, independent review, and independent OpenSpec validation.
+
+Bootstrap cleanup verification on 2026-09-09: compilation, formatting, code-generation,
+boundary/architecture checks, static analysis, and Dialyzer passed. `mise run verify`
+stopped at the dependency audit for existing `usage_rules` 1.2.7
+(GHSA-j59f-776f-23hp) and `igniter` 0.8.3 (GHSA-cj7w-j579-gc42) advisories.
+The remaining production build and full test suite were run separately and passed
+(146 tests). Independent review found no actionable issues; independent OpenSpec
+validation passed all three items. Dependency updates remain a separate follow-up;
+the full verification gate is not green until those advisories are resolved.

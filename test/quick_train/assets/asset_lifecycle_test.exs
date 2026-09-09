@@ -10,7 +10,7 @@ defmodule QuickTrain.Assets.AssetLifecycleTest do
 
     manager = Accounts.register_user!("asset-manager@example.test", "Asset Manager")
     graph = Accounts.bootstrap_first_manager!(manager.id, "asset-org", "Asset Org")
-    Datasets.grant_product_capabilities!(graph.organization.id, manager.id)
+    Datasets.grant_dataset_and_asset_capabilities!(graph.organization.id, manager.id)
 
     outsider = Accounts.register_user!("asset-outsider@example.test", "Asset Outsider")
 

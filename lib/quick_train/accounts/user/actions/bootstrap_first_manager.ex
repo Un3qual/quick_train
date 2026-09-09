@@ -85,7 +85,7 @@ defmodule QuickTrain.Accounts.User.Actions.BootstrapFirstManager do
 
     case existing do
       nil ->
-        create(Organization, :bootstrap_first_manager_organization, %{name: name, slug: slug})
+        create(Organization, :create, %{name: name, slug: slug})
 
       %{status: "active", name: ^name} = organization ->
         {:ok, organization}
@@ -126,7 +126,11 @@ defmodule QuickTrain.Accounts.User.Actions.BootstrapFirstManager do
 
     case existing do
       nil ->
-        create(Role, :bootstrap_first_manager_role, %{organization_id: organization_id})
+        create(Role, :create, %{
+          organization_id: organization_id,
+          key: @manager_key,
+          name: @manager_name
+        })
 
       %{name: @manager_name} = role ->
         {:ok, role}
@@ -145,7 +149,7 @@ defmodule QuickTrain.Accounts.User.Actions.BootstrapFirstManager do
 
     case assignments do
       [] ->
-        create(RoleAssignment, :bootstrap_first_manager_assignment, %{
+        create(RoleAssignment, :assign, %{
           organization_id: organization_id,
           user_id: user_id,
           role_id: role_id

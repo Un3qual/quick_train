@@ -1,7 +1,7 @@
 defmodule QuickTrain.Datasets.SchemaVersionBoundary do
   @moduledoc false
 
-  alias QuickTrain.ProductError
+  alias QuickTrain.DatasetAssetError
 
   require Ash.Query
 
@@ -10,9 +10,9 @@ defmodule QuickTrain.Datasets.SchemaVersionBoundary do
   def with_draft(organization_id, schema_version_id, callback) do
     Ash.transact([DatasetSchemaVersion, DatasetRecordType], fn ->
       case locked_schema(organization_id, schema_version_id) do
-        nil -> ProductError.invalid(:invalid_schema)
+        nil -> DatasetAssetError.invalid(:invalid_schema)
         %{state: :draft} = schema -> callback.(schema)
-        %{} -> ProductError.invalid(:schema_not_draft)
+        %{} -> DatasetAssetError.invalid(:schema_not_draft)
       end
     end)
   end
@@ -25,8 +25,8 @@ defmodule QuickTrain.Datasets.SchemaVersionBoundary do
            %{} = current <- current_record_type(record_type.id, schema.id) do
         callback.(current)
       else
-        %{state: _state} -> ProductError.invalid(:schema_not_draft)
-        _other -> ProductError.invalid(:invalid_schema)
+        %{state: _state} -> DatasetAssetError.invalid(:schema_not_draft)
+        _other -> DatasetAssetError.invalid(:invalid_schema)
       end
     end)
   end
@@ -41,8 +41,8 @@ defmodule QuickTrain.Datasets.SchemaVersionBoundary do
              %{} = current <- current_field(field.id, field.record_type_id) do
           callback.(current)
         else
-          %{state: _state} -> ProductError.invalid(:schema_not_draft)
-          _other -> ProductError.invalid(:invalid_schema)
+          %{state: _state} -> DatasetAssetError.invalid(:schema_not_draft)
+          _other -> DatasetAssetError.invalid(:invalid_schema)
         end
       end
     )

@@ -3,7 +3,7 @@ defmodule QuickTrain.Datasets.DatasetImportRow.Actions.Append do
   # credo:disable-for-this-file Credo.Check.Refactor.Nesting
   @moduledoc false
 
-  alias QuickTrain.ProductError
+  alias QuickTrain.DatasetAssetError
 
   use Ash.Resource.Actions.Implementation
 
@@ -28,21 +28,21 @@ defmodule QuickTrain.Datasets.DatasetImportRow.Actions.Append do
         Ash.transact(import_resources(), fn -> append_locked(arguments, entries) end)
 
       {:error, reason} ->
-        ProductError.wrap({:error, reason})
+        DatasetAssetError.wrap({:error, reason})
     end
   end
 
   defp append_locked(arguments, entries) do
     case locked_import(arguments.organization_id, arguments.import_id) do
       nil ->
-        ProductError.invalid(:invalid_import)
+        DatasetAssetError.invalid(:invalid_import)
 
       %{phase: :sealed} ->
-        ProductError.invalid(:import_not_open)
+        DatasetAssetError.invalid(:import_not_open)
 
       import ->
         if DateTime.compare(import.open_expires_at, DateTime.utc_now()) != :gt do
-          ProductError.invalid(:import_expired)
+          DatasetAssetError.invalid(:import_expired)
         else
           schema = published_schema(import)
 
@@ -58,7 +58,7 @@ defmodule QuickTrain.Datasets.DatasetImportRow.Actions.Append do
 
             accept_or_retry(import, schema, arguments, entries, fingerprint)
           else
-            ProductError.invalid(:invalid_schema)
+            DatasetAssetError.invalid(:invalid_schema)
           end
         end
     end
@@ -72,17 +72,17 @@ defmodule QuickTrain.Datasets.DatasetImportRow.Actions.Append do
         row_by_key
 
       row_by_key ->
-        ProductError.invalid(:idempotency_conflict)
+        DatasetAssetError.invalid(:idempotency_conflict)
 
       row_by(import.id, :source_position, arguments.source_position) ->
-        ProductError.invalid(:idempotency_conflict)
+        DatasetAssetError.invalid(:idempotency_conflict)
 
       arguments.external_key && row_by(import.id, :external_key, arguments.external_key) ->
-        ProductError.invalid(:duplicate_external_key)
+        DatasetAssetError.invalid(:duplicate_external_key)
 
       Ash.count!(Ash.Query.filter(DatasetImportRow, import_id == ^import.id), authorize?: false) >=
           Application.fetch_env!(:quick_train, :dataset_imports)[:max_rows_per_import] ->
-        ProductError.invalid(:import_row_limit_exceeded)
+        DatasetAssetError.invalid(:import_row_limit_exceeded)
 
       true ->
         persist_row(import, schema, arguments, entries, fingerprint)

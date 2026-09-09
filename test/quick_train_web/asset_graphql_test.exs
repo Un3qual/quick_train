@@ -10,7 +10,7 @@ defmodule QuickTrainWeb.AssetGraphqlTest do
 
     manager = Accounts.register_user!("graphql-assets@example.test", "GraphQL Assets")
     graph = Accounts.bootstrap_first_manager!(manager.id, "graphql-assets", "GraphQL Assets")
-    Datasets.grant_product_capabilities!(graph.organization.id, manager.id)
+    Datasets.grant_dataset_and_asset_capabilities!(graph.organization.id, manager.id)
     session = Accounts.issue_bearer_session!(manager.id)
 
     authenticated_conn = put_req_header(conn, "authorization", "Bearer #{session.token}")

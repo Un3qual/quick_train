@@ -1,10 +1,10 @@
-defmodule QuickTrain.ProductCapabilitiesTest do
+defmodule QuickTrain.DatasetAssetCapabilitiesTest do
   use QuickTrain.DataCase, async: true
 
   alias QuickTrain.{Accounts, Authorization, Datasets, Organizations}
   alias QuickTrain.Authorization.{Capability, RoleCapability}
   alias QuickTrain.Authorization.Checks.OrganizationCapability
-  alias QuickTrain.Datasets.ProductCapabilities
+  alias QuickTrain.Datasets.DatasetAssetCapabilities
 
   @capability_keys ~w(
     assets.read
@@ -17,7 +17,7 @@ defmodule QuickTrain.ProductCapabilitiesTest do
   test "internal lifecycle actions reject even an organization manager" do
     user = Accounts.register_user!("internal-manager@example.test", "Internal Manager")
     graph = Accounts.bootstrap_first_manager!(user.id, "internal-org", "Internal Org")
-    Datasets.grant_product_capabilities!(graph.organization.id, user.id)
+    Datasets.grant_dataset_and_asset_capabilities!(graph.organization.id, user.id)
     id = Ash.UUID.generate()
 
     operations = [
@@ -46,12 +46,12 @@ defmodule QuickTrain.ProductCapabilitiesTest do
     end
   end
 
-  test "grants the exact product capabilities to an existing manager idempotently" do
-    user = Accounts.register_user!("product-manager@example.test", "Product Manager")
-    graph = Accounts.bootstrap_first_manager!(user.id, "product-org", "Product Org")
+  test "grants the exact dataset and asset capabilities to an existing manager idempotently" do
+    user = Accounts.register_user!("dataset-manager@example.test", "Dataset Manager")
+    graph = Accounts.bootstrap_first_manager!(user.id, "dataset-org", "Dataset Org")
 
     assert {:ok, first_keys} =
-             Datasets.grant_product_capabilities(graph.organization.id, user.id)
+             Datasets.grant_dataset_and_asset_capabilities(graph.organization.id, user.id)
 
     assert Enum.sort(first_keys) == Enum.sort(@capability_keys)
 
@@ -64,7 +64,7 @@ defmodule QuickTrain.ProductCapabilitiesTest do
     assert Ash.count!(RoleCapability, authorize?: false) == 5
 
     assert {:ok, second_keys} =
-             Datasets.grant_product_capabilities(graph.organization.id, user.id)
+             Datasets.grant_dataset_and_asset_capabilities(graph.organization.id, user.id)
 
     assert Enum.sort(second_keys) == Enum.sort(@capability_keys)
 
@@ -81,16 +81,16 @@ defmodule QuickTrain.ProductCapabilitiesTest do
     refute Authorization.allowed?(user.id, graph.organization.id, "assets.*")
   end
 
-  test "refuses to grant product capabilities to a member without the manager role" do
+  test "refuses to grant dataset and asset capabilities to a member without the manager role" do
     manager = Accounts.register_user!("manager@example.test", "Manager")
     graph = Accounts.bootstrap_first_manager!(manager.id, "managed-org", "Managed Org")
     member = Accounts.register_user!("member@example.test", "Member")
     Organizations.add_member!(graph.organization.id, member.id)
 
     assert {:error, error} =
-             Datasets.grant_product_capabilities(graph.organization.id, member.id)
+             Datasets.grant_dataset_and_asset_capabilities(graph.organization.id, member.id)
 
-    assert Exception.message(error) =~ "product_capability_grant_conflict"
+    assert Exception.message(error) =~ "dataset_asset_capability_grant_conflict"
     assert Ash.count!(Capability, authorize?: false) == 0
     assert Ash.count!(RoleCapability, authorize?: false) == 0
   end
@@ -98,10 +98,10 @@ defmodule QuickTrain.ProductCapabilitiesTest do
   test "the shared policy check derives organization scope and fails closed" do
     user = Accounts.register_user!("policy-manager@example.test", "Policy Manager")
     graph = Accounts.bootstrap_first_manager!(user.id, "policy-org", "Policy Org")
-    Datasets.grant_product_capabilities!(graph.organization.id, user.id)
+    Datasets.grant_dataset_and_asset_capabilities!(graph.organization.id, user.id)
 
     input =
-      Ash.ActionInput.for_action(ProductCapabilities, :grant_to_manager, %{
+      Ash.ActionInput.for_action(DatasetAssetCapabilities, :grant_to_manager, %{
         organization_id: graph.organization.id,
         user_id: user.id
       })
@@ -121,7 +121,7 @@ defmodule QuickTrain.ProductCapabilitiesTest do
     other_organization = Organizations.create_organization!("Other", "other-policy-org")
 
     other_input =
-      Ash.ActionInput.for_action(ProductCapabilities, :grant_to_manager, %{
+      Ash.ActionInput.for_action(DatasetAssetCapabilities, :grant_to_manager, %{
         organization_id: other_organization.id,
         user_id: user.id
       })

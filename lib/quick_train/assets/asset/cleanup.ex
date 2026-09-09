@@ -5,13 +5,13 @@ defmodule QuickTrain.Assets.Asset.Cleanup do
 
   require Ash.Query
 
-  alias QuickTrain.{Assets, ProductError}
+  alias QuickTrain.{Assets, DatasetAssetError}
   alias QuickTrain.Assets.Asset
   alias QuickTrain.Assets.Storage
 
   @impl true
   def run(input, _opts, _context) do
-    ProductError.wrap(cleanup(input.arguments.asset_id, input.arguments.now))
+    DatasetAssetError.wrap(cleanup(input.arguments.asset_id, input.arguments.now))
   end
 
   defp cleanup(asset_id, now) do

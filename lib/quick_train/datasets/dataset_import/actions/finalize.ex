@@ -3,7 +3,7 @@ defmodule QuickTrain.Datasets.DatasetImport.Actions.Finalize do
   # credo:disable-for-this-file Credo.Check.Refactor.Nesting
   @moduledoc false
 
-  alias QuickTrain.ProductError
+  alias QuickTrain.DatasetAssetError
 
   use Ash.Resource.Actions.Implementation
 
@@ -19,14 +19,14 @@ defmodule QuickTrain.Datasets.DatasetImport.Actions.Finalize do
     Ash.transact([DatasetImport, DatasetImportRow], fn ->
       case locked_import(arguments.organization_id, arguments.import_id) do
         nil ->
-          ProductError.invalid(:invalid_import)
+          DatasetAssetError.invalid(:invalid_import)
 
         %{phase: :sealed} = import ->
           import
 
         import ->
           if DateTime.compare(import.open_expires_at, DateTime.utc_now()) != :gt do
-            ProductError.invalid(:import_expired)
+            DatasetAssetError.invalid(:import_expired)
           else
             seal_and_schedule(import)
           end

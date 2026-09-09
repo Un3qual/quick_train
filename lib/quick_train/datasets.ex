@@ -109,8 +109,8 @@ defmodule QuickTrain.Datasets do
   end
 
   resources do
-    resource QuickTrain.Datasets.ProductCapabilities do
-      define :grant_product_capabilities,
+    resource QuickTrain.Datasets.DatasetAssetCapabilities do
+      define :grant_dataset_and_asset_capabilities,
         action: :grant_to_manager,
         args: [:organization_id, :user_id]
     end

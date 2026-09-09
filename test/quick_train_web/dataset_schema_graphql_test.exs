@@ -6,7 +6,7 @@ defmodule QuickTrainWeb.DatasetSchemaGraphqlTest do
   setup %{conn: conn} do
     manager = Accounts.register_user!("graphql-datasets@example.test", "GraphQL Datasets")
     graph = Accounts.bootstrap_first_manager!(manager.id, "graphql-datasets", "GraphQL Datasets")
-    Datasets.grant_product_capabilities!(graph.organization.id, manager.id)
+    Datasets.grant_dataset_and_asset_capabilities!(graph.organization.id, manager.id)
     session = Accounts.issue_bearer_session!(manager.id)
 
     %{conn: put_req_header(conn, "authorization", "Bearer #{session.token}"), graph: graph}

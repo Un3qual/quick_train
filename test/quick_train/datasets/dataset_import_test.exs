@@ -20,7 +20,7 @@ defmodule QuickTrain.Datasets.DatasetImportTest do
   setup do
     manager = Accounts.register_user!("import-manager@example.test", "Import Manager")
     graph = Accounts.bootstrap_first_manager!(manager.id, "import-org", "Import Org")
-    Datasets.grant_product_capabilities!(graph.organization.id, manager.id)
+    Datasets.grant_dataset_and_asset_capabilities!(graph.organization.id, manager.id)
 
     dataset =
       Datasets.create_dataset!(graph.organization.id, "customers", "Customers", actor: manager)

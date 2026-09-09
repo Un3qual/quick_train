@@ -136,13 +136,13 @@ beyond their configured cutoffs.
 
 Implement `QuickTrain.EnterpriseIdentity.Adapter` for the selected enterprise identity provider.
 
-## Dataset and asset product configuration
+## Dataset and asset configuration
 
-Product access is explicit. After selecting an existing active organization manager, grant the
-five product capabilities once through the idempotent product action:
+Dataset and asset access is explicit. After selecting an existing active organization manager,
+grant the five capabilities through the idempotent action:
 
 ```elixir
-QuickTrain.Datasets.grant_product_capabilities!(organization_id, manager_user_id)
+QuickTrain.Datasets.grant_dataset_and_asset_capabilities!(organization_id, manager_user_id)
 ```
 
 This grants only `assets.read`, `assets.manage`, `datasets.read`, `datasets.manage`, and

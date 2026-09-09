@@ -4,7 +4,7 @@ defmodule QuickTrain.Assets.Asset.Actions.Finalize do
   # credo:disable-for-this-file Credo.Check.Refactor.CyclomaticComplexity
   @moduledoc false
 
-  alias QuickTrain.ProductError
+  alias QuickTrain.DatasetAssetError
 
   use Ash.Resource.Actions.Implementation
 
@@ -23,7 +23,7 @@ defmodule QuickTrain.Assets.Asset.Actions.Finalize do
 
   @impl true
   def run(%{action: %{name: :reconcile_publication}, arguments: args}, _opts, _context) do
-    ProductError.wrap(
+    DatasetAssetError.wrap(
       commit_success(
         args.asset_id,
         args.organization_id,
@@ -36,7 +36,7 @@ defmodule QuickTrain.Assets.Asset.Actions.Finalize do
 
   def run(input, _opts, _context) do
     %{asset_id: asset_id, organization_id: organization_id} = input.arguments
-    ProductError.wrap(finalize(asset_id, organization_id))
+    DatasetAssetError.wrap(finalize(asset_id, organization_id))
   end
 
   defp finalize(asset_id, organization_id) do

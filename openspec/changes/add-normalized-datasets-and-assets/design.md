@@ -147,6 +147,12 @@ Source-file adapters remain later additions. A future CSV or archive importer ca
 
 `add-api-authentication` is implemented first. This change adds exact capability keys `assets.read`, `assets.manage`, `datasets.read`, `datasets.manage`, and `dataset_imports.manage` plus a product-owned idempotent action for granting them to a selected existing organization manager. There is no shared bootstrap manifest or wildcard grant. Each product action derives its organization from the target resource or explicit relationship before the shared check requires an active user, active organization, active membership, and matching capability. Internal jobs advance only the immutable organization, dataset, schema, asset, or import scope accepted by an authorized caller; they do not grant read access or broaden scope.
 
+The grant action is `QuickTrain.Datasets.grant_dataset_and_asset_capabilities/2`, implemented by `Datasets.DatasetAssetCapabilities`. Shared expected dataset and asset failures use `QuickTrain.DatasetAssetError`; GraphQL error codes remain unchanged. These names describe the current scope without introducing a generic Product concept.
+
+First-manager bootstrap reuses the ordinary organization creation, role creation, and role assignment actions. Its existing manager constants supply the role attributes. Membership creation remains insert-only because the ordinary membership action upserts status and could reactivate an inactive membership. The bootstrap transaction, lock order, exact-graph checks, and conflict handling remain required. Unused bootstrap code interfaces are removed.
+
+Operator onboarding remains two explicit steps: establish the first manager, then grant dataset and asset capabilities. When organization onboarding is implemented, revisit whether one operator command should compose those steps, how an operator selects the capabilities to grant, and whether failure must roll back both steps together. That future change must retain active-account and organization checks, idempotency, and explicit grants. No combined workflow, shared grant manifest, or placeholder abstraction is added now.
+
 No product content is public. Cross-organization failures do not disclose whether a dataset, schema, import, item, revision, or asset exists.
 
 ### 8. Expose deliberate GraphQL lifecycle actions
