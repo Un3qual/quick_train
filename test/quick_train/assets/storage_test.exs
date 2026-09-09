@@ -296,7 +296,14 @@ defmodule QuickTrain.Assets.StorageTest do
     pdf =
       "%PDF-1.7\n1 0 obj <</Type /Catalog /OpenAction <</S /JavaScript /JS (app.alert(1))>>>> endobj\n%%EOF"
 
-    for bytes <- [pdf, pdf <> <<255>>], media_type <- ["application/pdf", "text/plain"] do
+    for bytes <- [
+          pdf,
+          pdf <> <<255>>,
+          " \n" <> pdf,
+          <<239, 187, 191>> <> pdf,
+          String.duplicate("x", 512) <> pdf
+        ],
+        media_type <- ["application/pdf", "text/plain"] do
       key = "pdf/#{media_type}/#{byte_size(bytes)}"
       descriptor = Storage.writable_staging_access!(key, byte_size(bytes), expires_at)
       :ok = TestStorage.put_staging(descriptor, bytes)
@@ -311,6 +318,18 @@ defmodule QuickTrain.Assets.StorageTest do
                Storage.verify_and_publish(key, "sealed/#{key}", expected, 1_000)
 
       refute TestStorage.sealed?("sealed/#{key}")
+    end
+  end
+
+  test "GIF is unsupported without a complete format validator" do
+    for bytes <- ["GIF87a", "GIF89a" <> <<1::little-16, 1::little-16>>] do
+      expected = %{
+        sha256: :crypto.hash(:sha256, bytes),
+        byte_size: byte_size(bytes),
+        media_type: "image/gif"
+      }
+
+      assert {:error, :unsupported_media_type} = Content.verify(bytes, expected)
     end
   end
 
@@ -413,7 +432,7 @@ defmodule QuickTrain.Assets.StorageTest do
     refute TestStorage.sealed?("sealed/image-bounds")
   end
 
-  test "sealed reads are short-lived and redirects fail closed" do
+  test "sealed reads are short-lived and use approved direct endpoints" do
     expires_at = DateTime.add(DateTime.utc_now(), 60, :second)
     descriptor = Storage.writable_staging_access!("staging/read", 8, expires_at)
     :ok = TestStorage.put_staging(descriptor, "readable")
@@ -434,13 +453,8 @@ defmodule QuickTrain.Assets.StorageTest do
     assert read_descriptor.referrer_policy == "no-referrer"
     assert {:ok, "readable"} = TestStorage.read_sealed(read_descriptor)
 
-    assert :ok = Storage.validate_redirect(read_descriptor.uri)
-
-    assert {:error, :insecure_storage_destination} =
-             Storage.validate_redirect(URI.parse("http://storage.quicktrain.local/x"))
-
-    assert {:error, :unapproved_storage_destination} =
-             Storage.validate_redirect(URI.parse("https://attacker.example/x"))
+    assert read_descriptor.uri.scheme == "https"
+    assert read_descriptor.uri.host in TestStorage.approved_hosts()
   end
 
   test "access descriptors cannot outlive the requested expiry" do

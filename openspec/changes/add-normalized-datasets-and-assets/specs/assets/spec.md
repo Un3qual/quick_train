@@ -20,7 +20,7 @@ The system SHALL require an active authenticated account, an active owning organ
 - **THEN** caller-initiated asset management and reads are denied without exposing asset metadata or storage access
 
 ### Requirement: Immutable content-addressed assets
-The system SHALL identify ready asset content by a SHA-256 hash supplied at registration as exactly 64 lowercase hexadecimal characters, validated and decoded once, and retained as a raw 32-byte binary in Elixir, storage-adapter facts, and PostgreSQL. GraphQL output and textual storage keys SHALL encode that binary as lowercase hexadecimal. Content identity SHALL also include byte size and media type. It SHALL reject a declared byte size over a configured positive maximum before issuing upload access. Every writable staging path SHALL enforce the declared byte-size cap through the configured provider or adapter before upload access is issued; registration SHALL fail closed when the configured storage adapter cannot enforce that cap. Before publishing the canonical object, finalization SHALL pin a staging version or conditionally fence further writes, obtain its actual size through bounded metadata, reject a size over that maximum, and validate its hash, size, safely detected media type, and bounded image facts. These finalization checks remain defense in depth rather than replacing the upload cap. Only matching verified staging bytes may be conditionally published at the organization-and-hash canonical immutable location, and the adapter SHALL reverify the canonical object before returning success. Mismatched staging bytes SHALL NOT create or occupy the declared canonical key. Concurrent identical sealing SHALL conditionally create or verify and reuse that one canonical location rather than leaving per-registration sealed copies. The system SHALL NOT make an asset ready from facts observed before an unguarded copy or promotion. Reads SHALL target only the sealed object. The system SHALL identify or safely sniff the actual media type from the verified bytes rather than trusting the declaration, SHALL reject declared/actual mismatches and active document formats including HTML, XHTML, and SVG, and SHALL prevent the content identity of a ready asset from being changed. PDF publication SHALL be rejected as unsupported; a PDF header alone does not establish that a document is free of active content.
+The system SHALL identify ready asset content by a SHA-256 hash supplied at registration as exactly 64 lowercase hexadecimal characters, validated and decoded once, and retained as a raw 32-byte binary in Elixir, storage-adapter facts, and PostgreSQL. GraphQL output and textual storage keys SHALL encode that binary as lowercase hexadecimal. Content identity SHALL also include byte size and media type. It SHALL reject a declared byte size over a configured positive maximum before issuing upload access. Every writable staging path SHALL enforce the declared byte-size cap through the configured provider or adapter before upload access is issued; registration SHALL fail closed when the configured storage adapter cannot enforce that cap. Before publishing the canonical object, finalization SHALL pin a staging version or conditionally fence further writes, obtain its actual size through bounded metadata, reject a size over that maximum, and validate its hash, size, safely detected media type, and bounded image facts. These finalization checks remain defense in depth rather than replacing the upload cap. Only matching verified staging bytes may be conditionally published at the organization-and-hash canonical immutable location, and the adapter SHALL reverify the canonical object before returning success. Mismatched staging bytes SHALL NOT create or occupy the declared canonical key. Concurrent identical sealing SHALL conditionally create or verify and reuse that one canonical location rather than leaving per-registration sealed copies. The system SHALL NOT make an asset ready from facts observed before an unguarded copy or promotion. Reads SHALL target only the sealed object. The system SHALL identify or safely sniff the actual media type from the verified bytes rather than trusting the declaration, SHALL reject declared/actual mismatches and active document formats including HTML, XHTML, and SVG, and SHALL prevent the content identity of a ready asset from being changed. GIF publication SHALL be rejected as unsupported until complete format validation is supported. PDF publication SHALL be rejected as unsupported; a PDF header alone does not establish that a document is free of active content.
 
 #### Scenario: Matching upload is finalized
 - **WHEN** the storage adapter verifies that pending content matches the registered hash, byte size, and supported media type
@@ -51,7 +51,7 @@ The system SHALL identify ready asset content by a SHA-256 hash supplied at regi
 - **THEN** finalization rejects the asset without issuing ready-content access or exposing storage metadata
 
 #### Scenario: PDF publication is unsupported
-- **WHEN** uploaded bytes have a PDF header, whether registered as PDF or plain text
+- **WHEN** uploaded bytes have a PDF header within the first 1,024 bytes, including after whitespace or a BOM, whether registered as PDF or plain text
 - **THEN** finalization rejects publication and creates no canonical object, including for binary PDF payloads
 
 #### Scenario: Another canonical upload does not hide mismatched staging
@@ -115,12 +115,16 @@ The system SHALL keep storage locations private and SHALL obtain upload or downl
 - **THEN** the system returns a time-limited encrypted-transport access descriptor without exposing persistent storage credentials and with no-store/no-referrer handling
 
 #### Scenario: Insecure access descriptor is rejected
-- **WHEN** an adapter returns a credential-bearing descriptor or redirect that uses cleartext transport or an unapproved destination
+- **WHEN** an adapter returns a credential-bearing descriptor that uses cleartext transport or an unapproved destination
 - **THEN** the system rejects the descriptor without returning credentials or changing asset state
 
-#### Scenario: Redirect cannot leak credentials
-- **WHEN** storage access redirects toward an insecure or adapter-unapproved destination
-- **THEN** access fails without disclosing storage credentials to that destination
+#### Scenario: Direct endpoints prevent redirect credential leakage
+- **WHEN** a storage adapter is configured
+- **THEN** its provider configuration guarantees that descriptor endpoints cannot redirect; a provider unable to guarantee direct endpoints is unsupported
+
+#### Scenario: Malformed descriptor headers are rejected
+- **WHEN** an adapter returns headers other than pairs of nonempty UTF-8 string names and UTF-8 string values
+- **THEN** access fails before a pending registration is persisted
 
 #### Scenario: Storage adapter failure is contained
 - **WHEN** the configured storage adapter cannot produce authorized access

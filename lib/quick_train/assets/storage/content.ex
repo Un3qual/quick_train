@@ -65,13 +65,18 @@ defmodule QuickTrain.Assets.Storage.Content do
 
   defp matching_hash(_bytes, _expected), do: {:error, :content_mismatch}
 
-  defp reject_active_content(<<"%PDF-", _rest::binary>>), do: {:error, :unsupported_media_type}
-
   defp reject_active_content(bytes) do
-    if String.valid?(bytes) and Regex.match?(@active_pattern, bytes) do
-      {:error, :active_content_rejected}
-    else
-      :ok
+    header = binary_part(bytes, 0, min(byte_size(bytes), 1_024))
+
+    cond do
+      :binary.match(header, "%PDF-") != :nomatch ->
+        {:error, :unsupported_media_type}
+
+      String.valid?(bytes) and Regex.match?(@active_pattern, bytes) ->
+        {:error, :active_content_rejected}
+
+      true ->
+        :ok
     end
   end
 
@@ -91,10 +96,8 @@ defmodule QuickTrain.Assets.Storage.Content do
     end
   end
 
-  defp detect(<<header::binary-size(6), width::little-16, height::little-16, _rest::binary>>)
-       when header in ["GIF87a", "GIF89a"] do
-    {:ok, "image/gif", %{width: width, height: height}}
-  end
+  defp detect(<<header::binary-size(6), _rest::binary>>) when header in ["GIF87a", "GIF89a"],
+    do: {:error, :unsupported_media_type}
 
   defp detect(<<0xFF, 0xD8, rest::binary>>) do
     case jpeg_dimensions(rest) do

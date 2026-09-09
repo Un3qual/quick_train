@@ -394,3 +394,22 @@ items pass. Formatting, code generation, zero compile cycles, static/architectur
 checks, and Dialyzer pass. The full verification gate stops at the same LOW
 usage_rules/igniter advisories documented above; tests and production compilation
 ran separately. No production modules, dependencies, or migrations were added.
+
+## 24. Current PR feedback and dependency advisories
+
+- [x] 24.1 Reject malformed descriptor header entries before pending asset insertion (3973196766).
+- [x] 24.2 Reject unsupported GIF instead of adding another image container parser (3973196771).
+- [x] 24.3 Reject PostgreSQL-unsupported NUL text during import and direct revision normalization (3973196778).
+- [x] 24.4 Remove the unused redirect helper and require provider-enforced direct endpoints; no proxy or redirect workflow is added (3973196783).
+- [x] 24.5 Reject PDF signatures in the first 1,024 bytes, including prefixed payloads (3973196789).
+- [x] 24.6 Patch usage_rules to 1.2.8 and igniter to 0.8.4 for CVE-2026-82710 and CVE-2026-82584, with no transitive dependency changes.
+- [x] 24.7 Run focused regressions, the complete verification gate, and independent OpenSpec validation.
+
+Previously assessed unresolved comments retain their section 23 dispositions. This
+pass adds no maintenance workflow, redirect machinery, or image decoder. Existing
+stable toolchain pins remain compatible with these two dependency patches.
+
+Verification on 2026-09-09: 60 focused tests and all 146 full-suite tests passed.
+`mise run verify` passed, including static analysis, Dialyzer, production compilation,
+and a clean dependency advisory/retirement audit. Independent
+`mise run openspec.validate` passed all four artifacts.

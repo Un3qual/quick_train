@@ -77,7 +77,9 @@ defmodule QuickTrain.Datasets.DatasetRecord.Values do
   end
 
   defp normalize_family(:text, value) when is_binary(value) do
-    if String.valid?(value), do: {:ok, :text, value}, else: {:error, :type_mismatch}
+    if String.valid?(value) and not String.contains?(value, <<0>>),
+      do: {:ok, :text, value},
+      else: {:error, :type_mismatch}
   end
 
   defp normalize_family(:integer, value) when is_integer(value), do: {:ok, :integer, value}

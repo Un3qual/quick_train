@@ -67,7 +67,7 @@ defmodule QuickTrain.Datasets.DatasetImportRow.Structure do
   end
 
   defp normalize_value(:text, value) when is_binary(value) do
-    if String.valid?(value),
+    if String.valid?(value) and not String.contains?(value, <<0>>),
       do: {:ok, value, byte_size(value)},
       else: {:error, :malformed_text}
   end

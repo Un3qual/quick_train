@@ -1,5 +1,12 @@
 defmodule QuickTrain.Assets.Storage do
-  @moduledoc "Provider-neutral storage contract for immutable organization assets."
+  @moduledoc """
+  Provider-neutral storage contract for immutable organization assets.
+
+  Upload and read descriptors must target direct endpoints that cannot redirect.
+  Adapters must enforce this through their provider configuration; clients receive
+  descriptors directly, so this module cannot intercept later HTTP redirects.
+  A provider that cannot meet this requirement is not a supported adapter.
+  """
 
   @type object_key :: String.t()
   @type deadline_ms :: pos_integer()
@@ -130,12 +137,6 @@ defmodule QuickTrain.Assets.Storage do
     end
   end
 
-  def validate_redirect(%URI{} = destination) do
-    with {:ok, adapter} <- configured_adapter() do
-      validate_destination(destination, adapter)
-    end
-  end
-
   defp configured_adapter do
     case adapter() do
       nil -> {:error, :storage_not_configured}
@@ -163,7 +164,8 @@ defmodule QuickTrain.Assets.Storage do
          :ok <- validate_expiry(descriptor_expires_at, requested_expires_at),
          "no-store" <- Map.get(descriptor, :cache_control),
          "no-referrer" <- Map.get(descriptor, :referrer_policy),
-         true <- is_list(Map.get(descriptor, :headers)),
+         headers when is_list(headers) <- Map.get(descriptor, :headers),
+         true <- Enum.all?(headers, &valid_header?/1),
          :ok <- validate_byte_cap(descriptor, byte_cap) do
       :ok
     else
@@ -174,6 +176,12 @@ defmodule QuickTrain.Assets.Storage do
 
   defp validate_descriptor(_descriptor, _method, _adapter, _byte_cap, _requested_expires_at),
     do: {:error, :invalid_storage_descriptor}
+
+  defp valid_header?({name, value})
+       when is_binary(name) and name != "" and is_binary(value),
+       do: String.valid?(name) and String.valid?(value)
+
+  defp valid_header?(_header), do: false
 
   defp validate_expiry(descriptor_expires_at, %DateTime{} = requested_expires_at) do
     cond do

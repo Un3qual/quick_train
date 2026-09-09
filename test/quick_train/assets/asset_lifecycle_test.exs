@@ -8,7 +8,19 @@ defmodule QuickTrain.Assets.AssetLifecycleTest do
   defmodule InvalidUploadStorage do
     def enforces_byte_cap?, do: true
     def approved_hosts, do: ["storage.quicktrain.local"]
-    def writable_staging_access(_key, _cap, _expiry), do: {:ok, %{}}
+
+    def writable_staging_access(_key, cap, expiry) do
+      {:ok,
+       %{
+         method: :put,
+         uri: URI.parse("https://storage.quicktrain.local/upload"),
+         max_bytes: cap,
+         expires_at: expiry,
+         cache_control: "no-store",
+         referrer_policy: "no-referrer",
+         headers: [42]
+       }}
+    end
   end
 
   setup do
@@ -73,7 +85,7 @@ defmodule QuickTrain.Assets.AssetLifecycleTest do
     assert Ash.count!(Asset, authorize?: false) == 1
   end
 
-  test "invalid upload access leaves no pending registration", %{manager: manager, graph: graph} do
+  test "malformed upload headers leave no pending registration", %{manager: manager, graph: graph} do
     config = Application.fetch_env!(:quick_train, :assets)
     on_exit(fn -> Application.put_env(:quick_train, :assets, config) end)
 

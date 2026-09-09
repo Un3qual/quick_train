@@ -25,6 +25,23 @@ defmodule QuickTrain.Datasets.DatasetRevisionTest do
     Map.merge(graph, %{manager: manager, organization: graph.organization, asset: asset})
   end
 
+  test "direct revisions reject NUL text before persistence", context do
+    assert {:error, error} =
+             Datasets.put_item_revision(
+               context.organization.id,
+               context.dataset.id,
+               context.schema.id,
+               nil,
+               "customer-1",
+               values(context.asset.id, "bad" <> <<0>>, "1.00", "2026-01-02T01:04:05Z"),
+               actor: context.manager
+             )
+
+    assert Exception.message(error) =~ "type_mismatch"
+    assert Ash.count!(DatasetItem, authorize?: false) == 0
+    assert Ash.count!(DatasetRecord, authorize?: false) == 0
+  end
+
   test "a failed typed-child batch rolls back the entire constructed record", context do
     resources = [
       DatasetRecord,

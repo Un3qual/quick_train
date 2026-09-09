@@ -28,6 +28,28 @@ defmodule QuickTrain.Datasets.DatasetImportTest do
     %{manager: manager, organization: graph.organization, dataset: dataset, schema: schema}
   end
 
+  test "NUL text is rejected before reserving an import row", context do
+    import = open!(context, "nul-text")
+
+    assert {:error, error} =
+             Datasets.append_import_row(
+               context.organization.id,
+               import.id,
+               "row",
+               nil,
+               0,
+               [%{field: "name", text: "bad" <> <<0>>}],
+               actor: context.manager
+             )
+
+    assert Exception.message(error) =~ "malformed_text"
+    assert Ash.count!(DatasetImportRow, authorize?: false) == 0
+    assert Ash.count!(DatasetRecord, authorize?: false) == 0
+
+    assert append!(context, import, "row", nil, 0, [%{field: "name", text: "valid"}]).outcome ==
+             :pending
+  end
+
   test "import text preserves whitespace and empty strings in content and identity", context do
     import = open!(context, "exact-text")
 

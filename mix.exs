@@ -76,8 +76,8 @@ defmodule QuickTrain.MixProject do
       {:ecto_dev_logger, "== 0.15.0", only: :dev},
       {:ash_diagram, "~> 0.2.2"},
       {:ex_cmd, "~> 0.18.0"},
-      {:usage_rules, "~> 1.2", only: [:dev]},
-      {:igniter, "~> 0.8.3", only: [:dev]},
+      {:usage_rules, "== 1.2.8", only: [:dev]},
+      {:igniter, "== 0.8.4", only: [:dev]},
       {:picosat_elixir, "~> 0.2.3"}
     ]
   end
