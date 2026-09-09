@@ -85,6 +85,12 @@ defmodule QuickTrain.OrganizationCapabilityTest do
       |> Ash.Changeset.for_update(:set_status, %{status: "active"}, authorize?: false)
       |> Ash.update!()
 
+    refute OrganizationCapability.match?(
+             user,
+             %{subject: nil},
+             capability: "assets.read"
+           )
+
     inactive_organization =
       graph.organization
       |> Ash.Changeset.for_update(:update, %{status: "inactive"}, authorize?: false)
@@ -93,12 +99,6 @@ defmodule QuickTrain.OrganizationCapabilityTest do
     refute OrganizationCapability.match?(
              user,
              %{subject: input},
-             capability: "assets.read"
-           )
-
-    refute OrganizationCapability.match?(
-             user,
-             %{subject: nil},
              capability: "assets.read"
            )
 

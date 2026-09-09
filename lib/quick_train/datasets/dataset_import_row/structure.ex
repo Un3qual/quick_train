@@ -16,7 +16,6 @@ defmodule QuickTrain.Datasets.DatasetImportRow.Structure do
 
   def validate(arguments) do
     limits = Application.fetch_env!(:quick_train, :dataset_imports)
-    values = Enum.map(arguments.values, &plain_map/1)
 
     cond do
       byte_size(arguments.row_key) == 0 ->
@@ -25,15 +24,18 @@ defmodule QuickTrain.Datasets.DatasetImportRow.Structure do
       arguments.source_position < 0 ->
         {:error, :invalid_source_position}
 
-      length(values) > limits[:max_fields_per_row] ->
+      length(arguments.values) > limits[:max_fields_per_row] ->
         {:error, :row_field_limit_exceeded}
 
-      :erlang.external_size({arguments.row_key, arguments.external_key, values}) >
-          limits[:max_request_bytes] ->
-        {:error, :request_limit_exceeded}
-
       true ->
-        normalize(values, limits)
+        values = Enum.map(arguments.values, &plain_map/1)
+
+        if :erlang.external_size({arguments.row_key, arguments.external_key, values}) >
+             limits[:max_request_bytes] do
+          {:error, :request_limit_exceeded}
+        else
+          normalize(values, limits)
+        end
     end
   end
 

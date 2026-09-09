@@ -95,7 +95,6 @@ defmodule QuickTrain.Assets.Storage do
          :ok <- validate_descriptor(descriptor, :put, adapter, byte_cap, expires_at) do
       {:ok, descriptor}
     else
-      false -> {:error, :byte_cap_not_enforced}
       {:error, _reason} = error -> error
       _invalid -> {:error, :invalid_storage_descriptor}
     end
@@ -125,10 +124,13 @@ defmodule QuickTrain.Assets.Storage do
          {:ok, descriptor} <- adapter.sealed_read_access(sealed_key, expires_at),
          :ok <- validate_descriptor(descriptor, :get, adapter, nil, expires_at) do
       {:ok, descriptor}
+    else
+      {:error, _reason} = error -> error
+      _invalid -> {:error, :invalid_storage_descriptor}
     end
   end
 
-  def validate_redirect(_descriptor, %URI{} = destination) do
+  def validate_redirect(%URI{} = destination) do
     with {:ok, adapter} <- configured_adapter() do
       validate_destination(destination, adapter)
     end

@@ -308,5 +308,5 @@ defmodule QuickTrain.Assets.Asset.Actions.Finalize do
     ])
   end
 
-  defp config(key), do: Application.fetch_env!(:quick_train, :assets)[key]
+  defp config(key), do: Keyword.fetch!(Application.fetch_env!(:quick_train, :assets), key)
 end

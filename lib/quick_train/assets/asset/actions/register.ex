@@ -36,7 +36,7 @@ defmodule QuickTrain.Assets.Asset.Actions.Register do
   defp decode_hash(_hash), do: {:error, :invalid_asset_hash}
 
   defp validate_declared_facts(%{byte_size: byte_size, media_type: media_type}) do
-    max_bytes = Application.fetch_env!(:quick_train, :assets)[:max_bytes]
+    max_bytes = Keyword.fetch!(Application.fetch_env!(:quick_train, :assets), :max_bytes)
 
     cond do
       byte_size <= 0 -> {:error, :invalid_asset_size}
@@ -66,7 +66,10 @@ defmodule QuickTrain.Assets.Asset.Actions.Register do
     asset_id = Ecto.UUID.generate()
     config = Application.fetch_env!(:quick_train, :assets)
     now = DateTime.utc_now()
-    staging_expires_at = DateTime.add(now, config[:staging_lifetime_seconds], :second)
+
+    staging_expires_at =
+      DateTime.add(now, Keyword.fetch!(config, :staging_lifetime_seconds), :second)
+
     staging_key = "assets/staging/#{arguments.organization_id}/#{asset_id}"
 
     attributes = %{
@@ -94,7 +97,9 @@ defmodule QuickTrain.Assets.Asset.Actions.Register do
   end
 
   defp access_expiry(now, staging_expires_at, config) do
-    requested = DateTime.add(now, config[:upload_access_lifetime_seconds], :second)
+    requested =
+      DateTime.add(now, Keyword.fetch!(config, :upload_access_lifetime_seconds), :second)
+
     if DateTime.before?(requested, staging_expires_at), do: requested, else: staging_expires_at
   end
 end

@@ -84,7 +84,7 @@ defmodule QuickTrain.Assets.Storage.Content do
     end
   end
 
-  defp detect(<<"%PDF-", _rest::binary>>), do: {:ok, "application/pdf", %{}}
+  defp detect(<<"%PDF-", _rest::binary>>), do: {:error, :unsupported_media_type}
 
   defp detect(bytes) do
     if String.valid?(bytes) do

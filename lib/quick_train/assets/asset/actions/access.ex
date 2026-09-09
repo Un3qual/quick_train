@@ -29,7 +29,9 @@ defmodule QuickTrain.Assets.Asset.Actions.Access do
   end
 
   defp read_expiry do
-    lifetime = Application.fetch_env!(:quick_train, :assets)[:read_access_lifetime_seconds]
+    lifetime =
+      Keyword.fetch!(Application.fetch_env!(:quick_train, :assets), :read_access_lifetime_seconds)
+
     DateTime.add(DateTime.utc_now(), lifetime, :second)
   end
 end

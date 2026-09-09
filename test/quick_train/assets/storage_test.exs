@@ -4,6 +4,12 @@ defmodule QuickTrain.Assets.StorageTest do
   alias QuickTrain.Assets.Storage
   alias QuickTrain.Assets.Storage.InMemory, as: TestStorage
 
+  defmodule InvalidDescriptorStorage do
+    def enforces_byte_cap?, do: true
+    def writable_staging_access(_key, _cap, _expiry), do: :invalid
+    def sealed_read_access(_key, _expiry), do: :invalid
+  end
+
   defmodule UnenforcedStorage do
     def enforces_byte_cap?, do: false
     def approved_hosts, do: ["storage.quicktrain.local"]
@@ -273,6 +279,49 @@ defmodule QuickTrain.Assets.StorageTest do
     refute TestStorage.sealed?("sealed/late-active")
   end
 
+  test "PDF content is not published even with a plain-text declaration" do
+    expires_at = DateTime.add(DateTime.utc_now(), 60, :second)
+
+    pdf =
+      "%PDF-1.7\n1 0 obj <</Type /Catalog /OpenAction <</S /JavaScript /JS (app.alert(1))>>>> endobj\n%%EOF"
+
+    for bytes <- [pdf, pdf <> <<255>>], media_type <- ["application/pdf", "text/plain"] do
+      key = "pdf/#{media_type}/#{byte_size(bytes)}"
+      descriptor = Storage.writable_staging_access!(key, byte_size(bytes), expires_at)
+      :ok = TestStorage.put_staging(descriptor, bytes)
+
+      expected = %{
+        sha256: :crypto.hash(:sha256, bytes),
+        byte_size: byte_size(bytes),
+        media_type: media_type
+      }
+
+      assert {:error, :unsupported_media_type} =
+               Storage.verify_and_publish(key, "sealed/#{key}", expected, 1_000)
+
+      refute TestStorage.sealed?("sealed/#{key}")
+    end
+  end
+
+  test "malformed adapter returns produce controlled descriptor errors" do
+    original_assets = Application.fetch_env!(:quick_train, :assets)
+    on_exit(fn -> Application.put_env(:quick_train, :assets, original_assets) end)
+
+    Application.put_env(
+      :quick_train,
+      :assets,
+      Keyword.put(original_assets, :storage_adapter, InvalidDescriptorStorage)
+    )
+
+    expires_at = DateTime.add(DateTime.utc_now(), 60, :second)
+
+    assert {:error, :invalid_storage_descriptor} =
+             Storage.writable_staging_access("staging/invalid", 8, expires_at)
+
+    assert {:error, :invalid_storage_descriptor} =
+             Storage.sealed_read_access("sealed/invalid", expires_at)
+  end
+
   test "JPEG dimensions are read after the sample precision byte" do
     expires_at = DateTime.add(DateTime.utc_now(), 60, :second)
 
@@ -374,16 +423,13 @@ defmodule QuickTrain.Assets.StorageTest do
     assert read_descriptor.referrer_policy == "no-referrer"
     assert {:ok, "readable"} = TestStorage.read_sealed(read_descriptor)
 
-    assert :ok = Storage.validate_redirect(read_descriptor, read_descriptor.uri)
+    assert :ok = Storage.validate_redirect(read_descriptor.uri)
 
     assert {:error, :insecure_storage_destination} =
-             Storage.validate_redirect(
-               read_descriptor,
-               URI.parse("http://storage.quicktrain.local/x")
-             )
+             Storage.validate_redirect(URI.parse("http://storage.quicktrain.local/x"))
 
     assert {:error, :unapproved_storage_destination} =
-             Storage.validate_redirect(read_descriptor, URI.parse("https://attacker.example/x"))
+             Storage.validate_redirect(URI.parse("https://attacker.example/x"))
   end
 
   test "access descriptors cannot outlive the requested expiry" do

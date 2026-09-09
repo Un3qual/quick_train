@@ -5,6 +5,8 @@ defmodule QuickTrain.Authorization.Checks.OrganizationCapability do
 
   alias QuickTrain.Authorization
 
+  require Logger
+
   @impl true
   def init(opts) do
     case Keyword.fetch(opts, :capability) do
@@ -44,14 +46,19 @@ defmodule QuickTrain.Authorization.Checks.OrganizationCapability do
   defp allowed?(user_id, organization_id, capability) do
     Authorization.allowed?(user_id, organization_id, capability)
   rescue
-    _error in [
-      Ash.Error.Forbidden,
+    _error in [Ash.Error.Forbidden, Ash.Error.Invalid] ->
+      false
+
+    error in [
       Ash.Error.Framework,
-      Ash.Error.Invalid,
       Ash.Error.Unknown,
       DBConnection.ConnectionError,
       Postgrex.Error
     ] ->
+      Logger.warning(
+        "organization capability check failed closed for #{organization_id}: #{inspect(error.__struct__)}"
+      )
+
       false
   end
 end

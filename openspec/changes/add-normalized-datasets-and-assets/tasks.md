@@ -314,3 +314,53 @@ at the unchanged usage_rules 1.2.7 and igniter 0.8.3 advisories recorded above;
 production compilation and the full test suite ran separately. The final inline
 review found no additional issue. Production code/configuration decreased by
 40 lines; no production modules, dependencies, or migrations were added.
+
+
+## 22. Local CodeRabbit review follow-through
+
+- [x] 22.1 Evaluate all 28 suggestions against implementation, installed dependency source, and current/future specifications.
+- [x] 22.2 Fix required asset configuration access, simplify redirect validation, and normalize invalid read-descriptor returns while removing the unreachable upload clause.
+- [x] 22.3 Reject PDF publication without adding a parser or sanitizer; test both text and binary PDF payloads and misleading declarations.
+- [x] 22.4 Check import field count before allocating normalized input maps, log unexpected authorization failures without raw error details, and isolate the missing-subject test assertion.
+- [x] 22.5 Remove stale cleanup and reconciliation promises from current planning artifacts.
+- [x] 22.6 Run verification and inspect the final diff.
+
+Review disposition (CLI output order within each scope):
+
+| Scope / finding | Decision and evidence |
+| --- | --- |
+| lib 1: missing read/claim configuration | Use `Keyword.fetch!` for required configuration. |
+| lib 2: timeout mailbox replies | No change: OTP 29 `gen.erl` uses process aliases and demonitor/flush on timeout. |
+| lib 3: ignored redirect descriptor | Remove the unused argument; approved HTTPS destinations remain the invariant. |
+| lib 4: GraphQL digest bytes | No change: schema middleware hex-encodes both Asset and AssetSummary digests; GraphQL tests cover output. |
+| lib 5: PDF active content | Reject PDF publication as unsupported, including a plain-text declaration; no speculative sanitizer. |
+| lib 6: malformed read response | Return the same controlled descriptor error as upload access. |
+| lib 7: unreachable false clause | Remove it; the existing error tuple branch handles an unenforced cap. |
+| lib 8: terminal verification retries | No change: finalization commits terminal failures and returns a successful result to the worker. |
+| lib 9: missing byte cap | Fetch required keys explicitly before issuing access. |
+| lib 10: field deletion errors | No change: `Ash.transact` rolls back returned error tuples (`rollback_on_error?: true`). |
+| lib 11: explicit private user | No change: use Ash's private-by-default attribute convention. |
+| lib 12: silent authorization failures | Log framework/database failure classes while remaining fail-closed; expected denials stay quiet and raw exception details stay private. |
+| lib 13: allocation before field cap | Check count before mapping; preserve structural rejection order and normalized request-size accounting. |
+| lib 14: distinct text-limit code | No change: both cases deliberately reject scalar-budget violations; no contract requires separate codes or field diagnostics. |
+| lib 15: error-code allowlist | No change: Values returns explicit atoms or the deliberately constructed `required_missing` field-key string, not arbitrary exception messages. |
+| lib 16: candidate retry comment | No change: immutability is already a documented invariant; mutable candidate support is not planned. |
+| lib 17: enum callback arity | No change: installed Ash.Type.Enum overrides `storage_type/0`; Ash.Type's arity-1 callback delegates to it. |
+| lib 18: Decimal/DateTime aliases | No change: consumers use qualified DatasetValue names, not conflicting scalar aliases. |
+| lib 19: trigger indexing/cost | No change: all six child foreign keys have unique indexes; the prior performance pass measured imports. No new projection or trigger rewrite without evidence. |
+| lib 20: bulk job batching | No change: Finalize chunks at 1,000 under the sealing lock and row processing is idempotent. |
+| lib 21: oversized global body limit | No change: actual configured limit is 512 KiB, below the suggested 8 MB; imports use the same GraphQL route. |
+| lib 22: null value family | No change: the field family is NOT NULL and required relationships are protected by foreign keys. |
+| lib 23: irreversible function DDL | No change: resource custom statements and migration down already drop both functions. |
+| test 1: scheduler restoration | No change: no configured scheduler value exists; this synchronous test removes its override to restore the actual default. |
+| test 2: dynamic table truncation | No change: committed fixtures are covered by the existing cascade roots; no uncovered persisted table was identified. |
+| test 3: missing-subject assertion order | Move the assertion before organization deactivation to make the independent case clearer. |
+| openspec 1: reconciliation promise | Remove the obsolete current-scope promise (and adjacent staging-cleanup promise). |
+| openspec 2: periodic import deletion | Replace with current expiry enforcement and retention until the deferred maintenance change. |
+
+Verification on 2026-09-09: all 139 tests pass. Production compilation, all four
+OpenSpec items, formatting, code generation, zero compile cycles, static and
+architecture checks, and Dialyzer pass. `mise run verify` stops at the unchanged
+LOW usage_rules 1.2.7 (GHSA-j59f-776f-23hp) and igniter 0.8.3
+(GHSA-cj7w-j579-gc42) advisories; the full tests and production compilation ran
+separately. No production modules, dependencies, or migrations were added.
