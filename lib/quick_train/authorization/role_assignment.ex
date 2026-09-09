@@ -53,7 +53,26 @@ defmodule QuickTrain.Authorization.RoleAssignment do
       argument :organization_id, :uuid, allow_nil?: false
       argument :capability_key, :string, allow_nil?: false
 
-      run QuickTrain.Authorization.RoleAssignment.Actions.Allowed
+      run fn input, _context ->
+        %{user_id: user_id, organization_id: organization_id, capability_key: capability_key} =
+          input.arguments
+
+        Ash.exists(input.resource,
+          query: [
+            filter:
+              expr(
+                user_id == ^user_id and organization_id == ^organization_id and
+                  user.status == "active" and organization.status == "active" and
+                  exists(role.role_capabilities, capability.key == ^capability_key) and
+                  exists(
+                    organization.memberships,
+                    user_id == parent(user_id) and status == "active"
+                  )
+              )
+          ],
+          authorize?: false
+        )
+      end
     end
   end
 

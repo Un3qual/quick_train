@@ -1,8 +1,6 @@
 defmodule QuickTrain.Datasets.DatasetRecord.Values do
   @moduledoc false
 
-  require Ash.Query
-
   alias QuickTrain.Assets.Asset
   alias QuickTrain.Datasets.DatasetValue.Family
 
@@ -139,16 +137,13 @@ defmodule QuickTrain.Datasets.DatasetRecord.Values do
         :ok
 
       ids ->
-        ready_ids =
-          Asset
-          |> Ash.Query.filter(
-            id in ^ids and organization_id == ^organization_id and state == :ready
+        ready_count =
+          Ash.count!(Asset,
+            query: [filter: [id: [in: ids], organization_id: organization_id, state: :ready]],
+            authorize?: false
           )
-          |> Ash.Query.select([:id])
-          |> Ash.read!(authorize?: false)
-          |> MapSet.new(& &1.id)
 
-        if MapSet.equal?(ready_ids, MapSet.new(ids)), do: :ok, else: {:error, :invalid_asset}
+        if ready_count == length(ids), do: :ok, else: {:error, :invalid_asset}
     end
   end
 

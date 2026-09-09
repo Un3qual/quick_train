@@ -3,6 +3,8 @@ defmodule QuickTrain.Datasets.DatasetRecordType do
 
   alias QuickTrain.Datasets.{DatasetFieldDefinition, DatasetSchemaVersion}
 
+  alias QuickTrain.Datasets.SchemaVersionBoundary
+
   use Ash.Resource,
     otp_app: :quick_train,
     domain: QuickTrain.Datasets,
@@ -32,6 +34,12 @@ defmodule QuickTrain.Datasets.DatasetRecordType do
     has_many :field_definitions, DatasetFieldDefinition,
       destination_attribute: :record_type_id,
       public?: true
+  end
+
+  code_interface do
+    define :create_internal
+    define :update_internal
+    define :destroy_internal
   end
 
   actions do
@@ -66,7 +74,26 @@ defmodule QuickTrain.Datasets.DatasetRecordType do
       argument :schema_version_id, :uuid, allow_nil?: false
       argument :key, :string, allow_nil?: false
       argument :name, :string, allow_nil?: false
-      run {Module.concat(["QuickTrain.Datasets.DatasetRecordType.Actions.AddToDraft"]), []}
+
+      run fn input, _context ->
+        %{organization_id: organization_id, schema_version_id: schema_version_id} =
+          input.arguments
+
+        SchemaVersionBoundary.with_draft(
+          organization_id,
+          schema_version_id,
+          fn schema ->
+            __MODULE__.create_internal!(
+              %{
+                schema_version_id: schema.id,
+                key: input.arguments.key,
+                name: input.arguments.name
+              },
+              authorize?: false
+            )
+          end
+        )
+      end
     end
 
     action :update_in_draft, :struct do
@@ -76,14 +103,45 @@ defmodule QuickTrain.Datasets.DatasetRecordType do
       argument :record_type_id, :uuid, allow_nil?: false
       argument :key, :string, allow_nil?: false
       argument :name, :string, allow_nil?: false
-      run {Module.concat(["QuickTrain.Datasets.DatasetRecordType.Actions.UpdateInDraft"]), []}
+
+      run fn input, _context ->
+        %{organization_id: organization_id, record_type_id: record_type_id} = input.arguments
+
+        SchemaVersionBoundary.with_record_type(
+          organization_id,
+          record_type_id,
+          [],
+          fn record_type ->
+            __MODULE__.update_internal!(
+              record_type,
+              %{
+                key: input.arguments.key,
+                name: input.arguments.name
+              },
+              authorize?: false
+            )
+          end
+        )
+      end
     end
 
     action :remove_from_draft, :atom do
       allow_nil? false
       argument :organization_id, :uuid, allow_nil?: false
       argument :record_type_id, :uuid, allow_nil?: false
-      run {Module.concat(["QuickTrain.Datasets.DatasetRecordType.Actions.RemoveFromDraft"]), []}
+
+      run fn input, _context ->
+        %{organization_id: organization_id, record_type_id: record_type_id} = input.arguments
+
+        SchemaVersionBoundary.with_record_type(
+          organization_id,
+          record_type_id,
+          [],
+          fn record_type ->
+            __MODULE__.destroy_internal(record_type, authorize?: false)
+          end
+        )
+      end
     end
 
     create :create_internal do

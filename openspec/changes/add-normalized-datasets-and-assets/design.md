@@ -211,3 +211,11 @@ Cleanup-only record/value destroy actions and cascades are removed. Restrictive 
 7. Run focused policy, resource, adapter, worker, concurrency, migration, and GraphQL tests; then run `mise run openspec.validate` and `mise run verify` from a clean migrated database.
 
 Rollback before product data exists removes the new domains and tables through generated down migrations. After real assets or revisions exist, rollback requires an explicit product-data export or migration and must not silently discard immutable content or provenance.
+
+## Resource-local generic actions and native operations
+
+The six draft-edit generic actions and the permission predicate keep their small `run` callbacks in their resources. These are generic action implementations, not anonymous changes or validations. Draft editing retains the shared schema transaction/lock before invoking ordinary Ash create/update/destroy actions through code interfaces. The permission predicate delegates to the built-in `exists` aggregate. A plain changeset filter or `get_and_lock_for_update` on a child would not serialize edits against publication of its parent schema.
+
+The future-issuance session check uses built-in `compare`, which supports atomic validation. The maximum lifetime check stays module-backed because it compares two fields against runtime configuration; it has no atomic callback today, but remains able to implement atomic or batch behavior later. No anonymous changes/validations or `require_atomic? false` are introduced. Underlying record-type/field update and destroy actions and session revocation retain their atomic capability.
+
+Schema numbering uses a filtered `max` aggregate under the dataset lock. Asset-reference validation counts matching ready assets within the requested organization against the deduplicated input IDs. Native aggregate query options avoid constructing manual queries; there is no extra domain wrapper solely for a one-use aggregate. UUID bytes use `Ecto.UUID.dump!`; fingerprint framing uses `IO.iodata_length` and preserves nested iodata and the exact version-one encoding.

@@ -110,6 +110,8 @@ defmodule QuickTrain.Datasets do
 
   resources do
     resource QuickTrain.Datasets.Dataset do
+      define :get_dataset, action: :read, get_by: [:id]
+
       define :create_dataset,
         action: :create_dataset,
         args: [:organization_id, :key, :name]
@@ -170,6 +172,8 @@ defmodule QuickTrain.Datasets do
     end
 
     resource QuickTrain.Datasets.DatasetSchemaVersion do
+      define :create_schema_version_internal, action: :create_internal
+
       define :create_schema_version,
         action: :create_draft,
         args: [:organization_id, :dataset_id]

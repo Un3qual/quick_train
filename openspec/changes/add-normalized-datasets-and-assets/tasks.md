@@ -178,3 +178,21 @@ remains blocked by those dependency advisories. This pass removes 1,965 net appl
 test lines. The migration removes maintenance metadata and indexes, preserves content
 and provenance, and deliberately requires a reviewed forward migration to restore lost
 metadata instead of offering an unsafe rollback.
+
+## 15. Approved Ash locality and built-in simplifications
+
+- [x] 15.1 Inline the six generic draft-edit callbacks and permission-check callback, preserving transactions, locks, and authorization; call internal actions through resource code interfaces.
+- [x] 15.2 Use built-in comparison for future session issuance while retaining the cross-field validation module's ability to support atomic/batch callbacks.
+- [x] 15.3 Replace latest-version record loading with a maximum aggregate, asset set comparison with a count aggregate, and fingerprint helper work with native UUID/iodata functions.
+- [x] 15.4 Verify retained behavior, concurrency, and version-one fingerprint bytes; run the full gate, independent review, and independent OpenSpec validation.
+
+Verification on 2026-09-09: all 127 tests passed, including schema edit/publication
+concurrency and version-one fingerprint coverage. All five retained record-type/field
+update/destroy and session-revocation actions built valid fully atomic changesets.
+Production compilation and independent OpenSpec validation (four items) passed.
+The full gate passed formatting, code generation, boundary checks, zero compile
+cycles, static analysis, and Dialyzer, then stopped at the unchanged `usage_rules`
+1.2.7 and `igniter` 0.8.3 advisories recorded in section 13. Production build and
+tests were run separately. Independent review found no remaining issues. Internal
+draft-edit code interfaces live on their resources to avoid a domain/resource
+compile dependency cycle. Removed the newly empty source directories.

@@ -78,6 +78,10 @@ defmodule QuickTrain.Accounts.Session do
              )
 
       validate compare(:expires_at, greater_than: :issued_at)
+
+      validate compare(:issued_at, less_than_or_equal_to: &DateTime.utc_now/0),
+        message: "cannot be in the future"
+
       validate QuickTrain.Accounts.Session.Validations.LifetimeWithinMaximum
     end
 

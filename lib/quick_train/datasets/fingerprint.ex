@@ -8,8 +8,8 @@ defmodule QuickTrain.Datasets.Fingerprint do
       [
         frame("quick_train.dataset-revision"),
         frame(<<1>>),
-        frame(uuid_bytes!(schema_version_id)),
-        frame(uuid_bytes!(root_record_type_id)),
+        frame(Ecto.UUID.dump!(schema_version_id)),
+        frame(Ecto.UUID.dump!(root_record_type_id)),
         frame(Integer.to_string(length(occurrences)))
       ] ++ Enum.map(occurrences, &occurrence_bytes/1)
 
@@ -18,7 +18,7 @@ defmodule QuickTrain.Datasets.Fingerprint do
 
   defp occurrence_bytes(occurrence) do
     frame([
-      frame(uuid_bytes!(occurrence.field.id)),
+      frame(Ecto.UUID.dump!(occurrence.field.id)),
       frame(Atom.to_string(occurrence.family)),
       frame(Integer.to_string(occurrence.ordinal)),
       frame(value(occurrence.family, occurrence.value))
@@ -31,7 +31,7 @@ defmodule QuickTrain.Datasets.Fingerprint do
     payload = [
       frame("quick_train.dataset-import-row"),
       frame(<<1>>),
-      frame(uuid_bytes!(schema_version_id)),
+      frame(Ecto.UUID.dump!(schema_version_id)),
       frame(row_key),
       frame(if(is_nil(external_key), do: <<0>>, else: <<1>>)),
       frame(external_key || ""),
@@ -77,15 +77,9 @@ defmodule QuickTrain.Datasets.Fingerprint do
     |> Integer.to_string()
   end
 
-  defp value(:asset, value), do: uuid_bytes!(value)
-
-  defp uuid_bytes!(uuid) do
-    {:ok, bytes} = Ecto.UUID.dump(uuid)
-    bytes
-  end
+  defp value(:asset, value), do: Ecto.UUID.dump!(value)
 
   defp frame(value) do
-    bytes = IO.iodata_to_binary(value)
-    [<<byte_size(bytes)::unsigned-big-32>>, bytes]
+    [<<IO.iodata_length(value)::unsigned-big-32>>, value]
   end
 end

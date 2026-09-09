@@ -3,6 +3,8 @@ defmodule QuickTrain.Datasets.DatasetFieldDefinition do
 
   alias QuickTrain.Datasets.{DatasetFieldDefinition, DatasetRecordType, DatasetValue}
 
+  alias QuickTrain.Datasets.SchemaVersionBoundary
+
   use Ash.Resource,
     otp_app: :quick_train,
     domain: QuickTrain.Datasets,
@@ -44,6 +46,12 @@ defmodule QuickTrain.Datasets.DatasetFieldDefinition do
       public?: true
   end
 
+  code_interface do
+    define :create_internal
+    define :update_internal
+    define :destroy_internal
+  end
+
   actions do
     read :read do
       primary? true
@@ -83,7 +91,23 @@ defmodule QuickTrain.Datasets.DatasetFieldDefinition do
 
       argument :required, :boolean, allow_nil?: false
 
-      run {Module.concat(["QuickTrain.Datasets.DatasetFieldDefinition.Actions.AddToDraft"]), []}
+      run fn input, _context ->
+        %{organization_id: organization_id, record_type_id: record_type_id} = input.arguments
+
+        SchemaVersionBoundary.with_record_type(
+          organization_id,
+          record_type_id,
+          [DatasetFieldDefinition],
+          fn record_type ->
+            attributes =
+              input.arguments
+              |> Map.take([:key, :name, :value_family, :cardinality, :required])
+              |> Map.put(:record_type_id, record_type.id)
+
+            __MODULE__.create_internal!(attributes, authorize?: false)
+          end
+        )
+      end
     end
 
     action :update_in_draft, :struct do
@@ -99,8 +123,21 @@ defmodule QuickTrain.Datasets.DatasetFieldDefinition do
 
       argument :required, :boolean, allow_nil?: false
 
-      run {Module.concat(["QuickTrain.Datasets.DatasetFieldDefinition.Actions.UpdateInDraft"]),
-           []}
+      run fn input, _context ->
+        %{organization_id: organization_id, field_definition_id: field_definition_id} =
+          input.arguments
+
+        SchemaVersionBoundary.with_field_definition(
+          organization_id,
+          field_definition_id,
+          fn field ->
+            attributes =
+              Map.take(input.arguments, [:key, :name, :value_family, :cardinality, :required])
+
+            __MODULE__.update_internal!(field, attributes, authorize?: false)
+          end
+        )
+      end
     end
 
     action :remove_from_draft, :atom do
@@ -108,8 +145,18 @@ defmodule QuickTrain.Datasets.DatasetFieldDefinition do
       argument :organization_id, :uuid, allow_nil?: false
       argument :field_definition_id, :uuid, allow_nil?: false
 
-      run {Module.concat(["QuickTrain.Datasets.DatasetFieldDefinition.Actions.RemoveFromDraft"]),
-           []}
+      run fn input, _context ->
+        %{organization_id: organization_id, field_definition_id: field_definition_id} =
+          input.arguments
+
+        SchemaVersionBoundary.with_field_definition(
+          organization_id,
+          field_definition_id,
+          fn field ->
+            __MODULE__.destroy_internal(field, authorize?: false)
+          end
+        )
+      end
     end
 
     create :create_internal do
