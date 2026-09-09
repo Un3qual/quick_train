@@ -12,7 +12,12 @@ defmodule QuickTrain.Datasets.DatasetValue.Integer do
 
   attributes do
     uuid_primary_key :id
-    attribute :value, :integer, allow_nil?: false, public?: true
+
+    attribute :value, :integer,
+      allow_nil?: false,
+      public?: true,
+      constraints: [min: -9_223_372_036_854_775_808, max: 9_223_372_036_854_775_807]
+
     timestamps()
   end
 

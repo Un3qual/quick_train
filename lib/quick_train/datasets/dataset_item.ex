@@ -13,7 +13,11 @@ defmodule QuickTrain.Datasets.DatasetItem do
 
   attributes do
     uuid_primary_key :id, writable?: true
-    attribute :external_key, :string, public?: true
+
+    attribute :external_key, :string,
+      public?: true,
+      constraints: [max_length: 512, length_count: :bytes]
+
     timestamps()
   end
 

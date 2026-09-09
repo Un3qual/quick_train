@@ -305,6 +305,20 @@ defmodule QuickTrain.Assets.AssetLifecycleTest do
     assert TestStorage.sealed_count() == 1
   end
 
+  test "asset hashes must be supplied without surrounding whitespace", %{
+    manager: actor,
+    graph: graph
+  } do
+    for hash <- [" " <> sha256("bytes"), sha256("bytes") <> "\n"] do
+      assert {:error, error} =
+               Assets.register_asset(graph.organization.id, hash, 5, "text/plain", actor: actor)
+
+      assert Exception.message(error) =~ "invalid_asset_hash"
+    end
+
+    assert Ash.count!(Asset, authorize?: false) == 0
+  end
+
   test "invalid media text is rejected before requesting storage access", %{
     manager: manager,
     graph: graph

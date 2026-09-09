@@ -17,7 +17,7 @@ defmodule QuickTrain.Datasets.Dataset do
     attribute :key, :string,
       allow_nil?: false,
       public?: true,
-      constraints: [match: ~r/\A[^\x00]*\z/u]
+      constraints: [match: ~r/\A[^\x00]*\z/u, max_length: 512, length_count: :bytes]
 
     attribute :name, :string,
       allow_nil?: false,

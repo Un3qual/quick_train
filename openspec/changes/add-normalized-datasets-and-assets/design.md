@@ -249,3 +249,13 @@ Text content uses Ash string constraints `trim?: false` and `allow_empty?: true`
 All six typed-value resources use Ash policy authorization. Their primary reads require the corresponding already-authorized DatasetValue relationship; direct reads and internal writes fail closed unless trusted construction explicitly bypasses authorization.
 
 Both GraphQL HTTP routes enable Absinthe complexity analysis with a maximum of 10,000. Dataset root collections and nested Relay collections use AshGraphql's supported complexity callbacks, sharing one function in the Datasets domain. Cost is one plus page size times child complexity (at least one per row). Omitted or null page sizes are conservatively charged at 100, the maximum exposed page size, instead of assuming one row. Negative page sizes receive a nonnegative cost and remain subject to normal pagination validation. This preserves useful nested reads while bounding total query work; callers with large selections must request smaller pages. No custom execution phase or new module is introduced.
+
+## Storage-compatible input boundaries
+
+Indexed dataset/schema keys, import idempotency and row keys, and item external
+keys are limited to 512 UTF-8 bytes through Ash string constraints. This is a
+conservative bound for composite PostgreSQL B-tree entries, independent of text
+compressibility. Display names are not indexed and do not inherit that limit.
+Schema keys/names reject NUL. Typed integers are signed 64-bit values; normalization
+rejects overflow before candidate construction. Asset hash input is not trimmed.
+These are input constraints, not new parsing, cleanup, or recovery workflows.

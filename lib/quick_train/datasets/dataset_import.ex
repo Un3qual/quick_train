@@ -19,7 +19,7 @@ defmodule QuickTrain.Datasets.DatasetImport do
     attribute :idempotency_key, :string,
       allow_nil?: false,
       public?: true,
-      constraints: [match: ~r/\A[^\x00]*\z/u]
+      constraints: [match: ~r/\A[^\x00]*\z/u, max_length: 512, length_count: :bytes]
 
     attribute :open_fingerprint, :binary, allow_nil?: false
 
@@ -119,7 +119,7 @@ defmodule QuickTrain.Datasets.DatasetImport do
 
       argument :idempotency_key, :string,
         allow_nil?: false,
-        constraints: [match: ~r/\A[^\x00]*\z/u]
+        constraints: [match: ~r/\A[^\x00]*\z/u, max_length: 512, length_count: :bytes]
 
       run {Module.concat(["QuickTrain.Datasets.DatasetImport.Actions.Open"]), []}
     end

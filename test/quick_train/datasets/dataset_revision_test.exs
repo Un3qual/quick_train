@@ -25,6 +25,40 @@ defmodule QuickTrain.Datasets.DatasetRevisionTest do
     Map.merge(graph, %{manager: manager, organization: graph.organization, asset: asset})
   end
 
+  test "integer storage boundaries round trip and overflow is rejected", context do
+    for integer <- [-9_223_372_036_854_775_808, 9_223_372_036_854_775_807] do
+      input = values(context.asset.id, "Alice", "1", "2026-01-02T01:04:05Z")
+
+      input =
+        Enum.map(input, fn
+          %{field: "age"} -> %{field: "age", integer: integer}
+          entry -> entry
+        end)
+
+      result = put!(context, input)
+      assert result.revision |> load_revision() |> typed_values() |> Map.fetch!("age") == integer
+
+      invalid =
+        Enum.map(input, fn
+          %{field: "age"} -> %{field: "age", integer: integer * 2}
+          entry -> entry
+        end)
+
+      assert {:error, error} =
+               Datasets.put_item_revision(
+                 context.organization.id,
+                 context.dataset.id,
+                 context.schema.id,
+                 nil,
+                 "customer-1",
+                 invalid,
+                 actor: context.manager
+               )
+
+      assert Exception.message(error) =~ "type_mismatch"
+    end
+  end
+
   test "direct revisions reject NUL text before persistence", context do
     assert {:error, error} =
              Datasets.put_item_revision(

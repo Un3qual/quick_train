@@ -17,11 +17,13 @@ defmodule QuickTrain.Datasets.DatasetFieldDefinition do
 
     attribute :key, :string,
       allow_nil?: false,
-      public?: true
+      public?: true,
+      constraints: [match: ~r/\A[^\x00]*\z/u, max_length: 512, length_count: :bytes]
 
     attribute :name, :string,
       allow_nil?: false,
-      public?: true
+      public?: true,
+      constraints: [match: ~r/\A[^\x00]*\z/u]
 
     attribute :value_family, DatasetValue.Family,
       allow_nil?: false,
@@ -84,8 +86,12 @@ defmodule QuickTrain.Datasets.DatasetFieldDefinition do
       constraints instance_of: __MODULE__
       argument :organization_id, :uuid, allow_nil?: false
       argument :record_type_id, :uuid, allow_nil?: false
-      argument :key, :string, allow_nil?: false
-      argument :name, :string, allow_nil?: false
+
+      argument :key, :string,
+        allow_nil?: false,
+        constraints: [match: ~r/\A[^\x00]*\z/u, max_length: 512, length_count: :bytes]
+
+      argument :name, :string, allow_nil?: false, constraints: [match: ~r/\A[^\x00]*\z/u]
       argument :value_family, DatasetValue.Family, allow_nil?: false
 
       argument :cardinality, DatasetFieldDefinition.Cardinality, allow_nil?: false
@@ -115,8 +121,12 @@ defmodule QuickTrain.Datasets.DatasetFieldDefinition do
       constraints instance_of: __MODULE__
       argument :organization_id, :uuid, allow_nil?: false
       argument :field_definition_id, :uuid, allow_nil?: false
-      argument :key, :string, allow_nil?: false
-      argument :name, :string, allow_nil?: false
+
+      argument :key, :string,
+        allow_nil?: false,
+        constraints: [match: ~r/\A[^\x00]*\z/u, max_length: 512, length_count: :bytes]
+
+      argument :name, :string, allow_nil?: false, constraints: [match: ~r/\A[^\x00]*\z/u]
       argument :value_family, DatasetValue.Family, allow_nil?: false
 
       argument :cardinality, DatasetFieldDefinition.Cardinality, allow_nil?: false

@@ -93,7 +93,7 @@ defmodule QuickTrain.Assets.Asset do
     action :register, AssetRegistrationResult do
       allow_nil? false
       argument :organization_id, :uuid, allow_nil?: false
-      argument :sha256, :string, allow_nil?: false
+      argument :sha256, :string, allow_nil?: false, constraints: [trim?: false]
       argument :byte_size, :integer, allow_nil?: false
       argument :media_type, :string, allow_nil?: false
 

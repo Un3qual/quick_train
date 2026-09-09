@@ -23,9 +23,18 @@ defmodule QuickTrain.Datasets.DatasetImportRow do
 
   attributes do
     uuid_primary_key :id
-    attribute :row_key, :string, allow_nil?: false, public?: true
+
+    attribute :row_key, :string,
+      allow_nil?: false,
+      public?: true,
+      constraints: [max_length: 512, length_count: :bytes]
+
     attribute :source_position, :integer, allow_nil?: false, public?: true
-    attribute :external_key, :string, public?: true
+
+    attribute :external_key, :string,
+      public?: true,
+      constraints: [max_length: 512, length_count: :bytes]
+
     attribute :fingerprint, :binary, allow_nil?: false
 
     attribute :outcome, DatasetImportRow.Outcome,
@@ -67,9 +76,13 @@ defmodule QuickTrain.Datasets.DatasetImportRow do
     read :find_conflicts_internal do
       argument :organization_id, :uuid, allow_nil?: false
       argument :import_id, :uuid, allow_nil?: false
-      argument :row_key, :string, allow_nil?: false
+
+      argument :row_key, :string,
+        allow_nil?: false,
+        constraints: [max_length: 512, length_count: :bytes]
+
       argument :source_position, :integer, allow_nil?: false
-      argument :external_key, :string
+      argument :external_key, :string, constraints: [max_length: 512, length_count: :bytes]
 
       filter expr(
                organization_id == ^arg(:organization_id) and import_id == ^arg(:import_id) and
@@ -99,8 +112,12 @@ defmodule QuickTrain.Datasets.DatasetImportRow do
       constraints instance_of: __MODULE__
       argument :organization_id, :uuid, allow_nil?: false
       argument :import_id, :uuid, allow_nil?: false
-      argument :row_key, :string, allow_nil?: false
-      argument :external_key, :string
+
+      argument :row_key, :string,
+        allow_nil?: false,
+        constraints: [max_length: 512, length_count: :bytes]
+
+      argument :external_key, :string, constraints: [max_length: 512, length_count: :bytes]
       argument :source_position, :integer, allow_nil?: false
 
       argument :values, {:array, ValueInput}, allow_nil?: false

@@ -17,11 +17,13 @@ defmodule QuickTrain.Datasets.DatasetRecordType do
 
     attribute :key, :string,
       allow_nil?: false,
-      public?: true
+      public?: true,
+      constraints: [match: ~r/\A[^\x00]*\z/u, max_length: 512, length_count: :bytes]
 
     attribute :name, :string,
       allow_nil?: false,
-      public?: true
+      public?: true,
+      constraints: [match: ~r/\A[^\x00]*\z/u]
 
     timestamps()
   end
@@ -73,8 +75,12 @@ defmodule QuickTrain.Datasets.DatasetRecordType do
       constraints instance_of: __MODULE__
       argument :organization_id, :uuid, allow_nil?: false
       argument :schema_version_id, :uuid, allow_nil?: false
-      argument :key, :string, allow_nil?: false
-      argument :name, :string, allow_nil?: false
+
+      argument :key, :string,
+        allow_nil?: false,
+        constraints: [match: ~r/\A[^\x00]*\z/u, max_length: 512, length_count: :bytes]
+
+      argument :name, :string, allow_nil?: false, constraints: [match: ~r/\A[^\x00]*\z/u]
 
       run fn input, _context ->
         %{organization_id: organization_id, schema_version_id: schema_version_id} =
@@ -102,8 +108,12 @@ defmodule QuickTrain.Datasets.DatasetRecordType do
       constraints instance_of: __MODULE__
       argument :organization_id, :uuid, allow_nil?: false
       argument :record_type_id, :uuid, allow_nil?: false
-      argument :key, :string, allow_nil?: false
-      argument :name, :string, allow_nil?: false
+
+      argument :key, :string,
+        allow_nil?: false,
+        constraints: [match: ~r/\A[^\x00]*\z/u, max_length: 512, length_count: :bytes]
+
+      argument :name, :string, allow_nil?: false, constraints: [match: ~r/\A[^\x00]*\z/u]
 
       run fn input, _context ->
         %{organization_id: organization_id, record_type_id: record_type_id} = input.arguments

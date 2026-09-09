@@ -7,6 +7,14 @@ Provide organization-owned datasets whose schemas, items, revisions, records, an
 ### Requirement: Organization-scoped datasets
 The system SHALL require an active authenticated account, an active owning organization, an active membership in that organization, and the appropriate dataset capability for every caller-initiated dataset-management action. Dataset definitions, items, revisions, and values SHALL fail closed when the owning organization is inactive or the actor is unauthorized.
 
+#### Scenario: Schema metadata and indexed identifiers fit storage
+- **WHEN** dataset, record-type, or field keys exceed 512 UTF-8 bytes, or schema keys/names contain NUL
+- **THEN** Ash rejects the affected field before persistence, including draft schema updates
+
+#### Scenario: Integer values fit signed 64-bit storage
+- **WHEN** a direct revision or import supplies an integer below -9223372036854775808 or above 9223372036854775807
+- **THEN** normalization rejects the value before constructing a candidate record
+
 #### Scenario: Dataset metadata rejects NUL
 - **WHEN** dataset creation supplies a key or name containing NUL
 - **THEN** Ash returns a field validation error before persistence, and corrected metadata can still be used to create the dataset

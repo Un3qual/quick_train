@@ -80,7 +80,9 @@ defmodule QuickTrain.Datasets.DatasetImportRow.Structure do
       else: {:error, :malformed_text}
   end
 
-  defp normalize_value(:integer, value) when is_integer(value) do
+  defp normalize_value(:integer, value)
+       when is_integer(value) and value >= -9_223_372_036_854_775_808 and
+              value <= 9_223_372_036_854_775_807 do
     {:ok, value, byte_size(Integer.to_string(value))}
   end
 

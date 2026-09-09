@@ -475,3 +475,19 @@ Verification on 2026-09-09: seven focused schema lifecycle tests and all 145
 full-suite tests passed. `mise run verify` passed, including static analysis,
 Dialyzer, production compilation, and a clean dependency audit. Independent strict
 OpenSpec validation passed all four artifacts.
+
+## 29. Storage-compatible input boundaries
+
+- [x] 29.1 Reject NUL in record-type and field keys/names using built-in Ash constraints (3973954102).
+- [x] 29.2 Bound normalized and persisted integer values to signed 64-bit storage (3973954110).
+- [x] 29.3 Limit indexed dataset/schema/import/item identifiers to 512 UTF-8 bytes at resource and relevant action boundaries (3973954116).
+- [x] 29.4 Disable trimming on the supplied asset hash to preserve exact-input validation (3973954122).
+- [x] 29.5 Run focused boundary tests, the full verification gate, and independent OpenSpec validation.
+
+No new modules or migrations are introduced. Previous review dispositions and
+opaque-download/deferred-operator scope remain unchanged.
+
+Verification on 2026-09-09: 58 focused tests passed, followed by the full gate
+with 150 tests, including signed 64-bit boundary round trips. `mise run verify`
+passed static analysis, Dialyzer, production compilation, and the dependency audit.
+Independent strict OpenSpec validation passed all four artifacts.

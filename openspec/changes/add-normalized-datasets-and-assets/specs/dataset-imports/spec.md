@@ -7,6 +7,10 @@ Provide provenance-preserving, idempotent programmatic imports that create or re
 ### Requirement: Organization-scoped import authorization
 The system SHALL require an active authenticated account, an active dataset-owning organization, an active membership in that organization, and the dataset-import capability for every caller-initiated open, append, finalize, or inspect action. Finalization SHALL authorize a durable command pinned to the accepted import's organization, dataset, and schema version. Internal retries SHALL advance only that immutable scope and SHALL NOT grant access to any other organization data.
 
+#### Scenario: Indexed import identifiers are byte-bounded
+- **WHEN** an import idempotency key, row key, or item external key exceeds 512 UTF-8 bytes
+- **THEN** the input is rejected before persistence or candidate construction; the same external-key limit applies to direct revisions
+
 #### Scenario: NUL open keys are rejected before persistence
 - **WHEN** an import open request includes NUL in its idempotency key
 - **THEN** Ash returns a field validation error without creating a batch, and a corrected key can still be opened and retried idempotently

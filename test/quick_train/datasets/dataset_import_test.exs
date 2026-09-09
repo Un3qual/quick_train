@@ -28,6 +28,52 @@ defmodule QuickTrain.Datasets.DatasetImportTest do
     %{manager: manager, organization: graph.organization, dataset: dataset, schema: schema}
   end
 
+  test "oversized import identifiers and integers fail before candidate creation", context do
+    too_long = String.duplicate("x", 513)
+
+    assert {:error, %Ash.Error.Invalid{}} =
+             Datasets.open_import(
+               context.organization.id,
+               context.dataset.id,
+               context.schema.id,
+               too_long,
+               actor: context.manager
+             )
+
+    import = open!(context, "bounded")
+
+    for {row, external} <- [{too_long, nil}, {"row", too_long}] do
+      assert {:error, %Ash.Error.Invalid{}} =
+               Datasets.append_import_row(
+                 context.organization.id,
+                 import.id,
+                 row,
+                 external,
+                 0,
+                 [%{field: "name", text: "Alice"}],
+                 actor: context.manager
+               )
+    end
+
+    for integer <- [-9_223_372_036_854_775_809, 9_223_372_036_854_775_808] do
+      assert {:error, error} =
+               Datasets.append_import_row(
+                 context.organization.id,
+                 import.id,
+                 "row",
+                 nil,
+                 0,
+                 [%{field: "name", integer: integer}],
+                 actor: context.manager
+               )
+
+      assert Exception.message(error) =~ "malformed_scalar_shape"
+    end
+
+    assert Ash.count!(DatasetRecord, authorize?: false) == 0
+    assert Ash.count!(DatasetImportRow, authorize?: false) == 0
+  end
+
   test "NUL open keys are rejected without reserving a batch", context do
     assert {:error, %Ash.Error.Invalid{} = error} =
              Datasets.open_import(

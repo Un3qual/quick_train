@@ -32,6 +32,49 @@ defmodule QuickTrain.Datasets.DatasetSchemaLifecycleTest do
              "customers"
   end
 
+  test "schema metadata rejects NUL on create and update", %{manager: actor, organization: org} do
+    dataset = Datasets.create_dataset!(org.id, "schema", "Schema", actor: actor)
+    schema = Datasets.create_schema_version!(org.id, dataset.id, actor: actor)
+    root = Datasets.add_record_type!(org.id, schema.id, "root", "Root", actor: actor)
+
+    field =
+      Datasets.add_field_definition!(org.id, root.id, "field", "Field", :text, :single, false,
+        actor: actor
+      )
+
+    for {key, name} <- [{"bad" <> <<0>>, "Name"}, {"key", "bad" <> <<0>>}] do
+      assert {:error, %Ash.Error.Invalid{}} =
+               Datasets.add_record_type(org.id, schema.id, key, name, actor: actor)
+
+      assert {:error, %Ash.Error.Invalid{}} =
+               Datasets.update_record_type(org.id, root.id, key, name, actor: actor)
+
+      assert {:error, %Ash.Error.Invalid{}} =
+               Datasets.add_field_definition(org.id, root.id, key, name, :text, :single, false,
+                 actor: actor
+               )
+
+      assert {:error, %Ash.Error.Invalid{}} =
+               Datasets.update_field_definition(
+                 org.id,
+                 field.id,
+                 key,
+                 name,
+                 :text,
+                 :single,
+                 false,
+                 actor: actor
+               )
+    end
+  end
+
+  test "identifier limits count UTF-8 bytes", %{manager: actor, organization: org} do
+    assert Datasets.create_dataset!(org.id, String.duplicate("é", 256), "Boundary", actor: actor).id
+
+    assert {:error, %Ash.Error.Invalid{}} =
+             Datasets.create_dataset(org.id, String.duplicate("é", 257), "Too long", actor: actor)
+  end
+
   test "creates, validates, publishes, and versions an organization dataset schema", context do
     %{manager: manager, organization: organization} = context
 

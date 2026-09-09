@@ -7,6 +7,10 @@ Provide immutable, organization-owned media assets that dataset values and futur
 ### Requirement: Organization-scoped asset management
 The system SHALL require an active authenticated account, an active owning organization, an active membership in that organization, and the appropriate asset capability for every caller-initiated asset-management action. Asset reads SHALL fail closed unless the organization is active and the actor is authorized through it or a future explicitly authorized product relationship.
 
+#### Scenario: Hash validation uses the supplied string
+- **WHEN** an asset hash includes leading or trailing whitespace
+- **THEN** registration rejects it as `invalid_asset_hash` rather than trimming it into a valid digest
+
 #### Scenario: Authorized manager registers an asset
 - **WHEN** an active member of an active organization with the asset-management capability registers an asset for that organization
 - **THEN** the system creates a pending organization-owned asset and returns the provider-neutral information required to upload its content
