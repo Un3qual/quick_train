@@ -292,3 +292,25 @@ Dialyzer, then stopped at the unchanged usage_rules 1.2.7 and igniter 0.8.3
 advisories. Production build and the full tests ran separately. Final inline
 review found no additional issue in these fixes. No modules, dependencies, or
 migrations were added; historical content is not rewritten.
+
+## 21. Approved workflow simplifications
+
+- [x] 21.1 Obtain validated upload access before persisting a pending asset; remove compensating registration deletion.
+- [x] 21.2 Trust validated immutable candidate asset references during processing and remove the lock on already-ready canonical assets.
+- [x] 21.3 Open imports with an identity upsert that preserves existing facts and handles concurrent callers through native ON CONFLICT.
+- [x] 21.4 Lock schemas directly through scoped relationship filters and retain fresh child reads after locking.
+- [x] 21.5 Verify failures, concurrent opens, sealed retries, candidate reuse, schema publication protection, and the full project gates.
+
+Value ID generation and sorted bulk-insert correspondence remain unchanged.
+
+Verification on 2026-09-09: all 137 tests passed, including simultaneous import
+opens and conflicting schemas on independent database connections, preservation
+of sealed import facts on retry, and registration failure without a pending row.
+Existing candidate reuse, asset convergence, direct-write asset rejection, and
+schema publication protection tests passed. Production compilation and all four
+OpenSpec items passed independently. The full gate passed formatting, compilation,
+codegen, zero compile cycles, architecture/static checks, and Dialyzer, then stopped
+at the unchanged usage_rules 1.2.7 and igniter 0.8.3 advisories recorded above;
+production compilation and the full test suite ran separately. The final inline
+review found no additional issue. Production code/configuration decreased by
+40 lines; no production modules, dependencies, or migrations were added.

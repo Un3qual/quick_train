@@ -179,8 +179,6 @@ defmodule QuickTrain.Assets.Asset do
       change set_attribute(:operation_claim_id, nil)
       change set_attribute(:operation_claim_expires_at, nil)
     end
-
-    destroy :discard_registration
   end
 
   validations do

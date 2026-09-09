@@ -70,7 +70,7 @@ defmodule QuickTrain.Datasets.DatasetItemRevision.Actions.Put do
       Ash.transact(resources, fn ->
         with {:ok, item} <- stable_item(arguments),
              :ok <- matching_identity(item, arguments),
-             :ok <- Values.validate_assets(arguments.organization_id, occurrences) do
+             :ok <- validate_assets(arguments, occurrences) do
           latest = latest_revision(item.id)
 
           if latest && latest.fingerprint == fingerprint do
@@ -99,6 +99,12 @@ defmodule QuickTrain.Datasets.DatasetItemRevision.Actions.Put do
         {:error, error}
     end
   end
+
+  # Append already validated the immutable candidate and its ready asset references.
+  defp validate_assets(%{candidate_record_id: _record_id}, _occurrences), do: :ok
+
+  defp validate_assets(arguments, occurrences),
+    do: Values.validate_assets(arguments.organization_id, occurrences)
 
   defp stable_item(arguments) do
     case existing_item(arguments) do

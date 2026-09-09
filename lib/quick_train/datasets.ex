@@ -268,6 +268,8 @@ defmodule QuickTrain.Datasets do
     resource QuickTrain.Datasets.DatasetValue.Asset
 
     resource QuickTrain.Datasets.DatasetImport do
+      define :create_import_internal, action: :create_internal
+
       define :open_import,
         action: :open,
         args: [:organization_id, :dataset_id, :schema_version_id, :idempotency_key]

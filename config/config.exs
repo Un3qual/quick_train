@@ -2,6 +2,9 @@ import Config
 
 config :ash, default_string_length_count: :codepoints
 
+# INSERT ON CONFLICT handles simultaneous inserts; PostgreSQL MERGE can raise a uniqueness error.
+config :ash_postgres, upsert_with_merge?: false
+
 config :quick_train, Oban,
   engine: Oban.Engines.Basic,
   notifier: Oban.Notifiers.Postgres,

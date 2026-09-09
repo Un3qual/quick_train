@@ -47,6 +47,7 @@ defmodule QuickTrain.Datasets.DatasetFieldDefinition do
   end
 
   code_interface do
+    define :get_internal, action: :read, get_by: [:id], not_found_error?: false
     define :create_internal
     define :update_internal
     define :destroy_internal

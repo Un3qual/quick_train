@@ -5,6 +5,12 @@ defmodule QuickTrain.Assets.AssetLifecycleTest do
   alias QuickTrain.Assets.Asset
   alias QuickTrain.Assets.Storage.InMemory, as: TestStorage
 
+  defmodule InvalidUploadStorage do
+    def enforces_byte_cap?, do: true
+    def approved_hosts, do: ["storage.quicktrain.local"]
+    def writable_staging_access(_key, _cap, _expiry), do: {:ok, %{}}
+  end
+
   setup do
     :ok = TestStorage.reset()
 
@@ -65,6 +71,29 @@ defmodule QuickTrain.Assets.AssetLifecycleTest do
 
     assert Exception.message(oversized_error) =~ "asset_too_large"
     assert Ash.count!(Asset, authorize?: false) == 1
+  end
+
+  test "invalid upload access leaves no pending registration", %{manager: manager, graph: graph} do
+    config = Application.fetch_env!(:quick_train, :assets)
+    on_exit(fn -> Application.put_env(:quick_train, :assets, config) end)
+
+    Application.put_env(
+      :quick_train,
+      :assets,
+      Keyword.put(config, :storage_adapter, InvalidUploadStorage)
+    )
+
+    assert {:error, error} =
+             Assets.register_asset(
+               graph.organization.id,
+               sha256("content"),
+               7,
+               "text/plain",
+               actor: manager
+             )
+
+    assert Exception.message(error) =~ "invalid_storage_descriptor"
+    assert Ash.count!(Asset, authorize?: false) == 0
   end
 
   test "matching staging finalizes immutably and returns only sealed read access", %{

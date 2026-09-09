@@ -78,6 +78,48 @@ defmodule QuickTrain.Datasets.DatasetImportTest do
 
     assert Exception.message(error) =~ "idempotency_conflict"
     assert Ash.count!(DatasetImport, authorize?: false) == 1
+
+    sealed = Datasets.finalize_import!(context.organization.id, first.id, actor: context.manager)
+    retry = open!(context, "batch-1")
+
+    for field <- [:id, :phase, :sealed_at, :updated_at, :open_expires_at, :open_fingerprint] do
+      assert Map.fetch!(retry, field) == Map.fetch!(sealed, field)
+    end
+  end
+
+  @tag :committed_db
+  test "concurrent opens converge and conflicting schemas retain one winner", context do
+    [first, retry] =
+      concurrently([fn -> open!(context, "same") end, fn -> open!(context, "same") end])
+
+    assert first.id == retry.id
+    assert first.open_expires_at == retry.open_expires_at
+
+    next_schema = published_schema(context.organization.id, context.dataset.id, context.manager)
+
+    results =
+      concurrently(
+        for schema <- [context.schema, next_schema] do
+          fn ->
+            Datasets.open_import(
+              context.organization.id,
+              context.dataset.id,
+              schema.id,
+              "conflict",
+              actor: context.manager
+            )
+          end
+        end
+      )
+
+    assert [{:ok, winner}] = Enum.filter(results, &match?({:ok, _}, &1))
+    assert [{:error, error}] = Enum.filter(results, &match?({:error, _}, &1))
+    assert Exception.message(error) =~ "idempotency_conflict"
+
+    assert Ash.get!(DatasetImport, winner.id, authorize?: false).schema_version_id ==
+             winner.schema_version_id
+
+    assert Ash.count!(DatasetImport, authorize?: false) == 2
   end
 
   test "append stages a normalized candidate and equivalent retry converges", context do

@@ -39,6 +39,10 @@ defmodule QuickTrain.Datasets.DatasetSchemaVersion do
       public?: true
   end
 
+  code_interface do
+    define :get_internal, action: :read, get?: true, not_found_error?: false
+  end
+
   actions do
     read :read do
       primary? true

@@ -264,7 +264,6 @@ defmodule QuickTrain.Assets.Asset.Actions.Finalize do
     |> Ash.Query.filter(
       organization_id == ^asset.organization_id and sha256 == ^asset.sha256 and state == :ready
     )
-    |> Ash.Query.lock(:for_update)
     |> Ash.read_one!(authorize?: false)
   end
 

@@ -79,34 +79,22 @@ defmodule QuickTrain.Assets.Asset.Actions.Register do
       staging_expires_at: staging_expires_at
     }
 
-    with {:ok, asset} <-
-           Asset
-           |> Ash.Changeset.for_create(:create_pending, attributes)
-           |> Ash.create(authorize?: false),
-         {:ok, access} <-
+    with {:ok, access} <-
            Storage.writable_staging_access(
              staging_key,
              arguments.byte_size,
              access_expiry(now, staging_expires_at, config)
-           ) do
+           ),
+         {:ok, asset} <-
+           Asset
+           |> Ash.Changeset.for_create(:create_pending, attributes)
+           |> Ash.create(authorize?: false) do
       {:ok, AssetRegistrationResult.from(asset, access, false)}
-    else
-      {:error, error} ->
-        discard_registration(asset_id)
-        {:error, error}
     end
   end
 
   defp access_expiry(now, staging_expires_at, config) do
     requested = DateTime.add(now, config[:upload_access_lifetime_seconds], :second)
     if DateTime.before?(requested, staging_expires_at), do: requested, else: staging_expires_at
-  end
-
-  defp discard_registration(asset_id) do
-    case Asset |> Ash.get(asset_id, authorize?: false) do
-      {:ok, nil} -> :ok
-      {:ok, asset} -> Ash.destroy(asset, action: :discard_registration, authorize?: false)
-      {:error, _error} -> :ok
-    end
   end
 end
