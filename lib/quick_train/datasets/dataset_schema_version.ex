@@ -84,8 +84,12 @@ defmodule QuickTrain.Datasets.DatasetSchemaVersion do
     end
 
     update :publish_internal do
-      accept [:root_record_type_id, :published_at]
+      argument :root_record_type_id, :uuid, allow_nil?: false
+      accept []
       validate attribute_equals(:state, :draft)
+      change filter(expr(exists(record_types, id == ^arg(:root_record_type_id))))
+      change set_attribute(:root_record_type_id, arg(:root_record_type_id))
+      change atomic_update(:published_at, expr(now()))
       change set_attribute(:state, :published)
     end
   end

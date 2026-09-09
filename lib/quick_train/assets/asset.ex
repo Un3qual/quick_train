@@ -120,13 +120,21 @@ defmodule QuickTrain.Assets.Asset do
     end
 
     update :start_publication do
+      argument :claim_id, :uuid, allow_nil?: false
       accept [:operation_claim_expires_at]
-      validate attribute_equals(:state, :pending)
+
+      change filter(
+               expr(
+                 state == :pending and operation_claim_id == ^arg(:claim_id) and
+                   operation_claim_expires_at > now()
+               )
+             )
     end
 
     update :release_unpublished_claim do
+      argument :claim_id, :uuid, allow_nil?: false
       accept []
-      validate attribute_equals(:state, :pending)
+      change filter(expr(state == :pending and operation_claim_id == ^arg(:claim_id)))
       change set_attribute(:operation_claim_id, nil)
       change set_attribute(:operation_claim_expires_at, nil)
     end

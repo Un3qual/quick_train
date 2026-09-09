@@ -21,6 +21,14 @@ defmodule QuickTrain.Assets do
 
   resources do
     resource Asset do
+      define :release_asset_claim,
+        action: :release_unpublished_claim,
+        get_by: [:id, :organization_id]
+
+      define :start_asset_publication,
+        action: :start_publication,
+        get_by: [:id, :organization_id]
+
       define :register_asset,
         action: :register,
         args: [:organization_id, :sha256, :byte_size, :media_type]

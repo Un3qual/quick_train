@@ -10,7 +10,7 @@ defmodule QuickTrain.Assets.Asset.Actions.Finalize do
 
   require Ash.Query
 
-  alias QuickTrain.AshError
+  alias QuickTrain.{AshError, Assets}
   alias QuickTrain.Assets.{Asset, AssetFinalizationResult, Storage}
 
   @terminal_storage_errors [
@@ -116,42 +116,30 @@ defmodule QuickTrain.Assets.Asset.Actions.Finalize do
   end
 
   defp release_unpublished_claim(asset_id, organization_id, claim_id) do
-    Ash.transact(Asset, fn ->
-      asset = locked_asset(asset_id, organization_id)
-
-      if asset && asset.state == :pending && asset.operation_claim_id == claim_id do
-        asset
-        |> Ash.Changeset.for_update(:release_unpublished_claim, %{})
-        |> Ash.update!(authorize?: false)
-      end
-
-      :ok
-    end)
+    Assets.release_asset_claim(asset_id, organization_id, %{claim_id: claim_id},
+      authorize?: false,
+      bulk_options: [strategy: [:atomic]]
+    )
   end
 
   defp start_publication(asset_id, organization_id, claim_id) do
-    now = DateTime.utc_now()
-    claim_expires_at = DateTime.add(now, config(:operation_claim_seconds), :second)
+    expires_at = DateTime.add(DateTime.utc_now(), config(:operation_claim_seconds), :second)
 
-    Ash.transact(Asset, fn ->
-      asset = locked_asset(asset_id, organization_id)
+    case Assets.start_asset_publication(
+           asset_id,
+           organization_id,
+           %{claim_id: claim_id, operation_claim_expires_at: expires_at},
+           authorize?: false,
+           bulk_options: [strategy: [:atomic]]
+         ) do
+      {:error, %Ash.Error.Invalid{errors: [%Ash.Error.Query.NotFound{}]}} ->
+        {:error, :stale_asset_claim}
 
-      if current_claim?(asset, claim_id, now) do
-        asset
-        |> Ash.Changeset.for_update(:start_publication, %{
-          operation_claim_expires_at: claim_expires_at
-        })
-        |> Ash.update!(authorize?: false)
+      {:ok, _asset} ->
+        {:ok, :started}
 
-        :started
-      else
-        :stale
-      end
-    end)
-    |> case do
-      {:ok, :started} -> {:ok, :started}
-      {:ok, :stale} -> {:error, :stale_asset_claim}
-      {:error, error} -> {:error, error}
+      {:error, error} ->
+        {:error, error}
     end
   end
 
@@ -308,8 +296,6 @@ defmodule QuickTrain.Assets.Asset.Actions.Finalize do
 
   defp live_claim?(%{operation_claim_expires_at: expires_at}, now),
     do: DateTime.compare(expires_at, now) == :gt
-
-  defp current_claim?(nil, _claim_id, _now), do: false
 
   defp current_claim?(asset, claim_id, now) do
     asset.state == :pending and

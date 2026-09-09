@@ -174,6 +174,10 @@ defmodule QuickTrain.Datasets do
     resource QuickTrain.Datasets.DatasetSchemaVersion do
       define :create_schema_version_internal, action: :create_internal
 
+      define :publish_schema_version_internal,
+        action: :publish_internal,
+        get_by: [:id]
+
       define :create_schema_version,
         action: :create_draft,
         args: [:organization_id, :dataset_id]
@@ -188,6 +192,8 @@ defmodule QuickTrain.Datasets do
     end
 
     resource QuickTrain.Datasets.DatasetItem do
+      define :get_item_internal, action: :read, get?: true, not_found_error?: false
+
       define :list_items,
         action: :list_scoped,
         args: [:organization_id, :dataset_id]

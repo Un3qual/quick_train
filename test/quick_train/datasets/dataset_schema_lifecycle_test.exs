@@ -194,25 +194,27 @@ defmodule QuickTrain.Datasets.DatasetSchemaLifecycleTest do
     {first_schema, _first_root} = create_draft_schema(organization.id, manager, "db-first")
     {_second_schema, second_root} = create_draft_schema(organization.id, manager, "db-second")
 
-    assert {:error, cross_schema_error} =
-             first_schema
-             |> Ash.Changeset.for_update(:publish_internal, %{
-               root_record_type_id: second_root.id,
-               published_at: DateTime.utc_now()
-             })
-             |> Ash.update(authorize?: false)
+    cross_schema_error =
+      assert_raise Ash.Error.Invalid, fn ->
+        Ash.Seed.update!(first_schema, %{
+          root_record_type_id: second_root.id,
+          state: :published,
+          published_at: DateTime.utc_now()
+        })
+      end
 
     assert AshError.constraint?(cross_schema_error, [
              "dataset_schema_versions_root_record_type_id_schema_id_fkey"
            ])
 
-    assert {:error, publication_facts_error} =
-             first_schema
-             |> Ash.Changeset.for_update(:publish_internal, %{
-               root_record_type_id: nil,
-               published_at: DateTime.utc_now()
-             })
-             |> Ash.update(authorize?: false)
+    publication_facts_error =
+      assert_raise Ash.Error.Invalid, fn ->
+        Ash.Seed.update!(first_schema, %{
+          root_record_type_id: nil,
+          state: :published,
+          published_at: DateTime.utc_now()
+        })
+      end
 
     assert AshError.constraint?(publication_facts_error, [
              "dataset_schema_versions_publication_facts_valid"

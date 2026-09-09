@@ -132,6 +132,81 @@ defmodule QuickTrain.Assets.AssetWorkersTest do
     assert TestStorage.sealed_count() == 0
   end
 
+  test "claim transitions reject another owner or organization and publication rejects expiry", %{
+    manager: manager,
+    graph: graph
+  } do
+    registration =
+      Assets.register_asset!(graph.organization.id, sha256("claim"), 5, "text/plain",
+        actor: manager
+      )
+
+    claim_id = Ash.UUID.generate()
+    expires_at = DateTime.add(DateTime.utc_now(), 60, :second)
+    asset = Ash.get!(Asset, registration.asset.id, authorize?: false)
+
+    asset =
+      Ash.Seed.update!(asset, %{
+        operation_claim_id: claim_id,
+        operation_claim_expires_at: expires_at
+      })
+
+    opts = [authorize?: false, bulk_options: [strategy: [:atomic]]]
+
+    for {organization_id, owner} <- [
+          {graph.organization.id, Ash.UUID.generate()},
+          {Ash.UUID.generate(), claim_id}
+        ] do
+      assert {:error, _} =
+               Assets.start_asset_publication(
+                 asset.id,
+                 organization_id,
+                 %{claim_id: owner, operation_claim_expires_at: expires_at},
+                 opts
+               )
+
+      assert {:error, _} =
+               Assets.release_asset_claim(asset.id, organization_id, %{claim_id: owner}, opts)
+    end
+
+    assert Ash.get!(Asset, asset.id, authorize?: false).operation_claim_id == claim_id
+
+    assert {:ok, renewed} =
+             Assets.start_asset_publication(
+               asset.id,
+               graph.organization.id,
+               %{claim_id: claim_id, operation_claim_expires_at: expires_at},
+               opts
+             )
+
+    expired =
+      Ash.Seed.update!(renewed, %{
+        operation_claim_expires_at: DateTime.add(DateTime.utc_now(), -1, :second)
+      })
+
+    assert {:error, _} =
+             Assets.start_asset_publication(
+               expired.id,
+               graph.organization.id,
+               %{claim_id: claim_id, operation_claim_expires_at: expires_at},
+               opts
+             )
+
+    assert Ash.get!(Asset, asset.id, authorize?: false).operation_claim_expires_at ==
+             expired.operation_claim_expires_at
+
+    assert {:ok, released} =
+             Assets.release_asset_claim(
+               expired.id,
+               graph.organization.id,
+               %{claim_id: claim_id},
+               opts
+             )
+
+    assert is_nil(released.operation_claim_id)
+    assert is_nil(released.operation_claim_expires_at)
+  end
+
   defp sha256(content),
     do: Base.encode16(:crypto.hash(:sha256, content), case: :lower)
 end

@@ -5,9 +5,8 @@ defmodule QuickTrain.Datasets.DatasetSchemaVersion.Actions.Publish do
 
   use Ash.Resource.Actions.Implementation
 
-  require Ash.Query
-
-  alias QuickTrain.Datasets.{DatasetRecordType, SchemaVersionBoundary}
+  alias QuickTrain.Datasets
+  alias QuickTrain.Datasets.SchemaVersionBoundary
 
   @impl true
   def run(input, _opts, _context) do
@@ -25,20 +24,20 @@ defmodule QuickTrain.Datasets.DatasetSchemaVersion.Actions.Publish do
   end
 
   defp publish(schema, root_record_type_id) do
-    root =
-      DatasetRecordType
-      |> Ash.Query.filter(id == ^root_record_type_id and schema_version_id == ^schema.id)
-      |> Ash.read_one!(authorize?: false)
+    case Datasets.publish_schema_version_internal(
+           schema.id,
+           %{root_record_type_id: root_record_type_id},
+           authorize?: false,
+           bulk_options: [strategy: [:atomic]]
+         ) do
+      {:error, %Ash.Error.Invalid{errors: [%Ash.Error.Query.NotFound{}]}} ->
+        DatasetAssetError.invalid(:invalid_schema)
 
-    if root do
-      schema
-      |> Ash.Changeset.for_update(:publish_internal, %{
-        root_record_type_id: root.id,
-        published_at: DateTime.utc_now()
-      })
-      |> Ash.update!(authorize?: false)
-    else
-      DatasetAssetError.invalid(:invalid_schema)
+      {:ok, published} ->
+        published
+
+      {:error, error} ->
+        {:error, error}
     end
   end
 end

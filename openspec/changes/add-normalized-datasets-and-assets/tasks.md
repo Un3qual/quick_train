@@ -196,3 +196,22 @@ cycles, static analysis, and Dialyzer, then stopped at the unchanged `usage_rule
 tests were run separately. Independent review found no remaining issues. Internal
 draft-edit code interfaces live on their resources to avoid a domain/resource
 compile dependency cycle. Removed the newly empty source directories.
+
+## 16. Approved composable database operations
+
+- [x] 16.1 Move publication-start and claim-release eligibility into atomic filtered asset updates, preserving claim fencing and public errors.
+- [x] 16.2 Check root membership in the publication update and set publication time in the action while retaining the parent-schema lock.
+- [x] 16.3 Lock existing items on their first lookup and retain uniqueness-conflict retries for concurrent creation.
+- [x] 16.4 Evaluate composable read authorization against current forbidden-response semantics; retain the existing check where filtering would change that contract.
+- [x] 16.5 Verify concurrency, scope, error behavior, independent database constraints, full repository checks, OpenSpec, and independent review.
+
+Verification on 2026-09-09: all 128 tests passed, including the new claim owner,
+organization, and expiry checks; existing publication/edit and concurrent item
+creation tests passed. Database-constraint tests now bypass action validation
+through `Ash.Seed` to exercise the independent constraints. Production compilation
+and independent OpenSpec validation (four items) passed. Independent review found
+no actionable issues. The full gate passed formatting, code generation, boundary
+checks, zero compile cycles, static analysis, and Dialyzer, then stopped at the
+unchanged `usage_rules` 1.2.7 and `igniter` 0.8.3 advisories recorded in section 13.
+Production build and tests were run separately. No new modules or anonymous
+changes/validations were added.

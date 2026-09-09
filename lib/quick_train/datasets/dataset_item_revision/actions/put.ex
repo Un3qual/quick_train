@@ -7,7 +7,7 @@ defmodule QuickTrain.Datasets.DatasetItemRevision.Actions.Put do
 
   require Ash.Query
 
-  alias QuickTrain.{AshError, DatasetAssetError}
+  alias QuickTrain.{AshError, DatasetAssetError, Datasets}
 
   alias QuickTrain.Datasets.{
     DatasetItem,
@@ -71,7 +71,6 @@ defmodule QuickTrain.Datasets.DatasetItemRevision.Actions.Put do
     result =
       Ash.transact(resources, fn ->
         with {:ok, item} <- stable_item(arguments),
-             %{} = item <- locked_item(arguments, item.id),
              :ok <- matching_identity(item, arguments),
              :ok <- Values.validate_assets(arguments.organization_id, occurrences) do
           latest = latest_revision(item.id)
@@ -83,7 +82,6 @@ defmodule QuickTrain.Datasets.DatasetItemRevision.Actions.Put do
             %RevisionResult{changed: true, item: item, revision: revision}
           end
         else
-          nil -> DatasetAssetError.invalid(:invalid_item)
           {:error, reason} -> DatasetAssetError.wrap({:error, reason})
         end
       end)
@@ -112,21 +110,31 @@ defmodule QuickTrain.Datasets.DatasetItemRevision.Actions.Put do
   end
 
   defp existing_item(%{item_id: item_id} = arguments) when not is_nil(item_id) do
-    DatasetItem
-    |> Ash.Query.filter(
-      id == ^item_id and dataset_id == ^arguments.dataset_id and
-        organization_id == ^arguments.organization_id
+    Datasets.get_item_internal!(
+      query: [
+        filter: [
+          id: item_id,
+          dataset_id: arguments.dataset_id,
+          organization_id: arguments.organization_id
+        ],
+        lock: :for_update
+      ],
+      authorize?: false
     )
-    |> Ash.read_one!(authorize?: false)
   end
 
   defp existing_item(arguments) do
-    DatasetItem
-    |> Ash.Query.filter(
-      dataset_id == ^arguments.dataset_id and organization_id == ^arguments.organization_id and
-        external_key == ^arguments.external_key
+    Datasets.get_item_internal!(
+      query: [
+        filter: [
+          dataset_id: arguments.dataset_id,
+          organization_id: arguments.organization_id,
+          external_key: arguments.external_key
+        ],
+        lock: :for_update
+      ],
+      authorize?: false
     )
-    |> Ash.read_one!(authorize?: false)
   end
 
   defp create_item(arguments) do
@@ -142,16 +150,6 @@ defmodule QuickTrain.Datasets.DatasetItemRevision.Actions.Put do
     DatasetItem
     |> Ash.Changeset.for_create(:create_internal, attributes)
     |> Ash.create(authorize?: false)
-  end
-
-  defp locked_item(arguments, item_id) do
-    DatasetItem
-    |> Ash.Query.filter(
-      id == ^item_id and dataset_id == ^arguments.dataset_id and
-        organization_id == ^arguments.organization_id
-    )
-    |> Ash.Query.lock(:for_update)
-    |> Ash.read_one!(authorize?: false)
   end
 
   defp matching_identity(item, %{external_key: nil}),
