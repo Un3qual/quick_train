@@ -3,20 +3,14 @@ defmodule QuickTrain.Datasets.Workers.ProcessImportRow do
 
   use Oban.Worker,
     queue: :dataset_imports,
-    max_attempts: 8,
-    unique: [
-      period: :infinity,
-      fields: [:worker, :args],
-      keys: [:row_id],
-      states: [:available, :scheduled, :executing, :retryable, :completed]
-    ]
+    max_attempts: 8
 
   alias QuickTrain.Datasets
 
-  def enqueue(row_id) do
-    %{row_id: row_id}
-    |> new()
-    |> Oban.insert()
+  def enqueue_batch!(rows) do
+    rows
+    |> Enum.map(&new(%{row_id: &1.id}))
+    |> Oban.insert_all()
   end
 
   @impl Oban.Worker

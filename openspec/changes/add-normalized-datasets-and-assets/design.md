@@ -131,7 +131,7 @@ Each accepted row stores its row key, source position, optional external key, fi
 
 Append and finalization lock the same import. An import persists only `open` or `sealed` phase plus immutable `open_expires_at`. First finalization seals the row set and inserts the complete unique row-job set in the same transaction. Expired imports reject work but retain their rows, candidates, and batch identity while cleanup is deferred.
 
-First finalization atomically seals the import and inserts one unique bounded-retry row job for each pending row. A failure to insert that complete bounded job set rolls back sealing, so there is no separate fan-out job that can strand rows after partial enqueue. A row job locks its row, skips terminal outcomes, and atomically commits item revision and terminal outcome. Failure before commit leaves the row pending for ordinary Oban retry. Failure after commit but before job acknowledgement is safe because the retry observes the terminal row.
+First finalization atomically seals the import and inserts one bounded-retry row job for each pending row through `Oban.insert_all`, in batches of at most 1,000. The locked `open` to `sealed` transition is the sole enqueue boundary: concurrent or repeated finalizations observe `sealed` and cannot enqueue again. Oban Basic bulk insertion does not enforce worker uniqueness, so the worker has no independent uniqueness configuration or single-row enqueue path. All batches share the sealing transaction. A failure to insert that complete bounded job set rolls back sealing, so there is no separate fan-out job that can strand rows after partial enqueue. A row job locks its row, skips terminal outcomes, and atomically commits item revision and terminal outcome. Failure before commit leaves the row pending for ordinary Oban retry. Failure after commit but before job acknowledgement is safe because the retry observes the terminal row.
 
 Import row workers retain bounded retries and atomic row/revision commits. Background recovery of discarded or cancelled jobs is deferred to `restore-operator-bootstrap-and-maintenance`; affected rows may remain pending and ordinary pruning may remove job evidence.
 
@@ -161,7 +161,7 @@ Ash actions, `Ash.DataLayer.transaction/5`, atomic changes, and row-locking quer
 
 ### 10. Use responsibility-specific durable jobs
 
-This change reuses the pinned Oban dependency for asset verification and import-row processing. Jobs carry resource identities, not content. Row-job uniqueness and independently idempotent actions remain. All custom periodic bootstrap/maintenance workflows are deferred; built-in Oban retry, Lifeline, and pruning behavior remains.
+This change reuses the pinned Oban dependency for asset verification and import-row processing. Jobs carry resource identities, not content. One-time row-job insertion is enforced by the locked import phase transition; independently idempotent actions remain. All custom periodic bootstrap/maintenance workflows are deferred; built-in Oban retry, Lifeline, and pruning behavior remains.
 
 QuickTrain does not recreate generic Operations, Integrations, Audit, or DurableDelivery domains.
 
@@ -235,3 +235,7 @@ Revision writes and import append share a published-schema read action with expl
 Record construction bulk-creates value parents with sorted returned records to preserve correspondence with normalized occurrences, then groups children by their six value families for bulk insertion. Every batch raises on errors inside the existing record transaction; no partial graph can commit, and the deferred typed-child constraint remains the independent final guard. This adds no resources, new change modules, Reactor workflows, combination queries, or public API fields.
 
 Import append and the schema-edit boundary start their transaction through the locked parent resource. All participating resources use `QuickTrain.Repo`, so listing the entire record graph or passing additional resource lists does not add transaction coverage. Parent locks and post-lock checks remain unchanged. Asset finalization converts already-allowlisted failure atoms with `Atom.to_string/1`, and the import worker returns the domain action's success/error tuple directly, as supported by Oban.
+
+## Import processing performance
+
+Candidate loading reuses the field definitions already loaded with the published schema. It loads value occurrences, groups them by their actual value families, and loads only those typed relationships through Ash. It does not refetch field definitions or query absent families. Fingerprint encoding, organization/schema scope, immutable candidate reuse, and row/item locks remain unchanged. Bulk job scheduling retains complete-set rollback and ordinary Oban retries; a failure after an earlier batch insert rolls back both jobs and sealing.

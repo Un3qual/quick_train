@@ -111,13 +111,17 @@ The system SHALL reject append and first finalization after an open import expir
 - **THEN** it returns `import_expired` without scheduling jobs or removing accepted provenance
 
 ### Requirement: Row processing is idempotent and retryable
-Finalization SHALL atomically insert the complete set of unique durable bounded-retry jobs for pending rows rather than relying on a separate fan-out worker. A row job SHALL lock the row, return without work when it is already terminal, and atomically commit its item revision reference and terminal `succeeded`, `unchanged`, or `failed` outcome. A worker failure before that commit SHALL leave the row pending so standard job retry can try again. A retry after the commit SHALL observe the terminal row and SHALL not duplicate an item revision.
+Finalization SHALL atomically insert the complete set of unique durable bounded-retry jobs for pending rows rather than relying on a separate fan-out worker. The locked open-to-sealed transition SHALL enforce one-time insertion across concurrent and repeated finalizations. Job insertion MAY use bounded bulk batches, but all batches and sealing SHALL commit or roll back together. A row job SHALL lock the row, return without work when it is already terminal, and atomically commit its item revision reference and terminal `succeeded`, `unchanged`, or `failed` outcome. A worker failure before that commit SHALL leave the row pending so standard job retry can try again. A retry after the commit SHALL observe the terminal row and SHALL not duplicate an item revision.
 
 Automatic terminal-job recovery is deferred to `restore-operator-bootstrap-and-maintenance`. A discarded or cancelled job may leave its row pending, and derived batch progress continues to report pending honestly. Ordinary Oban job pruning is not coordinated with deferred recovery.
 
 #### Scenario: Row-job scheduling is atomic with sealing
 - **WHEN** finalization cannot insert the complete unique job set for all pending rows
 - **THEN** sealing rolls back and a retry may attempt the same complete operation without leaving a sealed import with unscheduled rows
+
+#### Scenario: Concurrent finalization spans multiple job batches
+- **WHEN** concurrent callers finalize an open import with more pending rows than one insertion batch
+- **THEN** both calls converge on the sealed import and exactly one job per pending row is committed
 
 #### Scenario: Row worker fails before commit
 - **WHEN** a row worker raises or exits before its atomic terminal transaction commits

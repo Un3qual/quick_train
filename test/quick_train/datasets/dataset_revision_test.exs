@@ -64,6 +64,24 @@ defmodule QuickTrain.Datasets.DatasetRevisionTest do
     assert Map.new(resources, &{&1, Ash.count!(&1, authorize?: false)}) == before_counts
   end
 
+  test "loading a mixed-family candidate preserves its revision fingerprint", context do
+    first = put!(context, values(context.asset.id, "Alice", "1.00", "2026-01-02T01:04:05Z"))
+
+    retry =
+      Datasets.put_candidate_revision!(
+        context.organization.id,
+        context.dataset.id,
+        context.schema.id,
+        first.item.id,
+        first.item.external_key,
+        first.revision.root_record_id,
+        authorize?: false
+      )
+
+    refute retry.changed
+    assert retry.revision.id == first.revision.id
+  end
+
   test "enum-backed value families preserve version one fingerprint identities" do
     schema_id = "11111111-1111-1111-1111-111111111111"
     root_id = "22222222-2222-2222-2222-222222222222"

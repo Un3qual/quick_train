@@ -47,15 +47,14 @@ defmodule QuickTrain.Datasets.DatasetImport.Actions.Finalize do
       |> Ash.Changeset.for_update(:seal_internal, %{sealed_at: DateTime.utc_now()})
       |> Ash.update!(authorize?: false)
 
-    case Enum.reduce_while(pending_rows, :ok, fn row, :ok ->
-           case scheduler().enqueue(row.id) do
-             {:ok, _job} -> {:cont, :ok}
-             {:error, error} -> {:halt, {:error, error}}
-           end
-         end) do
-      :ok -> sealed
-      {:error, error} -> {:error, error}
-    end
+    # The locked open-to-sealed transition enqueues once; bulk inserts don't use Oban uniqueness.
+    scheduler = scheduler()
+
+    pending_rows
+    |> Enum.chunk_every(1000)
+    |> Enum.each(&scheduler.enqueue_batch!/1)
+
+    sealed
   end
 
   defp locked_import(organization_id, import_id) do

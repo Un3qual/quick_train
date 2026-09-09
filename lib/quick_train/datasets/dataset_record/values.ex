@@ -6,12 +6,12 @@ defmodule QuickTrain.Datasets.DatasetRecord.Values do
 
   @families Family.values()
   @typed_relationships [
-    :text_value,
-    :integer_value,
-    :decimal_value,
-    :boolean_value,
-    :date_time_value,
-    :asset_value
+    text: :text_value,
+    integer: :integer_value,
+    decimal: :decimal_value,
+    boolean: :boolean_value,
+    utc_datetime: :date_time_value,
+    asset: :asset_value
   ]
 
   def normalize(schema, values) when is_list(values),
@@ -147,19 +147,23 @@ defmodule QuickTrain.Datasets.DatasetRecord.Values do
     end
   end
 
-  def load(record) do
-    record =
-      Ash.load!(record, [values: [:field_definition | @typed_relationships]], authorize?: false)
+  def load(record, schema) do
+    fields = Map.new(schema.root_record_type.field_definitions, &{&1.id, &1})
+    record = Ash.load!(record, :values, authorize?: false)
 
-    Enum.map(record.values, fn value ->
-      family = value.field_definition.value_family
-
-      %{
-        field: value.field_definition,
-        family: family,
-        ordinal: value.ordinal,
-        value: typed_value(value, family)
-      }
+    record.values
+    |> Enum.group_by(&Map.fetch!(fields, &1.field_definition_id).value_family)
+    |> Enum.flat_map(fn {family, values} ->
+      values
+      |> Ash.load!(Keyword.fetch!(@typed_relationships, family), authorize?: false)
+      |> Enum.map(fn value ->
+        %{
+          field: Map.fetch!(fields, value.field_definition_id),
+          family: family,
+          ordinal: value.ordinal,
+          value: typed_value(value, family)
+        }
+      end)
     end)
   end
 

@@ -10,7 +10,10 @@ defmodule QuickTrain.Datasets.DatasetImportTest do
   alias QuickTrain.Datasets.Workers.ProcessImportRow
 
   defmodule FailingScheduler do
-    def enqueue(_row_id), do: {:error, :simulated_schedule_failure}
+    def enqueue_batch!(rows) do
+      ProcessImportRow.enqueue_batch!(rows)
+      raise "simulated_schedule_failure"
+    end
   end
 
   setup do
@@ -317,6 +320,55 @@ defmodule QuickTrain.Datasets.DatasetImportTest do
   end
 
   @tag :committed_db
+  test "concurrent finalization enqueues every row once across multiple batches", context do
+    import = open!(context, "concurrent-finalize")
+    first = append!(context, import, "row-0", nil, 0, [%{field: "name", text: "Alice"}])
+
+    attributes =
+      Map.take(first, [
+        :organization_id,
+        :dataset_id,
+        :import_id,
+        :schema_version_id,
+        :root_record_type_id,
+        :candidate_record_id,
+        :fingerprint,
+        :outcome
+      ])
+
+    inputs =
+      Enum.map(1..1000, fn n ->
+        Map.merge(attributes, %{row_key: "row-#{n}", source_position: n})
+      end)
+
+    Ash.bulk_create!(inputs, DatasetImportRow, :create_internal,
+      authorize?: false,
+      return_errors?: true,
+      transaction: :all
+    )
+
+    results =
+      concurrently(
+        for _n <- 1..2 do
+          fn ->
+            Datasets.finalize_import!(context.organization.id, import.id, actor: context.manager)
+          end
+        end
+      )
+
+    assert Enum.all?(results, &(&1.id == import.id and &1.phase == :sealed))
+    jobs = all_enqueued(worker: ProcessImportRow)
+
+    row_ids =
+      DatasetImportRow
+      |> Ash.Query.filter(import_id == ^import.id)
+      |> Ash.read!(authorize?: false)
+      |> Enum.map(& &1.id)
+
+    assert Enum.sort(Enum.map(jobs, & &1.args["row_id"])) == Enum.sort(row_ids)
+  end
+
+  @tag :committed_db
   test "a row-job scheduling failure rolls sealing back atomically", context do
     import = open!(context, "schedule-rollback")
     append!(context, import, "row", "customer", 0, [%{field: "name", text: "Alice"}])
@@ -324,18 +376,24 @@ defmodule QuickTrain.Datasets.DatasetImportTest do
     Application.put_env(:quick_train, :dataset_import_row_scheduler, FailingScheduler)
     on_exit(fn -> Application.delete_env(:quick_train, :dataset_import_row_scheduler) end)
 
-    assert {:error, error} =
-             Datasets.finalize_import(
-               context.organization.id,
-               import.id,
-               actor: context.manager
-             )
+    error =
+      assert_raise Ash.Error.Unknown, fn ->
+        Datasets.finalize_import(context.organization.id, import.id, actor: context.manager)
+      end
 
     assert Exception.message(error) =~ "simulated_schedule_failure"
+
     persisted = Ash.get!(DatasetImport, import.id, authorize?: false)
     assert persisted.phase == :open
     assert is_nil(persisted.sealed_at)
     assert all_enqueued(worker: ProcessImportRow) == []
+
+    Application.delete_env(:quick_train, :dataset_import_row_scheduler)
+
+    assert Datasets.finalize_import!(context.organization.id, import.id, actor: context.manager).phase ==
+             :sealed
+
+    assert [_job] = all_enqueued(worker: ProcessImportRow)
   end
 
   @tag :committed_db

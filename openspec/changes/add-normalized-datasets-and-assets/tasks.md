@@ -249,3 +249,26 @@ formatting, code generation, architecture, static analysis, and Dialyzer, then
 stopped at the unchanged `usage_rules` 1.2.7 and `igniter` 0.8.3 advisories recorded
 in section 13. Production build and tests ran separately. Final review was inline;
 the implementation removes 29 lines with no new modules or tests.
+
+## 19. Approved import performance improvements
+
+- [x] 19.1 Reuse published schema fields and load only value families present in a candidate.
+- [x] 19.2 Bulk-insert row jobs in bounded batches inside the locked sealing transaction, using the import phase as the one-time enqueue boundary.
+- [x] 19.3 Remove obsolete worker uniqueness and single-row enqueue behavior, and document the future recovery boundary.
+- [x] 19.4 Verify mixed-family fingerprints, concurrent finalization, and rollback after job insertion.
+- [x] 19.5 Compare query counts, run the verification gate and independent OpenSpec validation, and review inline.
+
+Verification on 2026-09-09: all 132 tests passed, including a 1,001-row concurrent
+finalization across batches, rollback after actual job insertion followed by a
+successful retry, and unchanged fingerprints for all six candidate value families.
+A temporary isolated SQL trace measured text-only row processing at 16 statements
+(previously 22), and 1,000-row finalization at 10 statements (previously 3,008).
+The local finalization sample decreased from 2.25 seconds to 51 milliseconds;
+10,000 rows took 28 statements and 423 milliseconds. The probe verified exactly
+one job for every expected row at 100, 1,000, and 10,000 rows. Timings are local
+test measurements, not production benchmarks. Production compilation and all four
+OpenSpec items passed. The full gate passed compilation, formatting, codegen,
+architecture, static analysis, and Dialyzer, then stopped at the unchanged
+`usage_rules` 1.2.7 and `igniter` 0.8.3 advisories recorded in section 13. Production
+build and tests ran separately. Final inline review found no remaining issues.
+GraphQL complexity limits remain outside this approved implementation scope.

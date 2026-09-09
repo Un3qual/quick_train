@@ -47,7 +47,9 @@ defmodule QuickTrain.Datasets.DatasetItemRevision.Actions.Put do
       )
       |> Ash.read_one!(authorize?: false)
 
-    if record, do: {:ok, Values.load(record)}, else: DatasetAssetError.invalid(:invalid_value)
+    if record,
+      do: {:ok, Values.load(record, schema)},
+      else: DatasetAssetError.invalid(:invalid_value)
   end
 
   defp occurrences(schema, arguments), do: Values.normalize(schema, arguments.values)
