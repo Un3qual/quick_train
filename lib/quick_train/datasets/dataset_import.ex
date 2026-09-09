@@ -15,7 +15,12 @@ defmodule QuickTrain.Datasets.DatasetImport do
 
   attributes do
     uuid_primary_key :id
-    attribute :idempotency_key, :string, allow_nil?: false, public?: true
+
+    attribute :idempotency_key, :string,
+      allow_nil?: false,
+      public?: true,
+      constraints: [match: ~r/\A[^\x00]*\z/u]
+
     attribute :open_fingerprint, :binary, allow_nil?: false
 
     attribute :phase, DatasetImport.Phase,
@@ -111,7 +116,11 @@ defmodule QuickTrain.Datasets.DatasetImport do
       argument :organization_id, :uuid, allow_nil?: false
       argument :dataset_id, :uuid, allow_nil?: false
       argument :schema_version_id, :uuid, allow_nil?: false
-      argument :idempotency_key, :string, allow_nil?: false
+
+      argument :idempotency_key, :string,
+        allow_nil?: false,
+        constraints: [match: ~r/\A[^\x00]*\z/u]
+
       run {Module.concat(["QuickTrain.Datasets.DatasetImport.Actions.Open"]), []}
     end
 

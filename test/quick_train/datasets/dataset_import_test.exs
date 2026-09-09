@@ -28,6 +28,22 @@ defmodule QuickTrain.Datasets.DatasetImportTest do
     %{manager: manager, organization: graph.organization, dataset: dataset, schema: schema}
   end
 
+  test "NUL open keys are rejected without reserving a batch", context do
+    assert {:error, %Ash.Error.Invalid{} = error} =
+             Datasets.open_import(
+               context.organization.id,
+               context.dataset.id,
+               context.schema.id,
+               "batch" <> <<0>>,
+               actor: context.manager
+             )
+
+    assert Exception.message(error) =~ "idempotency_key"
+    assert Ash.count!(DatasetImport, authorize?: false) == 0
+    import = open!(context, "batch")
+    assert open!(context, "batch").id == import.id
+  end
+
   test "NUL identifiers fail before constructing a candidate", context do
     import = open!(context, "nul-identifiers")
 

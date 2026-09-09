@@ -449,3 +449,16 @@ Verification on 2026-09-09: all 10 focused asset lifecycle tests passed. The ful
 `mise run verify` gate passed with 143 tests, static analysis, Dialyzer, production
 compilation, and a clean dependency audit. Independent strict OpenSpec validation
 passed all four artifacts.
+
+## 27. Import open-key validation
+
+- [x] 27.1 Deduplicate comments 3973754497 and 3973754504 and reject NUL in import idempotency keys through Ash string constraints on the open argument and persisted attribute.
+- [x] 27.2 Verify controlled rejection without batch reservation, normal idempotent retries, the full gate, and independent OpenSpec validation.
+
+No custom type, callback, migration, or lifecycle is added. Older unresolved review
+findings retain their documented dispositions and deferred-scope boundaries.
+
+Verification on 2026-09-09: all 19 focused import tests and all 144 full-suite tests
+passed. `mise run verify` passed including static analysis, Dialyzer, production
+compilation, and a clean dependency audit. Independent strict OpenSpec validation
+passed all four artifacts.
