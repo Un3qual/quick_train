@@ -5,7 +5,11 @@ defmodule QuickTrain.Assets.Storage do
   Upload and read descriptors must target direct endpoints that cannot redirect.
   Adapters must enforce this through their provider configuration; clients receive
   descriptors directly, so this module cannot intercept later HTTP redirects.
-  A provider that cannot meet this requirement is not a supported adapter.
+  Files are opaque downloads, never validated images or safe documents. Providers
+  must serve HTTP responses with Content-Disposition: attachment,
+  Content-Type: application/octet-stream, and X-Content-Type-Options: nosniff.
+  Descriptor headers are request headers, not enforcement of response headers.
+  A provider that cannot meet these requirements is not a supported adapter.
   """
 
   @type object_key :: String.t()
@@ -30,9 +34,7 @@ defmodule QuickTrain.Assets.Storage do
   @type verified_facts :: %{
           required(:sha256) => <<_::256>>,
           required(:byte_size) => pos_integer(),
-          required(:media_type) => String.t(),
-          optional(:width) => pos_integer(),
-          optional(:height) => pos_integer()
+          required(:media_type) => String.t()
         }
 
   @type publish_result :: %{

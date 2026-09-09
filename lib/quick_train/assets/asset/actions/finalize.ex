@@ -13,12 +13,6 @@ defmodule QuickTrain.Assets.Asset.Actions.Finalize do
   alias QuickTrain.{AshError, Assets}
   alias QuickTrain.Assets.{Asset, AssetFinalizationResult, Storage}
 
-  @terminal_storage_errors [
-    :content_mismatch,
-    :active_content_rejected,
-    :unsupported_media_type,
-    :image_bounds_exceeded
-  ]
   @commit_attempts 2
 
   @impl true
@@ -86,11 +80,11 @@ defmodule QuickTrain.Assets.Asset.Actions.Finalize do
              expected,
              deadline_ms
            ) do
-        {:ok, %{facts: facts}} ->
-          commit_success(asset.id, asset.organization_id, claim_id, sealed_key, facts)
+        {:ok, %{facts: _facts}} ->
+          commit_success(asset.id, asset.organization_id, claim_id, sealed_key)
 
-        {:error, reason} when reason in @terminal_storage_errors ->
-          commit_failure(asset.id, asset.organization_id, claim_id, reason)
+        {:error, :content_mismatch} ->
+          commit_failure(asset.id, asset.organization_id, claim_id, :content_mismatch)
 
         {:error, :staging_missing} ->
           _result = release_unpublished_claim(asset.id, asset.organization_id, claim_id)
@@ -130,13 +124,12 @@ defmodule QuickTrain.Assets.Asset.Actions.Finalize do
     end
   end
 
-  defp commit_success(asset_id, organization_id, claim_id, sealed_key, facts) do
+  defp commit_success(asset_id, organization_id, claim_id, sealed_key) do
     commit_success(
       asset_id,
       organization_id,
       claim_id,
       sealed_key,
-      facts,
       @commit_attempts
     )
   end
@@ -146,7 +139,6 @@ defmodule QuickTrain.Assets.Asset.Actions.Finalize do
          organization_id,
          claim_id,
          sealed_key,
-         facts,
          attempts
        ) do
     result =
@@ -169,9 +161,7 @@ defmodule QuickTrain.Assets.Asset.Actions.Finalize do
                 ready =
                   asset
                   |> Ash.Changeset.for_update(:complete_ready, %{
-                    sealed_key: sealed_key,
-                    width: Map.get(facts, :width),
-                    height: Map.get(facts, :height)
+                    sealed_key: sealed_key
                   })
                   |> Ash.update!(authorize?: false)
 
@@ -207,7 +197,6 @@ defmodule QuickTrain.Assets.Asset.Actions.Finalize do
             organization_id,
             claim_id,
             sealed_key,
-            facts,
             attempts - 1
           )
         else

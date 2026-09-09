@@ -18,8 +18,11 @@ defmodule QuickTrain.Datasets.DatasetImportRow.Structure do
     limits = Application.fetch_env!(:quick_train, :dataset_imports)
 
     cond do
-      byte_size(arguments.row_key) == 0 ->
+      byte_size(arguments.row_key) == 0 or not valid_identifier?(arguments.row_key) ->
         {:error, :invalid_row_key}
+
+      not valid_identifier?(arguments.external_key) ->
+        {:error, :invalid_external_key}
 
       arguments.source_position < 0 ->
         {:error, :invalid_source_position}
@@ -38,6 +41,11 @@ defmodule QuickTrain.Datasets.DatasetImportRow.Structure do
         end
     end
   end
+
+  defp valid_identifier?(nil), do: true
+
+  defp valid_identifier?(value),
+    do: String.valid?(value) and not String.contains?(value, <<0>>)
 
   defp normalize(values, limits) do
     Enum.reduce_while(values, {:ok, [], 0}, fn value, {:ok, entries, total_bytes} ->

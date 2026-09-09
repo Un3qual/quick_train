@@ -61,26 +61,6 @@ defmodule QuickTrain.Assets.StorageTest do
          "iVBORw0KGgoAAAANSUhEUgAAAAIAAAADCAIAAAA2iEnWAAAAEElEQVR4nGP4z8AARAwoFABE0AX7pM/egAAAAABJRU5ErkJggg=="
        )
 
-  @jpeg <<
-    0xFF,
-    0xD8,
-    0xFF,
-    0xC0,
-    0x00,
-    0x0B,
-    0x08,
-    0x01,
-    0x00,
-    0x02,
-    0x00,
-    0x01,
-    0x01,
-    0x11,
-    0x00,
-    0xFF,
-    0xD9
-  >>
-
   setup do
     :ok = TestStorage.reset()
   end
@@ -136,8 +116,6 @@ defmodule QuickTrain.Assets.StorageTest do
              Storage.verify_and_publish(staging_key, sealed_key, expected, 1_000)
 
     assert result.sealed_key == sealed_key
-    assert result.facts.width == 2
-    assert result.facts.height == 3
     assert result.facts.media_type == "image/png"
 
     assert {:error, :staging_fenced} = TestStorage.put_staging(descriptor, "replacement")
@@ -171,7 +149,7 @@ defmodule QuickTrain.Assets.StorageTest do
              Storage.verify_and_publish(staging_key, sealed_key, expected, 10)
   end
 
-  test "mismatched or active staging bytes never occupy the canonical key" do
+  test "mismatched staging bytes never occupy the canonical key" do
     expires_at = DateTime.add(DateTime.utc_now(), 60, :second)
     descriptor = Storage.writable_staging_access!("staging/mismatch", 64, expires_at)
     :ok = TestStorage.put_staging(descriptor, "different")
@@ -191,145 +169,17 @@ defmodule QuickTrain.Assets.StorageTest do
              )
 
     refute TestStorage.sealed?("sealed/mismatch")
-
-    html = "<!doctype html><html><body>active</body></html>"
-    active_descriptor = Storage.writable_staging_access!("staging/active", 128, expires_at)
-    :ok = TestStorage.put_staging(active_descriptor, html)
-
-    active_expected = %{
-      sha256: :crypto.hash(:sha256, html),
-      byte_size: byte_size(html),
-      media_type: "text/plain"
-    }
-
-    assert {:error, :active_content_rejected} =
-             Storage.verify_and_publish(
-               "staging/active",
-               "sealed/active",
-               active_expected,
-               1_000
-             )
-
-    refute TestStorage.sealed?("sealed/active")
   end
 
-  test "active content is rejected even beyond the initial sniff prefix" do
-    expires_at = DateTime.add(DateTime.utc_now(), 60, :second)
-    active = String.duplicate(" ", 4_097) <> "<script>alert('active')</script>"
-
-    descriptor =
-      Storage.writable_staging_access!("staging/late-active", byte_size(active), expires_at)
-
-    :ok = TestStorage.put_staging(descriptor, active)
-
-    expected = %{
-      sha256: :crypto.hash(:sha256, active),
-      byte_size: byte_size(active),
-      media_type: "text/plain"
-    }
-
-    assert {:error, :active_content_rejected} =
-             Storage.verify_and_publish(
-               "staging/late-active",
-               "sealed/late-active",
-               expected,
-               1_000
-             )
-
-    refute TestStorage.sealed?("sealed/late-active")
-  end
-
-  test "plain-text declarations cannot publish unlisted HTML elements" do
-    for bytes <- [
-          "<img src=x onerror=alert(1)>",
-          "<input autofocus onfocus=alert(1)>",
-          "<custom-element onclick=alert(1)>"
-        ] do
+  test "opaque files preserve bytes without interpreting their declared media type" do
+    for bytes <- ["<script>alert(1)</script>", "%PDF-1.7", "GIF89a", <<255, 216, 255>>, @png] do
       expected = %{
         sha256: :crypto.hash(:sha256, bytes),
         byte_size: byte_size(bytes),
         media_type: "text/plain"
       }
 
-      assert {:error, :active_content_rejected} =
-               Content.verify(bytes, expected)
-    end
-  end
-
-  test "ordinary comparison text remains supported" do
-    bytes = "x < y and y > z"
-
-    expected = %{
-      sha256: :crypto.hash(:sha256, bytes),
-      byte_size: byte_size(bytes),
-      media_type: "text/plain"
-    }
-
-    assert {:ok, ^expected} = Content.verify(bytes, expected)
-  end
-
-  test "PNG verification requires complete chunks, checksums, image data, and an end marker" do
-    <<header::binary-size(29), _crc::32, rest::binary>> = @png
-
-    invalid = [
-      binary_part(@png, 0, 24),
-      header <> <<0::32>> <> rest,
-      binary_part(@png, 0, 33) <> binary_part(@png, byte_size(@png) - 12, 12),
-      binary_part(@png, 0, byte_size(@png) - 12)
-    ]
-
-    for bytes <- invalid do
-      expected = %{
-        sha256: :crypto.hash(:sha256, bytes),
-        byte_size: byte_size(bytes),
-        media_type: "image/png"
-      }
-
-      assert {:error, :unsupported_media_type} =
-               Content.verify(bytes, expected)
-    end
-  end
-
-  test "PDF content is not published even with a plain-text declaration" do
-    expires_at = DateTime.add(DateTime.utc_now(), 60, :second)
-
-    pdf =
-      "%PDF-1.7\n1 0 obj <</Type /Catalog /OpenAction <</S /JavaScript /JS (app.alert(1))>>>> endobj\n%%EOF"
-
-    for bytes <- [
-          pdf,
-          pdf <> <<255>>,
-          " \n" <> pdf,
-          <<239, 187, 191>> <> pdf,
-          String.duplicate("x", 512) <> pdf
-        ],
-        media_type <- ["application/pdf", "text/plain"] do
-      key = "pdf/#{media_type}/#{byte_size(bytes)}"
-      descriptor = Storage.writable_staging_access!(key, byte_size(bytes), expires_at)
-      :ok = TestStorage.put_staging(descriptor, bytes)
-
-      expected = %{
-        sha256: :crypto.hash(:sha256, bytes),
-        byte_size: byte_size(bytes),
-        media_type: media_type
-      }
-
-      assert {:error, :unsupported_media_type} =
-               Storage.verify_and_publish(key, "sealed/#{key}", expected, 1_000)
-
-      refute TestStorage.sealed?("sealed/#{key}")
-    end
-  end
-
-  test "GIF is unsupported without a complete format validator" do
-    for bytes <- ["GIF87a", "GIF89a" <> <<1::little-16, 1::little-16>>] do
-      expected = %{
-        sha256: :crypto.hash(:sha256, bytes),
-        byte_size: byte_size(bytes),
-        media_type: "image/gif"
-      }
-
-      assert {:error, :unsupported_media_type} = Content.verify(bytes, expected)
+      assert {:ok, ^expected} = Content.verify(bytes, expected)
     end
   end
 
@@ -352,28 +202,7 @@ defmodule QuickTrain.Assets.StorageTest do
              Storage.sealed_read_access("sealed/invalid", expires_at)
   end
 
-  test "JPEG dimensions are read after the sample precision byte" do
-    expires_at = DateTime.add(DateTime.utc_now(), 60, :second)
-
-    descriptor =
-      Storage.writable_staging_access!("staging/jpeg", byte_size(@jpeg), expires_at)
-
-    :ok = TestStorage.put_staging(descriptor, @jpeg)
-
-    expected = %{
-      sha256: :crypto.hash(:sha256, @jpeg),
-      byte_size: byte_size(@jpeg),
-      media_type: "image/jpeg"
-    }
-
-    assert {:ok, published} =
-             Storage.verify_and_publish("staging/jpeg", "sealed/jpeg", expected, 1_000)
-
-    assert published.facts.width == 512
-    assert published.facts.height == 256
-  end
-
-  test "defense-in-depth bounds reject oversized stored bytes and image headers" do
+  test "defense-in-depth bounds reject oversized stored bytes" do
     original_assets = Application.fetch_env!(:quick_train, :assets)
     expires_at = DateTime.add(DateTime.utc_now(), 60, :second)
 
@@ -402,34 +231,6 @@ defmodule QuickTrain.Assets.StorageTest do
              )
 
     refute TestStorage.sealed?("sealed/actual-size")
-
-    Application.put_env(
-      :quick_train,
-      :assets,
-      original_assets
-      |> Keyword.put(:max_image_width, 1)
-      |> Keyword.put(:max_image_height, 1)
-      |> Keyword.put(:max_image_pixels, 1)
-    )
-
-    image_descriptor =
-      Storage.writable_staging_access!("staging/image-bounds", byte_size(@png), expires_at)
-
-    :ok = TestStorage.put_staging(image_descriptor, @png)
-
-    assert {:error, :image_bounds_exceeded} =
-             Storage.verify_and_publish(
-               "staging/image-bounds",
-               "sealed/image-bounds",
-               %{
-                 sha256: :crypto.hash(:sha256, @png),
-                 byte_size: byte_size(@png),
-                 media_type: "image/png"
-               },
-               1_000
-             )
-
-    refute TestStorage.sealed?("sealed/image-bounds")
   end
 
   test "sealed reads are short-lived and use approved direct endpoints" do

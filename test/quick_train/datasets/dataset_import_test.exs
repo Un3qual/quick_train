@@ -28,6 +28,33 @@ defmodule QuickTrain.Datasets.DatasetImportTest do
     %{manager: manager, organization: graph.organization, dataset: dataset, schema: schema}
   end
 
+  test "NUL identifiers fail before constructing a candidate", context do
+    import = open!(context, "nul-identifiers")
+
+    for {row_key, external_key, reason} <- [
+          {"row" <> <<0>>, nil, "invalid_row_key"},
+          {"row", "customer" <> <<0>>, "invalid_external_key"}
+        ] do
+      assert {:error, error} =
+               Datasets.append_import_row(
+                 context.organization.id,
+                 import.id,
+                 row_key,
+                 external_key,
+                 0,
+                 [%{field: "name", text: "Alice"}],
+                 actor: context.manager
+               )
+
+      assert Exception.message(error) =~ reason
+      assert Ash.count!(DatasetImportRow, authorize?: false) == 0
+      assert Ash.count!(DatasetRecord, authorize?: false) == 0
+    end
+
+    assert append!(context, import, "row", "customer", 0, [%{field: "name", text: "Alice"}]).outcome ==
+             :pending
+  end
+
   test "NUL text is rejected before reserving an import row", context do
     import = open!(context, "nul-text")
 

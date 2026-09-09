@@ -4,7 +4,7 @@ QuickTrain cannot define reusable forms or collect paid task responses until org
 
 ## What Changes
 
-- Add immutable, SHA-256-addressed asset metadata and a provider-neutral storage boundary that verifies staging bytes before canonical publication, enforces bounded size and image dimensions, converges on one canonical sealed object, rejects active or falsely declared content and unsupported PDFs, separates writable staging from sealed reads, and coordinates finalization with bounded claims.
+- Add immutable, SHA-256-addressed asset metadata and a provider-neutral storage boundary that verifies staging bytes before canonical publication, enforces bounded size, converges on one canonical sealed object, treats files as opaque download-only bytes with untrusted media-type metadata, separates writable staging from sealed reads, and coordinates finalization with bounded claims.
 - Add organization-owned datasets with race-safe immutable schema versions, record types, typed field definitions, and stable dataset-item identities.
 - Add immutable dataset-item revisions backed by normalized records, value occurrences, and typed scalar or asset values, with relational constraints that bind every revision to its schema's root record type and every value to its record's exact type.
 - Add idempotent import batches and rows with bounded normalized relational staging, stable keyless-item targeting, source provenance, partial completion, open-batch expiry, row-derived progress, atomically scheduled retry-safe row processing, but no custom processing leases or persisted aggregate counters.
@@ -17,7 +17,8 @@ Explicit non-goals:
 - Authentication implementation; it is owned by the prerequisite `add-api-authentication` change.
 - Form definitions, project bindings, task selection, worker responses, reviews, exports, finance, payouts, and reputation. Approved starting decisions remain in the documentation-only `record-future-product-architecture` change.
 - Customer-specific PostgreSQL tables, JSONB-backed item payloads, arbitrary nested record input, external form imports, advanced task-answer annotations, payment-provider integration, or frontend work.
-- Selecting a production object-storage vendor.
+- Selecting a production object-storage vendor or adding HTTP storage handlers.
+- File-type sniffing, format validation, image dimensions, active-content classification, or inline previews. These are deferred until a concrete rendering use case requires them.
 
 This intentionally moves QuickTrain beyond a reusable backend template by adding its first product content domain while keeping authentication and later product architecture in separately reviewable OpenSpec changes.
 
@@ -31,7 +32,7 @@ This intentionally moves QuickTrain beyond a reusable backend template by adding
 
 ### Modified Capabilities
 
-None.
+- `api-authentication`: Permit introspection of explicitly declared dataset/asset operations while retaining policy-enforced authentication and organization scope at execution.
 
 ## Impact
 
@@ -39,7 +40,7 @@ None.
 - Adds AshPostgres tables, constraints, indexes, migrations, and resource snapshots for assets, dataset definitions, item revisions, records, typed values, and imports.
 - Uses the Oban dependency and jobs table established by `add-api-authentication` for responsibility-specific asset and import workers.
 - Extends the authenticated GraphQL schema with active-organization, membership, and capability-scoped product actions.
-- Adds a configurable asset-storage adapter plus one deterministic in-memory implementation shared by development and tests; no production vendor is selected here.
+- Adds a configurable asset-storage adapter plus one deterministic in-memory implementation for tests; development and production fail clearly without a configured reachable adapter.
 - Establishes typed value-family conventions that later Forms and Tasks changes can share in code without sharing persistence tables.
 
 ## Deferred operational scope

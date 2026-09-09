@@ -413,3 +413,24 @@ Verification on 2026-09-09: 60 focused tests and all 146 full-suite tests passed
 `mise run verify` passed, including static analysis, Dialyzer, production compilation,
 and a clean dependency advisory/retirement audit. Independent
 `mise run openspec.validate` passed all four artifacts.
+
+## 25. Opaque-file MVP and current PR feedback
+
+This approved scope revision supersedes earlier image inspection, active-format
+rejection, and development in-memory adapter tasks and review dispositions.
+
+- [x] 25.1 Remove PNG/JPEG/GIF/PDF parsing, sniffing, image bounds, and active-content checks; retain size/hash verification and immutable declared metadata (3973402890).
+- [x] 25.2 Reject NUL import row/external identifiers before candidate construction (3973402896).
+- [x] 25.3 Synchronize the authentication spec with introspectable, policy-protected dataset/asset fields (3973402901).
+- [x] 25.4 Remove the misleading development adapter default; fail clearly until a reachable HTTP provider is configured (3973402903).
+- [x] 25.5 Record opaque download response requirements and defer parsing/rendering/HTTP integration in the future architecture change.
+- [x] 25.6 Run focused tests, full verification, and independent OpenSpec validation before pushing.
+
+Existing nullable image-dimension columns are retained without an MVP writer; no
+new schema or migration is needed. Previously assessed unresolved findings remain
+unchanged except where this explicit MVP revision supersedes format checks.
+
+Verification on 2026-09-09: 42 focused tests passed, then the full `mise run verify`
+gate passed with 141 tests, static analysis, Dialyzer, production compilation, and
+a clean dependency audit. Independent strict OpenSpec validation passed all four
+artifacts. Removed format-parser tests account for the lower test count.

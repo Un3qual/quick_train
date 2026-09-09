@@ -156,7 +156,7 @@ defmodule QuickTrain.Assets.Asset do
     end
 
     update :complete_ready do
-      accept [:sealed_key, :width, :height]
+      accept [:sealed_key]
       validate attribute_equals(:state, :pending)
       change set_attribute(:state, :ready)
       change set_attribute(:operation_claim_id, nil)

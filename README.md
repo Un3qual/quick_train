@@ -127,12 +127,16 @@ Dataset and asset access requires explicit organization-scoped capabilities. Ope
 setup and grant helpers are deferred; basic Ash organization, membership, role, and capability
 actions remain available. Tests compose these primitives in test-only fixtures.
 
-Production deliberately ships without a selected storage provider and therefore fails closed
-with `storage_not_configured`.
+Development and production deliberately ship without a selected HTTP storage provider and fail closed
+with `storage_not_configured`. The in-memory adapter is a test double; its token URLs are not HTTP endpoints.
 Configure an implementation of `QuickTrain.Assets.Storage` under
 `config :quick_train, :assets, storage_adapter: YourAdapter`; it must enforce upload byte caps,
 encrypted approved destinations, bounded verification/publication, immutable sealed objects, and
-short-lived access descriptors.
+short-lived access descriptors. Files are opaque downloads: size and SHA-256 are verified,
+but the declared media type is untrusted and no file parsing or image inspection occurs.
+HTTP providers must enforce `Content-Disposition: attachment`,
+`Content-Type: application/octet-stream`, and `X-Content-Type-Options: nosniff` on responses,
+and use direct endpoints that cannot redirect. Inline previews are deferred.
 
 The default asset staging lifetime is one hour. Open imports also expire after one hour and accept
 at most 10,000 rows, 100 fields per row, 256 KiB of scalar data per row, 64 KiB per text value, and
