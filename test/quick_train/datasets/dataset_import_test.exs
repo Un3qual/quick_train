@@ -244,7 +244,7 @@ defmodule QuickTrain.Datasets.DatasetImportTest do
     assert before.lifecycle == :pending
     assert {before.row_count, before.pending, before.failed} == {2, 1, 1}
 
-    assert :ok = perform_job(ProcessImportRow, %{"row_id" => pending.id})
+    assert {:ok, _outcome} = perform_job(ProcessImportRow, %{"row_id" => pending.id})
     completed = Ash.get!(DatasetImportRow, pending.id, authorize?: false)
     assert completed.outcome == :succeeded
     assert completed.item_revision_id
@@ -259,7 +259,7 @@ defmodule QuickTrain.Datasets.DatasetImportTest do
 
     assert Ash.get!(DatasetRecord, revision.root_record_id, authorize?: false)
 
-    assert :ok = perform_job(ProcessImportRow, %{"row_id" => pending.id})
+    assert {:ok, _outcome} = perform_job(ProcessImportRow, %{"row_id" => pending.id})
     assert Ash.count!(QuickTrain.Datasets.DatasetItemRevision, authorize?: false) == 1
 
     after_processing =
@@ -289,7 +289,7 @@ defmodule QuickTrain.Datasets.DatasetImportTest do
     row = append!(context, import, "keyless", nil, 0, [%{field: "name", text: "Keyless"}])
     Datasets.finalize_import!(context.organization.id, import.id, actor: context.manager)
 
-    assert :ok = perform_job(ProcessImportRow, %{"row_id" => row.id})
+    assert {:ok, _outcome} = perform_job(ProcessImportRow, %{"row_id" => row.id})
     assert Ash.get!(DatasetItem, row.id, authorize?: false).id == row.id
   end
 
@@ -305,7 +305,7 @@ defmodule QuickTrain.Datasets.DatasetImportTest do
           ])
 
         Datasets.finalize_import!(context.organization.id, import.id, actor: context.manager)
-        assert :ok = perform_job(ProcessImportRow, %{"row_id" => row.id})
+        assert {:ok, _outcome} = perform_job(ProcessImportRow, %{"row_id" => row.id})
         Ash.get!(DatasetImportRow, row.id, authorize?: false)
       end
 
@@ -369,7 +369,7 @@ defmodule QuickTrain.Datasets.DatasetImportTest do
     end)
 
     for row <- [first, second] do
-      assert :ok = perform_job(ProcessImportRow, %{"row_id" => row.id})
+      assert {:ok, _outcome} = perform_job(ProcessImportRow, %{"row_id" => row.id})
       assert Ash.get!(DatasetImportRow, row.id, authorize?: false).outcome == :succeeded
     end
 

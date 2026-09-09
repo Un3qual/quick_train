@@ -21,9 +21,6 @@ defmodule QuickTrain.Datasets.Workers.ProcessImportRow do
 
   @impl Oban.Worker
   def perform(%Oban.Job{args: %{"row_id" => row_id}}) do
-    case Datasets.process_import_row(row_id, authorize?: false) do
-      {:ok, _result} -> :ok
-      {:error, error} -> {:error, error}
-    end
+    Datasets.process_import_row(row_id, authorize?: false)
   end
 end

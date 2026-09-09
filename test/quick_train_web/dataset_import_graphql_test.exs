@@ -138,7 +138,7 @@ defmodule QuickTrainWeb.DatasetImportGraphqlTest do
     assert [%Oban.Job{args: %{"row_id" => row_id}}] =
              all_enqueued(worker: ProcessImportRow)
 
-    assert :ok = perform_job(ProcessImportRow, %{"row_id" => row_id})
+    assert {:ok, _outcome} = perform_job(ProcessImportRow, %{"row_id" => row_id})
 
     data =
       graphql!(

@@ -97,7 +97,6 @@ defmodule QuickTrain.Datasets.DatasetFieldDefinition do
         SchemaVersionBoundary.with_record_type(
           organization_id,
           record_type_id,
-          [DatasetFieldDefinition],
           fn record_type ->
             attributes =
               input.arguments

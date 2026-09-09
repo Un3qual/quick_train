@@ -233,7 +233,7 @@ defmodule QuickTrain.Assets.Asset.Actions.Finalize do
   end
 
   defp commit_failure(asset_id, organization_id, claim_id, reason) do
-    sanitized_reason = sanitize_failure(reason)
+    sanitized_reason = Atom.to_string(reason)
 
     Ash.transact(Asset, fn ->
       asset = locked_asset(asset_id, organization_id)
@@ -301,11 +301,6 @@ defmodule QuickTrain.Assets.Asset.Actions.Finalize do
     asset.state == :pending and
       asset.operation_claim_id == claim_id and live_claim?(asset, now)
   end
-
-  defp sanitize_failure(:content_mismatch), do: "content_mismatch"
-  defp sanitize_failure(:active_content_rejected), do: "active_content_rejected"
-  defp sanitize_failure(:unsupported_media_type), do: "unsupported_media_type"
-  defp sanitize_failure(:image_bounds_exceeded), do: "image_bounds_exceeded"
 
   defp ready_uniqueness_conflict?(error) do
     AshError.constraint?(error, [

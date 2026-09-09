@@ -8,7 +8,7 @@ defmodule QuickTrain.Datasets.SchemaVersionBoundary do
   alias QuickTrain.Datasets.{DatasetFieldDefinition, DatasetRecordType, DatasetSchemaVersion}
 
   def with_draft(organization_id, schema_version_id, callback) do
-    Ash.transact([DatasetSchemaVersion, DatasetRecordType], fn ->
+    Ash.transact(DatasetSchemaVersion, fn ->
       case locked_schema(organization_id, schema_version_id) do
         nil -> DatasetAssetError.invalid(:invalid_schema)
         %{state: :draft} = schema -> callback.(schema)
@@ -17,8 +17,8 @@ defmodule QuickTrain.Datasets.SchemaVersionBoundary do
     end)
   end
 
-  def with_record_type(organization_id, record_type_id, resources, callback) do
-    Ash.transact([DatasetSchemaVersion, DatasetRecordType | resources], fn ->
+  def with_record_type(organization_id, record_type_id, callback) do
+    Ash.transact(DatasetSchemaVersion, fn ->
       with %{} = record_type <- scoped_record_type(organization_id, record_type_id),
            %{state: :draft} = schema <-
              locked_schema(organization_id, record_type.schema_version_id),
@@ -33,7 +33,7 @@ defmodule QuickTrain.Datasets.SchemaVersionBoundary do
 
   def with_field_definition(organization_id, field_definition_id, callback) do
     Ash.transact(
-      [DatasetSchemaVersion, DatasetRecordType, DatasetFieldDefinition],
+      DatasetSchemaVersion,
       fn ->
         with %{} = field <- scoped_field(organization_id, field_definition_id),
              %{state: :draft} <-

@@ -234,3 +234,18 @@ generation, architecture, duplication and smell checks, and Dialyzer, then stopp
 at the unchanged `usage_rules` 1.2.7 and `igniter` 0.8.3 advisories recorded in section
 13; production build and tests were run separately. Final inline review found no
 remaining issues.
+
+## 18. Approved Ponytail review cuts
+
+- [x] 18.1 Remove import append's transaction resource inventory and schema-edit resource-list plumbing while preserving parent locks and rollback.
+- [x] 18.2 Replace the duplicated allowlisted failure conversion with `Atom.to_string/1`.
+- [x] 18.3 Return import processing results directly to Oban and update existing worker assertions.
+- [x] 18.4 Run verification, independent OpenSpec validation, and an inline final review.
+
+Verification on 2026-09-09: all 130 tests passed, including schema-edit concurrency,
+import rollback and worker retries, and sanitized asset failures. Production
+compilation and all four OpenSpec items passed. The full gate passed compilation,
+formatting, code generation, architecture, static analysis, and Dialyzer, then
+stopped at the unchanged `usage_rules` 1.2.7 and `igniter` 0.8.3 advisories recorded
+in section 13. Production build and tests ran separately. Final review was inline;
+the implementation removes 29 lines with no new modules or tests.

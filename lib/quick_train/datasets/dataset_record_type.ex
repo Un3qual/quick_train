@@ -110,7 +110,6 @@ defmodule QuickTrain.Datasets.DatasetRecordType do
         SchemaVersionBoundary.with_record_type(
           organization_id,
           record_type_id,
-          [],
           fn record_type ->
             __MODULE__.update_internal!(
               record_type,
@@ -136,7 +135,6 @@ defmodule QuickTrain.Datasets.DatasetRecordType do
         SchemaVersionBoundary.with_record_type(
           organization_id,
           record_type_id,
-          [],
           fn record_type ->
             __MODULE__.destroy_internal(record_type, authorize?: false)
           end

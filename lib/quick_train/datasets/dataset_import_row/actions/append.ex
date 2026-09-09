@@ -12,7 +12,6 @@ defmodule QuickTrain.Datasets.DatasetImportRow.Actions.Append do
   alias QuickTrain.Datasets.{
     DatasetImport,
     DatasetImportRow,
-    DatasetSchemaVersion,
     Fingerprint
   }
 
@@ -25,7 +24,7 @@ defmodule QuickTrain.Datasets.DatasetImportRow.Actions.Append do
 
     case Structure.validate(arguments) do
       {:ok, entries} ->
-        Ash.transact(import_resources(), fn -> append_locked(arguments, entries) end)
+        Ash.transact(DatasetImport, fn -> append_locked(arguments, entries) end)
 
       {:error, reason} ->
         DatasetAssetError.wrap({:error, reason})
@@ -170,21 +169,4 @@ defmodule QuickTrain.Datasets.DatasetImportRow.Actions.Append do
   defp sanitize(reason) when is_atom(reason), do: Atom.to_string(reason)
   defp sanitize(reason) when is_binary(reason), do: reason
   defp sanitize(_reason), do: "invalid_value"
-
-  defp import_resources do
-    [
-      DatasetImport,
-      DatasetImportRow,
-      DatasetSchemaVersion,
-      QuickTrain.Datasets.DatasetRecord,
-      QuickTrain.Datasets.DatasetValue,
-      QuickTrain.Datasets.DatasetValue.Text,
-      QuickTrain.Datasets.DatasetValue.Integer,
-      QuickTrain.Datasets.DatasetValue.Decimal,
-      QuickTrain.Datasets.DatasetValue.Boolean,
-      QuickTrain.Datasets.DatasetValue.DateTime,
-      QuickTrain.Datasets.DatasetValue.Asset,
-      QuickTrain.Assets.Asset
-    ]
-  end
 end
