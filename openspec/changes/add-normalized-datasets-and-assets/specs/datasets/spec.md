@@ -77,6 +77,10 @@ The system SHALL give each dataset item a stable identity within its dataset and
 - **WHEN** the schema, root type, field, ordinal, value family, or canonical typed value changes
 - **THEN** the canonical encoder produces a different fingerprint input and unchanged detection does not collapse the change
 
+#### Scenario: Text round trips without normalization
+- **WHEN** content contains leading or trailing whitespace, only whitespace, or an empty text string
+- **THEN** persistence and candidate reload preserve it exactly and recomputing the revision fingerprint does not create a content change
+
 ### Requirement: Normalized typed record values
 The system SHALL store each item revision as a root dataset record containing field-associated value occurrences and normalized typed values. Every value's field definition SHALL belong to its owning record's exact `DatasetRecordType`, not merely to another type in the same published schema, and first-release revision candidates SHALL use the schema version's designated root type. Ash construction and composite record/type and field/type database constraints SHALL enforce those relationships. Dataset content SHALL NOT be stored in JSONB columns, and each value occurrence SHALL contain exactly one representation compatible with its field definition. The canonical record-construction workflow SHALL validate every field's occurrence count in the same transaction: required single fields SHALL have exactly one value, optional single fields SHALL have zero or one, and multiple occurrences SHALL be rejected atomically.
 
@@ -103,6 +107,10 @@ The system SHALL store each item revision as a root dataset record containing fi
 #### Scenario: Single-valued field is repeated
 - **WHEN** a record supplies more than one occurrence for a first-release field
 - **THEN** the system rejects the entire record and containing item revision without persisting any occurrence
+
+#### Scenario: Direct typed-value reads fail closed
+- **WHEN** a caller directly reads any of the six typed-value resources without an explicit trusted authorization bypass
+- **THEN** Ash denies the read, while the corresponding authorized DatasetValue relationship remains readable
 
 ### Requirement: Forward-compatible record envelope
 The system SHALL assign stable identity and ordinal position to value occurrences so that repeated values and record-valued fields can be introduced additively. The first release SHALL accept only flat records and SHALL reject unsupported nested record input explicitly.
@@ -133,3 +141,14 @@ The system SHALL expose authenticated GraphQL actions for dataset and schema lif
 #### Scenario: Typed relationships are traversed
 - **WHEN** an authorized caller traverses from a dataset through its schema structure or from an item through a revision and normalized record
 - **THEN** each singular relationship returns its typed resource and each to-many relationship returns a bounded keyset Relay connection without opening an unscoped root read
+
+### Requirement: Bounded GraphQL query work
+The HTTP GraphQL API SHALL enforce an Absinthe query complexity budget of 10,000 across the entire operation, including nested connections. Collection complexity SHALL multiply child cost by the requested page size, or conservatively by the maximum exposed page size of 100 when page arguments are absent or null. Both GraphQL and development GraphiQL execution SHALL enforce the same budget.
+
+#### Scenario: Excessive nested collections are rejected
+- **WHEN** an operation exceeds the complexity budget through repeated nested connections
+- **THEN** the API rejects it before resolution, including when page sizes use first, last, omitted arguments, or null arguments
+
+#### Scenario: Bounded typed reads remain available
+- **WHEN** an authorized operation selects typed relationships within the budget
+- **THEN** the API resolves its requested bounded pages normally

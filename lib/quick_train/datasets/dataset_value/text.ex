@@ -7,11 +7,17 @@ defmodule QuickTrain.Datasets.DatasetValue.Text do
     otp_app: :quick_train,
     domain: QuickTrain.Datasets,
     extensions: [AshGraphql.Resource],
-    data_layer: AshPostgres.DataLayer
+    data_layer: AshPostgres.DataLayer,
+    authorizers: [Ash.Policy.Authorizer]
 
   attributes do
     uuid_primary_key :id
-    attribute :value, :string, allow_nil?: false, public?: true
+
+    attribute :value, :string,
+      allow_nil?: false,
+      public?: true,
+      constraints: [trim?: false, allow_empty?: true]
+
     timestamps()
   end
 
@@ -26,6 +32,15 @@ defmodule QuickTrain.Datasets.DatasetValue.Text do
 
     create :create_internal do
       accept [:dataset_value_id, :value]
+    end
+  end
+
+  policies do
+    policy action(:read) do
+      authorize_if accessing_from(
+                     Module.concat(["QuickTrain.Datasets.DatasetValue"]),
+                     :text_value
+                   )
     end
   end
 

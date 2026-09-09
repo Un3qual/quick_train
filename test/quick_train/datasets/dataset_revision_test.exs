@@ -64,22 +64,41 @@ defmodule QuickTrain.Datasets.DatasetRevisionTest do
     assert Map.new(resources, &{&1, Ash.count!(&1, authorize?: false)}) == before_counts
   end
 
-  test "loading a mixed-family candidate preserves its revision fingerprint", context do
-    first = put!(context, values(context.asset.id, "Alice", "1.00", "2026-01-02T01:04:05Z"))
+  test "candidate round trips preserve exact text and all family fingerprints", context do
+    for text <- ["  Alice\n", "", " \n "] do
+      first = put!(context, values(context.asset.id, text, "1.00", "2026-01-02T01:04:05Z"))
+      assert first.revision |> load_revision() |> typed_values() |> Map.fetch!("name") == text
 
-    retry =
-      Datasets.put_candidate_revision!(
-        context.organization.id,
-        context.dataset.id,
-        context.schema.id,
-        first.item.id,
-        first.item.external_key,
-        first.revision.root_record_id,
-        authorize?: false
-      )
+      retry =
+        Datasets.put_candidate_revision!(
+          context.organization.id,
+          context.dataset.id,
+          context.schema.id,
+          first.item.id,
+          first.item.external_key,
+          first.revision.root_record_id,
+          authorize?: false
+        )
 
-    refute retry.changed
-    assert retry.revision.id == first.revision.id
+      refute retry.changed
+      assert retry.revision.id == first.revision.id
+    end
+  end
+
+  test "typed values reject direct reads even when authorization is requested", context do
+    put!(context, values(context.asset.id, "Private", "1", "2026-01-02T01:04:05Z"))
+
+    for resource <- [
+          DatasetValue.Text,
+          DatasetValue.Integer,
+          DatasetValue.Decimal,
+          DatasetValue.Boolean,
+          DatasetValue.DateTime,
+          DatasetValue.Asset
+        ],
+        actor <- [nil, context.manager] do
+      assert {:error, %Ash.Error.Forbidden{}} = Ash.read(resource, actor: actor, authorize?: true)
+    end
   end
 
   test "enum-backed value families preserve version one fingerprint identities" do

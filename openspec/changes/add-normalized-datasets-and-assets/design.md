@@ -239,3 +239,11 @@ Import append and the schema-edit boundary start their transaction through the l
 ## Import processing performance
 
 Candidate loading reuses the field definitions already loaded with the published schema. It loads value occurrences, groups them by their actual value families, and loads only those typed relationships through Ash. It does not refetch field definitions or query absent families. Fingerprint encoding, organization/schema scope, immutable candidate reuse, and row/item locks remain unchanged. Bulk job scheduling retains complete-set rollback and ordinary Oban retries; a failure after an earlier batch insert rolls back both jobs and sealing.
+
+## Exact text, typed-value authorization, and GraphQL work limits
+
+Text content uses Ash string constraints `trim?: false` and `allow_empty?: true` at both import input and typed persistence. Whitespace and empty strings are content, so fingerprints and reloaded values agree. Existing lost whitespace cannot be recovered from stored content; this correction applies to new writes and does not rewrite immutable history.
+
+All six typed-value resources use Ash policy authorization. Their primary reads require the corresponding already-authorized DatasetValue relationship; direct reads and internal writes fail closed unless trusted construction explicitly bypasses authorization.
+
+Both GraphQL HTTP routes enable Absinthe complexity analysis with a maximum of 10,000. Dataset root collections and nested Relay collections use AshGraphql's supported complexity callbacks, sharing one function in the Datasets domain. Cost is one plus page size times child complexity (at least one per row). Omitted or null page sizes are conservatively charged at 100, the maximum exposed page size, instead of assuming one row. Negative page sizes receive a nonnegative cost and remain subject to normal pagination validation. This preserves useful nested reads while bounding total query work; callers with large selections must request smaller pages. No custom execution phase or new module is introduced.

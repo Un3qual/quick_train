@@ -28,6 +28,36 @@ defmodule QuickTrain.Datasets.DatasetImportTest do
     %{manager: manager, organization: graph.organization, dataset: dataset, schema: schema}
   end
 
+  test "import text preserves whitespace and empty strings in content and identity", context do
+    import = open!(context, "exact-text")
+
+    for {text, position} <- Enum.with_index(["  Alice\n", "", " \n "]) do
+      row_key = "row-#{position}"
+      row = append!(context, import, row_key, nil, position, [%{field: "name", text: text}])
+      assert row.outcome == :pending
+
+      record = Ash.get!(DatasetRecord, row.candidate_record_id, authorize?: false)
+      record = Ash.load!(record, [values: :text_value], authorize?: false)
+      assert [%{text_value: %{value: ^text}}] = record.values
+
+      assert append!(context, import, row_key, nil, position, [%{field: "name", text: text}]).id ==
+               row.id
+
+      assert {:error, error} =
+               Datasets.append_import_row(
+                 context.organization.id,
+                 import.id,
+                 row_key,
+                 nil,
+                 position,
+                 [%{field: "name", text: text <> " "}],
+                 actor: context.manager
+               )
+
+      assert Exception.message(error) =~ "idempotency_conflict"
+    end
+  end
+
   test "open is idempotent and changed immutable parameters conflict", context do
     first = open!(context, "batch-1")
     retry = open!(context, "batch-1")

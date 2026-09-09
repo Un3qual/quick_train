@@ -271,4 +271,24 @@ OpenSpec items passed. The full gate passed compilation, formatting, codegen,
 architecture, static analysis, and Dialyzer, then stopped at the unchanged
 `usage_rules` 1.2.7 and `igniter` 0.8.3 advisories recorded in section 13. Production
 build and tests ran separately. Final inline review found no remaining issues.
-GraphQL complexity limits remain outside this approved implementation scope.
+GraphQL complexity limits were outside that performance-fix batch; section 20 records their subsequent approval and implementation.
+
+## 20. Approved correctness and GraphQL review fixes
+
+- [x] 20.1 Preserve whitespace and empty text using Ash constraints at input and persistence.
+- [x] 20.2 Require authorized-parent reads for all six typed-value resources.
+- [x] 20.3 Enable HTTP complexity limits and charge both root and nested connections for explicit or default page sizes.
+- [x] 20.4 Verify text round trips, import identity, denied direct reads, and bounded HTTP GraphQL execution.
+- [x] 20.5 Run the full verification gate, independent OpenSpec validation, and final inline review.
+
+Verification on 2026-09-09: all 135 tests passed. Coverage includes exact text and
+empty-string round trips, unchanged candidate fingerprints, import retry identity,
+denied direct reads for all six typed resources, and HTTP complexity rejection
+with first, last, omitted, and null pagination at nested and root connections.
+Existing authenticated GraphQL workflows remain passing. Production compilation
+and all four independent OpenSpec items passed. The full gate passed compilation,
+formatting, codegen, zero compile cycles, architecture, static analysis, and
+Dialyzer, then stopped at the unchanged usage_rules 1.2.7 and igniter 0.8.3
+advisories. Production build and the full tests ran separately. Final inline
+review found no additional issue in these fixes. No modules, dependencies, or
+migrations were added; historical content is not rewritten.

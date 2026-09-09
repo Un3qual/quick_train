@@ -159,6 +159,7 @@ defmodule QuickTrain.Datasets.DatasetItemRevision do
   end
 
   graphql do
+    complexity {Module.concat(["QuickTrain.Datasets"]), :connection_complexity}
     attribute_types fingerprint: :string
     derive_filter? false
     derive_sort? false

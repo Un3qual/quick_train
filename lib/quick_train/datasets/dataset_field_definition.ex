@@ -201,6 +201,7 @@ defmodule QuickTrain.Datasets.DatasetFieldDefinition do
   end
 
   graphql do
+    complexity {Module.concat(["QuickTrain.Datasets"]), :connection_complexity}
     derive_filter? false
     derive_sort? false
     type :dataset_field_definition

@@ -147,6 +147,7 @@ defmodule QuickTrain.Datasets.DatasetSchemaVersion do
   end
 
   graphql do
+    complexity {Module.concat(["QuickTrain.Datasets"]), :connection_complexity}
     derive_filter? false
     derive_sort? false
     type :dataset_schema_version

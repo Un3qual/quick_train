@@ -45,3 +45,5 @@ None.
 ## Deferred operational scope
 
 As approved on 2026-09-09, operator manager setup and grant helpers, authentication retention, staging/import cleanup, and terminal-job recovery are deferred to `restore-operator-bootstrap-and-maintenance`. Expiry and authorization checks, immutable content, and ordinary processing remain. This development phase does not promise unattended maintenance.
+
+The approved review corrections preserve exact text through import and typed storage, enforce authorized-parent reads on all typed-value resources, and bound total GraphQL query complexity, including default-sized nested connections.

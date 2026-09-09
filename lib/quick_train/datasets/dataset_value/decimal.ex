@@ -7,7 +7,8 @@ defmodule QuickTrain.Datasets.DatasetValue.Decimal do
     otp_app: :quick_train,
     domain: QuickTrain.Datasets,
     extensions: [AshGraphql.Resource],
-    data_layer: AshPostgres.DataLayer
+    data_layer: AshPostgres.DataLayer,
+    authorizers: [Ash.Policy.Authorizer]
 
   attributes do
     uuid_primary_key :id
@@ -26,6 +27,15 @@ defmodule QuickTrain.Datasets.DatasetValue.Decimal do
 
     create :create_internal do
       accept [:dataset_value_id, :value]
+    end
+  end
+
+  policies do
+    policy action(:read) do
+      authorize_if accessing_from(
+                     Module.concat(["QuickTrain.Datasets.DatasetValue"]),
+                     :decimal_value
+                   )
     end
   end
 

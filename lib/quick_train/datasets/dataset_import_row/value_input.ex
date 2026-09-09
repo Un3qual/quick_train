@@ -8,7 +8,7 @@ defmodule QuickTrain.Datasets.DatasetImportRow.ValueInput do
 
   attributes do
     attribute :field, :string, allow_nil?: false, public?: true
-    attribute :text, :string, public?: true
+    attribute :text, :string, public?: true, constraints: [trim?: false, allow_empty?: true]
     attribute :integer, :integer, public?: true
     attribute :decimal, :string, public?: true
     attribute :boolean, :boolean, public?: true

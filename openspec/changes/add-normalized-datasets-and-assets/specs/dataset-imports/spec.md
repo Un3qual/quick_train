@@ -59,6 +59,10 @@ The import and row key SHALL form a unique identity, import plus source position
 - **WHEN** a retry differs only in field order, equivalent decimal scale, or equivalent UTC date-time offset
 - **THEN** it has the same request identity and returns the accepted row
 
+#### Scenario: Import text preserves exact content identity
+- **WHEN** an accepted row contains whitespace or an empty text string
+- **THEN** the stored candidate preserves those bytes, an exact retry returns the same row, and changing whitespace conflicts with the accepted request identity
+
 ### Requirement: Accepted rows stage normalized candidates or terminal validation failures
 For a structurally accepted row, the append action SHALL validate field keys, value-family selectors, cardinality, required values, and asset relationships against the pinned published schema. Valid input SHALL transactionally persist an immutable normalized candidate `DatasetRecord` and typed values referenced by a pending import row. Domain-invalid input SHALL persist a failed row outcome and sanitized validation errors without persisting a partial candidate record or item revision. The system SHALL NOT retain an opaque request payload.
 

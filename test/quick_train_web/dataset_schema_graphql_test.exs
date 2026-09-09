@@ -11,6 +11,37 @@ defmodule QuickTrainWeb.DatasetSchemaGraphqlTest do
     %{conn: put_req_header(conn, "authorization", "Bearer #{session.token}"), graph: graph}
   end
 
+  test "HTTP rejects excessive connection nesting with explicit or omitted page sizes", context do
+    for {root_pagination, pagination, depth} <- [
+          {", first: 1", "(first: 10)", 4},
+          {", first: 1", "(last: 10)", 4},
+          {", first: 1", "", 4},
+          {", first: 1", "(first: null, last: null)", 4},
+          {"", "(first: 10)", 2},
+          {", first: null, last: null", "(first: 10)", 2}
+        ] do
+      selection =
+        Enum.reduce(1..depth, "id", fn _, inner ->
+          "fieldDefinitions#{pagination} { edges { node { recordType { #{inner} } } } }"
+        end)
+
+      response =
+        context.conn
+        |> post("/graphql", %{
+          query: """
+          { datasetRecordTypes(organizationId: "#{context.graph.organization.id}",
+              schemaVersionId: "#{Ecto.UUID.generate()}"#{root_pagination}) {
+              edges { node { #{selection} } }
+          } }
+          """
+        })
+        |> json_response(200)
+
+      assert Enum.any?(response["errors"], &String.contains?(&1["message"], "too complex"))
+      refute response["data"]
+    end
+  end
+
   test "authenticated GraphQL exposes the deliberate typed schema lifecycle", %{
     conn: conn,
     graph: graph
