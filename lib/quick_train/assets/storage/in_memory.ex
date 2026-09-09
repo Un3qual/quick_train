@@ -159,10 +159,9 @@ defmodule QuickTrain.Assets.Storage.InMemory do
   end
 
   def handle_call({:publish, key, bytes, facts}, _from, state) do
-    Process.sleep(state.publish_delay_ms)
-
     case Map.get(state.sealed, key) do
       nil ->
+        Process.sleep(state.publish_delay_ms)
         sealed = Map.put(state.sealed, key, %{bytes: bytes, facts: facts})
         {:reply, {:ok, facts}, %{state | sealed: sealed}}
 

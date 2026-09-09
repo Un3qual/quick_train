@@ -364,3 +364,33 @@ architecture checks, and Dialyzer pass. `mise run verify` stops at the unchanged
 LOW usage_rules 1.2.7 (GHSA-j59f-776f-23hp) and igniter 0.8.3
 (GHSA-cj7w-j579-gc42) advisories; the full tests and production compilation ran
 separately. No production modules, dependencies, or migrations were added.
+
+
+## 23. PR review thread follow-through
+
+- [x] 23.1 Fetch every review thread and top-level suggestion at `cca01c7`, including historical snapshot nitpicks; validate against current code and specifications.
+- [x] 23.2 Reject tag-like markup rather than selected HTML elements, validate PNG framing/checksums without decoding, and reject expired descriptors.
+- [x] 23.3 Route every pending finalization through verify-and-publish so canonical reuse still checks its staging; preserve late-publication retries and claim fencing.
+- [x] 23.4 Verify the focused regressions and complete project checks. Push without waiting for another review cycle.
+
+Disposition of the fetched comments:
+
+- OIDC retry (`3972755151`): no change; the authentication spec explicitly prohibits reuse after failed or interrupted exchange.
+- Actor fingerprint (`3972759407`): no behavior change; the initiating actor is immutable provenance, separate from the organization/dataset/key uniqueness scope. Clarify the design.
+- In-memory read-token retention (`3972760513`): deferred with the explicitly removed maintenance workflows; record this development-adapter limitation rather than restoring cleanup code.
+- Blank candidate external key (`3972760799`): no change; a live probe confirms Ash's default string constraints turn empty and whitespace-only strings into nil. The presence validation then requires an item ID.
+- Transient sealed-storage error (`3972762441`): the preliminary sealed-read branch is removed. Unknown errors after publication starts still retain the bounded claim because storage may still be running.
+- HTML denylist (`3972826959`): replace with a general tag-like markup rejection for the plain-text path; cover img, input, and custom elements.
+- PNG header (`3972826965`): validate the complete header, supported header fields, chunk lengths/CRCs, nonempty IDAT, and terminal IEND with Erlang's CRC builtin; use a real PNG fixture. No decompression or new dependency.
+- Decimal exponent (`3972826974`): no change; the installed Decimal 3.1.1 parser rejects `1e999999999`, `1e131072`, and `1e-16384` before expansion. Its default coefficient/exponent and rendering limits also fit PostgreSQL numeric. Retain these library limits.
+- Expired descriptors (`3972826983`): require expiry later than now as well as at or below the requested bound.
+- Canonical adoption (`3972987084`): remove the shortcut, always verify staged bytes before conditional publication/reuse, and retain existing duplicate/concurrency behavior.
+- Snapshot nitpicks (`5608339043`): no change; snapshots are historical migration inputs. The latest asset snapshot and removal migration already remove both obsolete fields.
+
+Verification on 2026-09-09: 143 tests pass, including the new HTML/PNG/canonical
+adoption regressions, expired descriptor checks, and existing late-publication
+and concurrent-convergence tests. Production compilation and all four OpenSpec
+items pass. Formatting, code generation, zero compile cycles, static/architecture
+checks, and Dialyzer pass. The full verification gate stops at the same LOW
+usage_rules/igniter advisories documented above; tests and production compilation
+ran separately. No production modules, dependencies, or migrations were added.

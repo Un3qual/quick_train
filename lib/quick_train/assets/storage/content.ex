@@ -1,7 +1,15 @@
 defmodule QuickTrain.Assets.Storage.Content do
   @moduledoc false
 
-  @active_pattern ~r/<\s*(?:html|head|body|script|iframe|object|embed|link|meta|style|svg)\b|<!doctype\s+html\b|xmlns\s*=\s*["']http:\/\/www\.w3\.org\/1999\/xhtml/i
+  # Plain text excludes tag-like markup, including custom elements and processing instructions.
+  @active_pattern ~r/<[a-z!\/?][^>]*>/i
+  @png_depths %{
+    0 => [1, 2, 4, 8, 16],
+    2 => [8, 16],
+    3 => [1, 2, 4, 8],
+    4 => [8, 16],
+    6 => [8, 16]
+  }
   @jpeg_start_of_frame [
     0xC0,
     0xC1,
@@ -57,6 +65,8 @@ defmodule QuickTrain.Assets.Storage.Content do
 
   defp matching_hash(_bytes, _expected), do: {:error, :content_mismatch}
 
+  defp reject_active_content(<<"%PDF-", _rest::binary>>), do: {:error, :unsupported_media_type}
+
   defp reject_active_content(bytes) do
     if String.valid?(bytes) and Regex.match?(@active_pattern, bytes) do
       {:error, :active_content_rejected}
@@ -66,10 +76,19 @@ defmodule QuickTrain.Assets.Storage.Content do
   end
 
   defp detect(
-         <<137, 80, 78, 71, 13, 10, 26, 10, _length::32, "IHDR", width::32, height::32,
-           _rest::binary>>
-       ) do
-    {:ok, "image/png", %{width: width, height: height}}
+         <<137, 80, 78, 71, 13, 10, 26, 10, 13::32, "IHDR", width::32, height::32, depth, color,
+           0, 0, interlace, crc::32, rest::binary>>
+       )
+       when interlace in [0, 1] do
+    header = <<"IHDR", width::32, height::32, depth, color, 0, 0, interlace>>
+
+    with true <- depth in Map.get(@png_depths, color, []),
+         true <- :erlang.crc32(header) == crc,
+         :ok <- png_chunks(rest, false) do
+      {:ok, "image/png", %{width: width, height: height}}
+    else
+      _invalid -> {:error, :unsupported_media_type}
+    end
   end
 
   defp detect(<<header::binary-size(6), width::little-16, height::little-16, _rest::binary>>)
@@ -84,8 +103,6 @@ defmodule QuickTrain.Assets.Storage.Content do
     end
   end
 
-  defp detect(<<"%PDF-", _rest::binary>>), do: {:error, :unsupported_media_type}
-
   defp detect(bytes) do
     if String.valid?(bytes) do
       {:ok, "text/plain", %{}}
@@ -93,6 +110,29 @@ defmodule QuickTrain.Assets.Storage.Content do
       {:error, :unsupported_media_type}
     end
   end
+
+  # Check framing and checksums without inflating attacker-controlled image data.
+  defp png_chunks(
+         <<length::32, type::binary-size(4), data::binary-size(length), crc::32, rest::binary>>,
+         has_data?
+       )
+       when length < 2_147_483_648 do
+    cond do
+      :erlang.crc32([type, data]) != crc or type == "IHDR" ->
+        :error
+
+      type == "IEND" ->
+        case {has_data?, data, rest} do
+          {true, "", ""} -> :ok
+          _invalid -> :error
+        end
+
+      true ->
+        png_chunks(rest, has_data? or (type == "IDAT" and length > 0))
+    end
+  end
+
+  defp png_chunks(_bytes, _has_data?), do: :error
 
   defp jpeg_dimensions(
          <<0xFF, marker, length::16, _precision::8, height::16, width::16, _components::8,

@@ -176,10 +176,15 @@ defmodule QuickTrain.Assets.Storage do
     do: {:error, :invalid_storage_descriptor}
 
   defp validate_expiry(descriptor_expires_at, %DateTime{} = requested_expires_at) do
-    if DateTime.compare(descriptor_expires_at, requested_expires_at) in [:lt, :eq] do
-      :ok
-    else
-      {:error, :storage_access_expiry_exceeded}
+    cond do
+      not DateTime.after?(descriptor_expires_at, DateTime.utc_now()) ->
+        {:error, :storage_access_expired}
+
+      DateTime.after?(descriptor_expires_at, requested_expires_at) ->
+        {:error, :storage_access_expiry_exceeded}
+
+      true ->
+        :ok
     end
   end
 

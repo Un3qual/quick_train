@@ -2,6 +2,7 @@ defmodule QuickTrain.Assets.StorageTest do
   use ExUnit.Case, async: false
 
   alias QuickTrain.Assets.Storage
+  alias QuickTrain.Assets.Storage.Content
   alias QuickTrain.Assets.Storage.InMemory, as: TestStorage
 
   defmodule InvalidDescriptorStorage do
@@ -56,50 +57,9 @@ defmodule QuickTrain.Assets.StorageTest do
     end
   end
 
-  @png <<
-    137,
-    80,
-    78,
-    71,
-    13,
-    10,
-    26,
-    10,
-    0,
-    0,
-    0,
-    13,
-    73,
-    72,
-    68,
-    82,
-    0,
-    0,
-    0,
-    2,
-    0,
-    0,
-    0,
-    3,
-    8,
-    2,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    73,
-    69,
-    78,
-    68,
-    0,
-    0,
-    0,
-    0
-  >>
+  @png Base.decode64!(
+         "iVBORw0KGgoAAAANSUhEUgAAAAIAAAADCAIAAAA2iEnWAAAAEElEQVR4nGP4z8AARAwoFABE0AX7pM/egAAAAABJRU5ErkJggg=="
+       )
 
   @jpeg <<
     0xFF,
@@ -279,6 +239,57 @@ defmodule QuickTrain.Assets.StorageTest do
     refute TestStorage.sealed?("sealed/late-active")
   end
 
+  test "plain-text declarations cannot publish unlisted HTML elements" do
+    for bytes <- [
+          "<img src=x onerror=alert(1)>",
+          "<input autofocus onfocus=alert(1)>",
+          "<custom-element onclick=alert(1)>"
+        ] do
+      expected = %{
+        sha256: :crypto.hash(:sha256, bytes),
+        byte_size: byte_size(bytes),
+        media_type: "text/plain"
+      }
+
+      assert {:error, :active_content_rejected} =
+               Content.verify(bytes, expected)
+    end
+  end
+
+  test "ordinary comparison text remains supported" do
+    bytes = "x < y and y > z"
+
+    expected = %{
+      sha256: :crypto.hash(:sha256, bytes),
+      byte_size: byte_size(bytes),
+      media_type: "text/plain"
+    }
+
+    assert {:ok, ^expected} = Content.verify(bytes, expected)
+  end
+
+  test "PNG verification requires complete chunks, checksums, image data, and an end marker" do
+    <<header::binary-size(29), _crc::32, rest::binary>> = @png
+
+    invalid = [
+      binary_part(@png, 0, 24),
+      header <> <<0::32>> <> rest,
+      binary_part(@png, 0, 33) <> binary_part(@png, byte_size(@png) - 12, 12),
+      binary_part(@png, 0, byte_size(@png) - 12)
+    ]
+
+    for bytes <- invalid do
+      expected = %{
+        sha256: :crypto.hash(:sha256, bytes),
+        byte_size: byte_size(bytes),
+        media_type: "image/png"
+      }
+
+      assert {:error, :unsupported_media_type} =
+               Content.verify(bytes, expected)
+    end
+  end
+
   test "PDF content is not published even with a plain-text declaration" do
     expires_at = DateTime.add(DateTime.utc_now(), 60, :second)
 
@@ -450,6 +461,13 @@ defmodule QuickTrain.Assets.StorageTest do
 
     assert {:error, :storage_access_expiry_exceeded} =
              Storage.sealed_read_access("sealed/overlong", expires_at)
+
+    past = DateTime.add(DateTime.utc_now(), -60, :second)
+
+    assert {:error, :storage_access_expired} =
+             Storage.writable_staging_access("staging/expired", 8, past)
+
+    assert {:error, :storage_access_expired} = Storage.sealed_read_access("sealed/expired", past)
   end
 
   test "a stateless storage adapter does not need to start a process" do

@@ -54,6 +54,14 @@ The system SHALL identify ready asset content by a SHA-256 hash supplied at regi
 - **WHEN** uploaded bytes have a PDF header, whether registered as PDF or plain text
 - **THEN** finalization rejects publication and creates no canonical object, including for binary PDF payloads
 
+#### Scenario: Another canonical upload does not hide mismatched staging
+- **WHEN** a pending registration contains mismatched staging bytes and matching canonical content was published by another registration
+- **THEN** finalization still verifies this registration's staging and records a content mismatch without adopting the canonical asset
+
+#### Scenario: Truncated PNG content is rejected
+- **WHEN** a purported PNG lacks a complete IHDR, valid chunk checksums, image-data chunks, or the terminal IEND
+- **THEN** verification rejects it without publishing canonical content or recording ready dimensions
+
 #### Scenario: Ready content cannot be replaced
 - **WHEN** an actor attempts to replace the content or content identity of a ready asset
 - **THEN** the system rejects the mutation and requires registration of a new asset
@@ -100,7 +108,7 @@ The system SHALL record validated image dimensions for image assets and SHALL ex
 - **THEN** finalization rejects the asset before full image decode and does not make the content ready
 
 ### Requirement: Provider-neutral authorized access
-The system SHALL keep storage locations private and SHALL obtain upload or download access through a configurable asset-storage adapter. Returned access SHALL be short-lived, scoped to the authorized asset operation, delivered only through authenticated encrypted transport such as HTTPS, and marked to prevent caching and referrer propagation. Access handling SHALL reject insecure or adapter-unapproved destinations and SHALL prevent storage credentials from being disclosed to them, including through redirects.
+The system SHALL keep storage locations private and SHALL obtain upload or download access through a configurable asset-storage adapter. Returned access SHALL expire after the current time and no later than the requested expiry, SHALL be short-lived, scoped to the authorized asset operation, delivered only through authenticated encrypted transport such as HTTPS, and marked to prevent caching and referrer propagation. Access handling SHALL reject insecure or adapter-unapproved destinations and SHALL prevent storage credentials from being disclosed to them, including through redirects.
 
 #### Scenario: Authorized access is short-lived
 - **WHEN** an authorized actor requests access to a ready asset

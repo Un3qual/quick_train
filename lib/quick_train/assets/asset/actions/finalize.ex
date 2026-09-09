@@ -32,7 +32,7 @@ defmodule QuickTrain.Assets.Asset.Actions.Finalize do
 
     case acquire_claim(asset_id, organization_id, claim_id) do
       {:ok, {:terminal, asset}} -> result(asset)
-      {:ok, {:claimed, asset}} -> reconcile_or_publish(asset, claim_id)
+      {:ok, {:claimed, asset}} -> publish(asset, claim_id)
       {:ok, :busy} -> {:error, :asset_operation_in_progress}
       {:ok, :missing} -> {:error, :asset_not_found}
       {:error, error} -> {:error, error}
@@ -74,24 +74,11 @@ defmodule QuickTrain.Assets.Asset.Actions.Finalize do
     end)
   end
 
-  defp reconcile_or_publish(asset, claim_id) do
+  defp publish(asset, claim_id) do
     sealed_key = sealed_key(asset)
     expected = expected_facts(asset)
     deadline_ms = config(:publication_deadline_ms)
 
-    case Storage.verify_sealed(sealed_key, expected, deadline_ms) do
-      {:ok, facts} ->
-        commit_success(asset.id, asset.organization_id, claim_id, sealed_key, facts)
-
-      {:error, :sealed_missing} ->
-        publish(asset, claim_id, sealed_key, expected, deadline_ms)
-
-      {:error, reason} ->
-        {:error, reason}
-    end
-  end
-
-  defp publish(asset, claim_id, sealed_key, expected, deadline_ms) do
     with {:ok, :started} <- start_publication(asset.id, asset.organization_id, claim_id) do
       case Storage.verify_and_publish(
              asset.staging_key,

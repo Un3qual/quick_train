@@ -16,7 +16,7 @@ Restore useful operator setup and unattended maintenance once there is a concret
 
 ## Current limitations while deferred
 
-There is no operator bootstrap or manager grant convenience action. Primitive organization, membership, role, and capability actions remain, with test-only fixture composition. Expired session/OIDC records, staging objects, and abandoned imports accumulate. Abandoned imports retain their idempotency keys. Cancelled or exhausted import jobs can leave rows and batch progress pending; ordinary Oban pruning may later remove job evidence. Expiry checks and normal finalization/processing still work. This state is suitable for current development, not unattended persistent operation.
+There is no operator bootstrap or manager grant convenience action. Primitive organization, membership, role, and capability actions remain, with test-only fixture composition. Expired session/OIDC records, staging objects, in-memory adapter access tokens, and abandoned imports accumulate. Abandoned imports retain their idempotency keys. Cancelled or exhausted import jobs can leave rows and batch progress pending; ordinary Oban pruning may later remove job evidence. Expiry checks and normal finalization/processing still work. This state is suitable for current development, not unattended persistent operation.
 
 ## Migration Plan
 

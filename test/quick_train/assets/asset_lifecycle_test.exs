@@ -151,6 +151,25 @@ defmodule QuickTrain.Assets.AssetLifecycleTest do
     assert TestStorage.sealed_count() == 0
   end
 
+  test "existing canonical content cannot hide a mismatched staging upload", %{
+    manager: manager,
+    graph: graph
+  } do
+    first = register!(graph.organization.id, manager, "expected", "text/plain")
+    second = register!(graph.organization.id, manager, "expected", "text/plain")
+    :ok = TestStorage.put_staging(first.upload_access, "expected")
+    :ok = TestStorage.put_staging(second.upload_access, "differnt")
+
+    assert Assets.finalize_asset!(first.asset.id, graph.organization.id, actor: manager).asset.state ==
+             :ready
+
+    rejected = Assets.finalize_asset!(second.asset.id, graph.organization.id, actor: manager)
+    assert rejected.asset.state == :failed
+    assert rejected.asset.failure_reason == "content_mismatch"
+    assert is_nil(rejected.canonical_asset)
+    assert TestStorage.sealed_count() == 1
+  end
+
   test "a staging overwrite racing finalization can never change ready bytes", %{
     manager: manager,
     graph: graph
