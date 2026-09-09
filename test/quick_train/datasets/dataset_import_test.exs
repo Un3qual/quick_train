@@ -150,6 +150,27 @@ defmodule QuickTrain.Datasets.DatasetImportTest do
     assert Ash.get!(DatasetImportRow, first.id, authorize?: false).id == first.id
   end
 
+  test "source-position conflicts take precedence over another row's external key", context do
+    import = open!(context, "conflict-precedence")
+    values = [%{field: "name", text: "Alice"}]
+    append!(context, import, "first", "first-customer", 0, values)
+    append!(context, import, "second", "second-customer", 1, values)
+
+    assert {:error, error} =
+             Datasets.append_import_row(
+               context.organization.id,
+               import.id,
+               "third",
+               "first-customer",
+               1,
+               values,
+               actor: context.manager
+             )
+
+    assert Exception.message(error) =~ "idempotency_conflict"
+    assert Ash.count!(DatasetImportRow, authorize?: false) == 2
+  end
+
   test "structural limits reject input before row identity reservation", context do
     import = open!(context, "limits")
     original = Application.fetch_env!(:quick_train, :dataset_imports)

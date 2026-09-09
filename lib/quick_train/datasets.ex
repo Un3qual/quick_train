@@ -172,6 +172,11 @@ defmodule QuickTrain.Datasets do
     end
 
     resource QuickTrain.Datasets.DatasetSchemaVersion do
+      define :get_published_record_schema,
+        action: :published_for_record_internal,
+        args: [:organization_id, :dataset_id, :schema_version_id],
+        not_found_error?: false
+
       define :create_schema_version_internal, action: :create_internal
 
       define :publish_schema_version_internal,
@@ -261,6 +266,10 @@ defmodule QuickTrain.Datasets do
     end
 
     resource QuickTrain.Datasets.DatasetImportRow do
+      define :find_import_row_conflicts,
+        action: :find_conflicts_internal,
+        args: [:organization_id, :import_id, :row_key, :source_position, :external_key]
+
       define :process_import_row, action: :process_internal, args: [:row_id]
 
       define :append_import_row,

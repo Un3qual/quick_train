@@ -215,3 +215,22 @@ checks, zero compile cycles, static analysis, and Dialyzer, then stopped at the
 unchanged `usage_rules` 1.2.7 and `igniter` 0.8.3 advisories recorded in section 13.
 Production build and tests were run separately. No new modules or anonymous
 changes/validations were added.
+
+## 17. Approved Ash feature adoption
+
+- [x] 17.1 Share a prepared, organization-scoped published-schema read for record construction.
+- [x] 17.2 Resolve ready or canonical assets through one relationship-filtered read, preserving errors and authorization.
+- [x] 17.3 Combine import identity conflict lookups after the import lock, retaining row-key retry and conflict precedence.
+- [x] 17.4 Select only pending row IDs during transactional job scheduling.
+- [x] 17.5 Bulk-create normalized value parents and typed children by family within the existing record transaction, preserving association and rollback.
+- [x] 17.6 Verify behavior, actual batching, review, full checks, and independent OpenSpec validation.
+
+Verification on 2026-09-09: all 130 tests passed, including mixed-family identity,
+child-batch rollback, conflict precedence, asset access, and scheduling rollback.
+An isolated 100-text-field probe measured one value-parent INSERT and one text-child
+INSERT and checked every field/value association. Production compilation and all
+four OpenSpec items passed. The full gate passed compilation, formatting, code
+generation, architecture, duplication and smell checks, and Dialyzer, then stopped
+at the unchanged `usage_rules` 1.2.7 and `igniter` 0.8.3 advisories recorded in section
+13; production build and tests were run separately. Final inline review found no
+remaining issues.

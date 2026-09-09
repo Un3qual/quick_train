@@ -13,7 +13,6 @@ defmodule QuickTrain.Datasets.DatasetItemRevision.Actions.Put do
     DatasetItem,
     DatasetItemRevision,
     DatasetRecord,
-    DatasetSchemaVersion,
     Fingerprint
   }
 
@@ -54,15 +53,12 @@ defmodule QuickTrain.Datasets.DatasetItemRevision.Actions.Put do
   defp occurrences(schema, arguments), do: Values.normalize(schema, arguments.values)
 
   defp published_schema(arguments) do
-    DatasetSchemaVersion
-    |> Ash.Query.filter(
-      id == ^arguments.schema_version_id and
-        dataset_id == ^arguments.dataset_id and
-        dataset.organization_id == ^arguments.organization_id and
-        state == :published
+    Datasets.get_published_record_schema!(
+      arguments.organization_id,
+      arguments.dataset_id,
+      arguments.schema_version_id,
+      authorize?: false
     )
-    |> Ash.Query.load(root_record_type: :field_definitions)
-    |> Ash.read_one!(authorize?: false)
   end
 
   defp put(arguments, schema, occurrences, fingerprint, attempts) do

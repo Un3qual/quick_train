@@ -64,6 +64,20 @@ defmodule QuickTrain.Datasets.DatasetImportRow do
   end
 
   actions do
+    read :find_conflicts_internal do
+      argument :organization_id, :uuid, allow_nil?: false
+      argument :import_id, :uuid, allow_nil?: false
+      argument :row_key, :string, allow_nil?: false
+      argument :source_position, :integer, allow_nil?: false
+      argument :external_key, :string
+
+      filter expr(
+               organization_id == ^arg(:organization_id) and import_id == ^arg(:import_id) and
+                 (row_key == ^arg(:row_key) or source_position == ^arg(:source_position) or
+                    (not is_nil(^arg(:external_key)) and external_key == ^arg(:external_key)))
+             )
+    end
+
     action :process_internal, :atom do
       allow_nil? false
       argument :row_id, :uuid, allow_nil?: false

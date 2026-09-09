@@ -21,6 +21,11 @@ defmodule QuickTrain.Assets do
 
   resources do
     resource Asset do
+      define :get_accessible_asset_internal,
+        action: :resolve_ready_internal,
+        args: [:asset_id, :organization_id],
+        not_found_error?: false
+
       define :release_asset_claim,
         action: :release_unpublished_claim,
         get_by: [:id, :organization_id]

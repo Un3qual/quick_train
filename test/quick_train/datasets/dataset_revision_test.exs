@@ -3,6 +3,7 @@ defmodule QuickTrain.Datasets.DatasetRevisionTest do
 
   alias QuickTrain.{Accounts, Assets, Datasets}
   alias QuickTrain.Assets.Storage.InMemory, as: TestStorage
+  alias QuickTrain.Datasets.DatasetRecord.Values
 
   alias QuickTrain.Datasets.{
     DatasetItem,
@@ -22,6 +23,45 @@ defmodule QuickTrain.Datasets.DatasetRevisionTest do
     graph = published_schema(graph.organization.id, manager)
 
     Map.merge(graph, %{manager: manager, organization: graph.organization, asset: asset})
+  end
+
+  test "a failed typed-child batch rolls back the entire constructed record", context do
+    resources = [
+      DatasetRecord,
+      DatasetValue,
+      DatasetValue.Text,
+      DatasetValue.Integer,
+      DatasetValue.Decimal,
+      DatasetValue.Boolean,
+      DatasetValue.DateTime,
+      DatasetValue.Asset
+    ]
+
+    before_counts = Map.new(resources, &{&1, Ash.count!(&1, authorize?: false)})
+
+    {:ok, occurrences} =
+      Values.normalize(
+        Ash.load!(context.schema, [root_record_type: :field_definitions], authorize?: false),
+        values(context.asset.id, "Alice", "1.00", "2026-01-02T01:04:05.123456Z")
+      )
+
+    invalid =
+      Enum.map(occurrences, fn
+        %{family: :integer} = occurrence -> %{occurrence | value: "not an integer"}
+        occurrence -> occurrence
+      end)
+
+    assert {:error, %Ash.Error.Invalid{}} =
+             Datasets.construct_record(
+               context.organization.id,
+               context.dataset.id,
+               context.schema.id,
+               context.root.id,
+               invalid,
+               authorize?: false
+             )
+
+    assert Map.new(resources, &{&1, Ash.count!(&1, authorize?: false)}) == before_counts
   end
 
   test "enum-backed value families preserve version one fingerprint identities" do

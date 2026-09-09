@@ -39,6 +39,7 @@ defmodule QuickTrain.Datasets.DatasetImport.Actions.Finalize do
       DatasetImportRow
       |> Ash.Query.filter(import_id == ^import.id and outcome == :pending)
       |> Ash.Query.sort(source_position: :asc, id: :asc)
+      |> Ash.Query.select([:id])
       |> Ash.read!(authorize?: false)
 
     sealed =

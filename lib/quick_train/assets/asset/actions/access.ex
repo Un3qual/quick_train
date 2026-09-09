@@ -5,9 +5,8 @@ defmodule QuickTrain.Assets.Asset.Actions.Access do
 
   use Ash.Resource.Actions.Implementation
 
-  require Ash.Query
-
-  alias QuickTrain.Assets.{Asset, AssetAccessResult, Storage}
+  alias QuickTrain.Assets
+  alias QuickTrain.Assets.{AssetAccessResult, Storage}
 
   @impl true
   def run(input, _opts, _context), do: DatasetAssetError.wrap(execute(input))
@@ -22,27 +21,10 @@ defmodule QuickTrain.Assets.Asset.Actions.Access do
   end
 
   defp accessible_asset(asset_id, organization_id) do
-    asset =
-      Asset
-      |> Ash.Query.filter(id == ^asset_id and organization_id == ^organization_id)
-      |> Ash.read_one!(authorize?: false)
-
-    case asset do
-      %{state: :ready} = asset ->
-        {:ok, asset}
-
-      %{state: :duplicate_content, canonical_asset_id: canonical_asset_id} ->
-        canonical =
-          Asset
-          |> Ash.Query.filter(
-            id == ^canonical_asset_id and organization_id == ^organization_id and state == :ready
-          )
-          |> Ash.read_one!(authorize?: false)
-
-        if canonical, do: {:ok, canonical}, else: {:error, :asset_not_ready}
-
-      _asset ->
-        {:error, :asset_not_ready}
+    case Assets.get_accessible_asset_internal(asset_id, organization_id, authorize?: false) do
+      {:ok, nil} -> {:error, :asset_not_ready}
+      {:ok, asset} -> {:ok, asset}
+      {:error, error} -> {:error, error}
     end
   end
 

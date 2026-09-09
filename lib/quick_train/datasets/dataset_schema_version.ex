@@ -61,6 +61,20 @@ defmodule QuickTrain.Datasets.DatasetSchemaVersion do
              )
     end
 
+    read :published_for_record_internal do
+      get? true
+      argument :organization_id, :uuid, allow_nil?: false
+      argument :dataset_id, :uuid, allow_nil?: false
+      argument :schema_version_id, :uuid, allow_nil?: false
+
+      filter expr(
+               id == ^arg(:schema_version_id) and dataset_id == ^arg(:dataset_id) and
+                 dataset.organization_id == ^arg(:organization_id) and state == :published
+             )
+
+      prepare build(load: [root_record_type: :field_definitions])
+    end
+
     action :create_draft, :struct do
       allow_nil? false
       constraints instance_of: __MODULE__

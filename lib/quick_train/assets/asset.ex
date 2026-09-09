@@ -74,6 +74,22 @@ defmodule QuickTrain.Assets.Asset do
       filter expr(id == ^arg(:asset_id) and organization_id == ^arg(:organization_id))
     end
 
+    read :resolve_ready_internal do
+      get? true
+      argument :asset_id, :uuid, allow_nil?: false
+      argument :organization_id, :uuid, allow_nil?: false
+
+      filter expr(
+               organization_id == ^arg(:organization_id) and state == :ready and
+                 (id == ^arg(:asset_id) or
+                    exists(
+                      duplicate_assets,
+                      id == ^arg(:asset_id) and organization_id == ^arg(:organization_id) and
+                        state == :duplicate_content
+                    ))
+             )
+    end
+
     action :register, AssetRegistrationResult do
       allow_nil? false
       argument :organization_id, :uuid, allow_nil?: false

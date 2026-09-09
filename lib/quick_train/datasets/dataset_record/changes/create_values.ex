@@ -16,67 +16,58 @@ defmodule QuickTrain.Datasets.DatasetRecord.Changes.CreateValues do
     occurrences = Ash.Changeset.get_argument(changeset, :occurrences)
 
     Ash.Changeset.after_action(changeset, fn _changeset, record ->
-      Enum.each(occurrences, &create_occurrence!(record, &1))
+      scope =
+        record
+        |> Map.take([:organization_id, :dataset_id, :schema_version_id, :record_type_id])
+        |> Map.put(:record_id, record.id)
+
+      inputs =
+        Enum.map(occurrences, fn occurrence ->
+          Map.merge(scope, %{
+            field_definition_id: occurrence.field.id,
+            ordinal: occurrence.ordinal
+          })
+        end)
+
+      values = bulk_create!(DatasetValue, inputs, return_records?: true, sorted?: true)
+
+      occurrences
+      |> Enum.zip(values.records)
+      |> Enum.group_by(fn {occurrence, _value} -> occurrence.family end)
+      |> Enum.each(fn {family, entries} ->
+        inputs = Enum.map(entries, &child_attributes(&1, record.organization_id))
+
+        bulk_create!(typed_resource(family), inputs)
+      end)
+
       {:ok, record}
     end)
   end
 
-  defp create_occurrence!(record, occurrence) do
-    value =
-      DatasetValue
-      |> Ash.Changeset.for_create(:create_internal, %{
-        organization_id: record.organization_id,
-        dataset_id: record.dataset_id,
-        schema_version_id: record.schema_version_id,
-        record_type_id: record.record_type_id,
-        record_id: record.id,
-        field_definition_id: occurrence.field.id,
-        ordinal: occurrence.ordinal
-      })
-      |> Ash.create!(authorize?: false)
-
-    create_typed_value!(value.id, record.organization_id, occurrence)
+  defp bulk_create!(resource, inputs, opts \\ []) do
+    Ash.bulk_create!(
+      inputs,
+      resource,
+      :create_internal,
+      Keyword.merge(
+        [authorize?: false, return_errors?: true, stop_on_error?: true, transaction: :all],
+        opts
+      )
+    )
   end
 
-  defp create_typed_value!(dataset_value_id, _organization_id, %{family: :text, value: value}) do
-    create_scalar!(TextValue, dataset_value_id, value)
+  defp child_attributes({%{family: :asset, value: asset_id}, value}, organization_id) do
+    %{dataset_value_id: value.id, organization_id: organization_id, asset_id: asset_id}
   end
 
-  defp create_typed_value!(dataset_value_id, _organization_id, %{family: :integer, value: value}) do
-    create_scalar!(IntegerValue, dataset_value_id, value)
+  defp child_attributes({occurrence, value}, _organization_id) do
+    %{dataset_value_id: value.id, value: occurrence.value}
   end
 
-  defp create_typed_value!(dataset_value_id, _organization_id, %{family: :decimal, value: value}) do
-    create_scalar!(DecimalValue, dataset_value_id, value)
-  end
-
-  defp create_typed_value!(dataset_value_id, _organization_id, %{family: :boolean, value: value}) do
-    create_scalar!(BooleanValue, dataset_value_id, value)
-  end
-
-  defp create_typed_value!(dataset_value_id, _organization_id, %{
-         family: :utc_datetime,
-         value: value
-       }) do
-    create_scalar!(DateTimeValue, dataset_value_id, value)
-  end
-
-  defp create_typed_value!(dataset_value_id, organization_id, %{family: :asset, value: asset_id}) do
-    AssetValue
-    |> Ash.Changeset.for_create(:create_internal, %{
-      dataset_value_id: dataset_value_id,
-      organization_id: organization_id,
-      asset_id: asset_id
-    })
-    |> Ash.create!(authorize?: false)
-  end
-
-  defp create_scalar!(resource, dataset_value_id, value) do
-    resource
-    |> Ash.Changeset.for_create(:create_internal, %{
-      dataset_value_id: dataset_value_id,
-      value: value
-    })
-    |> Ash.create!(authorize?: false)
-  end
+  defp typed_resource(:text), do: TextValue
+  defp typed_resource(:integer), do: IntegerValue
+  defp typed_resource(:decimal), do: DecimalValue
+  defp typed_resource(:boolean), do: BooleanValue
+  defp typed_resource(:utc_datetime), do: DateTimeValue
+  defp typed_resource(:asset), do: AssetValue
 end

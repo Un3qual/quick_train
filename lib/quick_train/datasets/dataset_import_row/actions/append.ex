@@ -3,7 +3,7 @@ defmodule QuickTrain.Datasets.DatasetImportRow.Actions.Append do
   # credo:disable-for-this-file Credo.Check.Refactor.Nesting
   @moduledoc false
 
-  alias QuickTrain.DatasetAssetError
+  alias QuickTrain.{DatasetAssetError, Datasets}
 
   use Ash.Resource.Actions.Implementation
 
@@ -65,29 +65,48 @@ defmodule QuickTrain.Datasets.DatasetImportRow.Actions.Append do
   end
 
   defp accept_or_retry(import, schema, arguments, entries, fingerprint) do
-    row_by_key = row_by(import.id, :row_key, arguments.row_key)
+    conflict =
+      Datasets.find_import_row_conflicts!(
+        import.organization_id,
+        import.id,
+        arguments.row_key,
+        arguments.source_position,
+        arguments.external_key,
+        authorize?: false
+      )
+      |> Enum.min_by(&conflict_priority(&1, arguments), fn -> nil end)
 
-    cond do
-      row_by_key && row_by_key.fingerprint == fingerprint ->
-        row_by_key
+    row_key = arguments.row_key
+    source_position = arguments.source_position
 
-      row_by_key ->
+    case conflict do
+      %{row_key: ^row_key, fingerprint: ^fingerprint} = row ->
+        row
+
+      %{row_key: ^row_key} ->
         DatasetAssetError.invalid(:idempotency_conflict)
 
-      row_by(import.id, :source_position, arguments.source_position) ->
+      %{source_position: ^source_position} ->
         DatasetAssetError.invalid(:idempotency_conflict)
 
-      arguments.external_key && row_by(import.id, :external_key, arguments.external_key) ->
+      %{} ->
         DatasetAssetError.invalid(:duplicate_external_key)
 
-      Ash.count!(Ash.Query.filter(DatasetImportRow, import_id == ^import.id), authorize?: false) >=
-          Application.fetch_env!(:quick_train, :dataset_imports)[:max_rows_per_import] ->
-        DatasetAssetError.invalid(:import_row_limit_exceeded)
-
-      true ->
-        persist_row(import, schema, arguments, entries, fingerprint)
+      nil ->
+        if Ash.count!(Ash.Query.filter(DatasetImportRow, import_id == ^import.id),
+             authorize?: false
+           ) >=
+             Application.fetch_env!(:quick_train, :dataset_imports)[:max_rows_per_import] do
+          DatasetAssetError.invalid(:import_row_limit_exceeded)
+        else
+          persist_row(import, schema, arguments, entries, fingerprint)
+        end
     end
   end
+
+  defp conflict_priority(%{row_key: key}, %{row_key: key}), do: 0
+  defp conflict_priority(%{source_position: position}, %{source_position: position}), do: 1
+  defp conflict_priority(_row, _arguments), do: 2
 
   defp persist_row(import, schema, arguments, entries, fingerprint) do
     candidate =
@@ -140,21 +159,12 @@ defmodule QuickTrain.Datasets.DatasetImportRow.Actions.Append do
   end
 
   defp published_schema(import) do
-    DatasetSchemaVersion
-    |> Ash.Query.filter(
-      id == ^import.schema_version_id and dataset_id == ^import.dataset_id and
-        state == :published
+    Datasets.get_published_record_schema!(
+      import.organization_id,
+      import.dataset_id,
+      import.schema_version_id,
+      authorize?: false
     )
-    |> Ash.Query.load(root_record_type: :field_definitions)
-    |> Ash.read_one!(authorize?: false)
-  end
-
-  defp row_by(import_id, field, value) do
-    filter = [{:import_id, import_id}, {field, value}]
-
-    DatasetImportRow
-    |> Ash.Query.filter(^filter)
-    |> Ash.read_one!(authorize?: false)
   end
 
   defp sanitize(reason) when is_atom(reason), do: Atom.to_string(reason)
