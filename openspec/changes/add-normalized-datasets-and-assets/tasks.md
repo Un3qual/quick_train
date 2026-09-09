@@ -462,3 +462,16 @@ Verification on 2026-09-09: all 19 focused import tests and all 144 full-suite t
 passed. `mise run verify` passed including static analysis, Dialyzer, production
 compilation, and a clean dependency audit. Independent strict OpenSpec validation
 passed all four artifacts.
+
+## 28. Dataset metadata validation
+
+- [x] 28.1 Reject NUL in dataset keys and names with built-in Ash string constraints (3973830312).
+- [x] 28.2 Verify field errors without persistence, corrected creation, the full gate, and independent OpenSpec validation.
+
+The fix is local to existing resource attributes. No module, callback, migration,
+or deferred capability is added; prior review dispositions remain unchanged.
+
+Verification on 2026-09-09: seven focused schema lifecycle tests and all 145
+full-suite tests passed. `mise run verify` passed, including static analysis,
+Dialyzer, production compilation, and a clean dependency audit. Independent strict
+OpenSpec validation passed all four artifacts.

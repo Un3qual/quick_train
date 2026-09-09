@@ -12,6 +12,26 @@ defmodule QuickTrain.Datasets.DatasetSchemaLifecycleTest do
     %{manager: manager, organization: graph.organization}
   end
 
+  test "dataset metadata rejects NUL before persistence", %{
+    manager: manager,
+    organization: organization
+  } do
+    for {key, name, field} <- [
+          {"customers" <> <<0>>, "Customers", "key"},
+          {"customers", "Customers" <> <<0>>, "name"}
+        ] do
+      assert {:error, %Ash.Error.Invalid{} = error} =
+               Datasets.create_dataset(organization.id, key, name, actor: manager)
+
+      assert Exception.message(error) =~ field
+    end
+
+    assert Ash.count!(QuickTrain.Datasets.Dataset, authorize?: false) == 0
+
+    assert Datasets.create_dataset!(organization.id, "customers", "Customers", actor: manager).key ==
+             "customers"
+  end
+
   test "creates, validates, publishes, and versions an organization dataset schema", context do
     %{manager: manager, organization: organization} = context
 

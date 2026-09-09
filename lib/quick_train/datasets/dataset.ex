@@ -16,11 +16,13 @@ defmodule QuickTrain.Datasets.Dataset do
 
     attribute :key, :string,
       allow_nil?: false,
-      public?: true
+      public?: true,
+      constraints: [match: ~r/\A[^\x00]*\z/u]
 
     attribute :name, :string,
       allow_nil?: false,
-      public?: true
+      public?: true,
+      constraints: [match: ~r/\A[^\x00]*\z/u]
 
     timestamps()
   end

@@ -7,6 +7,10 @@ Provide organization-owned datasets whose schemas, items, revisions, records, an
 ### Requirement: Organization-scoped datasets
 The system SHALL require an active authenticated account, an active owning organization, an active membership in that organization, and the appropriate dataset capability for every caller-initiated dataset-management action. Dataset definitions, items, revisions, and values SHALL fail closed when the owning organization is inactive or the actor is unauthorized.
 
+#### Scenario: Dataset metadata rejects NUL
+- **WHEN** dataset creation supplies a key or name containing NUL
+- **THEN** Ash returns a field validation error before persistence, and corrected metadata can still be used to create the dataset
+
 #### Scenario: Authorized manager creates a dataset
 - **WHEN** an active member of an active organization with the dataset-management capability creates a dataset
 - **THEN** the system creates the dataset under that organization
