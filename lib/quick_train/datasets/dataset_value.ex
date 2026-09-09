@@ -95,15 +95,6 @@ defmodule QuickTrain.Datasets.DatasetValue do
       ]
     end
 
-    destroy :destroy_internal do
-      change cascade_destroy(:text_value, action: :destroy_internal, after_action?: false)
-      change cascade_destroy(:integer_value, action: :destroy_internal, after_action?: false)
-      change cascade_destroy(:decimal_value, action: :destroy_internal, after_action?: false)
-      change cascade_destroy(:boolean_value, action: :destroy_internal, after_action?: false)
-      change cascade_destroy(:date_time_value, action: :destroy_internal, after_action?: false)
-      change cascade_destroy(:asset_value, action: :destroy_internal, after_action?: false)
-    end
-
     read :list_scoped do
       argument :organization_id, :uuid, allow_nil?: false
       argument :revision_id, :uuid, allow_nil?: false

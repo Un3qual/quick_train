@@ -10,9 +10,8 @@ defmodule QuickTrainWeb.DatasetRevisionGraphqlTest do
     manager = Accounts.register_user!("graphql-revisions@example.test", "GraphQL Revisions")
 
     graph =
-      Accounts.bootstrap_first_manager!(manager.id, "graphql-revisions", "GraphQL Revisions")
+      organization_manager_fixture(manager.id, "graphql-revisions", "GraphQL Revisions")
 
-    Datasets.grant_dataset_and_asset_capabilities!(graph.organization.id, manager.id)
     session = Accounts.issue_bearer_session!(manager.id)
 
     dataset =

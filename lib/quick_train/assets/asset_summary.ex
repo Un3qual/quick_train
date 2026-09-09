@@ -21,7 +21,6 @@ defmodule QuickTrain.Assets.AssetSummary do
     attribute :failure_reason, :string, public?: true
     attribute :canonical_asset_id, :uuid, public?: true
     attribute :staging_expires_at, :utc_datetime_usec, allow_nil?: false, public?: true
-    attribute :staging_cleaned_at, :utc_datetime_usec, public?: true
   end
 
   graphql do

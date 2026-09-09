@@ -36,8 +36,6 @@ defmodule QuickTrain.Datasets.DatasetValue.Asset do
     create :create_internal do
       accept [:organization_id, :dataset_value_id, :asset_id]
     end
-
-    destroy :destroy_internal
   end
 
   graphql do

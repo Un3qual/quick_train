@@ -103,19 +103,6 @@ defmodule QuickTrain.Datasets.DatasetImport do
   end
 
   actions do
-    action :cleanup_expired, :atom do
-      allow_nil? false
-      argument :import_id, :uuid, allow_nil?: false
-      argument :now, :utc_datetime_usec, allow_nil?: false, default: &DateTime.utc_now/0
-      run {Module.concat(["QuickTrain.Datasets.DatasetImport.Cleanup"]), []}
-    end
-
-    read :expired_open do
-      argument :now, :utc_datetime_usec, allow_nil?: false
-      filter expr(phase == :open and open_expires_at <= ^arg(:now))
-      prepare build(sort: [open_expires_at: :asc, id: :asc])
-    end
-
     defaults [:read]
 
     action :open, :struct do
@@ -175,8 +162,6 @@ defmodule QuickTrain.Datasets.DatasetImport do
       validate attribute_equals(:phase, :open)
       change set_attribute(:phase, :sealed)
     end
-
-    destroy :destroy_internal
   end
 
   policies do
@@ -221,8 +206,6 @@ defmodule QuickTrain.Datasets.DatasetImport do
       index [:id, :organization_id, :dataset_id, :schema_version_id],
         unique: true,
         name: "dataset_imports_id_full_scope_index"
-
-      index [:phase, :open_expires_at, :id], name: "dataset_imports_expiry_cursor_index"
     end
 
     check_constraints do

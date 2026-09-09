@@ -1,3 +1,5 @@
+> Current scope update (2026-09-09): bootstrap and maintenance work recorded as completed below was subsequently removed by explicit request. Section 14 supersedes those historical steps. Restoration is future work in `restore-operator-bootstrap-and-maintenance`, not an incomplete prerequisite for this change.
+
 ## 1. Prerequisite and Product Domain Foundation
 
 - [x] 1.1 Confirm `add-api-authentication` is implemented and verified so product GraphQL operations have an authenticated Ash actor and the shared Oban dependency is available.
@@ -156,3 +158,23 @@ The remaining production build and full test suite were run separately and passe
 (146 tests). Independent review found no actionable issues; independent OpenSpec
 validation passed all three items. Dependency updates remain a separate follow-up;
 the full verification gate is not green until those advisories are resolved.
+
+## 14. Defer operator bootstrap and maintenance
+
+- [x] 14.1 Create an explicitly future OpenSpec restoration change with readiness conditions and restoration requirements.
+- [x] 14.2 Remove operator setup/grant helpers, custom maintenance workers/actions, and cleanup-only storage/resource support; retain expiry, authorization, immutable content, and normal processing.
+- [x] 14.3 Generate and review migrations, update meaningful tests and operator documentation, and synchronize active specifications with the deferred scope.
+- [x] 14.4 Run verification, independent review, and independent OpenSpec validation; record actual results.
+
+Deferral verification on 2026-09-09: the reviewed migration applied successfully in the
+test database; all 127 retained tests passed, including expiry rejection and finalizer
+retry after claim expiry. Production compilation passed. The full `mise run verify`
+passed compilation, formatting, code-generation, boundary/architecture checks, static
+analysis, and Dialyzer, then stopped at the unchanged `usage_rules` 1.2.7 and `igniter`
+0.8.3 advisories recorded in section 13. Production build and tests were run separately.
+Independent review found one obsolete design sentence promising terminal-job recovery;
+it was removed. Independent OpenSpec validation passed all four items. The full gate
+remains blocked by those dependency advisories. This pass removes 1,965 net application/
+test lines. The migration removes maintenance metadata and indexes, preserves content
+and provenance, and deliberately requires a reviewed forward migration to restore lost
+metadata instead of offering an unsafe rollback.

@@ -7,8 +7,7 @@ defmodule QuickTrain.Datasets.DatasetSchemaLifecycleTest do
 
   setup do
     manager = Accounts.register_user!("dataset-manager@example.test", "Dataset Manager")
-    graph = Accounts.bootstrap_first_manager!(manager.id, "dataset-org", "Dataset Org")
-    Datasets.grant_dataset_and_asset_capabilities!(graph.organization.id, manager.id)
+    graph = organization_manager_fixture(manager.id, "dataset-org", "Dataset Org")
 
     %{manager: manager, organization: graph.organization}
   end
@@ -316,9 +315,7 @@ defmodule QuickTrain.Datasets.DatasetSchemaLifecycleTest do
     {schema, _root} = create_draft_schema(organization.id, manager)
 
     other =
-      Accounts.bootstrap_first_manager!(outsider.id, "other-dataset-org", "Other Dataset Org")
-
-    Datasets.grant_dataset_and_asset_capabilities!(other.organization.id, outsider.id)
+      organization_manager_fixture(outsider.id, "other-dataset-org", "Other Dataset Org")
 
     assert {:error, scoped_error} =
              Datasets.add_record_type(

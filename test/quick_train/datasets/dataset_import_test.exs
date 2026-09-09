@@ -7,11 +7,7 @@ defmodule QuickTrain.Datasets.DatasetImportTest do
   alias QuickTrain.{Accounts, Datasets}
   alias QuickTrain.Datasets.{DatasetImport, DatasetImportRow, DatasetItem, DatasetRecord}
 
-  alias QuickTrain.Datasets.Workers.{
-    ExpiredOpenImportCleanup,
-    ImportRowTerminalization,
-    ProcessImportRow
-  }
+  alias QuickTrain.Datasets.Workers.ProcessImportRow
 
   defmodule FailingScheduler do
     def enqueue(_row_id), do: {:error, :simulated_schedule_failure}
@@ -19,8 +15,7 @@ defmodule QuickTrain.Datasets.DatasetImportTest do
 
   setup do
     manager = Accounts.register_user!("import-manager@example.test", "Import Manager")
-    graph = Accounts.bootstrap_first_manager!(manager.id, "import-org", "Import Org")
-    Datasets.grant_dataset_and_asset_capabilities!(graph.organization.id, manager.id)
+    graph = organization_manager_fixture(manager.id, "import-org", "Import Org")
 
     dataset =
       Datasets.create_dataset!(graph.organization.id, "customers", "Customers", actor: manager)
@@ -241,13 +236,6 @@ defmodule QuickTrain.Datasets.DatasetImportTest do
     assert revision.root_record_id == pending.candidate_record_id
     assert Ash.count!(DatasetRecord, authorize?: false) == 1
 
-    assert {:ok, :skipped} =
-             Datasets.cleanup_expired_import(
-               import.id,
-               %{now: DateTime.add(import.open_expires_at, 1, :second)},
-               authorize?: false
-             )
-
     assert Ash.get!(DatasetRecord, revision.root_record_id, authorize?: false)
 
     assert :ok = perform_job(ProcessImportRow, %{"row_id" => pending.id})
@@ -308,19 +296,6 @@ defmodule QuickTrain.Datasets.DatasetImportTest do
   end
 
   @tag :committed_db
-  test "destroying a referenced candidate rolls back its child deletions", context do
-    import = open!(context, "protected-candidate")
-    row = append!(context, import, "protected", nil, 0, [%{field: "name", text: "Retain"}])
-    Datasets.finalize_import!(context.organization.id, import.id, actor: context.manager)
-    assert :ok = perform_job(ProcessImportRow, %{"row_id" => row.id})
-    record = Ash.get!(DatasetRecord, row.candidate_record_id, authorize?: false)
-
-    assert {:error, _error} = Ash.destroy(record, action: :destroy_internal, authorize?: false)
-
-    record = Ash.load!(record, [values: :text_value], authorize?: false)
-    assert [%{text_value: %{value: "Retain"}}] = record.values
-  end
-
   test "a row-job scheduling failure rolls sealing back atomically", context do
     import = open!(context, "schedule-rollback")
     append!(context, import, "row", "customer", 0, [%{field: "name", text: "Alice"}])
@@ -340,121 +315,6 @@ defmodule QuickTrain.Datasets.DatasetImportTest do
     assert persisted.phase == :open
     assert is_nil(persisted.sealed_at)
     assert all_enqueued(worker: ProcessImportRow) == []
-  end
-
-  test "terminal-job reconciliation fails a still-pending row without a revision", context do
-    import = open!(context, "terminalize")
-
-    row =
-      append!(context, import, "terminal", "customer-terminal", 0, [
-        %{field: "name", text: "Terminal"}
-      ])
-
-    Datasets.finalize_import!(context.organization.id, import.id, actor: context.manager)
-
-    [job] = all_enqueued(worker: ProcessImportRow)
-    assert :ok = Oban.cancel_job(job.id)
-    assert :ok = perform_job(ImportRowTerminalization, %{})
-
-    terminal = Ash.get!(DatasetImportRow, row.id, authorize?: false)
-    assert terminal.outcome == :failed
-    assert terminal.error_code == "processing_retries_exhausted"
-    assert is_nil(terminal.item_revision_id)
-    assert Ash.count!(DatasetItem, authorize?: false) == 0
-
-    config = Application.fetch_env!(:quick_train, Oban)
-    assert config[:pruner][:max_age] == {1, :day}
-    assert {"*/10 * * * *", ImportRowTerminalization} in config[:cron][:crontab]
-  end
-
-  test "terminal-job reconciliation is not starved by older jobs for terminal rows", context do
-    old_import = open!(context, "terminalize-old")
-
-    old_row =
-      append!(context, old_import, "already-terminal", nil, 0, [
-        %{field: "balance", decimal: "1"}
-      ])
-
-    assert old_row.outcome == :failed
-
-    for _index <- 1..100 do
-      %{row_id: old_row.id}
-      |> ProcessImportRow.new(state: "cancelled")
-      |> QuickTrain.Repo.insert!()
-    end
-
-    target_import = open!(context, "terminalize-target")
-
-    target_row =
-      append!(context, target_import, "target", "customer-target", 0, [
-        %{field: "name", text: "Target"}
-      ])
-
-    Datasets.finalize_import!(
-      context.organization.id,
-      target_import.id,
-      actor: context.manager
-    )
-
-    [target_job] = all_enqueued(worker: ProcessImportRow)
-    assert :ok = Oban.cancel_job(target_job.id)
-    assert :ok = perform_job(ImportRowTerminalization, %{})
-
-    terminal = Ash.get!(DatasetImportRow, target_row.id, authorize?: false)
-    assert terminal.outcome == :failed
-    assert terminal.error_code == "processing_retries_exhausted"
-  end
-
-  test "terminal-job reconciliation continues after a full bounded page", context do
-    backlog_import = open!(context, "terminalize-backlog")
-
-    backlog_rows =
-      for source_position <- 0..99 do
-        append!(
-          context,
-          backlog_import,
-          "backlog-#{source_position}",
-          "backlog-customer-#{source_position}",
-          source_position,
-          [%{field: "name", text: "Backlog #{source_position}"}]
-        )
-      end
-
-    Datasets.finalize_import!(
-      context.organization.id,
-      backlog_import.id,
-      actor: context.manager
-    )
-
-    for job <- all_enqueued(worker: ProcessImportRow), do: :ok = Oban.cancel_job(job.id)
-
-    target_import = open!(context, "terminalize-after-backlog")
-
-    target_row =
-      append!(context, target_import, "target", "customer-after-backlog", 0, [
-        %{field: "name", text: "Target"}
-      ])
-
-    Datasets.finalize_import!(
-      context.organization.id,
-      target_import.id,
-      actor: context.manager
-    )
-
-    [target_job] = all_enqueued(worker: ProcessImportRow, args: %{row_id: target_row.id})
-    assert :ok = Oban.cancel_job(target_job.id)
-
-    assert {:snooze, 1} = perform_job(ImportRowTerminalization, %{})
-
-    assert Enum.all?(
-             backlog_rows,
-             &(Ash.get!(DatasetImportRow, &1.id, authorize?: false).outcome == :failed)
-           )
-
-    assert Ash.get!(DatasetImportRow, target_row.id, authorize?: false).outcome == :pending
-
-    assert :ok = perform_job(ImportRowTerminalization, %{})
-    assert Ash.get!(DatasetImportRow, target_row.id, authorize?: false).outcome == :failed
   end
 
   @tag :committed_db
@@ -503,45 +363,33 @@ defmodule QuickTrain.Datasets.DatasetImportTest do
     assert Enum.map(revisions, & &1.revision_number) == [1, 2]
   end
 
-  test "expired open cleanup deletes candidates and releases batch identity", context do
-    original = Application.fetch_env!(:quick_train, :dataset_imports)
+  test "expired open imports reject append and finalization", context do
+    import = open!(context, "expired")
+    Ash.Seed.update!(import, %{open_expires_at: DateTime.add(DateTime.utc_now(), -1, :second)})
 
-    Application.put_env(
-      :quick_train,
-      :dataset_imports,
-      Keyword.put(original, :open_lifetime_seconds, 1)
-    )
-
-    on_exit(fn -> Application.put_env(:quick_train, :dataset_imports, original) end)
-
-    import = open!(context, "expire")
-
-    row =
-      append!(context, import, "expire-row", nil, 0, [
-        %{field: "name", text: "Expire"},
-        %{field: "balance", decimal: "1.2"},
-        %{field: "joined_at", utc_datetime: "2026-01-02T03:04:05Z"}
-      ])
-
-    assert row.candidate_record_id
-    Process.sleep(1_050)
-
-    assert :ok = perform_job(ExpiredOpenImportCleanup, %{})
-    assert is_nil(Ash.get!(DatasetImport, import.id, authorize?: false, not_found_error?: false))
-    assert is_nil(Ash.get!(DatasetImportRow, row.id, authorize?: false, not_found_error?: false))
-
-    assert is_nil(
-             Ash.get!(DatasetRecord, row.candidate_record_id,
-               authorize?: false,
-               not_found_error?: false
+    assert {:error, append_error} =
+             Datasets.append_import_row(
+               context.organization.id,
+               import.id,
+               "late",
+               nil,
+               0,
+               [%{field: "name", text: "Late"}],
+               actor: context.manager
              )
-           )
 
-    replacement = open!(context, "expire")
-    refute replacement.id == import.id
+    assert Exception.message(append_error) =~ "import_expired"
 
-    config = Application.fetch_env!(:quick_train, Oban)
-    assert {"23 * * * *", ExpiredOpenImportCleanup} in config[:cron][:crontab]
+    assert {:error, finalize_error} =
+             Datasets.finalize_import(
+               context.organization.id,
+               import.id,
+               actor: context.manager
+             )
+
+    assert Exception.message(finalize_error) =~ "import_expired"
+    assert Ash.get!(DatasetImport, import.id, authorize?: false).phase == :open
+    assert Ash.count!(DatasetImportRow, authorize?: false) == 0
   end
 
   defp open!(context, key) do

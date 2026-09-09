@@ -48,12 +48,9 @@ defmodule QuickTrain.Assets.Asset do
 
     attribute :staging_expires_at, :utc_datetime_usec, allow_nil?: false
 
-    attribute :staging_cleaned_at, :utc_datetime_usec
     attribute :failure_reason, :string, public?: true
-    attribute :operation_claim_kind, :atom, constraints: [one_of: [:finalize, :cleanup]]
     attribute :operation_claim_id, :uuid
     attribute :operation_claim_expires_at, :utc_datetime_usec
-    attribute :publication_may_finish_at, :utc_datetime_usec
     timestamps()
   end
 
@@ -103,29 +100,6 @@ defmodule QuickTrain.Assets.Asset do
       run {Module.concat(["QuickTrain.Assets.Asset.Actions.Access"]), []}
     end
 
-    action :cleanup_staging, :atom do
-      allow_nil? false
-      argument :asset_id, :uuid, allow_nil?: false
-      argument :now, :utc_datetime_usec, allow_nil?: false, default: &DateTime.utc_now/0
-      run {Module.concat(["QuickTrain.Assets.Asset.Cleanup"]), []}
-    end
-
-    action :reconcile_publication, AssetFinalizationResult do
-      allow_nil? false
-      argument :asset_id, :uuid, allow_nil?: false
-      argument :organization_id, :uuid, allow_nil?: false
-      argument :claim_id, :uuid, allow_nil?: false
-      argument :sealed_key, :string, allow_nil?: false, sensitive?: true
-      argument :facts, :map, allow_nil?: false
-      run {Module.concat(["QuickTrain.Assets.Asset.Actions.Finalize"]), []}
-    end
-
-    read :expired_staging do
-      argument :cutoff, :utc_datetime_usec, allow_nil?: false
-      filter expr(is_nil(staging_cleaned_at) and staging_expires_at <= ^arg(:cutoff))
-      prepare build(sort: [staging_expires_at: :asc, id: :asc])
-    end
-
     create :create_pending do
       accept [
         :id,
@@ -141,40 +115,26 @@ defmodule QuickTrain.Assets.Asset do
     end
 
     update :claim_operation do
-      accept [:operation_claim_kind, :operation_claim_id, :operation_claim_expires_at]
+      accept [:operation_claim_id, :operation_claim_expires_at]
       validate attribute_equals(:state, :pending)
-    end
-
-    update :claim_cleanup do
-      accept [:operation_claim_kind, :operation_claim_id, :operation_claim_expires_at]
     end
 
     update :start_publication do
-      accept [:operation_claim_expires_at, :publication_may_finish_at]
+      accept [:operation_claim_expires_at]
       validate attribute_equals(:state, :pending)
-    end
-
-    update :release_operation_claim do
-      accept []
-      change set_attribute(:operation_claim_kind, nil)
-      change set_attribute(:operation_claim_id, nil)
-      change set_attribute(:operation_claim_expires_at, nil)
     end
 
     update :release_unpublished_claim do
       accept []
       validate attribute_equals(:state, :pending)
-      change set_attribute(:operation_claim_kind, nil)
       change set_attribute(:operation_claim_id, nil)
       change set_attribute(:operation_claim_expires_at, nil)
-      change set_attribute(:publication_may_finish_at, nil)
     end
 
     update :complete_ready do
       accept [:sealed_key, :width, :height]
       validate attribute_equals(:state, :pending)
       change set_attribute(:state, :ready)
-      change set_attribute(:operation_claim_kind, nil)
       change set_attribute(:operation_claim_id, nil)
       change set_attribute(:operation_claim_expires_at, nil)
     end
@@ -183,7 +143,6 @@ defmodule QuickTrain.Assets.Asset do
       accept [:failure_reason]
       validate attribute_equals(:state, :pending)
       change set_attribute(:state, :failed)
-      change set_attribute(:operation_claim_kind, nil)
       change set_attribute(:operation_claim_id, nil)
       change set_attribute(:operation_claim_expires_at, nil)
     end
@@ -193,24 +152,6 @@ defmodule QuickTrain.Assets.Asset do
       validate attribute_equals(:state, :pending)
       change set_attribute(:state, :duplicate_content)
       change set_attribute(:failure_reason, "duplicate_content")
-      change set_attribute(:operation_claim_kind, nil)
-      change set_attribute(:operation_claim_id, nil)
-      change set_attribute(:operation_claim_expires_at, nil)
-    end
-
-    update :complete_staging_cleanup do
-      accept [:staging_cleaned_at]
-      change set_attribute(:operation_claim_kind, nil)
-      change set_attribute(:operation_claim_id, nil)
-      change set_attribute(:operation_claim_expires_at, nil)
-    end
-
-    update :complete_expired_staging_cleanup do
-      accept [:staging_cleaned_at]
-      validate attribute_equals(:state, :pending)
-      change set_attribute(:state, :failed)
-      change set_attribute(:failure_reason, "staging_expired")
-      change set_attribute(:operation_claim_kind, nil)
       change set_attribute(:operation_claim_id, nil)
       change set_attribute(:operation_claim_expires_at, nil)
     end
@@ -291,14 +232,6 @@ defmodule QuickTrain.Assets.Asset do
         unique: true,
         where: "sealed_key IS NOT NULL",
         name: "assets_sealed_key_index"
-
-      index [:staging_expires_at],
-        where: "staging_cleaned_at IS NULL",
-        name: "assets_staging_cleanup_index"
-
-      index [:operation_claim_expires_at],
-        where: "operation_claim_id IS NOT NULL",
-        name: "assets_operation_claim_expiry_index"
     end
 
     check_constraints do
@@ -323,10 +256,10 @@ defmodule QuickTrain.Assets.Asset do
         """,
         message: "does not match its lifecycle facts"
 
-      check_constraint :operation_claim_kind, "assets_operation_claim_valid",
+      check_constraint :operation_claim_id, "assets_operation_claim_valid",
         check: """
-        (operation_claim_kind IS NULL AND operation_claim_id IS NULL AND operation_claim_expires_at IS NULL) OR
-        (operation_claim_kind IN ('finalize', 'cleanup') AND operation_claim_id IS NOT NULL AND operation_claim_expires_at IS NOT NULL)
+        (operation_claim_id IS NULL AND operation_claim_expires_at IS NULL) OR
+        (operation_claim_id IS NOT NULL AND operation_claim_expires_at IS NOT NULL)
         """,
         message: "must be absent or complete"
     end

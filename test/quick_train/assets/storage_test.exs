@@ -35,9 +35,6 @@ defmodule QuickTrain.Assets.StorageTest do
     @impl true
     def verify_sealed(_sealed_key, _expected, _deadline_ms), do: {:error, :unsupported}
 
-    @impl true
-    def retire_staging(_staging_key, _not_before, _deadline_ms), do: :ok
-
     defp descriptor(method, key, expires_at, byte_cap) do
       %{
         method: method,
@@ -421,14 +418,5 @@ defmodule QuickTrain.Assets.StorageTest do
     on_exit(fn -> Application.put_env(:quick_train, :assets, original_assets) end)
 
     assert :ignore = Storage.start_link([])
-  end
-
-  test "retirement fences expired upload descriptors before deletion completes" do
-    now = DateTime.utc_now()
-    descriptor = Storage.writable_staging_access!("staging/retire", 8, now)
-
-    assert :ok = Storage.retire_staging("staging/retire", now, 1_000)
-    assert {:error, :staging_retired} = TestStorage.put_staging(descriptor, "late")
-    refute TestStorage.staging?("staging/retire")
   end
 end

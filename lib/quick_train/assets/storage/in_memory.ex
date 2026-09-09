@@ -19,7 +19,6 @@ defmodule QuickTrain.Assets.Storage.InMemory do
 
   def read_sealed(descriptor), do: GenServer.call(__MODULE__, {:read_sealed, token(descriptor)})
   def sealed?(key), do: GenServer.call(__MODULE__, {:sealed?, key})
-  def staging?(key), do: GenServer.call(__MODULE__, {:staging?, key})
   def sealed_count, do: GenServer.call(__MODULE__, :sealed_count)
 
   @impl true
@@ -70,17 +69,6 @@ defmodule QuickTrain.Assets.Storage.InMemory do
   def verify_sealed(_sealed_key, _expected, _deadline_ms),
     do: {:error, :invalid_publication_deadline}
 
-  @impl true
-  def retire_staging(staging_key, not_before, deadline_ms)
-      when is_integer(deadline_ms) and deadline_ms > 0 and is_struct(not_before, DateTime) do
-    deadline_ms
-    |> deadline_after()
-    |> call_before(&GenServer.call(__MODULE__, {:retire_staging, staging_key, not_before}, &1))
-  end
-
-  def retire_staging(_staging_key, _not_before, _deadline_ms),
-    do: {:error, :invalid_retirement_deadline}
-
   defp deadline_after(deadline_ms),
     do: System.monotonic_time(:millisecond) + deadline_ms
 
@@ -111,32 +99,27 @@ defmodule QuickTrain.Assets.Storage.InMemory do
 
   def handle_call({:issue_staging, key, byte_cap, expires_at}, _from, state)
       when is_binary(key) and is_integer(byte_cap) and byte_cap > 0 do
-    entry = Map.get(state.staging, key, %{bytes: nil, fenced: false, retired: false})
+    entry = Map.get(state.staging, key, %{bytes: nil, fenced: false})
 
-    cond do
-      entry.retired ->
-        {:reply, {:error, :staging_retired}, state}
+    if entry.fenced do
+      {:reply, {:error, :staging_fenced}, state}
+    else
+      {token, state} = next_token(state)
 
-      entry.fenced ->
-        {:reply, {:error, :staging_fenced}, state}
+      descriptor = descriptor(:put, "upload", token, expires_at, byte_cap)
 
-      true ->
-        {token, state} = next_token(state)
+      state = %{
+        state
+        | staging: Map.put(state.staging, key, entry),
+          upload_tokens:
+            Map.put(state.upload_tokens, token, %{
+              key: key,
+              byte_cap: byte_cap,
+              expires_at: expires_at
+            })
+      }
 
-        descriptor = descriptor(:put, "upload", token, expires_at, byte_cap)
-
-        state = %{
-          state
-          | staging: Map.put(state.staging, key, entry),
-            upload_tokens:
-              Map.put(state.upload_tokens, token, %{
-                key: key,
-                byte_cap: byte_cap,
-                expires_at: expires_at
-              })
-        }
-
-        {:reply, {:ok, descriptor}, state}
+      {:reply, {:ok, descriptor}, state}
     end
   end
 
@@ -146,13 +129,12 @@ defmodule QuickTrain.Assets.Storage.InMemory do
   def handle_call({:put_staging, token, bytes}, _from, state) when is_binary(bytes) do
     with %{key: key, byte_cap: byte_cap, expires_at: expires_at} <-
            Map.get(state.upload_tokens, token),
-         %{retired: false, fenced: false} = entry <- Map.get(state.staging, key),
+         %{fenced: false} = entry <- Map.get(state.staging, key),
          :ok <- unexpired(expires_at),
          :ok <- within_cap(bytes, byte_cap) do
       entry = %{entry | bytes: bytes}
       {:reply, :ok, %{state | staging: Map.put(state.staging, key, entry)}}
     else
-      %{retired: true} -> {:reply, {:error, :staging_retired}, state}
       %{fenced: true} -> {:reply, {:error, :staging_fenced}, state}
       {:error, reason} -> {:reply, {:error, reason}, state}
       _missing -> {:reply, {:error, :invalid_storage_access}, state}
@@ -164,9 +146,6 @@ defmodule QuickTrain.Assets.Storage.InMemory do
 
   def handle_call({:pin_staging, key}, _from, state) do
     case Map.get(state.staging, key) do
-      %{retired: true} ->
-        {:reply, {:error, :staging_retired}, state}
-
       %{bytes: nil} ->
         {:reply, {:error, :staging_missing}, state}
 
@@ -205,29 +184,6 @@ defmodule QuickTrain.Assets.Storage.InMemory do
     end
   end
 
-  def handle_call({:retire_staging, key, not_before}, _from, state) do
-    now = DateTime.utc_now()
-
-    case Map.get(state.staging, key) do
-      nil ->
-        {:reply, :ok, state}
-
-      %{retired: true} ->
-        {:reply, :ok, state}
-
-      entry ->
-        tokens = Enum.filter(state.upload_tokens, fn {_token, token} -> token.key == key end)
-        latest_expiry = tokens |> Enum.map(fn {_token, value} -> value.expires_at end) |> latest()
-
-        if DateTime.compare(now, not_before) != :lt and expired?(latest_expiry, now) do
-          retired = %{entry | retired: true, fenced: true, bytes: nil}
-          {:reply, :ok, %{state | staging: Map.put(state.staging, key, retired)}}
-        else
-          {:reply, {:error, :staging_access_still_active}, state}
-        end
-    end
-  end
-
   def handle_call({:issue_read, key, expires_at}, _from, state) do
     if Map.has_key?(state.sealed, key) do
       {token, state} = next_token(state)
@@ -252,13 +208,6 @@ defmodule QuickTrain.Assets.Storage.InMemory do
 
   def handle_call({:sealed?, key}, _from, state),
     do: {:reply, Map.has_key?(state.sealed, key), state}
-
-  def handle_call({:staging?, key}, _from, state) do
-    present? =
-      match?(%{retired: false, bytes: bytes} when not is_nil(bytes), Map.get(state.staging, key))
-
-    {:reply, present?, state}
-  end
 
   def handle_call(:sealed_count, _from, state), do: {:reply, map_size(state.sealed), state}
 
@@ -311,10 +260,4 @@ defmodule QuickTrain.Assets.Storage.InMemory do
   end
 
   defp unexpired(_expires_at), do: {:error, :invalid_storage_access}
-
-  defp latest([]), do: nil
-  defp latest(expiries), do: Enum.max(expiries, DateTime)
-
-  defp expired?(nil, _now), do: true
-  defp expired?(expires_at, now), do: DateTime.compare(expires_at, now) != :gt
 end

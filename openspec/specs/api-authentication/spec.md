@@ -98,20 +98,12 @@ The system SHALL generate a high-entropy opaque bearer token, return its raw val
 - **WHEN** a request presents a missing, malformed, unknown, expired, revoked, or user-inactive bearer token
 - **THEN** authentication fails without selecting an organization or exposing protected data
 
-### Requirement: Inactive session retention is bounded
-The system SHALL automatically and idempotently delete expired or revoked session credential rows only after the later applicable expiry or revocation time plus a fixed retention interval. Cleanup SHALL preserve every unexpired and unrevoked session row, including one whose user has since been disabled, while ordinary authentication continues to require an active user. Cleanup SHALL NOT delete separately retained authentication-event evidence.
+### Requirement: Session validity is independent of physical retention
+The system SHALL reject expired, revoked, and inactive-account sessions regardless of whether their database rows remain. Automatic credential deletion is deferred to `restore-operator-bootstrap-and-maintenance`; credential rows currently remain stored.
 
-#### Scenario: Expired and revoked credentials are eventually removed
-- **WHEN** inactive sessions pass their retention boundary
-- **THEN** automatic cleanup removes their indexed token hashes without operator invocation
-
-#### Scenario: Active credentials survive cleanup
-- **WHEN** cleanup examines an unexpired and unrevoked session
-- **THEN** it preserves the session row and ordinary authentication separately determines eligibility from session and current-user state
-
-#### Scenario: Disabled-user credential is retained but denied
-- **WHEN** cleanup examines an unexpired and unrevoked session whose user has been disabled
-- **THEN** it preserves the session row while authentication rejects its bearer token
+#### Scenario: Expired credentials remain in storage
+- **WHEN** a client presents an expired stored bearer credential
+- **THEN** authentication rejects it without requiring physical deletion
 
 ### Requirement: Authenticated GraphQL resolves a fail-closed actor
 The system SHALL set the active global user resolved from a valid bearer session as both the GraphQL and Ash actor. The shared organization-capability authorization path SHALL derive its target organization from the protected resource or explicit action relationship and separately require the actor to remain active, that organization to be active, the actor to have an active membership, and the actor to have the action's explicit capability. An organization-scoped product action MAY use another authorization path only when the product capability that owns the action explicitly defines a named relationship-bound contract; such a path SHALL still require an active actor and active organization and SHALL NOT treat the bearer session alone as organization authority. Missing scope or authorization SHALL fail closed without disclosing organization data.
@@ -161,28 +153,16 @@ The system SHALL define an explicit public GraphQL allowlist through AshGraphQL.
 - **WHEN** infrastructure requests `/healthz` outside development
 - **THEN** health responds without exposing GraphQL data, while GraphiQL remains unavailable
 
-### Requirement: First-manager bootstrap is operator-only
-The system SHALL provide a responsibility-named operator command outside GraphQL that bootstraps the first organization manager from an exact active global-user UUID and normalized organization slug and name. In one transaction it SHALL create or resolve the active organization, active membership, organization role key `manager`, and role assignment. Repetition SHALL be idempotent only for the same relationship graph. Existing inactive facts, identity ownership mismatches, or conflicting organization or role facts SHALL fail without reactivation, reassignment, implicit product authority, or a partial graph. Concurrent identical invocations SHALL converge on the same graph. This authentication capability SHALL NOT define product or administration capability keys or grants; the change that introduces an authorized product action owns those facts.
+### Requirement: Operator onboarding is deferred
+The system SHALL NOT expose a first-manager bootstrap command or an automatic dataset/asset manager grant workflow in this development phase. Organization-scoped access SHALL continue to require explicit capability facts. Restoration is deferred to `restore-operator-bootstrap-and-maintenance`.
 
-#### Scenario: Operator bootstraps a fresh installation
-- **WHEN** an operator invokes the command with one exact active user and nonconflicting organization facts
-- **THEN** it establishes one active organization membership and manager role assignment without granting implicit product authority
+#### Scenario: An account has no explicit organization grant
+- **WHEN** an active account requests a protected organization action
+- **THEN** authorization denies access even if the account holds a role named manager
 
-#### Scenario: Matching bootstrap is repeatable
-- **WHEN** sequential or concurrent invocations supply the same user UUID, organization identity, and fixed manager graph
-- **THEN** they resolve one organization, membership, role, and assignment without duplicates
+### Requirement: OIDC expiry and replay rejection do not depend on cleanup
+The system SHALL reject expired or missing OIDC state and SHALL prevent reuse of exchanging or consumed transactions. Automatic physical deletion is deferred to `restore-operator-bootstrap-and-maintenance`; expired and consumed transactions currently remain stored.
 
-#### Scenario: Bootstrap conflict is atomic
-- **WHEN** the requested user, organization, membership, role, or assignment conflicts with existing facts
-- **THEN** the command reports the conflict without partially creating or reassigning access
-
-### Requirement: OIDC login-state retention is bounded
-The system SHALL reject expired or missing OIDC state and SHALL retain each login transaction through its expiry plus a fixed replay-rejection interval. Automatic cleanup SHALL idempotently remove only consumed, expired, or abandoned transactions beyond that cutoff and SHALL preserve unexpired login transactions.
-
-#### Scenario: Expired retained state cannot be exchanged
-- **WHEN** a client presents state after its transaction expires but before cleanup removes it
-- **THEN** exchange rejects it and issues no bearer session
-
-#### Scenario: Automatic cleanup preserves live state
-- **WHEN** cleanup processes login transactions before and after their retention cutoffs
-- **THEN** it removes only transactions beyond the cutoff without requiring operator invocation and preserves every unexpired transaction
+#### Scenario: Expired stored state cannot be exchanged
+- **WHEN** a client presents state after its stored transaction expires
+- **THEN** exchange fails before contacting the provider

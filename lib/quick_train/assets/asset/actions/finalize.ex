@@ -22,18 +22,6 @@ defmodule QuickTrain.Assets.Asset.Actions.Finalize do
   @commit_attempts 2
 
   @impl true
-  def run(%{action: %{name: :reconcile_publication}, arguments: args}, _opts, _context) do
-    DatasetAssetError.wrap(
-      commit_success(
-        args.asset_id,
-        args.organization_id,
-        args.claim_id,
-        args.sealed_key,
-        args.facts
-      )
-    )
-  end
-
   def run(input, _opts, _context) do
     %{asset_id: asset_id, organization_id: organization_id} = input.arguments
     DatasetAssetError.wrap(finalize(asset_id, organization_id))
@@ -76,7 +64,6 @@ defmodule QuickTrain.Assets.Asset.Actions.Finalize do
           asset =
             asset
             |> Ash.Changeset.for_update(:claim_operation, %{
-              operation_claim_kind: :finalize,
               operation_claim_id: claim_id,
               operation_claim_expires_at: claim_expires_at
             })
@@ -118,9 +105,9 @@ defmodule QuickTrain.Assets.Asset.Actions.Finalize do
         {:error, reason} when reason in @terminal_storage_errors ->
           commit_failure(asset.id, asset.organization_id, claim_id, reason)
 
-        {:error, reason} when reason in [:staging_missing, :staging_retired] ->
+        {:error, :staging_missing} ->
           _result = release_unpublished_claim(asset.id, asset.organization_id, claim_id)
-          {:error, reason}
+          {:error, :staging_missing}
 
         {:error, reason} ->
           {:error, reason}
@@ -145,7 +132,6 @@ defmodule QuickTrain.Assets.Asset.Actions.Finalize do
   defp start_publication(asset_id, organization_id, claim_id) do
     now = DateTime.utc_now()
     claim_expires_at = DateTime.add(now, config(:operation_claim_seconds), :second)
-    publication_may_finish_at = DateTime.add(now, config(:provider_in_flight_seconds), :second)
 
     Ash.transact(Asset, fn ->
       asset = locked_asset(asset_id, organization_id)
@@ -153,8 +139,7 @@ defmodule QuickTrain.Assets.Asset.Actions.Finalize do
       if current_claim?(asset, claim_id, now) do
         asset
         |> Ash.Changeset.for_update(:start_publication, %{
-          operation_claim_expires_at: claim_expires_at,
-          publication_may_finish_at: publication_may_finish_at
+          operation_claim_expires_at: claim_expires_at
         })
         |> Ash.update!(authorize?: false)
 
@@ -200,7 +185,7 @@ defmodule QuickTrain.Assets.Asset.Actions.Finalize do
           asset.state != :pending ->
             {:terminal, asset}
 
-          not live_claim_identity?(asset, claim_id, DateTime.utc_now()) ->
+          not current_claim?(asset, claim_id, DateTime.utc_now()) ->
             :stale
 
           true ->
@@ -268,7 +253,7 @@ defmodule QuickTrain.Assets.Asset.Actions.Finalize do
       cond do
         is_nil(asset) -> :missing
         asset.state != :pending -> {:terminal, asset}
-        not live_claim_identity?(asset, claim_id, DateTime.utc_now()) -> :stale
+        not current_claim?(asset, claim_id, DateTime.utc_now()) -> :stale
         true -> {:terminal, complete_failed!(asset, sanitized_reason)}
       end
     end)
@@ -327,12 +312,8 @@ defmodule QuickTrain.Assets.Asset.Actions.Finalize do
   defp current_claim?(nil, _claim_id, _now), do: false
 
   defp current_claim?(asset, claim_id, now) do
-    asset.state == :pending and asset.operation_claim_kind == :finalize and
+    asset.state == :pending and
       asset.operation_claim_id == claim_id and live_claim?(asset, now)
-  end
-
-  defp live_claim_identity?(asset, claim_id, now) do
-    asset.state == :pending and asset.operation_claim_id == claim_id and live_claim?(asset, now)
   end
 
   defp sanitize_failure(:content_mismatch), do: "content_mismatch"

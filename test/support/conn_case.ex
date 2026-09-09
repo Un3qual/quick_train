@@ -11,6 +11,7 @@ defmodule QuickTrain.ConnCase do
       @endpoint QuickTrainWeb.Endpoint
       import Plug.Conn
       import Phoenix.ConnTest
+      import QuickTrain.DataCase, only: [organization_manager_fixture: 3]
       import QuickTrain.ConnCase, only: [graphql!: 2, graphql!: 3]
     end
   end

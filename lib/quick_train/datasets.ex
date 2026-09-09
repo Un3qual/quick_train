@@ -109,12 +109,6 @@ defmodule QuickTrain.Datasets do
   end
 
   resources do
-    resource QuickTrain.Datasets.DatasetAssetCapabilities do
-      define :grant_dataset_and_asset_capabilities,
-        action: :grant_to_manager,
-        args: [:organization_id, :user_id]
-    end
-
     resource QuickTrain.Datasets.Dataset do
       define :create_dataset,
         action: :create_dataset,
@@ -243,9 +237,6 @@ defmodule QuickTrain.Datasets do
     resource QuickTrain.Datasets.DatasetValue.Asset
 
     resource QuickTrain.Datasets.DatasetImport do
-      define :cleanup_expired_import, action: :cleanup_expired, args: [:import_id]
-      define :list_expired_open_imports, action: :expired_open, args: [:now]
-
       define :open_import,
         action: :open,
         args: [:organization_id, :dataset_id, :schema_version_id, :idempotency_key]
@@ -261,7 +252,6 @@ defmodule QuickTrain.Datasets do
 
     resource QuickTrain.Datasets.DatasetImportRow do
       define :process_import_row, action: :process_internal, args: [:row_id]
-      define :terminalize_import_row, action: :terminalize_internal, args: [:row_id]
 
       define :append_import_row,
         action: :append,

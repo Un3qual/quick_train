@@ -1,12 +1,11 @@
 defmodule QuickTrainWeb.DatasetSchemaGraphqlTest do
   use QuickTrain.ConnCase, async: false
 
-  alias QuickTrain.{Accounts, Datasets}
+  alias QuickTrain.Accounts
 
   setup %{conn: conn} do
     manager = Accounts.register_user!("graphql-datasets@example.test", "GraphQL Datasets")
-    graph = Accounts.bootstrap_first_manager!(manager.id, "graphql-datasets", "GraphQL Datasets")
-    Datasets.grant_dataset_and_asset_capabilities!(graph.organization.id, manager.id)
+    graph = organization_manager_fixture(manager.id, "graphql-datasets", "GraphQL Datasets")
     session = Accounts.issue_bearer_session!(manager.id)
 
     %{conn: put_req_header(conn, "authorization", "Bearer #{session.token}"), graph: graph}

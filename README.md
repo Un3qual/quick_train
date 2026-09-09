@@ -116,40 +116,17 @@ overwrite or reject client-supplied forwarding headers. A trusted proxy request 
 Phoenix HTTPS listener and certificates. The authentication defaults live in `config/config.exs`.
 Deployments may override them with
 `OIDC_BEGIN_WINDOW_MS`, `OIDC_BEGIN_GLOBAL_LIMIT`, `OIDC_BEGIN_NETWORK_LIMIT`,
-`OIDC_OUTSTANDING_LIMIT`, `OIDC_TRANSACTION_TTL_SECONDS`, `OIDC_REPLAY_RETENTION_SECONDS`,
-`HUMAN_SESSION_MAX_LIFETIME_SECONDS`, and `HUMAN_SESSION_RETENTION_SECONDS`.
-
-Bootstrap the first organization manager from an existing active global-user UUID with the
-operator-only command:
-
-```sh
-mise exec -- mix quick_train.bootstrap_first_manager \
-  --user-id USER_UUID \
-  --organization-slug acme-training \
-  --organization-name "Acme Training"
-```
-
-The command creates or resolves only the organization, active membership, `manager` role, and
-role assignment. It does not create capability keys or grants. Authentication retention runs at
-minute 17 of every hour through Oban and removes only login state and inactive credential rows
-beyond their configured cutoffs.
+`OIDC_OUTSTANDING_LIMIT`, `OIDC_TRANSACTION_TTL_SECONDS`, and
+`HUMAN_SESSION_MAX_LIFETIME_SECONDS`.
 
 Implement `QuickTrain.EnterpriseIdentity.Adapter` for the selected enterprise identity provider.
 
 ## Dataset and asset configuration
 
-Dataset and asset access is explicit. After selecting an existing active organization manager,
-grant the five capabilities through the idempotent action:
+Dataset and asset access requires explicit organization-scoped capabilities. Operator manager
+setup and grant helpers are deferred; basic Ash organization, membership, role, and capability
+actions remain available. Tests compose these primitives in test-only fixtures.
 
-```elixir
-QuickTrain.Datasets.grant_dataset_and_asset_capabilities!(organization_id, manager_user_id)
-```
-
-This grants only `assets.read`, `assets.manage`, `datasets.read`, `datasets.manage`, and
-`dataset_imports.manage` to that organization's manager role. It does not create an account,
-membership, organization, wildcard, or global grant.
-
-Development and test share the deterministic `QuickTrain.Assets.Storage.InMemory` adapter.
 Production deliberately ships without a selected storage provider and therefore fails closed
 with `storage_not_configured`.
 Configure an implementation of `QuickTrain.Assets.Storage` under
@@ -159,11 +136,8 @@ short-lived access descriptors.
 
 The default asset staging lifetime is one hour. Open imports also expire after one hour and accept
 at most 10,000 rows, 100 fields per row, 256 KiB of scalar data per row, 64 KiB per text value, and
-512 KiB per request. Asset staging cleanup and import-row terminalization reconciliation start every
-10 minutes; a full terminalization page schedules the same bounded job to continue draining its
-backlog. Expired open-import cleanup runs hourly at minute 23. Import row jobs have eight bounded
-attempts, terminal Oban evidence is retained for one day, and all GraphQL collections use bounded
-keyset-paginated Relay connections.
+512 KiB per request. Import row jobs have eight bounded attempts. Oban prunes terminal jobs
+after one day. All GraphQL collections use bounded keyset-paginated Relay connections.
 
 Production additionally requires `DATABASE_URL` and `SECRET_KEY_BASE`; the other runtime settings
 are documented in `.env.example`.
@@ -199,3 +173,13 @@ mix ash.codegen describe_the_change
 ```
 
 Review migrations before applying them.
+
+## Deferred operator setup and maintenance
+
+[restore-operator-bootstrap-and-maintenance](openspec/changes/restore-operator-bootstrap-and-maintenance/proposal.md)
+is future work, to revisit after further organization onboarding and storage progress. No custom
+periodic maintenance jobs currently run. Expired authentication records, obsolete staging, and
+abandoned imports accumulate; abandoned imports keep their idempotency keys. Cancelled or
+exhausted import jobs may leave rows pending, and ordinary Oban pruning may remove their evidence.
+Expiry, replay rejection, authorization, normal finalization, and row processing remain enforced.
+Restore maintenance before relying on unattended operation with persistent data.

@@ -69,50 +69,16 @@ The system SHALL enforce organization-scoped content-hash uniqueness only for re
 - **WHEN** an organization registers a hash that already has a canonical ready asset but supplies a different byte size or media type
 - **THEN** the system rejects canonical reuse with an asset-identity conflict and does not return metadata that contradicts the request
 
-### Requirement: Abandoned staging content expires
-The system SHALL assign every writable staging object an expiry and a nullable cleanup-completion timestamp and SHALL remove expired staging content idempotently after a fixed safety grace period when its registration is pending, failed, in the `duplicate_content` terminal state, or already sealed. The responsibility-named cleanup worker SHALL be registered with Oban's supported periodic scheduler at a fixed interval, SHALL scan the indexed boundary of expired rows whose cleanup timestamp is null, and SHALL use job uniqueness to prevent overlapping scheduled runs so cleanup occurs without registration finalization or manual invocation. Before external I/O, finalization or cleanup SHALL atomically establish a bounded durable operation claim after rechecking lifecycle and expiry against the same serialized asset boundary. Claims SHALL be mutually exclusive while live, resumable by retries, atomically replaceable after expiry, and checked by identity on every post-I/O transition so a stale worker cannot commit. Immediately before canonical publication, finalization SHALL recheck that its claim is live; a stale claim SHALL NOT begin publication. Every attempt SHALL use a finite adapter deadline and a provider in-flight publication window bounded relative to that claim's expiry. Storage I/O SHALL NOT require holding a database transaction open.
+### Requirement: Staging expiry and finalizer claims remain enforced
+The system SHALL assign staging an expiry and refuse to begin finalization after that expiry. Finalization SHALL acquire a bounded mutually exclusive claim under the asset lock and check its identity on post-I/O transitions. Expired claims MAY be replaced. A finalizer SHALL recheck its live claim before publication, use finite adapter deadlines, and reverify an existing canonical object before adopting it. Storage I/O SHALL occur outside database transactions. Automatic staging deletion and background publication recovery are deferred to `restore-operator-bootstrap-and-maintenance`; obsolete staging remains stored.
 
-After acquiring or replacing a claim, finalization or cleanup SHALL first reconcile whether an earlier claimant already published the declared canonical object without committing the asset transition. A matching canonical object SHALL be boundedly reverified and atomically adopted as the ready object or resolved as duplicate content under the current claim. After a finalization claim expires, cleanup SHALL treat canonical absence as provisional until that claim's bounded in-flight publication window has elapsed, then recheck the canonical key before recording absence. Cleanup SHALL NOT complete while a present canonical object remains unaccounted for; an unverifiable object SHALL fail retryably rather than becoming an orphan hidden by completed staging cleanup. Cleanup SHALL retire a staging identity only after every issued upload descriptor has expired and the provider's bounded in-flight write window has elapsed, or by first irrevocably fencing further writes. Cleanup completion SHALL be recorded only after canonical reconciliation, after further writes are impossible, and after deletion or absence is confirmed, so completed staging cannot be recreated by an earlier descriptor. Cleanup SHALL NOT delete or mutate sealed read objects.
+#### Scenario: Expired staging cannot begin finalization
+- **WHEN** finalization obtains the asset lock after staging expiry
+- **THEN** it records staging expiry without publishing new content
 
-#### Scenario: Pending upload is abandoned
-- **WHEN** a pending registration remains unfinalized beyond its staging expiry and cleanup grace period
-- **THEN** the responsibility-named cleanup path removes its writable staging object and leaves the registration unable to become ready without a new upload
-
-#### Scenario: Cleanup cannot claim in-flight finalization
-- **WHEN** finalization has atomically claimed an asset before verifying and sealing staging content
-- **THEN** cleanup cannot claim or delete that staging object and rechecks the asset facts after finalization reaches a terminal outcome
-
-#### Scenario: Abandoned finalization claim is recovered
-- **WHEN** a finalization worker stops permanently after committing its claim and that claim expires
-- **THEN** a retry or eligible cleanup may atomically replace it, and the abandoned worker cannot later commit lifecycle facts with its stale claim identity
-
-#### Scenario: Published object is reconciled after claim expiry
-- **WHEN** a finalization worker publishes the canonical object but stops before committing the ready or duplicate transition and its claim later expires
-- **THEN** the next eligible claimant reverifies and accounts for that object before staging cleanup can complete, so the object converges to a ready or duplicate asset reference rather than remaining orphaned
-
-#### Scenario: Claim expires while canonical publication is in flight
-- **WHEN** cleanup replaces an expired finalization claim while that claim's bounded canonical-publication attempt may still complete
-- **THEN** cleanup waits through the prior claim's provider in-flight publication window and rechecks the canonical key before it may record absence or cleanup completion
-
-#### Scenario: Expired upload access cannot recreate cleaned staging
-- **WHEN** cleanup retires an expired staging identity while an earlier upload descriptor exists
-- **THEN** completion is recorded only after the descriptor and bounded in-flight write window have elapsed or further writes have been irrevocably fenced, so a later write cannot recreate the cleaned object
-
-#### Scenario: Periodic scheduling cleans an unfinalized upload
-- **WHEN** the application runs beyond the configured cleanup interval with a pending registration past its staging expiry and grace period
-- **THEN** Oban enqueues cleanup without a caller finalizing the asset or an operator invoking the worker, and overlapping schedule ticks do not create concurrent duplicate cleanup jobs
-
-#### Scenario: Duplicate staging object is removed
-- **WHEN** a losing concurrent finalization is in the `duplicate_content` terminal state beyond its staging expiry and cleanup grace period
-- **THEN** cleanup removes that registration's redundant writable staging object without changing the canonical ready asset
-
-#### Scenario: Cleanup preserves ready content
-- **WHEN** cleanup processes a registration whose content has already been sealed
-- **THEN** it may remove only the obsolete staging object and authorized reads continue returning the immutable sealed object
-
-#### Scenario: Completed staging cleanup is not rescanned
-- **WHEN** a later periodic run scans after an asset's staging object was deleted and cleanup completion was recorded
-- **THEN** the indexed scan excludes that asset and does not issue another provider deletion for it
+#### Scenario: A stale finalizer tries to commit
+- **WHEN** a finalizer's claim expires or is replaced before its database transition
+- **THEN** it cannot commit stale lifecycle facts
 
 ### Requirement: Image metadata and compatibility
 The system SHALL record validated image dimensions for image assets and SHALL expose enough metadata for later form bindings and spatial answers to verify source compatibility. It SHALL enforce configured positive maximum width, height, and total pixel count by parsing bounded image metadata before full decode and SHALL reject excessive dimensions as a sanitized validation failure.

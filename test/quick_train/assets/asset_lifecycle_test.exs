@@ -1,7 +1,7 @@
 defmodule QuickTrain.Assets.AssetLifecycleTest do
   use QuickTrain.DataCase, async: false
 
-  alias QuickTrain.{Accounts, Assets, Datasets, Organizations}
+  alias QuickTrain.{Accounts, Assets, Organizations}
   alias QuickTrain.Assets.Asset
   alias QuickTrain.Assets.Storage.InMemory, as: TestStorage
 
@@ -9,8 +9,7 @@ defmodule QuickTrain.Assets.AssetLifecycleTest do
     :ok = TestStorage.reset()
 
     manager = Accounts.register_user!("asset-manager@example.test", "Asset Manager")
-    graph = Accounts.bootstrap_first_manager!(manager.id, "asset-org", "Asset Org")
-    Datasets.grant_dataset_and_asset_capabilities!(graph.organization.id, manager.id)
+    graph = organization_manager_fixture(manager.id, "asset-org", "Asset Org")
 
     outsider = Accounts.register_user!("asset-outsider@example.test", "Asset Outsider")
 

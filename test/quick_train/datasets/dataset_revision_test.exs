@@ -16,8 +16,7 @@ defmodule QuickTrain.Datasets.DatasetRevisionTest do
     :ok = TestStorage.reset()
 
     manager = Accounts.register_user!("revision-manager@example.test", "Revision Manager")
-    graph = Accounts.bootstrap_first_manager!(manager.id, "revision-org", "Revision Org")
-    Datasets.grant_dataset_and_asset_capabilities!(graph.organization.id, manager.id)
+    graph = organization_manager_fixture(manager.id, "revision-org", "Revision Org")
 
     asset = ready_asset(graph.organization.id, manager, "avatar bytes")
     graph = published_schema(graph.organization.id, manager)
@@ -270,8 +269,7 @@ defmodule QuickTrain.Datasets.DatasetRevisionTest do
     assert Exception.message(schema_error) =~ "invalid_schema"
 
     outsider = Accounts.register_user!("revision-outsider@example.test", "Revision Outsider")
-    other = Accounts.bootstrap_first_manager!(outsider.id, "revision-other", "Revision Other")
-    Datasets.grant_dataset_and_asset_capabilities!(other.organization.id, outsider.id)
+    other = organization_manager_fixture(outsider.id, "revision-other", "Revision Other")
     foreign_asset = ready_asset(other.organization.id, outsider, "foreign avatar")
 
     assert {:error, asset_error} =

@@ -59,12 +59,6 @@ defmodule QuickTrain.Assets.Storage do
               deadline_ms()
             ) :: {:ok, verified_facts()} | {:error, term()}
 
-  @callback retire_staging(
-              staging_key :: object_key(),
-              not_before :: DateTime.t(),
-              deadline_ms()
-            ) :: :ok | {:error, term()}
-
   @callback sealed_read_access(
               sealed_key :: object_key(),
               expires_at :: DateTime.t()
@@ -123,12 +117,6 @@ defmodule QuickTrain.Assets.Storage do
   def verify_sealed(sealed_key, expected, deadline_ms) do
     with {:ok, adapter} <- configured_adapter() do
       adapter.verify_sealed(sealed_key, expected, deadline_ms)
-    end
-  end
-
-  def retire_staging(staging_key, not_before, deadline_ms) do
-    with {:ok, adapter} <- configured_adapter() do
-      adapter.retire_staging(staging_key, not_before, deadline_ms)
     end
   end
 

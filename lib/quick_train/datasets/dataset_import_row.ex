@@ -70,12 +70,6 @@ defmodule QuickTrain.Datasets.DatasetImportRow do
       run {Module.concat(["QuickTrain.Datasets.DatasetImportRow.Process"]), []}
     end
 
-    action :terminalize_internal, :atom do
-      allow_nil? false
-      argument :row_id, :uuid, allow_nil?: false
-      run {Module.concat(["QuickTrain.Datasets.DatasetImportRow.Process"]), []}
-    end
-
     read :read do
       primary? true
 
@@ -131,8 +125,6 @@ defmodule QuickTrain.Datasets.DatasetImportRow do
     update :complete_internal do
       accept [:outcome, :error_code, :item_revision_id]
     end
-
-    destroy :destroy_internal
   end
 
   policies do

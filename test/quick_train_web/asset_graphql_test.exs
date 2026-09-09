@@ -1,7 +1,7 @@
 defmodule QuickTrainWeb.AssetGraphqlTest do
   use QuickTrain.ConnCase, async: false
 
-  alias QuickTrain.{Accounts, Datasets}
+  alias QuickTrain.Accounts
   alias QuickTrain.Assets.Asset
   alias QuickTrain.Assets.Storage.InMemory, as: TestStorage
 
@@ -9,8 +9,7 @@ defmodule QuickTrainWeb.AssetGraphqlTest do
     :ok = TestStorage.reset()
 
     manager = Accounts.register_user!("graphql-assets@example.test", "GraphQL Assets")
-    graph = Accounts.bootstrap_first_manager!(manager.id, "graphql-assets", "GraphQL Assets")
-    Datasets.grant_dataset_and_asset_capabilities!(graph.organization.id, manager.id)
+    graph = organization_manager_fixture(manager.id, "graphql-assets", "GraphQL Assets")
     session = Accounts.issue_bearer_session!(manager.id)
 
     authenticated_conn = put_req_header(conn, "authorization", "Bearer #{session.token}")

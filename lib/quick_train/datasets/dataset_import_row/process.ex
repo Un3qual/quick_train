@@ -11,13 +11,6 @@ defmodule QuickTrain.Datasets.DatasetImportRow.Process do
   def run(%{action: %{name: :process_internal}, arguments: %{row_id: row_id}}, _opts, _context),
     do: process(row_id)
 
-  def run(
-        %{action: %{name: :terminalize_internal}, arguments: %{row_id: row_id}},
-        _opts,
-        _context
-      ),
-      do: terminalize(row_id)
-
   defp process(row_id) do
     Ash.transact([DatasetImportRow, DatasetRecord], fn ->
       case locked_row(row_id) do
@@ -30,26 +23,6 @@ defmodule QuickTrain.Datasets.DatasetImportRow.Process do
         row ->
           create_revision_and_complete(row)
           :processed
-      end
-    end)
-  end
-
-  defp terminalize(row_id) do
-    Ash.transact(DatasetImportRow, fn ->
-      case locked_row(row_id) do
-        %{outcome: :pending} = row ->
-          row
-          |> Ash.Changeset.for_update(:complete_internal, %{
-            outcome: :failed,
-            error_code: "processing_retries_exhausted",
-            item_revision_id: nil
-          })
-          |> Ash.update!(authorize?: false)
-
-          :terminalized
-
-        _other ->
-          :skipped
       end
     end)
   end

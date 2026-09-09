@@ -7,8 +7,7 @@ defmodule QuickTrainWeb.DatasetImportGraphqlTest do
 
   setup %{conn: conn} do
     manager = Accounts.register_user!("graphql-imports@example.test", "GraphQL Imports")
-    graph = Accounts.bootstrap_first_manager!(manager.id, "graphql-imports", "GraphQL Imports")
-    Datasets.grant_dataset_and_asset_capabilities!(graph.organization.id, manager.id)
+    graph = organization_manager_fixture(manager.id, "graphql-imports", "GraphQL Imports")
     session = Accounts.issue_bearer_session!(manager.id)
 
     dataset =

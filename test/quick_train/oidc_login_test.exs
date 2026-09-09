@@ -31,8 +31,7 @@ defmodule QuickTrain.OidcLoginTest do
         oidc_begin_global_limit: 100,
         oidc_begin_network_limit: 10,
         oidc_outstanding_limit: 100,
-        oidc_transaction_ttl_seconds: 300,
-        oidc_replay_retention_seconds: 86_400
+        oidc_transaction_ttl_seconds: 300
       )
     )
 
@@ -276,8 +275,7 @@ defmodule QuickTrain.OidcLoginTest do
         redemption_secret_hash: :crypto.hash(:sha256, proof),
         callback_key: "desktop",
         callback_uri: "http://127.0.0.1:4173/oidc/callback",
-        expires_at: DateTime.add(now, -1, :minute),
-        retain_until: DateTime.add(now, 1, :day)
+        expires_at: DateTime.add(now, -1, :minute)
       })
 
     assert {:error, error} =

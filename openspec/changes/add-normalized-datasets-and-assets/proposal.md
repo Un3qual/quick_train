@@ -41,3 +41,7 @@ None.
 - Extends the authenticated GraphQL schema with active-organization, membership, and capability-scoped product actions.
 - Adds a configurable asset-storage adapter plus one deterministic in-memory implementation shared by development and tests; no production vendor is selected here.
 - Establishes typed value-family conventions that later Forms and Tasks changes can share in code without sharing persistence tables.
+
+## Deferred operational scope
+
+As approved on 2026-09-09, operator manager setup and grant helpers, authentication retention, staging/import cleanup, and terminal-job recovery are deferred to `restore-operator-bootstrap-and-maintenance`. Expiry and authorization checks, immutable content, and ordinary processing remain. This development phase does not promise unattended maintenance.

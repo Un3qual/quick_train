@@ -5,8 +5,7 @@ defmodule QuickTrain.Datasets.DatasetTypedChildConstraintTest do
 
   setup do
     manager = Accounts.register_user!("typed-constraint@example.test", "Typed Constraint")
-    graph = Accounts.bootstrap_first_manager!(manager.id, "typed-constraint", "Typed Constraint")
-    Datasets.grant_dataset_and_asset_capabilities!(graph.organization.id, manager.id)
+    graph = organization_manager_fixture(manager.id, "typed-constraint", "Typed Constraint")
 
     dataset =
       Datasets.create_dataset!(graph.organization.id, "records", "Records", actor: manager)

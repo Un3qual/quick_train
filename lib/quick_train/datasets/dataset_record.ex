@@ -59,10 +59,6 @@ defmodule QuickTrain.Datasets.DatasetRecord do
       argument :occurrences, {:array, :map}, allow_nil?: false
       change {Module.concat(["QuickTrain.Datasets.DatasetRecord.Changes.CreateValues"]), []}
     end
-
-    destroy :destroy_internal do
-      change cascade_destroy(:values, action: :destroy_internal, after_action?: false)
-    end
   end
 
   policies do

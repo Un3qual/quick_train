@@ -4,11 +4,12 @@ defmodule QuickTrain.DataCase do
   use ExUnit.CaseTemplate
 
   alias Ecto.Adapters.SQL.Sandbox
+  alias QuickTrain.{Authorization, Organizations}
 
   using do
     quote do
       alias QuickTrain.Repo
-      import QuickTrain.DataCase, only: [concurrently: 1]
+      import QuickTrain.DataCase, only: [concurrently: 1, organization_manager_fixture: 3]
     end
   end
 
@@ -36,6 +37,26 @@ defmodule QuickTrain.DataCase do
     end
 
     :ok
+  end
+
+  def organization_manager_fixture(user_id, slug, name) do
+    organization = Organizations.create_organization!(name, slug)
+    membership = Organizations.add_member!(organization.id, user_id)
+    role = Authorization.create_role!(organization.id, "manager", "Manager")
+    Authorization.assign_role!(organization.id, user_id, role.id)
+
+    for key <- ~w(assets.read assets.manage datasets.read datasets.manage dataset_imports.manage) do
+      capability =
+        Authorization.create_capability!(key, key,
+          upsert?: true,
+          upsert_identity: :key,
+          upsert_fields: []
+        )
+
+      Authorization.grant_capability!(role.id, capability.id)
+    end
+
+    %{organization: organization, membership: membership}
   end
 
   def concurrently(operations) do
