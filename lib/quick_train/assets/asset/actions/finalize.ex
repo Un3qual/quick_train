@@ -86,6 +86,9 @@ defmodule QuickTrain.Assets.Asset.Actions.Finalize do
         {:error, :content_mismatch} ->
           commit_failure(asset.id, asset.organization_id, claim_id, :content_mismatch)
 
+        {:error, :canonical_conflict} ->
+          commit_failure(asset.id, asset.organization_id, claim_id, :asset_identity_conflict)
+
         {:error, :staging_missing} ->
           _result = release_unpublished_claim(asset.id, asset.organization_id, claim_id)
           {:error, :staging_missing}

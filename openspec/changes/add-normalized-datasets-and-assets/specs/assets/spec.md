@@ -73,6 +73,14 @@ The system SHALL enforce organization-scoped content-hash uniqueness only for re
 - **WHEN** an organization registers a hash that already has a canonical ready asset but supplies a different byte size or media type
 - **THEN** the system rejects canonical reuse with an asset-identity conflict and does not return metadata that contradicts the request
 
+#### Scenario: Pending uploads conflict on declared media type
+- **WHEN** two pending registrations contain identical bytes but different declared media types and one occupies the canonical storage key
+- **THEN** the other becomes failed with `asset_identity_conflict`, clears its finalizer claim, and returns that terminal outcome on retries
+
+#### Scenario: Invalid media-type text is rejected before storage
+- **WHEN** the declared media type is blank, invalid UTF-8, or contains NUL
+- **THEN** registration fails with `invalid_media_type` before obtaining upload access or persisting an asset
+
 ### Requirement: Staging expiry and finalizer claims remain enforced
 The system SHALL assign staging an expiry and refuse to begin finalization after that expiry. Finalization SHALL acquire a bounded mutually exclusive claim under the asset lock and check its identity on post-I/O transitions. Expired claims MAY be replaced. A finalizer SHALL recheck its live claim before publication, use finite adapter deadlines, and reverify an existing canonical object before adopting it. Storage I/O SHALL occur outside database transactions. Automatic staging deletion and background publication recovery are deferred to `restore-operator-bootstrap-and-maintenance`; obsolete staging remains stored.
 

@@ -270,6 +270,62 @@ defmodule QuickTrain.Assets.AssetLifecycleTest do
     assert Exception.message(conflict) =~ "asset_identity_conflict"
   end
 
+  @tag :committed_db
+  test "conflicting declared media types terminate without retaining a claim", %{
+    manager: manager,
+    graph: graph
+  } do
+    content = "same opaque bytes"
+
+    registrations =
+      for media_type <- ["text/plain", "application/octet-stream"] do
+        registration = register!(graph.organization.id, manager, content, media_type)
+        :ok = TestStorage.put_staging(registration.upload_access, content)
+        registration
+      end
+
+    results =
+      concurrently(
+        for registration <- registrations do
+          fn ->
+            Assets.finalize_asset!(registration.asset.id, graph.organization.id, actor: manager)
+          end
+        end
+      )
+
+    assert Enum.count(results, &(&1.asset.state == :ready)) == 1
+    [failed] = Enum.filter(results, &(&1.asset.state == :failed))
+    assert failed.asset.failure_reason == "asset_identity_conflict"
+    stored = Ash.get!(Asset, failed.asset.id, authorize?: false)
+    assert is_nil(stored.operation_claim_id)
+    assert is_nil(stored.operation_claim_expires_at)
+    retry = Assets.finalize_asset!(stored.id, graph.organization.id, actor: manager)
+    assert retry.asset.state == :failed
+    assert retry.asset.failure_reason == "asset_identity_conflict"
+    assert TestStorage.sealed_count() == 1
+  end
+
+  test "invalid media text is rejected before requesting storage access", %{
+    manager: manager,
+    graph: graph
+  } do
+    config = Application.fetch_env!(:quick_train, :assets)
+    on_exit(fn -> Application.put_env(:quick_train, :assets, config) end)
+    Application.put_env(:quick_train, :assets, Keyword.delete(config, :storage_adapter))
+
+    assert {:error, error} =
+             Assets.register_asset(
+               graph.organization.id,
+               sha256("bytes"),
+               5,
+               "text/plain" <> <<0>>,
+               actor: manager
+             )
+
+    assert Exception.message(error) =~ "invalid_media_type"
+    assert Ash.count!(Asset, authorize?: false) == 0
+  end
+
   test "asset actions require the explicit owning organization", %{
     manager: manager,
     graph: graph

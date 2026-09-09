@@ -434,3 +434,18 @@ Verification on 2026-09-09: 42 focused tests passed, then the full `mise run ver
 gate passed with 141 tests, static analysis, Dialyzer, production compilation, and
 a clean dependency audit. Independent strict OpenSpec validation passed all four
 artifacts. Removed format-parser tests account for the lower test count.
+
+## 26. Deterministic asset errors
+
+- [x] 26.1 Handle canonical storage conflicts through the existing failed transition as `asset_identity_conflict`, clearing the claim and making retries terminal (3973625365).
+- [x] 26.2 Reject PostgreSQL-incompatible media-type text before requesting storage access (3973625375).
+- [x] 26.3 Verify focused concurrency/validation regressions, the full gate, and independent OpenSpec validation.
+
+These fixes preserve opaque downloads and deferred HTTP/format-aware work. They add
+no new module, storage operation, recovery workflow, or schema change. Older review
+findings retain their recorded dispositions and approved scope boundaries.
+
+Verification on 2026-09-09: all 10 focused asset lifecycle tests passed. The full
+`mise run verify` gate passed with 143 tests, static analysis, Dialyzer, production
+compilation, and a clean dependency audit. Independent strict OpenSpec validation
+passed all four artifacts.

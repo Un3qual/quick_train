@@ -39,10 +39,18 @@ defmodule QuickTrain.Assets.Asset.Actions.Register do
     max_bytes = Keyword.fetch!(Application.fetch_env!(:quick_train, :assets), :max_bytes)
 
     cond do
-      byte_size <= 0 -> {:error, :invalid_asset_size}
-      byte_size > max_bytes -> {:error, :asset_too_large}
-      String.trim(media_type) == "" -> {:error, :invalid_media_type}
-      true -> :ok
+      byte_size <= 0 ->
+        {:error, :invalid_asset_size}
+
+      byte_size > max_bytes ->
+        {:error, :asset_too_large}
+
+      not String.valid?(media_type) or String.contains?(media_type, <<0>>) or
+          String.trim(media_type) == "" ->
+        {:error, :invalid_media_type}
+
+      true ->
+        :ok
     end
   end
 
