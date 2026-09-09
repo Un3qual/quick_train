@@ -16,7 +16,7 @@ defmodule QuickTrain.Datasets.DatasetItem do
 
     attribute :external_key, :string,
       public?: true,
-      constraints: [max_length: 512, length_count: :bytes]
+      constraints: [match: ~r/\A[^\x00]*\z/u, max_length: 512, length_count: :bytes]
 
     timestamps()
   end

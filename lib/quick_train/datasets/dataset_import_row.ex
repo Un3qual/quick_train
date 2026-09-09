@@ -29,7 +29,10 @@ defmodule QuickTrain.Datasets.DatasetImportRow do
       public?: true,
       constraints: [max_length: 512, length_count: :bytes]
 
-    attribute :source_position, :integer, allow_nil?: false, public?: true
+    attribute :source_position, :integer,
+      allow_nil?: false,
+      public?: true,
+      constraints: [max: 9_223_372_036_854_775_807]
 
     attribute :external_key, :string,
       public?: true,
@@ -81,7 +84,10 @@ defmodule QuickTrain.Datasets.DatasetImportRow do
         allow_nil?: false,
         constraints: [max_length: 512, length_count: :bytes]
 
-      argument :source_position, :integer, allow_nil?: false
+      argument :source_position, :integer,
+        allow_nil?: false,
+        constraints: [max: 9_223_372_036_854_775_807]
+
       argument :external_key, :string, constraints: [max_length: 512, length_count: :bytes]
 
       filter expr(
@@ -118,7 +124,10 @@ defmodule QuickTrain.Datasets.DatasetImportRow do
         constraints: [max_length: 512, length_count: :bytes]
 
       argument :external_key, :string, constraints: [max_length: 512, length_count: :bytes]
-      argument :source_position, :integer, allow_nil?: false
+
+      argument :source_position, :integer,
+        allow_nil?: false,
+        constraints: [max: 9_223_372_036_854_775_807]
 
       argument :values, {:array, ValueInput}, allow_nil?: false
 

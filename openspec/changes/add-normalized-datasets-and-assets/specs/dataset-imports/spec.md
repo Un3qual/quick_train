@@ -181,8 +181,14 @@ The system SHALL atomically get or create the stable dataset item for a supplied
 - **WHEN** workers first encounter the same dataset-scoped external key concurrently
 - **THEN** they converge on one atomically created item before revision comparison
 
+#### Scenario: Source positions fit bigint storage
+- **WHEN** a source position exceeds 9223372036854775807
+- **THEN** Ash rejects the field before candidate construction or row persistence
+
 ### Requirement: Import schemas and assets stay in scope
-The system SHALL require an import schema to be published and belong to the import's dataset. It SHALL accept an asset value only when the asset is ready, belongs to the dataset's organization, and has passed sealed-byte media verification. Cross-dataset schemas and pending, failed, active-format, falsely declared, or cross-organization assets SHALL fail without exposing restricted metadata or creating partial records.
+The system SHALL require an import schema to be published and belong to the import's dataset. It SHALL accept an asset value only when the asset is ready, belongs to the dataset's organization, and has passed sealed-byte size/hash verification. Cross-dataset schemas and pending, failed, or cross-organization assets SHALL fail without exposing restricted metadata or creating partial records.
+
+Asset bytes remain opaque. Imports SHALL NOT interpret the declared media type or reject a ready organization-owned asset based on its format. The asset download-only response requirements still apply.
 
 #### Scenario: Foreign schema is rejected
 - **WHEN** an actor opens or processes an import with a schema from another dataset
@@ -193,5 +199,5 @@ The system SHALL require an import schema to be published and belong to the impo
 - **THEN** the candidate record stores a relational asset value referencing it
 
 #### Scenario: Invalid asset reference is rejected
-- **WHEN** a row references a pending, failed, unsupported, or cross-organization asset
+- **WHEN** a row references a pending, failed, or cross-organization asset
 - **THEN** the row records a sanitized failure without exposing asset metadata or creating a partial revision

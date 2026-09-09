@@ -491,3 +491,18 @@ Verification on 2026-09-09: 58 focused tests passed, followed by the full gate
 with 150 tests, including signed 64-bit boundary round trips. `mise run verify`
 passed static analysis, Dialyzer, production compilation, and the dependency audit.
 Independent strict OpenSpec validation passed all four artifacts.
+
+## 30. Remaining input and contract corrections
+
+- [x] 30.1 Bound source positions with built-in Ash integer constraints before callbacks and persistence (3974067934).
+- [x] 30.2 Reject NUL in direct revision external-key arguments and item attributes (3974067941).
+- [x] 30.3 Align import asset eligibility with the approved opaque-download contract (3974067944).
+- [x] 30.4 Verify focused regressions, the full gate, and independent OpenSpec validation.
+
+No custom validation module, migration, format parser, or new workflow is added.
+Prior findings retain their recorded dispositions.
+
+Verification on 2026-09-09: all 36 focused tests and all 152 full-suite tests passed.
+`mise run verify` passed static analysis, Dialyzer, production compilation, and a
+clean dependency audit. Independent strict OpenSpec validation passed all four
+artifacts.

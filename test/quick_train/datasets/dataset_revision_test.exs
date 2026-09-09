@@ -25,6 +25,23 @@ defmodule QuickTrain.Datasets.DatasetRevisionTest do
     Map.merge(graph, %{manager: manager, organization: graph.organization, asset: asset})
   end
 
+  test "direct external keys reject NUL before record construction", context do
+    assert {:error, %Ash.Error.Invalid{} = error} =
+             Datasets.put_item_revision(
+               context.organization.id,
+               context.dataset.id,
+               context.schema.id,
+               nil,
+               "customer" <> <<0>>,
+               values(context.asset.id, "Alice", "1", "2026-01-02T01:04:05Z"),
+               actor: context.manager
+             )
+
+    assert Exception.message(error) =~ "external_key"
+    assert Ash.count!(DatasetItem, authorize?: false) == 0
+    assert Ash.count!(DatasetRecord, authorize?: false) == 0
+  end
+
   test "integer storage boundaries round trip and overflow is rejected", context do
     for integer <- [-9_223_372_036_854_775_808, 9_223_372_036_854_775_807] do
       input = values(context.asset.id, "Alice", "1", "2026-01-02T01:04:05Z")

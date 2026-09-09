@@ -28,6 +28,29 @@ defmodule QuickTrain.Datasets.DatasetImportTest do
     %{manager: manager, organization: graph.organization, dataset: dataset, schema: schema}
   end
 
+  test "source positions cannot exceed bigint storage", context do
+    import = open!(context, "position-boundary")
+
+    assert {:error, %Ash.Error.Invalid{} = error} =
+             Datasets.append_import_row(
+               context.organization.id,
+               import.id,
+               "row",
+               nil,
+               9_223_372_036_854_775_808,
+               [%{field: "name", text: "Alice"}],
+               actor: context.manager
+             )
+
+    assert Exception.message(error) =~ "source_position"
+    assert Ash.count!(DatasetRecord, authorize?: false) == 0
+    assert Ash.count!(DatasetImportRow, authorize?: false) == 0
+
+    assert append!(context, import, "row", nil, 9_223_372_036_854_775_807, [
+             %{field: "name", text: "Alice"}
+           ]).source_position == 9_223_372_036_854_775_807
+  end
+
   test "oversized import identifiers and integers fail before candidate creation", context do
     too_long = String.duplicate("x", 513)
 

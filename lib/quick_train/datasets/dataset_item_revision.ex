@@ -77,7 +77,10 @@ defmodule QuickTrain.Datasets.DatasetItemRevision do
       argument :dataset_id, :uuid, allow_nil?: false
       argument :schema_version_id, :uuid, allow_nil?: false
       argument :item_id, :uuid
-      argument :external_key, :string, constraints: [max_length: 512, length_count: :bytes]
+
+      argument :external_key, :string,
+        constraints: [match: ~r/\A[^\x00]*\z/u, max_length: 512, length_count: :bytes]
+
       argument :values, {:array, :map}, allow_nil?: false
 
       validate present([:item_id, :external_key], at_least: 1) do
@@ -99,7 +102,10 @@ defmodule QuickTrain.Datasets.DatasetItemRevision do
       argument :dataset_id, :uuid, allow_nil?: false
       argument :schema_version_id, :uuid, allow_nil?: false
       argument :item_id, :uuid
-      argument :external_key, :string, constraints: [max_length: 512, length_count: :bytes]
+
+      argument :external_key, :string,
+        constraints: [match: ~r/\A[^\x00]*\z/u, max_length: 512, length_count: :bytes]
+
       argument :candidate_record_id, :uuid, allow_nil?: false
       validate present([:item_id, :external_key], at_least: 1)
       run {Module.concat(["QuickTrain.Datasets.DatasetItemRevision.Actions.Put"]), []}
