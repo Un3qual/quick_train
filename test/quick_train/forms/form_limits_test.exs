@@ -131,5 +131,14 @@ defmodule QuickTrain.Forms.FormLimitsTest do
 
     assert Ash.count!(InputSlotDefinition, authorize?: false) == 1
     assert run!(FormVersion, :publish, ctx, %{version_id: ctx.version.id}).state == :published
+
+    copied =
+      run!(FormVersion, :copy_published, ctx, %{
+        form_id: ctx.form.id,
+        source_version_id: ctx.version.id
+      })
+
+    assert Enum.sum(Enum.map(Graph.load!(copied.id), fn {_resource, rows} -> length(rows) end)) ==
+             10_000
   end
 end

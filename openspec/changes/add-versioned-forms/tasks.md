@@ -43,4 +43,16 @@
 
 - [x] 6.1 Reconcile implementation decisions with this proposal, design, capability spec, and task checklist while preserving the deferred Projects, Tasks, and media-rendering boundaries.
 - [x] 6.2 Run `mise run openspec.validate` independently and resolve all findings attributable to this change.
-- [ ] 6.3 Run `mise run verify`, resolve failures attributable to this change, and record any external blockers before reporting implementation complete or merging.
+- [x] 6.3 Run `mise run verify`, resolve failures attributable to this change, and record any external blockers before reporting implementation complete or merging.
+
+## Verification record
+
+- `mise run verify` passed with 205 tests, including 48 Forms tests. The gate also passed
+  compilation, formatting, Ash code-generation consistency, boundary/cycle checks, static
+  analysis, Dialyzer, the dependency audit, and production compilation.
+- `mise run openspec.validate` passed independently for all seven current changes/specifications.
+- Fresh migrations and Forms down/up completed on a disposable database containing a published
+  rating graph; that database was removed afterward.
+- The maximum 10,000-row graph was published and copied successfully. Independent-connection
+  race tests observed actual PostgreSQL blocking before allowing the first transaction to finish.
+- No dependency changes, external blockers, or deferred implementation tasks remain in this change.

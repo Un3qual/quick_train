@@ -101,128 +101,131 @@ defmodule QuickTrainWeb.GraphqlApiTest do
         {field["name"], MapSet.new(field["args"], & &1["name"])}
       end)
 
-    assert queries == %{
-             "apiVersion" => MapSet.new(),
-             "asset" => MapSet.new(["assetId", "organizationId"]),
-             "assetAccess" => MapSet.new(["assetId", "organizationId"]),
-             "datasetFieldDefinitions" =>
-               MapSet.new([
-                 "after",
-                 "before",
-                 "first",
-                 "last",
-                 "organizationId",
-                 "recordTypeId"
-               ]),
-             "datasetImport" => MapSet.new(["importId", "organizationId"]),
-             "datasetImportRows" =>
-               MapSet.new([
-                 "after",
-                 "before",
-                 "first",
-                 "importId",
-                 "last",
-                 "organizationId"
-               ]),
-             "datasetItemRevisions" =>
-               MapSet.new([
-                 "after",
-                 "before",
-                 "first",
-                 "itemId",
-                 "last",
-                 "organizationId"
-               ]),
-             "datasetItems" =>
-               MapSet.new([
-                 "after",
-                 "before",
-                 "datasetId",
-                 "first",
-                 "last",
-                 "organizationId"
-               ]),
-             "datasetRecordTypes" =>
-               MapSet.new([
-                 "after",
-                 "before",
-                 "first",
-                 "last",
-                 "organizationId",
-                 "schemaVersionId"
-               ]),
-             "datasetSchemaVersion" => MapSet.new(["organizationId", "schemaVersionId"]),
-             "datasetValues" =>
-               MapSet.new([
-                 "after",
-                 "before",
-                 "first",
-                 "last",
-                 "organizationId",
-                 "revisionId"
-               ]),
-             "datasets" => MapSet.new(["after", "before", "first", "last", "organizationId"])
-           }
+    assert queries ==
+             Map.merge(form_queries(), %{
+               "apiVersion" => MapSet.new(),
+               "asset" => MapSet.new(["assetId", "organizationId"]),
+               "assetAccess" => MapSet.new(["assetId", "organizationId"]),
+               "datasetFieldDefinitions" =>
+                 MapSet.new([
+                   "after",
+                   "before",
+                   "first",
+                   "last",
+                   "organizationId",
+                   "recordTypeId"
+                 ]),
+               "datasetImport" => MapSet.new(["importId", "organizationId"]),
+               "datasetImportRows" =>
+                 MapSet.new([
+                   "after",
+                   "before",
+                   "first",
+                   "importId",
+                   "last",
+                   "organizationId"
+                 ]),
+               "datasetItemRevisions" =>
+                 MapSet.new([
+                   "after",
+                   "before",
+                   "first",
+                   "itemId",
+                   "last",
+                   "organizationId"
+                 ]),
+               "datasetItems" =>
+                 MapSet.new([
+                   "after",
+                   "before",
+                   "datasetId",
+                   "first",
+                   "last",
+                   "organizationId"
+                 ]),
+               "datasetRecordTypes" =>
+                 MapSet.new([
+                   "after",
+                   "before",
+                   "first",
+                   "last",
+                   "organizationId",
+                   "schemaVersionId"
+                 ]),
+               "datasetSchemaVersion" => MapSet.new(["organizationId", "schemaVersionId"]),
+               "datasetValues" =>
+                 MapSet.new([
+                   "after",
+                   "before",
+                   "first",
+                   "last",
+                   "organizationId",
+                   "revisionId"
+                 ]),
+               "datasets" => MapSet.new(["after", "before", "first", "last", "organizationId"])
+             })
 
     mutations =
       Map.new(schema["mutationType"]["fields"], fn field ->
         {field["name"], MapSet.new(field["args"], & &1["name"])}
       end)
 
-    assert mutations == %{
-             "addDatasetFieldDefinition" =>
-               MapSet.new([
-                 "cardinality",
-                 "key",
-                 "name",
-                 "organizationId",
-                 "recordTypeId",
-                 "required",
-                 "valueFamily"
-               ]),
-             "addDatasetRecordType" =>
-               MapSet.new(["key", "name", "organizationId", "schemaVersionId"]),
-             "appendDatasetImportRow" =>
-               MapSet.new([
-                 "externalKey",
-                 "importId",
-                 "organizationId",
-                 "rowKey",
-                 "sourcePosition",
-                 "values"
-               ]),
-             "beginOidcLogin" => MapSet.new(["callbackKey"]),
-             "createDataset" => MapSet.new(["input"]),
-             "createDatasetSchemaVersion" => MapSet.new(["datasetId", "organizationId"]),
-             "exchangeOidcLogin" => MapSet.new(["clientProof", "code", "state"]),
-             "registerAsset" => MapSet.new(["organizationId", "sha256", "byteSize", "mediaType"]),
-             "finalizeAsset" => MapSet.new(["assetId", "organizationId"]),
-             "finalizeDatasetImport" => MapSet.new(["importId", "organizationId"]),
-             "openDatasetImport" =>
-               MapSet.new([
-                 "datasetId",
-                 "idempotencyKey",
-                 "organizationId",
-                 "schemaVersionId"
-               ]),
-             "publishDatasetSchemaVersion" =>
-               MapSet.new(["organizationId", "rootRecordTypeId", "schemaVersionId"]),
-             "removeDatasetFieldDefinition" =>
-               MapSet.new(["fieldDefinitionId", "organizationId"]),
-             "removeDatasetRecordType" => MapSet.new(["organizationId", "recordTypeId"]),
-             "updateDatasetFieldDefinition" =>
-               MapSet.new([
-                 "cardinality",
-                 "fieldDefinitionId",
-                 "key",
-                 "name",
-                 "organizationId",
-                 "required",
-                 "valueFamily"
-               ]),
-             "updateDatasetRecordType" =>
-               MapSet.new(["key", "name", "organizationId", "recordTypeId"])
-           }
+    assert mutations ==
+             Map.merge(form_mutations(), %{
+               "addDatasetFieldDefinition" =>
+                 MapSet.new([
+                   "cardinality",
+                   "key",
+                   "name",
+                   "organizationId",
+                   "recordTypeId",
+                   "required",
+                   "valueFamily"
+                 ]),
+               "addDatasetRecordType" =>
+                 MapSet.new(["key", "name", "organizationId", "schemaVersionId"]),
+               "appendDatasetImportRow" =>
+                 MapSet.new([
+                   "externalKey",
+                   "importId",
+                   "organizationId",
+                   "rowKey",
+                   "sourcePosition",
+                   "values"
+                 ]),
+               "beginOidcLogin" => MapSet.new(["callbackKey"]),
+               "createDataset" => MapSet.new(["input"]),
+               "createDatasetSchemaVersion" => MapSet.new(["datasetId", "organizationId"]),
+               "exchangeOidcLogin" => MapSet.new(["clientProof", "code", "state"]),
+               "registerAsset" =>
+                 MapSet.new(["organizationId", "sha256", "byteSize", "mediaType"]),
+               "finalizeAsset" => MapSet.new(["assetId", "organizationId"]),
+               "finalizeDatasetImport" => MapSet.new(["importId", "organizationId"]),
+               "openDatasetImport" =>
+                 MapSet.new([
+                   "datasetId",
+                   "idempotencyKey",
+                   "organizationId",
+                   "schemaVersionId"
+                 ]),
+               "publishDatasetSchemaVersion" =>
+                 MapSet.new(["organizationId", "rootRecordTypeId", "schemaVersionId"]),
+               "removeDatasetFieldDefinition" =>
+                 MapSet.new(["fieldDefinitionId", "organizationId"]),
+               "removeDatasetRecordType" => MapSet.new(["organizationId", "recordTypeId"]),
+               "updateDatasetFieldDefinition" =>
+                 MapSet.new([
+                   "cardinality",
+                   "fieldDefinitionId",
+                   "key",
+                   "name",
+                   "organizationId",
+                   "required",
+                   "valueFamily"
+                 ]),
+               "updateDatasetRecordType" =>
+                 MapSet.new(["key", "name", "organizationId", "recordTypeId"])
+             })
 
     type_names = MapSet.new(schema["types"], & &1["name"])
     refute MapSet.member?(type_names, "User")
@@ -330,4 +333,99 @@ defmodule QuickTrainWeb.GraphqlApiTest do
 
   defp restore_env(key, nil), do: Application.delete_env(:quick_train, key)
   defp restore_env(key, value), do: Application.put_env(:quick_train, key, value)
+
+  defp form_queries do
+    %{
+      "formInputFieldRequirements" => MapSet.new(~w(after before first last organizationId)),
+      "formInputSlotDefinitions" => MapSet.new(~w(after before first last organizationId)),
+      "formLabelSets" => MapSet.new(~w(after before first last organizationId)),
+      "formLabels" => MapSet.new(~w(after before first last organizationId)),
+      "formPresentationElements" => MapSet.new(~w(after before first last organizationId)),
+      "formQuestionDefinitions" => MapSet.new(~w(after before first last organizationId)),
+      "formQuestionOptions" => MapSet.new(~w(after before first last organizationId)),
+      "formVersions" => MapSet.new(~w(after before first last organizationId)),
+      "forms" => MapSet.new(~w(after before first last organizationId)),
+      "formVersion" => MapSet.new(~w(id organizationId))
+    }
+  end
+
+  defp form_mutations do
+    %{
+      "addFormAnnotationConstraints" =>
+        MapSet.new(
+          ~w(labelSetId maximum minimum organizationId questionId sourceRequirementId versionId)
+        ),
+      "addFormDecimalConstraints" =>
+        MapSet.new(~w(maximum minimum organizationId questionId versionId)),
+      "addFormInputFieldRequirement" =>
+        MapSet.new(
+          ~w(cardinality inputSlotId intendedUse key organizationId required valueFamily versionId)
+        ),
+      "addFormInputSlotDefinition" =>
+        MapSet.new(~w(key maximum minimum organizationId versionId)),
+      "addFormInputSource" =>
+        MapSet.new(~w(inputSlotId organizationId questionId sourceRequirementId versionId)),
+      "addFormIntegerConstraints" =>
+        MapSet.new(~w(maximum minimum organizationId questionId versionId)),
+      "addFormLabel" => MapSet.new(~w(key labelSetId organizationId position text versionId)),
+      "addFormLabelSet" => MapSet.new(~w(key name organizationId versionId)),
+      "addFormPresentationElement" =>
+        MapSet.new(~w(kind organizationId position questionId requirementId text versionId)),
+      "addFormQuestionDefinition" =>
+        MapSet.new(~w(family key organizationId prompt renderer versionId)),
+      "addFormQuestionOption" =>
+        MapSet.new(~w(key label organizationId position questionId versionId)),
+      "addFormSelectionConstraints" =>
+        MapSet.new(~w(maximum minimum organizationId questionId versionId)),
+      "addFormTextConstraints" =>
+        MapSet.new(~w(maximum minimum organizationId questionId versionId)),
+      "copyPublishedForm" => MapSet.new(~w(formId organizationId sourceVersionId)),
+      "createForm" => MapSet.new(~w(key organizationId)),
+      "createFormDraft" => MapSet.new(~w(description formId organizationId title)),
+      "publishFormVersion" => MapSet.new(~w(organizationId versionId)),
+      "removeFormAnnotationConstraints" => MapSet.new(~w(id organizationId versionId)),
+      "removeFormDecimalConstraints" => MapSet.new(~w(id organizationId versionId)),
+      "removeFormInputFieldRequirement" => MapSet.new(~w(id organizationId versionId)),
+      "removeFormInputSlotDefinition" => MapSet.new(~w(id organizationId versionId)),
+      "removeFormInputSource" => MapSet.new(~w(id organizationId versionId)),
+      "removeFormIntegerConstraints" => MapSet.new(~w(id organizationId versionId)),
+      "removeFormLabel" => MapSet.new(~w(id organizationId versionId)),
+      "removeFormLabelSet" => MapSet.new(~w(id organizationId versionId)),
+      "removeFormPresentationElement" => MapSet.new(~w(id organizationId versionId)),
+      "removeFormQuestionDefinition" => MapSet.new(~w(id organizationId versionId)),
+      "removeFormQuestionOption" => MapSet.new(~w(id organizationId versionId)),
+      "removeFormSelectionConstraints" => MapSet.new(~w(id organizationId versionId)),
+      "removeFormTextConstraints" => MapSet.new(~w(id organizationId versionId)),
+      "reorderFormLabel" => MapSet.new(~w(ids labelSetId organizationId versionId)),
+      "reorderFormPresentationElement" => MapSet.new(~w(ids organizationId versionId)),
+      "reorderFormQuestionOption" => MapSet.new(~w(ids organizationId questionId versionId)),
+      "updateFormAnnotationConstraints" =>
+        MapSet.new(~w(id labelSetId maximum minimum organizationId sourceRequirementId versionId)),
+      "updateFormBoundValue" => MapSet.new(~w(id organizationId requirementId versionId)),
+      "updateFormDecimalConstraints" =>
+        MapSet.new(~w(id maximum minimum organizationId versionId)),
+      "updateFormDraft" => MapSet.new(~w(description organizationId title versionId)),
+      "updateFormHeading" => MapSet.new(~w(id organizationId text versionId)),
+      "updateFormInputFieldRequirement" =>
+        MapSet.new(~w(cardinality id intendedUse organizationId required valueFamily versionId)),
+      "updateFormInputSlotDefinition" =>
+        MapSet.new(~w(id maximum minimum organizationId versionId)),
+      "updateFormInputSource" =>
+        MapSet.new(~w(id inputSlotId organizationId sourceRequirementId versionId)),
+      "updateFormInstruction" => MapSet.new(~w(id organizationId text versionId)),
+      "updateFormIntegerConstraints" =>
+        MapSet.new(~w(id maximum minimum organizationId versionId)),
+      "updateFormLabel" => MapSet.new(~w(id organizationId position text versionId)),
+      "updateFormLabelSet" => MapSet.new(~w(id name organizationId versionId)),
+      "updateFormPresentationElement" => MapSet.new(~w(id organizationId position versionId)),
+      "updateFormQuestionDefinition" =>
+        MapSet.new(~w(family id organizationId prompt renderer versionId)),
+      "updateFormQuestionOption" => MapSet.new(~w(id label organizationId position versionId)),
+      "updateFormQuestionPlacement" => MapSet.new(~w(id organizationId questionId versionId)),
+      "updateFormSection" => MapSet.new(~w(id organizationId text versionId)),
+      "updateFormSelectionConstraints" =>
+        MapSet.new(~w(id maximum minimum organizationId versionId)),
+      "updateFormTextConstraints" => MapSet.new(~w(id maximum minimum organizationId versionId))
+    }
+  end
 end
