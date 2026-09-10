@@ -69,7 +69,7 @@ The system SHALL define one ordered sequence per version containing typed instru
 - **THEN** the write fails and existing references remain intact
 
 ### Requirement: Typed question families and renderer compatibility
-The system SHALL store questions with version-unique nonempty keys, plain-text prompts, an answer family, a compatible renderer, and typed family-specific constraints. It SHALL support the following combinations and reject other combinations:
+The system SHALL store questions with version-unique nonempty keys, nonblank plain-text prompts containing at least one non-whitespace character, an answer family, a compatible renderer, and typed family-specific constraints. Blank prompts SHALL be rejected on question creation and update. It SHALL support the following combinations and reject other combinations:
 
 | Answer family | Compatible renderers |
 | --- | --- |
@@ -88,6 +88,10 @@ The system SHALL store questions with version-unique nonempty keys, plain-text p
 | text_spans | text_spans |
 
 Text constraints SHALL support optional nonnegative minimum and maximum Unicode code-point lengths. Integer and decimal constraints SHALL support optional inclusive minimum and maximum values, preserving decimal precision. Integer questions and their supplied bounds SHALL use the signed 32-bit range −2,147,483,648 through 2,147,483,647 supported by GraphQL Int; for `integer_input`, an omitted bound SHALL mean the corresponding endpoint of that range. Paired bounds SHALL satisfy minimum no greater than maximum. Stars and Likert SHALL require both bounds to be explicitly supplied before publication, with no implicit endpoints, and SHALL permit at most 200 discrete values (`maximum - minimum + 1 <= 200`). Supplied oversized ranges SHALL be rejected on creation or update; incomplete drafts can omit bounds but SHALL fail publication until both are supplied. Boolean questions SHALL have no unrelated scalar or selection constraints. Selection and annotation constraints SHALL use explicit count bounds as specified below. Unknown families, renderer values, and configuration fields SHALL be rejected. Changing family or renderer SHALL reject incompatible existing children or constraints rather than silently dropping them. No generic JSON configuration or answer payload SHALL substitute for the typed contract. Per-question answer targets, worker skipping, and review policy SHALL be left to Projects and Tasks.
+
+#### Scenario: Blank question prompt is rejected
+- **WHEN** an author creates or updates a question with an empty or whitespace-only prompt
+- **THEN** the write fails without persisting a question lacking question text
 
 #### Scenario: Renderer changes without changing value family
 - **WHEN** an author changes a compatible integer question from integer input to stars with explicit integer bounds 1–5
