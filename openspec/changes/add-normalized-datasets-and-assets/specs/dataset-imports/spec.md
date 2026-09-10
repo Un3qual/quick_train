@@ -7,9 +7,9 @@ Provide provenance-preserving, idempotent programmatic imports that create or re
 ### Requirement: Organization-scoped import authorization
 The system SHALL require an active authenticated account, an active dataset-owning organization, an active membership in that organization, and the dataset-import capability for every caller-initiated open, append, finalize, or inspect action. Finalization SHALL authorize a durable command pinned to the accepted import's organization, dataset, and schema version. Internal retries SHALL advance only that immutable scope and SHALL NOT grant access to any other organization data.
 
-#### Scenario: GraphQL preserves signed 64-bit integer precision
-- **WHEN** a GraphQL caller supplies the integer selector as a decimal string within the signed 64-bit range
-- **THEN** Ash casts it to an integer for normalization/storage and typed GraphQL integer reads return decimal strings without precision loss
+#### Scenario: GraphQL integers use standard numeric values
+- **WHEN** a caller supplies the integer selector as a JSON integer within the signed 32-bit range
+- **THEN** the system retains integer values internally and returns GraphQL Int numbers; strings and out-of-range GraphQL inputs are rejected
 
 #### Scenario: Indexed import identifiers are byte-bounded
 - **WHEN** an import idempotency key, row key, or item external key exceeds 512 UTF-8 bytes
@@ -185,8 +185,8 @@ The system SHALL atomically get or create the stable dataset item for a supplied
 - **WHEN** workers first encounter the same dataset-scoped external key concurrently
 - **THEN** they converge on one atomically created item before revision comparison
 
-#### Scenario: Source positions fit bigint storage
-- **WHEN** a source position exceeds 9223372036854775807
+#### Scenario: Source positions fit standard GraphQL Int
+- **WHEN** a source position exceeds 2147483647
 - **THEN** Ash rejects the field before candidate construction or row persistence
 
 ### Requirement: Import schemas and assets stay in scope

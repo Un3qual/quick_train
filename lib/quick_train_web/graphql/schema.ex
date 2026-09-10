@@ -1,7 +1,7 @@
 defmodule QuickTrainWeb.GraphQL.Schema do
   @moduledoc "The explicit public GraphQL allowlist."
 
-  use Absinthe.Schema
+  use Absinthe.Schema, use_spec_compliant_int_scalar: true
 
   use AshGraphql,
     domains: [QuickTrain.Authentication, QuickTrain.Assets, QuickTrain.Datasets],

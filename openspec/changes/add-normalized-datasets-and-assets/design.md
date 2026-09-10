@@ -256,17 +256,19 @@ Indexed dataset/schema keys, import idempotency and row keys, and item external
 keys are limited to 512 UTF-8 bytes through Ash string constraints. This is a
 conservative bound for composite PostgreSQL B-tree entries, independent of text
 compressibility. Display names are not indexed and do not inherit that limit.
-Schema keys/names reject NUL. Typed integers are signed 64-bit values; normalization
+Schema keys/names reject NUL. Typed integers are signed 32-bit values; normalization
 rejects overflow before candidate construction. Asset hash input is not trimmed.
 These are input constraints, not new parsing, cleanup, or recovery workflows.
 
 ## GraphQL integer representation and usable root schemas
 
-Dataset integer input/output fields use GraphQL String via AshGraphql attribute
-input/output overrides. Ash retains integer casting and storage; Absinthe's built-in
-String serializer preserves exact decimal output. Clients must send quoted decimal
-strings for the integer selector, including values previously representable as Int.
-No custom scalar or database type is added.
+MVP dataset integer values use standard GraphQL Int, from -2147483648 through
+2147483647; source positions are nonnegative and at most 2147483647. Ash entry
+points and stored-value constraints enforce these same limits. Absinthe uses its
+spec-compliant Int scalar. Inputs and outputs are JSON numbers; no string override,
+custom scalar, or client bigint handling is needed. Existing PostgreSQL bigint
+columns remain unchanged; their capacity does not define the public API contract.
+Full 64-bit support is deferred until a concrete requirement justifies it.
 
 Publication checks the root's required-field count against the current import field
 cap with an Ash aggregate in the atomic update filter, under the existing parent

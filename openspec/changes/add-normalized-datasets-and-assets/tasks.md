@@ -534,3 +534,19 @@ Verification on 2026-09-09: all 16 focused revision tests and all 154 full-suite
 tests passed. The full gate passed static analysis, Dialyzer, production
 compilation, and a clean dependency audit. Independent strict OpenSpec validation
 passed all four artifacts.
+
+## 33. Standard numeric GraphQL MVP contract
+
+Approved simplification superseding the earlier full-64-bit and string-output decisions.
+
+- [x] 33.1 Remove dataset integer GraphQL string overrides and enable Absinthe's standard 32-bit Int scalar.
+- [x] 33.2 Match dataset integer and source-position Ash limits to the public numeric range, retaining existing bigint columns.
+- [x] 33.3 Assess comment 3974545033: the former legacy Int already accepted its 2147483648 example, but full-bigint parity was absent; the approved narrower contract resolves the mismatch without custom scalars.
+- [x] 33.4 Verify numeric GraphQL boundaries, Ash rejection, the full gate, and independent OpenSpec validation.
+
+Full 64-bit support is deferred until needed. No migration, custom scalar, client
+precision workaround, or new module is added.
+
+Verification on 2026-09-09: 40 focused tests and all 155 full-suite tests passed.
+The full gate passed static analysis, Dialyzer, production compilation, and a clean
+dependency audit. Independent strict OpenSpec validation passed all four artifacts.

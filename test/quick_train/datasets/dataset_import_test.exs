@@ -28,7 +28,7 @@ defmodule QuickTrain.Datasets.DatasetImportTest do
     %{manager: manager, organization: graph.organization, dataset: dataset, schema: schema}
   end
 
-  test "source positions cannot exceed bigint storage", context do
+  test "source positions fit the standard GraphQL Int range", context do
     import = open!(context, "position-boundary")
 
     assert {:error, %Ash.Error.Invalid{} = error} =
@@ -37,7 +37,7 @@ defmodule QuickTrain.Datasets.DatasetImportTest do
                import.id,
                "row",
                nil,
-               9_223_372_036_854_775_808,
+               2_147_483_648,
                [%{field: "name", text: "Alice"}],
                actor: context.manager
              )
@@ -46,9 +46,9 @@ defmodule QuickTrain.Datasets.DatasetImportTest do
     assert Ash.count!(DatasetRecord, authorize?: false) == 0
     assert Ash.count!(DatasetImportRow, authorize?: false) == 0
 
-    assert append!(context, import, "row", nil, 9_223_372_036_854_775_807, [
+    assert append!(context, import, "row", nil, 2_147_483_647, [
              %{field: "name", text: "Alice"}
-           ]).source_position == 9_223_372_036_854_775_807
+           ]).source_position == 2_147_483_647
   end
 
   test "oversized import identifiers and integers fail before candidate creation", context do
@@ -78,7 +78,7 @@ defmodule QuickTrain.Datasets.DatasetImportTest do
                )
     end
 
-    for integer <- [-9_223_372_036_854_775_809, 9_223_372_036_854_775_808] do
+    for integer <- [-2_147_483_649, 2_147_483_648] do
       assert {:error, error} =
                Datasets.append_import_row(
                  context.organization.id,

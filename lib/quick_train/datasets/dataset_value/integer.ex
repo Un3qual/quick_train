@@ -16,7 +16,7 @@ defmodule QuickTrain.Datasets.DatasetValue.Integer do
     attribute :value, :integer,
       allow_nil?: false,
       public?: true,
-      constraints: [min: -9_223_372_036_854_775_808, max: 9_223_372_036_854_775_807]
+      constraints: [min: -2_147_483_648, max: 2_147_483_647]
 
     timestamps()
   end
@@ -48,7 +48,6 @@ defmodule QuickTrain.Datasets.DatasetValue.Integer do
     derive_filter? false
     derive_sort? false
     type :dataset_integer_value
-    attribute_types value: :string
   end
 
   postgres do

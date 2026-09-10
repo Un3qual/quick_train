@@ -78,7 +78,7 @@ defmodule QuickTrain.Datasets.DatasetRevisionTest do
   end
 
   test "integer storage boundaries round trip and overflow is rejected", context do
-    for integer <- [-9_223_372_036_854_775_808, 9_223_372_036_854_775_807] do
+    for integer <- [-2_147_483_648, 2_147_483_647] do
       input = values(context.asset.id, "Alice", "1", "2026-01-02T01:04:05Z")
 
       input =

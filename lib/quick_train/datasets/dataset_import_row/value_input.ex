@@ -18,6 +18,5 @@ defmodule QuickTrain.Datasets.DatasetImportRow.ValueInput do
 
   graphql do
     type :dataset_import_value_input
-    attribute_input_types integer: :string
   end
 end

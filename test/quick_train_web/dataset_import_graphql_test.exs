@@ -53,6 +53,54 @@ defmodule QuickTrainWeb.DatasetImportGraphqlTest do
     }
   end
 
+  test "standard Int boundaries stay numeric and invalid GraphQL inputs fail", context do
+    opened =
+      graphql!(context.conn, """
+      mutation {
+        openDatasetImport(organizationId: "#{context.organization.id}", datasetId: "#{context.dataset.id}",
+          schemaVersionId: "#{context.schema.id}", idempotencyKey: "numeric-boundaries") { id }
+      }
+      """)["openDatasetImport"]
+
+    query = """
+    mutation Append($position: Int!, $values: [DatasetImportRowValuesInput!]!) {
+      appendDatasetImportRow(organizationId: "#{context.organization.id}", importId: "#{opened["id"]}",
+        rowKey: "boundary", sourcePosition: $position, values: $values) { sourcePosition outcome }
+    }
+    """
+
+    entries = [
+      %{"field" => "name", "text" => "Alice"},
+      %{"field" => "number", "integer" => -2_147_483_648}
+    ]
+
+    for {position, integer} <- [
+          {2_147_483_648, 1},
+          {0, 2_147_483_648},
+          {0, -2_147_483_649},
+          {0, "1"}
+        ] do
+      variables = %{
+        "position" => position,
+        "values" => [%{"field" => "number", "integer" => integer}]
+      }
+
+      response =
+        context.conn
+        |> post("/graphql", %{query: query, variables: variables})
+        |> json_response(200)
+
+      assert response["errors"] != nil
+    end
+
+    result =
+      graphql!(context.conn, query, %{"position" => 2_147_483_647, "values" => entries})[
+        "appendDatasetImportRow"
+      ]
+
+    assert result == %{"sourcePosition" => 2_147_483_647, "outcome" => "PENDING"}
+  end
+
   test "transactional import failures have stable GraphQL codes", context do
     response =
       context.conn
@@ -98,7 +146,7 @@ defmodule QuickTrainWeb.DatasetImportGraphqlTest do
           {"valid", 0,
            [
              %{"field" => "name", "text" => "Alice"},
-             %{"field" => "number", "integer" => "9223372036854775807"}
+             %{"field" => "number", "integer" => 2_147_483_647}
            ], "PENDING"},
           {"invalid", 1, [], "FAILED"}
         ] do
@@ -202,7 +250,7 @@ defmodule QuickTrainWeb.DatasetImportGraphqlTest do
 
     assert Enum.any?(
              nested_row["itemRevision"]["rootRecord"]["values"]["edges"],
-             &(&1["node"]["integerValue"] == %{"value" => "9223372036854775807"})
+             &(&1["node"]["integerValue"] == %{"value" => 2_147_483_647})
            )
 
     assert is_binary(nested_row["itemRevision"]["id"])

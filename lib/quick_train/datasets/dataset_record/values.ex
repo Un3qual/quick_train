@@ -83,8 +83,8 @@ defmodule QuickTrain.Datasets.DatasetRecord.Values do
   end
 
   defp normalize_family(:integer, value)
-       when is_integer(value) and value >= -9_223_372_036_854_775_808 and
-              value <= 9_223_372_036_854_775_807,
+       when is_integer(value) and value >= -2_147_483_648 and
+              value <= 2_147_483_647,
        do: {:ok, :integer, value}
 
   defp normalize_family(:decimal, value) when is_binary(value) or is_struct(value, Decimal) do

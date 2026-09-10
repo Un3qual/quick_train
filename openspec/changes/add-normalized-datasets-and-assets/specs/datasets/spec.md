@@ -11,8 +11,8 @@ The system SHALL require an active authenticated account, an active owning organ
 - **WHEN** dataset, record-type, or field keys exceed 512 UTF-8 bytes, or schema keys/names contain NUL
 - **THEN** Ash rejects the affected field before persistence, including draft schema updates
 
-#### Scenario: Integer values fit signed 64-bit storage
-- **WHEN** a direct revision or import supplies an integer below -9223372036854775808 or above 9223372036854775807
+#### Scenario: Integer values fit the signed 32-bit MVP contract
+- **WHEN** a direct revision or import supplies an integer below -2147483648 or above 2147483647
 - **THEN** normalization rejects the value before constructing a candidate record
 
 #### Scenario: Dataset metadata rejects NUL
