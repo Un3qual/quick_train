@@ -2,17 +2,11 @@ defmodule QuickTrain.Forms.FormLimitsTest do
   use QuickTrain.DataCase, async: true
   import QuickTrain.FormsFixture
 
-  alias QuickTrain.Forms.{
-    Authoring,
-    FormVersion,
-    Graph,
-    InputSlotDefinition,
-    Label,
-    LabelSet,
-    QuestionDefinition,
-    QuestionOption,
-    SelectionConstraints
-  }
+  alias QuickTrain.Forms.{Authoring, FormVersion, Graph}
+  alias QuickTrain.Forms.Inputs.InputSlotDefinition
+  alias QuickTrain.Forms.Labels.{Label, LabelSet}
+  alias QuickTrain.Forms.Questions.Constraints.SelectionConstraints
+  alias QuickTrain.Forms.Questions.{QuestionDefinition, QuestionOption}
 
   setup do
     ctx = context!()

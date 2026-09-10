@@ -1,7 +1,5 @@
-# ex_dna:disable-for-this-file
-# Intentional typed Ash declarations; executable authoring is shared in Authoring and Graph.
-defmodule QuickTrain.Forms.TextConstraints do
-  @moduledoc "Organization-scoped text constraints definition."
+defmodule QuickTrain.Forms.Questions.Constraints.AnnotationConstraints do
+  @moduledoc "Organization-scoped annotation constraints definition."
   use Ash.Resource,
     otp_app: :quick_train,
     domain: QuickTrain.Forms,
@@ -11,17 +9,54 @@ defmodule QuickTrain.Forms.TextConstraints do
 
   attributes do
     uuid_primary_key :id
-    attribute :minimum, :integer, public?: true, constraints: [min: 0, max: 2_147_483_647]
-    attribute :maximum, :integer, public?: true, constraints: [min: 0, max: 2_147_483_647]
+
+    attribute :minimum, :integer,
+      public?: true,
+      allow_nil?: false,
+      constraints: [min: 0, max: 2_147_483_647]
+
+    attribute :maximum, :integer,
+      public?: true,
+      allow_nil?: false,
+      constraints: [min: 0, max: 2_147_483_647]
+
     timestamps()
   end
 
   relationships do
-    belongs_to :question, QuickTrain.Forms.QuestionDefinition,
+    belongs_to :question, QuickTrain.Forms.Questions.QuestionDefinition,
+      allow_nil?: false,
+      attribute_public?: true
+
+    belongs_to :source_requirement, QuickTrain.Forms.Inputs.InputFieldRequirement,
+      public?: true,
+      allow_nil?: false,
+      attribute_public?: true
+
+    belongs_to :label_set, QuickTrain.Forms.Labels.LabelSet,
+      public?: true,
       allow_nil?: false,
       attribute_public?: true
 
     belongs_to :version, QuickTrain.Forms.FormVersion, allow_nil?: false, attribute_public?: true
+  end
+
+  calculations do
+    calculate :source_convention,
+              :string,
+              expr(
+                cond do
+                  question.family == :text_spans ->
+                    "unicode_codepoints_zero_based_end_exclusive"
+
+                  question.family == :raster_masks ->
+                    "immutable_mask_asset_with_source_dimensions"
+
+                  true ->
+                    "normalized_image_coordinates"
+                end
+              ),
+              public?: true
   end
 
   actions do
@@ -58,9 +93,11 @@ defmodule QuickTrain.Forms.TextConstraints do
       constraints instance_of: __MODULE__
       argument :organization_id, :uuid, allow_nil?: false
       argument :version_id, :uuid, allow_nil?: false
-      argument :minimum, :integer, constraints: [min: 0, max: 2_147_483_647]
-      argument :maximum, :integer, constraints: [min: 0, max: 2_147_483_647]
+      argument :minimum, :integer, allow_nil?: false, constraints: [min: 0, max: 2_147_483_647]
+      argument :maximum, :integer, allow_nil?: false, constraints: [min: 0, max: 2_147_483_647]
       argument :question_id, :uuid, allow_nil?: false
+      argument :source_requirement_id, :uuid, allow_nil?: false
+      argument :label_set_id, :uuid, allow_nil?: false
       run {Module.concat(["QuickTrain.Forms.Authoring"]), []}
     end
 
@@ -72,6 +109,8 @@ defmodule QuickTrain.Forms.TextConstraints do
       argument :id, :uuid, allow_nil?: false
       argument :minimum, :integer, constraints: [min: 0, max: 2_147_483_647]
       argument :maximum, :integer, constraints: [min: 0, max: 2_147_483_647]
+      argument :source_requirement_id, :uuid
+      argument :label_set_id, :uuid
       run {Module.concat(["QuickTrain.Forms.Authoring"]), []}
     end
 
@@ -84,11 +123,18 @@ defmodule QuickTrain.Forms.TextConstraints do
     end
 
     create :create_internal do
-      accept [:minimum, :maximum, :question_id, :version_id]
+      accept [
+        :minimum,
+        :maximum,
+        :question_id,
+        :source_requirement_id,
+        :label_set_id,
+        :version_id
+      ]
     end
 
     update :update_internal do
-      accept [:minimum, :maximum]
+      accept [:minimum, :maximum, :source_requirement_id, :label_set_id]
     end
 
     destroy :destroy_internal
@@ -101,8 +147,8 @@ defmodule QuickTrain.Forms.TextConstraints do
 
     policy action(:read) do
       authorize_if accessing_from(
-                     Module.concat(["QuickTrain.Forms.QuestionDefinition"]),
-                     :text_constraints
+                     Module.concat(["QuickTrain.Forms.Questions.QuestionDefinition"]),
+                     :annotation_constraints
                    )
     end
 
@@ -118,19 +164,21 @@ defmodule QuickTrain.Forms.TextConstraints do
   end
 
   graphql do
-    type :form_text_constraints
+    type :form_annotation_constraints
     derive_filter? false
     derive_sort? false
     complexity {Module.concat(["QuickTrain.Forms"]), :connection_complexity}
-    relationships []
+    relationships [:source_requirement, :label_set]
   end
 
   postgres do
-    table "form_text_constraints"
+    table "form_annotation_constraints"
     repo QuickTrain.Repo
 
     references do
       reference :question, on_delete: :restrict, match_with: [version_id: :version_id]
+      reference :source_requirement, on_delete: :restrict, match_with: [version_id: :version_id]
+      reference :label_set, on_delete: :restrict, match_with: [version_id: :version_id]
       reference :version, on_delete: :restrict
     end
 
@@ -139,13 +187,14 @@ defmodule QuickTrain.Forms.TextConstraints do
     end
 
     check_constraints do
-      check_constraint :minimum, "form_text_constraints_check_0",
+      check_constraint :minimum, "form_annotation_constraints_check_0",
         check: "minimum BETWEEN 0 AND 2147483647"
 
-      check_constraint :maximum, "form_text_constraints_check_1",
+      check_constraint :maximum, "form_annotation_constraints_check_1",
         check: "maximum BETWEEN 0 AND 2147483647"
 
-      check_constraint :minimum, "form_text_constraints_check_2", check: "minimum <= maximum"
+      check_constraint :minimum, "form_annotation_constraints_check_2",
+        check: "minimum <= maximum"
     end
   end
 

@@ -2,7 +2,8 @@ defmodule QuickTrain.Forms.FormAuthorizationTest do
   use QuickTrain.DataCase, async: true
   import QuickTrain.FormsFixture
   alias QuickTrain.{Accounts, Authorization, Organizations}
-  alias QuickTrain.Forms.{Form, FormVersion, QuestionDefinition}
+  alias QuickTrain.Forms.{Form, FormVersion}
+  alias QuickTrain.Forms.Questions.QuestionDefinition
 
   setup do
     ctx = context!()

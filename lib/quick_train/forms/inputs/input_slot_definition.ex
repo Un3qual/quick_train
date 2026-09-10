@@ -1,4 +1,4 @@
-defmodule QuickTrain.Forms.InputSlotDefinition do
+defmodule QuickTrain.Forms.Inputs.InputSlotDefinition do
   @moduledoc "Organization-scoped input slot definition definition."
   use Ash.Resource,
     otp_app: :quick_train,
@@ -10,7 +10,7 @@ defmodule QuickTrain.Forms.InputSlotDefinition do
   attributes do
     uuid_primary_key :id
 
-    attribute :key, QuickTrain.Forms.PlainText,
+    attribute :key, QuickTrain.Forms.Types.PlainText,
       public?: true,
       allow_nil?: false,
       constraints: [
@@ -38,7 +38,7 @@ defmodule QuickTrain.Forms.InputSlotDefinition do
   relationships do
     belongs_to :version, QuickTrain.Forms.FormVersion, allow_nil?: false, attribute_public?: true
 
-    has_many :requirements, QuickTrain.Forms.InputFieldRequirement,
+    has_many :requirements, QuickTrain.Forms.Inputs.InputFieldRequirement,
       destination_attribute: :input_slot_id,
       public?: true
   end
@@ -78,7 +78,7 @@ defmodule QuickTrain.Forms.InputSlotDefinition do
       argument :organization_id, :uuid, allow_nil?: false
       argument :version_id, :uuid, allow_nil?: false
 
-      argument :key, QuickTrain.Forms.PlainText,
+      argument :key, QuickTrain.Forms.Types.PlainText,
         allow_nil?: false,
         constraints: [
           trim?: false,
@@ -131,7 +131,11 @@ defmodule QuickTrain.Forms.InputSlotDefinition do
 
     policy action(:read) do
       authorize_if accessing_from(Module.concat(["QuickTrain.Forms.FormVersion"]), :input_slots)
-      authorize_if accessing_from(Module.concat(["QuickTrain.Forms.InputSource"]), :input_slot)
+
+      authorize_if accessing_from(
+                     Module.concat(["QuickTrain.Forms.Questions.InputSource"]),
+                     :input_slot
+                   )
     end
 
     policy action([:list_scoped, :get_scoped]) do

@@ -1,7 +1,7 @@
 # ex_dna:disable-for-this-file
 # Intentional typed Ash declarations; executable authoring is shared in Authoring and Graph.
-defmodule QuickTrain.Forms.DecimalConstraints do
-  @moduledoc "Organization-scoped decimal constraints definition."
+defmodule QuickTrain.Forms.Questions.Constraints.SelectionConstraints do
+  @moduledoc "Organization-scoped selection constraints definition."
   use Ash.Resource,
     otp_app: :quick_train,
     domain: QuickTrain.Forms,
@@ -11,13 +11,22 @@ defmodule QuickTrain.Forms.DecimalConstraints do
 
   attributes do
     uuid_primary_key :id
-    attribute :minimum, :decimal, public?: true
-    attribute :maximum, :decimal, public?: true
+
+    attribute :minimum, :integer,
+      public?: true,
+      allow_nil?: false,
+      constraints: [min: 1, max: 200]
+
+    attribute :maximum, :integer,
+      public?: true,
+      allow_nil?: false,
+      constraints: [min: 1, max: 200]
+
     timestamps()
   end
 
   relationships do
-    belongs_to :question, QuickTrain.Forms.QuestionDefinition,
+    belongs_to :question, QuickTrain.Forms.Questions.QuestionDefinition,
       allow_nil?: false,
       attribute_public?: true
 
@@ -58,8 +67,8 @@ defmodule QuickTrain.Forms.DecimalConstraints do
       constraints instance_of: __MODULE__
       argument :organization_id, :uuid, allow_nil?: false
       argument :version_id, :uuid, allow_nil?: false
-      argument :minimum, :decimal
-      argument :maximum, :decimal
+      argument :minimum, :integer, allow_nil?: false, constraints: [min: 1, max: 200]
+      argument :maximum, :integer, allow_nil?: false, constraints: [min: 1, max: 200]
       argument :question_id, :uuid, allow_nil?: false
       run {Module.concat(["QuickTrain.Forms.Authoring"]), []}
     end
@@ -70,8 +79,8 @@ defmodule QuickTrain.Forms.DecimalConstraints do
       argument :organization_id, :uuid, allow_nil?: false
       argument :version_id, :uuid, allow_nil?: false
       argument :id, :uuid, allow_nil?: false
-      argument :minimum, :decimal
-      argument :maximum, :decimal
+      argument :minimum, :integer, constraints: [min: 1, max: 200]
+      argument :maximum, :integer, constraints: [min: 1, max: 200]
       run {Module.concat(["QuickTrain.Forms.Authoring"]), []}
     end
 
@@ -101,8 +110,8 @@ defmodule QuickTrain.Forms.DecimalConstraints do
 
     policy action(:read) do
       authorize_if accessing_from(
-                     Module.concat(["QuickTrain.Forms.QuestionDefinition"]),
-                     :decimal_constraints
+                     Module.concat(["QuickTrain.Forms.Questions.QuestionDefinition"]),
+                     :selection_constraints
                    )
     end
 
@@ -118,7 +127,7 @@ defmodule QuickTrain.Forms.DecimalConstraints do
   end
 
   graphql do
-    type :form_decimal_constraints
+    type :form_selection_constraints
     derive_filter? false
     derive_sort? false
     complexity {Module.concat(["QuickTrain.Forms"]), :connection_complexity}
@@ -126,7 +135,7 @@ defmodule QuickTrain.Forms.DecimalConstraints do
   end
 
   postgres do
-    table "form_decimal_constraints"
+    table "form_selection_constraints"
     repo QuickTrain.Repo
 
     references do
@@ -139,7 +148,13 @@ defmodule QuickTrain.Forms.DecimalConstraints do
     end
 
     check_constraints do
-      check_constraint :minimum, "form_decimal_constraints_check_0", check: "minimum <= maximum"
+      check_constraint :minimum, "form_selection_constraints_check_0",
+        check: "minimum BETWEEN 1 AND 200"
+
+      check_constraint :maximum, "form_selection_constraints_check_1",
+        check: "maximum BETWEEN 1 AND 200"
+
+      check_constraint :minimum, "form_selection_constraints_check_2", check: "minimum <= maximum"
     end
   end
 

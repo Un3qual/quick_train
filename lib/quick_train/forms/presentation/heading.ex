@@ -1,7 +1,7 @@
 # ex_dna:disable-for-this-file
 # Intentional typed Ash declarations; executable authoring is shared in Authoring and Graph.
-defmodule QuickTrain.Forms.BoundValue do
-  @moduledoc "Organization-scoped bound value definition."
+defmodule QuickTrain.Forms.Presentation.Heading do
+  @moduledoc "Organization-scoped heading definition."
   use Ash.Resource,
     otp_app: :quick_train,
     domain: QuickTrain.Forms,
@@ -11,16 +11,24 @@ defmodule QuickTrain.Forms.BoundValue do
 
   attributes do
     uuid_primary_key :id
+
+    attribute :text, QuickTrain.Forms.Types.PlainText,
+      public?: true,
+      allow_nil?: false,
+      constraints: [
+        trim?: false,
+        allow_empty?: true,
+        match: ~r/\A[^\x00]*\z/u,
+        max_length: 1024,
+        length_count: :bytes,
+        min_length: 1
+      ]
+
     timestamps()
   end
 
   relationships do
-    belongs_to :element, QuickTrain.Forms.PresentationElement,
-      allow_nil?: false,
-      attribute_public?: true
-
-    belongs_to :requirement, QuickTrain.Forms.InputFieldRequirement,
-      public?: true,
+    belongs_to :element, QuickTrain.Forms.Presentation.PresentationElement,
       allow_nil?: false,
       attribute_public?: true
 
@@ -62,16 +70,26 @@ defmodule QuickTrain.Forms.BoundValue do
       argument :organization_id, :uuid, allow_nil?: false
       argument :version_id, :uuid, allow_nil?: false
       argument :id, :uuid, allow_nil?: false
-      argument :requirement_id, :uuid
+
+      argument :text, QuickTrain.Forms.Types.PlainText,
+        constraints: [
+          trim?: false,
+          allow_empty?: true,
+          match: ~r/\A[^\x00]*\z/u,
+          max_length: 1024,
+          length_count: :bytes,
+          min_length: 1
+        ]
+
       run {Module.concat(["QuickTrain.Forms.Authoring"]), []}
     end
 
     create :create_internal do
-      accept [:element_id, :requirement_id, :version_id]
+      accept [:text, :element_id, :version_id]
     end
 
     update :update_internal do
-      accept [:requirement_id]
+      accept [:text]
     end
 
     destroy :destroy_internal
@@ -84,8 +102,8 @@ defmodule QuickTrain.Forms.BoundValue do
 
     policy action(:read) do
       authorize_if accessing_from(
-                     Module.concat(["QuickTrain.Forms.PresentationElement"]),
-                     :bound_value
+                     Module.concat(["QuickTrain.Forms.Presentation.PresentationElement"]),
+                     :heading
                    )
     end
 
@@ -100,21 +118,24 @@ defmodule QuickTrain.Forms.BoundValue do
     end
   end
 
+  validations do
+    validate match(:text, ~r/\S/u), where: [changing(:text)]
+  end
+
   graphql do
-    type :form_bound_value
+    type :form_heading
     derive_filter? false
     derive_sort? false
     complexity {Module.concat(["QuickTrain.Forms"]), :connection_complexity}
-    relationships [:requirement]
+    relationships []
   end
 
   postgres do
-    table "form_bound_values"
+    table "form_headings"
     repo QuickTrain.Repo
 
     references do
       reference :element, on_delete: :restrict, match_with: [version_id: :version_id]
-      reference :requirement, on_delete: :restrict, match_with: [version_id: :version_id]
       reference :version, on_delete: :restrict
     end
 

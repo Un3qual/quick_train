@@ -1,7 +1,7 @@
 # ex_dna:disable-for-this-file
 # Intentional typed Ash declarations; executable authoring is shared in Authoring and Graph.
-defmodule QuickTrain.Forms.QuestionOption do
-  @moduledoc "Organization-scoped question option definition."
+defmodule QuickTrain.Forms.Questions.Constraints.IntegerConstraints do
+  @moduledoc "Organization-scoped integer constraints definition."
   use Ash.Resource,
     otp_app: :quick_train,
     domain: QuickTrain.Forms,
@@ -12,40 +12,19 @@ defmodule QuickTrain.Forms.QuestionOption do
   attributes do
     uuid_primary_key :id
 
-    attribute :key, QuickTrain.Forms.PlainText,
+    attribute :minimum, :integer,
       public?: true,
-      allow_nil?: false,
-      constraints: [
-        trim?: false,
-        allow_empty?: true,
-        match: ~r/\A[^\x00]*\z/u,
-        max_length: 512,
-        length_count: :bytes,
-        min_length: 1
-      ]
+      constraints: [min: -2_147_483_648, max: 2_147_483_647]
 
-    attribute :label, QuickTrain.Forms.PlainText,
+    attribute :maximum, :integer,
       public?: true,
-      allow_nil?: false,
-      constraints: [
-        trim?: false,
-        allow_empty?: true,
-        match: ~r/\A[^\x00]*\z/u,
-        max_length: 1024,
-        length_count: :bytes,
-        min_length: 1
-      ]
-
-    attribute :position, :integer,
-      public?: true,
-      allow_nil?: false,
-      constraints: [min: 0, max: 2_147_483_647]
+      constraints: [min: -2_147_483_648, max: 2_147_483_647]
 
     timestamps()
   end
 
   relationships do
-    belongs_to :question, QuickTrain.Forms.QuestionDefinition,
+    belongs_to :question, QuickTrain.Forms.Questions.QuestionDefinition,
       allow_nil?: false,
       attribute_public?: true
 
@@ -60,7 +39,7 @@ defmodule QuickTrain.Forms.QuestionOption do
                  required?: false,
                  default_limit: 50,
                  max_page_size: 100,
-                 stable_sort: [position: :asc, id: :asc]
+                 stable_sort: [inserted_at: :asc, id: :asc]
     end
 
     read :list_scoped do
@@ -71,7 +50,7 @@ defmodule QuickTrain.Forms.QuestionOption do
                  required?: true,
                  default_limit: 50,
                  max_page_size: 100,
-                 stable_sort: [position: :asc, id: :asc]
+                 stable_sort: [inserted_at: :asc, id: :asc]
     end
 
     read :get_scoped do
@@ -86,30 +65,8 @@ defmodule QuickTrain.Forms.QuestionOption do
       constraints instance_of: __MODULE__
       argument :organization_id, :uuid, allow_nil?: false
       argument :version_id, :uuid, allow_nil?: false
-
-      argument :key, QuickTrain.Forms.PlainText,
-        allow_nil?: false,
-        constraints: [
-          trim?: false,
-          allow_empty?: true,
-          match: ~r/\A[^\x00]*\z/u,
-          max_length: 512,
-          length_count: :bytes,
-          min_length: 1
-        ]
-
-      argument :label, QuickTrain.Forms.PlainText,
-        allow_nil?: false,
-        constraints: [
-          trim?: false,
-          allow_empty?: true,
-          match: ~r/\A[^\x00]*\z/u,
-          max_length: 1024,
-          length_count: :bytes,
-          min_length: 1
-        ]
-
-      argument :position, :integer, allow_nil?: false, constraints: [min: 0, max: 2_147_483_647]
+      argument :minimum, :integer, constraints: [min: -2_147_483_648, max: 2_147_483_647]
+      argument :maximum, :integer, constraints: [min: -2_147_483_648, max: 2_147_483_647]
       argument :question_id, :uuid, allow_nil?: false
       run {Module.concat(["QuickTrain.Forms.Authoring"]), []}
     end
@@ -120,18 +77,8 @@ defmodule QuickTrain.Forms.QuestionOption do
       argument :organization_id, :uuid, allow_nil?: false
       argument :version_id, :uuid, allow_nil?: false
       argument :id, :uuid, allow_nil?: false
-
-      argument :label, QuickTrain.Forms.PlainText,
-        constraints: [
-          trim?: false,
-          allow_empty?: true,
-          match: ~r/\A[^\x00]*\z/u,
-          max_length: 1024,
-          length_count: :bytes,
-          min_length: 1
-        ]
-
-      argument :position, :integer, constraints: [min: 0, max: 2_147_483_647]
+      argument :minimum, :integer, constraints: [min: -2_147_483_648, max: 2_147_483_647]
+      argument :maximum, :integer, constraints: [min: -2_147_483_648, max: 2_147_483_647]
       run {Module.concat(["QuickTrain.Forms.Authoring"]), []}
     end
 
@@ -143,21 +90,12 @@ defmodule QuickTrain.Forms.QuestionOption do
       run {Module.concat(["QuickTrain.Forms.Authoring"]), []}
     end
 
-    action :reorder, :boolean do
-      allow_nil? false
-      argument :organization_id, :uuid, allow_nil?: false
-      argument :version_id, :uuid, allow_nil?: false
-      argument :question_id, :uuid, allow_nil?: false
-      argument :ids, {:array, :uuid}, allow_nil?: false, constraints: [max_length: 1000]
-      run {Module.concat(["QuickTrain.Forms.Authoring"]), []}
-    end
-
     create :create_internal do
-      accept [:key, :label, :position, :question_id, :version_id]
+      accept [:minimum, :maximum, :question_id, :version_id]
     end
 
     update :update_internal do
-      accept [:label, :position]
+      accept [:minimum, :maximum]
     end
 
     destroy :destroy_internal
@@ -170,8 +108,8 @@ defmodule QuickTrain.Forms.QuestionOption do
 
     policy action(:read) do
       authorize_if accessing_from(
-                     Module.concat(["QuickTrain.Forms.QuestionDefinition"]),
-                     :options
+                     Module.concat(["QuickTrain.Forms.Questions.QuestionDefinition"]),
+                     :integer_constraints
                    )
     end
 
@@ -180,18 +118,14 @@ defmodule QuickTrain.Forms.QuestionOption do
                     capability: "forms.read"}
     end
 
-    policy action([:add_to_draft, :update_in_draft, :remove_from_draft, :reorder]) do
+    policy action([:add_to_draft, :update_in_draft, :remove_from_draft]) do
       authorize_if {QuickTrain.Authorization.Checks.OrganizationCapability,
                     capability: "forms.manage"}
     end
   end
 
-  validations do
-    validate match(:label, ~r/\S/u), where: [changing(:label)]
-  end
-
   graphql do
-    type :form_question_option
+    type :form_integer_constraints
     derive_filter? false
     derive_sort? false
     complexity {Module.concat(["QuickTrain.Forms"]), :connection_complexity}
@@ -199,7 +133,7 @@ defmodule QuickTrain.Forms.QuestionOption do
   end
 
   postgres do
-    table "form_question_options"
+    table "form_integer_constraints"
     repo QuickTrain.Repo
 
     references do
@@ -212,12 +146,17 @@ defmodule QuickTrain.Forms.QuestionOption do
     end
 
     check_constraints do
-      check_constraint :position, "form_question_options_check_0",
-        check: "position BETWEEN 0 AND 2147483647"
+      check_constraint :minimum, "form_integer_constraints_check_0",
+        check: "minimum BETWEEN -2147483648 AND 2147483647"
+
+      check_constraint :maximum, "form_integer_constraints_check_1",
+        check: "maximum BETWEEN -2147483648 AND 2147483647"
+
+      check_constraint :minimum, "form_integer_constraints_check_2", check: "minimum <= maximum"
     end
   end
 
   identities do
-    identity :parent_key, [:question_id, :key]
+    identity :question, [:question_id]
   end
 end

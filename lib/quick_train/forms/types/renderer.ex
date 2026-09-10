@@ -1,4 +1,4 @@
-defmodule QuickTrain.Forms.Renderer do
+defmodule QuickTrain.Forms.Types.Renderer do
   @moduledoc "Closed Forms renderer values."
   use Ash.Type.Enum,
     values: [

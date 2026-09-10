@@ -1,7 +1,7 @@
 # ex_dna:disable-for-this-file
 # Intentional typed Ash declarations; executable authoring is shared in Authoring and Graph.
-defmodule QuickTrain.Forms.Label do
-  @moduledoc "Organization-scoped label definition."
+defmodule QuickTrain.Forms.Questions.Constraints.TextConstraints do
+  @moduledoc "Organization-scoped text constraints definition."
   use Ash.Resource,
     otp_app: :quick_train,
     domain: QuickTrain.Forms,
@@ -11,41 +11,16 @@ defmodule QuickTrain.Forms.Label do
 
   attributes do
     uuid_primary_key :id
-
-    attribute :key, QuickTrain.Forms.PlainText,
-      public?: true,
-      allow_nil?: false,
-      constraints: [
-        trim?: false,
-        allow_empty?: true,
-        match: ~r/\A[^\x00]*\z/u,
-        max_length: 512,
-        length_count: :bytes,
-        min_length: 1
-      ]
-
-    attribute :text, QuickTrain.Forms.PlainText,
-      public?: true,
-      allow_nil?: false,
-      constraints: [
-        trim?: false,
-        allow_empty?: true,
-        match: ~r/\A[^\x00]*\z/u,
-        max_length: 1024,
-        length_count: :bytes,
-        min_length: 1
-      ]
-
-    attribute :position, :integer,
-      public?: true,
-      allow_nil?: false,
-      constraints: [min: 0, max: 2_147_483_647]
-
+    attribute :minimum, :integer, public?: true, constraints: [min: 0, max: 2_147_483_647]
+    attribute :maximum, :integer, public?: true, constraints: [min: 0, max: 2_147_483_647]
     timestamps()
   end
 
   relationships do
-    belongs_to :label_set, QuickTrain.Forms.LabelSet, allow_nil?: false, attribute_public?: true
+    belongs_to :question, QuickTrain.Forms.Questions.QuestionDefinition,
+      allow_nil?: false,
+      attribute_public?: true
+
     belongs_to :version, QuickTrain.Forms.FormVersion, allow_nil?: false, attribute_public?: true
   end
 
@@ -57,7 +32,7 @@ defmodule QuickTrain.Forms.Label do
                  required?: false,
                  default_limit: 50,
                  max_page_size: 100,
-                 stable_sort: [position: :asc, id: :asc]
+                 stable_sort: [inserted_at: :asc, id: :asc]
     end
 
     read :list_scoped do
@@ -68,7 +43,7 @@ defmodule QuickTrain.Forms.Label do
                  required?: true,
                  default_limit: 50,
                  max_page_size: 100,
-                 stable_sort: [position: :asc, id: :asc]
+                 stable_sort: [inserted_at: :asc, id: :asc]
     end
 
     read :get_scoped do
@@ -83,31 +58,9 @@ defmodule QuickTrain.Forms.Label do
       constraints instance_of: __MODULE__
       argument :organization_id, :uuid, allow_nil?: false
       argument :version_id, :uuid, allow_nil?: false
-
-      argument :key, QuickTrain.Forms.PlainText,
-        allow_nil?: false,
-        constraints: [
-          trim?: false,
-          allow_empty?: true,
-          match: ~r/\A[^\x00]*\z/u,
-          max_length: 512,
-          length_count: :bytes,
-          min_length: 1
-        ]
-
-      argument :text, QuickTrain.Forms.PlainText,
-        allow_nil?: false,
-        constraints: [
-          trim?: false,
-          allow_empty?: true,
-          match: ~r/\A[^\x00]*\z/u,
-          max_length: 1024,
-          length_count: :bytes,
-          min_length: 1
-        ]
-
-      argument :position, :integer, allow_nil?: false, constraints: [min: 0, max: 2_147_483_647]
-      argument :label_set_id, :uuid, allow_nil?: false
+      argument :minimum, :integer, constraints: [min: 0, max: 2_147_483_647]
+      argument :maximum, :integer, constraints: [min: 0, max: 2_147_483_647]
+      argument :question_id, :uuid, allow_nil?: false
       run {Module.concat(["QuickTrain.Forms.Authoring"]), []}
     end
 
@@ -117,18 +70,8 @@ defmodule QuickTrain.Forms.Label do
       argument :organization_id, :uuid, allow_nil?: false
       argument :version_id, :uuid, allow_nil?: false
       argument :id, :uuid, allow_nil?: false
-
-      argument :text, QuickTrain.Forms.PlainText,
-        constraints: [
-          trim?: false,
-          allow_empty?: true,
-          match: ~r/\A[^\x00]*\z/u,
-          max_length: 1024,
-          length_count: :bytes,
-          min_length: 1
-        ]
-
-      argument :position, :integer, constraints: [min: 0, max: 2_147_483_647]
+      argument :minimum, :integer, constraints: [min: 0, max: 2_147_483_647]
+      argument :maximum, :integer, constraints: [min: 0, max: 2_147_483_647]
       run {Module.concat(["QuickTrain.Forms.Authoring"]), []}
     end
 
@@ -140,21 +83,12 @@ defmodule QuickTrain.Forms.Label do
       run {Module.concat(["QuickTrain.Forms.Authoring"]), []}
     end
 
-    action :reorder, :boolean do
-      allow_nil? false
-      argument :organization_id, :uuid, allow_nil?: false
-      argument :version_id, :uuid, allow_nil?: false
-      argument :label_set_id, :uuid, allow_nil?: false
-      argument :ids, {:array, :uuid}, allow_nil?: false, constraints: [max_length: 1000]
-      run {Module.concat(["QuickTrain.Forms.Authoring"]), []}
-    end
-
     create :create_internal do
-      accept [:key, :text, :position, :label_set_id, :version_id]
+      accept [:minimum, :maximum, :question_id, :version_id]
     end
 
     update :update_internal do
-      accept [:text, :position]
+      accept [:minimum, :maximum]
     end
 
     destroy :destroy_internal
@@ -166,7 +100,10 @@ defmodule QuickTrain.Forms.Label do
     end
 
     policy action(:read) do
-      authorize_if accessing_from(Module.concat(["QuickTrain.Forms.LabelSet"]), :labels)
+      authorize_if accessing_from(
+                     Module.concat(["QuickTrain.Forms.Questions.QuestionDefinition"]),
+                     :text_constraints
+                   )
     end
 
     policy action([:list_scoped, :get_scoped]) do
@@ -174,18 +111,14 @@ defmodule QuickTrain.Forms.Label do
                     capability: "forms.read"}
     end
 
-    policy action([:add_to_draft, :update_in_draft, :remove_from_draft, :reorder]) do
+    policy action([:add_to_draft, :update_in_draft, :remove_from_draft]) do
       authorize_if {QuickTrain.Authorization.Checks.OrganizationCapability,
                     capability: "forms.manage"}
     end
   end
 
-  validations do
-    validate match(:text, ~r/\S/u), where: [changing(:text)]
-  end
-
   graphql do
-    type :form_label
+    type :form_text_constraints
     derive_filter? false
     derive_sort? false
     complexity {Module.concat(["QuickTrain.Forms"]), :connection_complexity}
@@ -193,11 +126,11 @@ defmodule QuickTrain.Forms.Label do
   end
 
   postgres do
-    table "form_labels"
+    table "form_text_constraints"
     repo QuickTrain.Repo
 
     references do
-      reference :label_set, on_delete: :restrict, match_with: [version_id: :version_id]
+      reference :question, on_delete: :restrict, match_with: [version_id: :version_id]
       reference :version, on_delete: :restrict
     end
 
@@ -206,12 +139,17 @@ defmodule QuickTrain.Forms.Label do
     end
 
     check_constraints do
-      check_constraint :position, "form_labels_check_0",
-        check: "position BETWEEN 0 AND 2147483647"
+      check_constraint :minimum, "form_text_constraints_check_0",
+        check: "minimum BETWEEN 0 AND 2147483647"
+
+      check_constraint :maximum, "form_text_constraints_check_1",
+        check: "maximum BETWEEN 0 AND 2147483647"
+
+      check_constraint :minimum, "form_text_constraints_check_2", check: "minimum <= maximum"
     end
   end
 
   identities do
-    identity :parent_key, [:label_set_id, :key]
+    identity :question, [:question_id]
   end
 end

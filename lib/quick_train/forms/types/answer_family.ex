@@ -1,4 +1,4 @@
-defmodule QuickTrain.Forms.AnswerFamily do
+defmodule QuickTrain.Forms.Types.AnswerFamily do
   @moduledoc "Closed Forms family values."
   use Ash.Type.Enum,
     values: [

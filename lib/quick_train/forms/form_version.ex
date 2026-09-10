@@ -15,12 +15,12 @@ defmodule QuickTrain.Forms.FormVersion do
       allow_nil?: false,
       constraints: [min: 1, max: 2_147_483_647]
 
-    attribute :state, QuickTrain.Forms.VersionState,
+    attribute :state, QuickTrain.Forms.Types.VersionState,
       public?: true,
       allow_nil?: false,
       default: :draft
 
-    attribute :title, QuickTrain.Forms.PlainText,
+    attribute :title, QuickTrain.Forms.Types.PlainText,
       public?: true,
       constraints: [
         trim?: false,
@@ -30,7 +30,7 @@ defmodule QuickTrain.Forms.FormVersion do
         length_count: :bytes
       ]
 
-    attribute :description, QuickTrain.Forms.PlainText,
+    attribute :description, QuickTrain.Forms.Types.PlainText,
       public?: true,
       constraints: [
         trim?: false,
@@ -47,23 +47,23 @@ defmodule QuickTrain.Forms.FormVersion do
   relationships do
     belongs_to :form, QuickTrain.Forms.Form, allow_nil?: false, attribute_public?: true
 
-    has_many :input_slots, QuickTrain.Forms.InputSlotDefinition,
+    has_many :input_slots, QuickTrain.Forms.Inputs.InputSlotDefinition,
       destination_attribute: :version_id,
       public?: true
 
-    has_many :requirements, QuickTrain.Forms.InputFieldRequirement,
+    has_many :requirements, QuickTrain.Forms.Inputs.InputFieldRequirement,
       destination_attribute: :version_id,
       public?: true
 
-    has_many :questions, QuickTrain.Forms.QuestionDefinition,
+    has_many :questions, QuickTrain.Forms.Questions.QuestionDefinition,
       destination_attribute: :version_id,
       public?: true
 
-    has_many :elements, QuickTrain.Forms.PresentationElement,
+    has_many :elements, QuickTrain.Forms.Presentation.PresentationElement,
       destination_attribute: :version_id,
       public?: true
 
-    has_many :label_sets, QuickTrain.Forms.LabelSet,
+    has_many :label_sets, QuickTrain.Forms.Labels.LabelSet,
       destination_attribute: :version_id,
       public?: true
   end
@@ -103,7 +103,7 @@ defmodule QuickTrain.Forms.FormVersion do
       argument :organization_id, :uuid, allow_nil?: false
       argument :form_id, :uuid, allow_nil?: false
 
-      argument :title, QuickTrain.Forms.PlainText,
+      argument :title, QuickTrain.Forms.Types.PlainText,
         constraints: [
           trim?: false,
           allow_empty?: true,
@@ -112,7 +112,7 @@ defmodule QuickTrain.Forms.FormVersion do
           length_count: :bytes
         ]
 
-      argument :description, QuickTrain.Forms.PlainText,
+      argument :description, QuickTrain.Forms.Types.PlainText,
         constraints: [
           trim?: false,
           allow_empty?: true,
@@ -139,7 +139,7 @@ defmodule QuickTrain.Forms.FormVersion do
       argument :organization_id, :uuid, allow_nil?: false
       argument :version_id, :uuid, allow_nil?: false
 
-      argument :title, QuickTrain.Forms.PlainText,
+      argument :title, QuickTrain.Forms.Types.PlainText,
         constraints: [
           trim?: false,
           allow_empty?: true,
@@ -148,7 +148,7 @@ defmodule QuickTrain.Forms.FormVersion do
           length_count: :bytes
         ]
 
-      argument :description, QuickTrain.Forms.PlainText,
+      argument :description, QuickTrain.Forms.Types.PlainText,
         constraints: [
           trim?: false,
           allow_empty?: true,

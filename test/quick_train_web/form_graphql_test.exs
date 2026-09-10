@@ -2,7 +2,8 @@ defmodule QuickTrainWeb.FormGraphqlTest do
   use QuickTrain.ConnCase, async: false
   import QuickTrain.FormsFixture
   alias QuickTrain.Accounts
-  alias QuickTrain.Forms.{QuestionDefinition, QuestionOption, SelectionConstraints}
+  alias QuickTrain.Forms.Questions.Constraints.SelectionConstraints
+  alias QuickTrain.Forms.Questions.{QuestionDefinition, QuestionOption}
 
   test "a manage-only actor receives the authorized graph but has no general read API", %{
     conn: conn
@@ -146,16 +147,16 @@ defmodule QuickTrainWeb.FormGraphqlTest do
     graph = rating!(ctx)
 
     question =
-      add!(QuickTrain.Forms.QuestionDefinition, ctx, graph.version, %{
+      add!(QuickTrain.Forms.Questions.QuestionDefinition, ctx, graph.version, %{
         key: "span",
         prompt: "Mark text",
         family: :text_spans,
         renderer: :text_spans
       })
 
-    set = add!(QuickTrain.Forms.LabelSet, ctx, graph.version, %{key: "labels"})
+    set = add!(QuickTrain.Forms.Labels.LabelSet, ctx, graph.version, %{key: "labels"})
 
-    add!(QuickTrain.Forms.AnnotationConstraints, ctx, graph.version, %{
+    add!(QuickTrain.Forms.Questions.Constraints.AnnotationConstraints, ctx, graph.version, %{
       question_id: question.id,
       source_requirement_id: graph.field.id,
       label_set_id: set.id,

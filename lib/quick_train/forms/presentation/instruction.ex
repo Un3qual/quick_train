@@ -1,5 +1,7 @@
-defmodule QuickTrain.Forms.InputSource do
-  @moduledoc "Organization-scoped input source definition."
+# ex_dna:disable-for-this-file
+# Intentional typed Ash declarations; executable authoring is shared in Authoring and Graph.
+defmodule QuickTrain.Forms.Presentation.Instruction do
+  @moduledoc "Organization-scoped instruction definition."
   use Ash.Resource,
     otp_app: :quick_train,
     domain: QuickTrain.Forms,
@@ -9,22 +11,25 @@ defmodule QuickTrain.Forms.InputSource do
 
   attributes do
     uuid_primary_key :id
+
+    attribute :text, QuickTrain.Forms.Types.PlainText,
+      public?: true,
+      allow_nil?: false,
+      constraints: [
+        trim?: false,
+        allow_empty?: true,
+        match: ~r/\A[^\x00]*\z/u,
+        max_length: 16_384,
+        length_count: :bytes,
+        min_length: 1
+      ]
+
     timestamps()
   end
 
   relationships do
-    belongs_to :question, QuickTrain.Forms.QuestionDefinition,
+    belongs_to :element, QuickTrain.Forms.Presentation.PresentationElement,
       allow_nil?: false,
-      attribute_public?: true
-
-    belongs_to :input_slot, QuickTrain.Forms.InputSlotDefinition,
-      public?: true,
-      allow_nil?: false,
-      attribute_public?: true
-
-    belongs_to :source_requirement, QuickTrain.Forms.InputFieldRequirement,
-      public?: true,
-      allow_nil?: true,
       attribute_public?: true
 
     belongs_to :version, QuickTrain.Forms.FormVersion, allow_nil?: false, attribute_public?: true
@@ -59,42 +64,32 @@ defmodule QuickTrain.Forms.InputSource do
       filter expr(id == ^arg(:id) and version.form.organization_id == ^arg(:organization_id))
     end
 
-    action :add_to_draft, :struct do
-      allow_nil? false
-      constraints instance_of: __MODULE__
-      argument :organization_id, :uuid, allow_nil?: false
-      argument :version_id, :uuid, allow_nil?: false
-      argument :question_id, :uuid, allow_nil?: false
-      argument :input_slot_id, :uuid, allow_nil?: false
-      argument :source_requirement_id, :uuid
-      run {Module.concat(["QuickTrain.Forms.Authoring"]), []}
-    end
-
     action :update_in_draft, :struct do
       allow_nil? false
       constraints instance_of: __MODULE__
       argument :organization_id, :uuid, allow_nil?: false
       argument :version_id, :uuid, allow_nil?: false
       argument :id, :uuid, allow_nil?: false
-      argument :input_slot_id, :uuid
-      argument :source_requirement_id, :uuid
-      run {Module.concat(["QuickTrain.Forms.Authoring"]), []}
-    end
 
-    action :remove_from_draft, :boolean do
-      allow_nil? false
-      argument :organization_id, :uuid, allow_nil?: false
-      argument :version_id, :uuid, allow_nil?: false
-      argument :id, :uuid, allow_nil?: false
+      argument :text, QuickTrain.Forms.Types.PlainText,
+        constraints: [
+          trim?: false,
+          allow_empty?: true,
+          match: ~r/\A[^\x00]*\z/u,
+          max_length: 16_384,
+          length_count: :bytes,
+          min_length: 1
+        ]
+
       run {Module.concat(["QuickTrain.Forms.Authoring"]), []}
     end
 
     create :create_internal do
-      accept [:question_id, :input_slot_id, :source_requirement_id, :version_id]
+      accept [:text, :element_id, :version_id]
     end
 
     update :update_internal do
-      accept [:input_slot_id, :source_requirement_id]
+      accept [:text]
     end
 
     destroy :destroy_internal
@@ -107,8 +102,8 @@ defmodule QuickTrain.Forms.InputSource do
 
     policy action(:read) do
       authorize_if accessing_from(
-                     Module.concat(["QuickTrain.Forms.QuestionDefinition"]),
-                     :input_source
+                     Module.concat(["QuickTrain.Forms.Presentation.PresentationElement"]),
+                     :instruction
                    )
     end
 
@@ -117,28 +112,30 @@ defmodule QuickTrain.Forms.InputSource do
                     capability: "forms.read"}
     end
 
-    policy action([:add_to_draft, :update_in_draft, :remove_from_draft]) do
+    policy action([:update_in_draft]) do
       authorize_if {QuickTrain.Authorization.Checks.OrganizationCapability,
                     capability: "forms.manage"}
     end
   end
 
+  validations do
+    validate match(:text, ~r/\S/u), where: [changing(:text)]
+  end
+
   graphql do
-    type :form_input_source
+    type :form_instruction
     derive_filter? false
     derive_sort? false
     complexity {Module.concat(["QuickTrain.Forms"]), :connection_complexity}
-    relationships [:input_slot, :source_requirement]
+    relationships []
   end
 
   postgres do
-    table "form_input_sources"
+    table "form_instructions"
     repo QuickTrain.Repo
 
     references do
-      reference :question, on_delete: :restrict, match_with: [version_id: :version_id]
-      reference :input_slot, on_delete: :restrict, match_with: [version_id: :version_id]
-      reference :source_requirement, on_delete: :restrict, match_with: [version_id: :version_id]
+      reference :element, on_delete: :restrict, match_with: [version_id: :version_id]
       reference :version, on_delete: :restrict
     end
 
@@ -148,6 +145,6 @@ defmodule QuickTrain.Forms.InputSource do
   end
 
   identities do
-    identity :question, [:question_id]
+    identity :element, [:element_id]
   end
 end

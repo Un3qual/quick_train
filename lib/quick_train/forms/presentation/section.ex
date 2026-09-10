@@ -1,4 +1,4 @@
-defmodule QuickTrain.Forms.Section do
+defmodule QuickTrain.Forms.Presentation.Section do
   @moduledoc "Organization-scoped section definition."
   use Ash.Resource,
     otp_app: :quick_train,
@@ -10,7 +10,7 @@ defmodule QuickTrain.Forms.Section do
   attributes do
     uuid_primary_key :id
 
-    attribute :text, QuickTrain.Forms.PlainText,
+    attribute :text, QuickTrain.Forms.Types.PlainText,
       public?: true,
       allow_nil?: false,
       constraints: [
@@ -25,7 +25,7 @@ defmodule QuickTrain.Forms.Section do
   end
 
   relationships do
-    belongs_to :element, QuickTrain.Forms.PresentationElement,
+    belongs_to :element, QuickTrain.Forms.Presentation.PresentationElement,
       allow_nil?: false,
       attribute_public?: true
 
@@ -68,7 +68,7 @@ defmodule QuickTrain.Forms.Section do
       argument :version_id, :uuid, allow_nil?: false
       argument :id, :uuid, allow_nil?: false
 
-      argument :text, QuickTrain.Forms.PlainText,
+      argument :text, QuickTrain.Forms.Types.PlainText,
         constraints: [
           trim?: false,
           allow_empty?: true,
@@ -98,7 +98,7 @@ defmodule QuickTrain.Forms.Section do
 
     policy action(:read) do
       authorize_if accessing_from(
-                     Module.concat(["QuickTrain.Forms.PresentationElement"]),
+                     Module.concat(["QuickTrain.Forms.Presentation.PresentationElement"]),
                      :section
                    )
     end

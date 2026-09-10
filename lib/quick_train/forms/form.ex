@@ -11,7 +11,7 @@ defmodule QuickTrain.Forms.Form do
   attributes do
     uuid_primary_key :id
 
-    attribute :key, QuickTrain.Forms.PlainText,
+    attribute :key, QuickTrain.Forms.Types.PlainText,
       public?: true,
       allow_nil?: false,
       constraints: [
@@ -70,7 +70,7 @@ defmodule QuickTrain.Forms.Form do
       constraints instance_of: __MODULE__
       argument :organization_id, :uuid, allow_nil?: false
 
-      argument :key, QuickTrain.Forms.PlainText,
+      argument :key, QuickTrain.Forms.Types.PlainText,
         allow_nil?: false,
         constraints: [
           trim?: false,

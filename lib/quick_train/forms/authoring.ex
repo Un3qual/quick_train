@@ -2,7 +2,8 @@ defmodule QuickTrain.Forms.Authoring do
   alias Ash.Resource.Info, as: ResourceInfo
   @moduledoc false
   use Ash.Resource.Actions.Implementation
-  alias QuickTrain.Forms.{Error, Form, FormVersion, Graph, PresentationElement}
+  alias QuickTrain.Forms.{Error, Form, FormVersion, Graph}
+  alias QuickTrain.Forms.Presentation.PresentationElement
   require Ash.Query
 
   @impl true
@@ -91,8 +92,8 @@ defmodule QuickTrain.Forms.Authoring do
 
   defp edit(%{action: %{name: :reorder}, resource: resource, arguments: args}, version) do
     for {argument, parent} <- [
-          question_id: QuickTrain.Forms.QuestionDefinition,
-          label_set_id: QuickTrain.Forms.LabelSet
+          question_id: QuickTrain.Forms.Questions.QuestionDefinition,
+          label_set_id: QuickTrain.Forms.Labels.LabelSet
         ],
         Map.has_key?(args, argument) do
       id = Map.fetch!(args, argument)

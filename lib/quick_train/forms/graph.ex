@@ -1,25 +1,25 @@
 defmodule QuickTrain.Forms.Graph do
   alias Ash.Resource.Info, as: ResourceInfo
   @moduledoc false
-  alias QuickTrain.Forms.{
-    AnnotationConstraints,
-    Authoring,
+  alias QuickTrain.Forms.{Authoring, Error}
+  alias QuickTrain.Forms.Inputs.{InputFieldRequirement, InputSlotDefinition}
+  alias QuickTrain.Forms.Labels.{Label, LabelSet}
+
+  alias QuickTrain.Forms.Presentation.{
     BoundValue,
-    DecimalConstraints,
-    Error,
     Heading,
-    InputFieldRequirement,
-    InputSlotDefinition,
-    InputSource,
     Instruction,
-    IntegerConstraints,
-    Label,
-    LabelSet,
     PresentationElement,
-    QuestionDefinition,
-    QuestionOption,
     QuestionPlacement,
-    Section,
+    Section
+  }
+
+  alias QuickTrain.Forms.Questions.{InputSource, QuestionDefinition, QuestionOption}
+
+  alias QuickTrain.Forms.Questions.Constraints.{
+    AnnotationConstraints,
+    DecimalConstraints,
+    IntegerConstraints,
     SelectionConstraints,
     TextConstraints
   }

@@ -3,22 +3,16 @@ defmodule QuickTrain.Forms.FormContractTest do
   use QuickTrain.DataCase, async: true
   import QuickTrain.FormsFixture
 
-  alias QuickTrain.Forms.{
+  alias QuickTrain.Forms.{FormVersion, Graph}
+  alias QuickTrain.Forms.Inputs.{InputFieldRequirement, InputSlotDefinition}
+  alias QuickTrain.Forms.Labels.{Label, LabelSet}
+  alias QuickTrain.Forms.Presentation.{Heading, PresentationElement, Section}
+  alias QuickTrain.Forms.Questions.{InputSource, QuestionDefinition, QuestionOption}
+
+  alias QuickTrain.Forms.Questions.Constraints.{
     AnnotationConstraints,
     DecimalConstraints,
-    FormVersion,
-    Graph,
-    Heading,
-    InputFieldRequirement,
-    InputSlotDefinition,
-    InputSource,
     IntegerConstraints,
-    Label,
-    LabelSet,
-    PresentationElement,
-    QuestionDefinition,
-    QuestionOption,
-    Section,
     SelectionConstraints,
     TextConstraints
   }

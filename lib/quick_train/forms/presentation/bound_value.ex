@@ -1,7 +1,7 @@
 # ex_dna:disable-for-this-file
 # Intentional typed Ash declarations; executable authoring is shared in Authoring and Graph.
-defmodule QuickTrain.Forms.IntegerConstraints do
-  @moduledoc "Organization-scoped integer constraints definition."
+defmodule QuickTrain.Forms.Presentation.BoundValue do
+  @moduledoc "Organization-scoped bound value definition."
   use Ash.Resource,
     otp_app: :quick_train,
     domain: QuickTrain.Forms,
@@ -11,20 +11,16 @@ defmodule QuickTrain.Forms.IntegerConstraints do
 
   attributes do
     uuid_primary_key :id
-
-    attribute :minimum, :integer,
-      public?: true,
-      constraints: [min: -2_147_483_648, max: 2_147_483_647]
-
-    attribute :maximum, :integer,
-      public?: true,
-      constraints: [min: -2_147_483_648, max: 2_147_483_647]
-
     timestamps()
   end
 
   relationships do
-    belongs_to :question, QuickTrain.Forms.QuestionDefinition,
+    belongs_to :element, QuickTrain.Forms.Presentation.PresentationElement,
+      allow_nil?: false,
+      attribute_public?: true
+
+    belongs_to :requirement, QuickTrain.Forms.Inputs.InputFieldRequirement,
+      public?: true,
       allow_nil?: false,
       attribute_public?: true
 
@@ -60,42 +56,22 @@ defmodule QuickTrain.Forms.IntegerConstraints do
       filter expr(id == ^arg(:id) and version.form.organization_id == ^arg(:organization_id))
     end
 
-    action :add_to_draft, :struct do
-      allow_nil? false
-      constraints instance_of: __MODULE__
-      argument :organization_id, :uuid, allow_nil?: false
-      argument :version_id, :uuid, allow_nil?: false
-      argument :minimum, :integer, constraints: [min: -2_147_483_648, max: 2_147_483_647]
-      argument :maximum, :integer, constraints: [min: -2_147_483_648, max: 2_147_483_647]
-      argument :question_id, :uuid, allow_nil?: false
-      run {Module.concat(["QuickTrain.Forms.Authoring"]), []}
-    end
-
     action :update_in_draft, :struct do
       allow_nil? false
       constraints instance_of: __MODULE__
       argument :organization_id, :uuid, allow_nil?: false
       argument :version_id, :uuid, allow_nil?: false
       argument :id, :uuid, allow_nil?: false
-      argument :minimum, :integer, constraints: [min: -2_147_483_648, max: 2_147_483_647]
-      argument :maximum, :integer, constraints: [min: -2_147_483_648, max: 2_147_483_647]
-      run {Module.concat(["QuickTrain.Forms.Authoring"]), []}
-    end
-
-    action :remove_from_draft, :boolean do
-      allow_nil? false
-      argument :organization_id, :uuid, allow_nil?: false
-      argument :version_id, :uuid, allow_nil?: false
-      argument :id, :uuid, allow_nil?: false
+      argument :requirement_id, :uuid
       run {Module.concat(["QuickTrain.Forms.Authoring"]), []}
     end
 
     create :create_internal do
-      accept [:minimum, :maximum, :question_id, :version_id]
+      accept [:element_id, :requirement_id, :version_id]
     end
 
     update :update_internal do
-      accept [:minimum, :maximum]
+      accept [:requirement_id]
     end
 
     destroy :destroy_internal
@@ -108,8 +84,8 @@ defmodule QuickTrain.Forms.IntegerConstraints do
 
     policy action(:read) do
       authorize_if accessing_from(
-                     Module.concat(["QuickTrain.Forms.QuestionDefinition"]),
-                     :integer_constraints
+                     Module.concat(["QuickTrain.Forms.Presentation.PresentationElement"]),
+                     :bound_value
                    )
     end
 
@@ -118,45 +94,36 @@ defmodule QuickTrain.Forms.IntegerConstraints do
                     capability: "forms.read"}
     end
 
-    policy action([:add_to_draft, :update_in_draft, :remove_from_draft]) do
+    policy action([:update_in_draft]) do
       authorize_if {QuickTrain.Authorization.Checks.OrganizationCapability,
                     capability: "forms.manage"}
     end
   end
 
   graphql do
-    type :form_integer_constraints
+    type :form_bound_value
     derive_filter? false
     derive_sort? false
     complexity {Module.concat(["QuickTrain.Forms"]), :connection_complexity}
-    relationships []
+    relationships [:requirement]
   end
 
   postgres do
-    table "form_integer_constraints"
+    table "form_bound_values"
     repo QuickTrain.Repo
 
     references do
-      reference :question, on_delete: :restrict, match_with: [version_id: :version_id]
+      reference :element, on_delete: :restrict, match_with: [version_id: :version_id]
+      reference :requirement, on_delete: :restrict, match_with: [version_id: :version_id]
       reference :version, on_delete: :restrict
     end
 
     custom_indexes do
       index [:id, :version_id], unique: true
     end
-
-    check_constraints do
-      check_constraint :minimum, "form_integer_constraints_check_0",
-        check: "minimum BETWEEN -2147483648 AND 2147483647"
-
-      check_constraint :maximum, "form_integer_constraints_check_1",
-        check: "maximum BETWEEN -2147483648 AND 2147483647"
-
-      check_constraint :minimum, "form_integer_constraints_check_2", check: "minimum <= maximum"
-    end
   end
 
   identities do
-    identity :question, [:question_id]
+    identity :element, [:element_id]
   end
 end

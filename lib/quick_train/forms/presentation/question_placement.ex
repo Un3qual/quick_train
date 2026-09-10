@@ -1,7 +1,7 @@
 # ex_dna:disable-for-this-file
 # Intentional typed Ash declarations; executable authoring is shared in Authoring and Graph.
-defmodule QuickTrain.Forms.Heading do
-  @moduledoc "Organization-scoped heading definition."
+defmodule QuickTrain.Forms.Presentation.QuestionPlacement do
+  @moduledoc "Organization-scoped question placement definition."
   use Ash.Resource,
     otp_app: :quick_train,
     domain: QuickTrain.Forms,
@@ -11,24 +11,16 @@ defmodule QuickTrain.Forms.Heading do
 
   attributes do
     uuid_primary_key :id
-
-    attribute :text, QuickTrain.Forms.PlainText,
-      public?: true,
-      allow_nil?: false,
-      constraints: [
-        trim?: false,
-        allow_empty?: true,
-        match: ~r/\A[^\x00]*\z/u,
-        max_length: 1024,
-        length_count: :bytes,
-        min_length: 1
-      ]
-
     timestamps()
   end
 
   relationships do
-    belongs_to :element, QuickTrain.Forms.PresentationElement,
+    belongs_to :element, QuickTrain.Forms.Presentation.PresentationElement,
+      allow_nil?: false,
+      attribute_public?: true
+
+    belongs_to :question, QuickTrain.Forms.Questions.QuestionDefinition,
+      public?: true,
       allow_nil?: false,
       attribute_public?: true
 
@@ -70,26 +62,16 @@ defmodule QuickTrain.Forms.Heading do
       argument :organization_id, :uuid, allow_nil?: false
       argument :version_id, :uuid, allow_nil?: false
       argument :id, :uuid, allow_nil?: false
-
-      argument :text, QuickTrain.Forms.PlainText,
-        constraints: [
-          trim?: false,
-          allow_empty?: true,
-          match: ~r/\A[^\x00]*\z/u,
-          max_length: 1024,
-          length_count: :bytes,
-          min_length: 1
-        ]
-
+      argument :question_id, :uuid
       run {Module.concat(["QuickTrain.Forms.Authoring"]), []}
     end
 
     create :create_internal do
-      accept [:text, :element_id, :version_id]
+      accept [:element_id, :question_id, :version_id]
     end
 
     update :update_internal do
-      accept [:text]
+      accept [:question_id]
     end
 
     destroy :destroy_internal
@@ -102,8 +84,8 @@ defmodule QuickTrain.Forms.Heading do
 
     policy action(:read) do
       authorize_if accessing_from(
-                     Module.concat(["QuickTrain.Forms.PresentationElement"]),
-                     :heading
+                     Module.concat(["QuickTrain.Forms.Presentation.PresentationElement"]),
+                     :question_placement
                    )
     end
 
@@ -118,24 +100,21 @@ defmodule QuickTrain.Forms.Heading do
     end
   end
 
-  validations do
-    validate match(:text, ~r/\S/u), where: [changing(:text)]
-  end
-
   graphql do
-    type :form_heading
+    type :form_question_placement
     derive_filter? false
     derive_sort? false
     complexity {Module.concat(["QuickTrain.Forms"]), :connection_complexity}
-    relationships []
+    relationships [:question]
   end
 
   postgres do
-    table "form_headings"
+    table "form_question_placements"
     repo QuickTrain.Repo
 
     references do
       reference :element, on_delete: :restrict, match_with: [version_id: :version_id]
+      reference :question, on_delete: :restrict, match_with: [version_id: :version_id]
       reference :version, on_delete: :restrict
     end
 

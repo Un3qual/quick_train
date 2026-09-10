@@ -1,5 +1,7 @@
-defmodule QuickTrain.Forms.PresentationElement do
-  @moduledoc "Organization-scoped presentation element definition."
+# ex_dna:disable-for-this-file
+# Intentional typed Ash declarations; executable authoring is shared in Authoring and Graph.
+defmodule QuickTrain.Forms.Questions.QuestionOption do
+  @moduledoc "Organization-scoped question option definition."
   use Ash.Resource,
     otp_app: :quick_train,
     domain: QuickTrain.Forms,
@@ -10,9 +12,29 @@ defmodule QuickTrain.Forms.PresentationElement do
   attributes do
     uuid_primary_key :id
 
-    attribute :kind, QuickTrain.Forms.PresentationKind,
+    attribute :key, QuickTrain.Forms.Types.PlainText,
       public?: true,
-      allow_nil?: false
+      allow_nil?: false,
+      constraints: [
+        trim?: false,
+        allow_empty?: true,
+        match: ~r/\A[^\x00]*\z/u,
+        max_length: 512,
+        length_count: :bytes,
+        min_length: 1
+      ]
+
+    attribute :label, QuickTrain.Forms.Types.PlainText,
+      public?: true,
+      allow_nil?: false,
+      constraints: [
+        trim?: false,
+        allow_empty?: true,
+        match: ~r/\A[^\x00]*\z/u,
+        max_length: 1024,
+        length_count: :bytes,
+        min_length: 1
+      ]
 
     attribute :position, :integer,
       public?: true,
@@ -23,22 +45,11 @@ defmodule QuickTrain.Forms.PresentationElement do
   end
 
   relationships do
+    belongs_to :question, QuickTrain.Forms.Questions.QuestionDefinition,
+      allow_nil?: false,
+      attribute_public?: true
+
     belongs_to :version, QuickTrain.Forms.FormVersion, allow_nil?: false, attribute_public?: true
-
-    has_one :instruction, QuickTrain.Forms.Instruction,
-      destination_attribute: :element_id,
-      public?: true
-
-    has_one :heading, QuickTrain.Forms.Heading, destination_attribute: :element_id, public?: true
-    has_one :section, QuickTrain.Forms.Section, destination_attribute: :element_id, public?: true
-
-    has_one :bound_value, QuickTrain.Forms.BoundValue,
-      destination_attribute: :element_id,
-      public?: true
-
-    has_one :question_placement, QuickTrain.Forms.QuestionPlacement,
-      destination_attribute: :element_id,
-      public?: true
   end
 
   actions do
@@ -76,21 +87,30 @@ defmodule QuickTrain.Forms.PresentationElement do
       argument :organization_id, :uuid, allow_nil?: false
       argument :version_id, :uuid, allow_nil?: false
 
-      argument :kind, QuickTrain.Forms.PresentationKind, allow_nil?: false
-
-      argument :position, :integer, allow_nil?: false, constraints: [min: 0, max: 2_147_483_647]
-
-      argument :text, QuickTrain.Forms.PlainText,
+      argument :key, QuickTrain.Forms.Types.PlainText,
+        allow_nil?: false,
         constraints: [
           trim?: false,
           allow_empty?: true,
           match: ~r/\A[^\x00]*\z/u,
-          max_length: 16_384,
-          length_count: :bytes
+          max_length: 512,
+          length_count: :bytes,
+          min_length: 1
         ]
 
-      argument :requirement_id, :uuid
-      argument :question_id, :uuid
+      argument :label, QuickTrain.Forms.Types.PlainText,
+        allow_nil?: false,
+        constraints: [
+          trim?: false,
+          allow_empty?: true,
+          match: ~r/\A[^\x00]*\z/u,
+          max_length: 1024,
+          length_count: :bytes,
+          min_length: 1
+        ]
+
+      argument :position, :integer, allow_nil?: false, constraints: [min: 0, max: 2_147_483_647]
+      argument :question_id, :uuid, allow_nil?: false
       run {Module.concat(["QuickTrain.Forms.Authoring"]), []}
     end
 
@@ -100,6 +120,17 @@ defmodule QuickTrain.Forms.PresentationElement do
       argument :organization_id, :uuid, allow_nil?: false
       argument :version_id, :uuid, allow_nil?: false
       argument :id, :uuid, allow_nil?: false
+
+      argument :label, QuickTrain.Forms.Types.PlainText,
+        constraints: [
+          trim?: false,
+          allow_empty?: true,
+          match: ~r/\A[^\x00]*\z/u,
+          max_length: 1024,
+          length_count: :bytes,
+          min_length: 1
+        ]
+
       argument :position, :integer, constraints: [min: 0, max: 2_147_483_647]
       run {Module.concat(["QuickTrain.Forms.Authoring"]), []}
     end
@@ -116,16 +147,17 @@ defmodule QuickTrain.Forms.PresentationElement do
       allow_nil? false
       argument :organization_id, :uuid, allow_nil?: false
       argument :version_id, :uuid, allow_nil?: false
+      argument :question_id, :uuid, allow_nil?: false
       argument :ids, {:array, :uuid}, allow_nil?: false, constraints: [max_length: 1000]
       run {Module.concat(["QuickTrain.Forms.Authoring"]), []}
     end
 
     create :create_internal do
-      accept [:kind, :position, :version_id]
+      accept [:key, :label, :position, :question_id, :version_id]
     end
 
     update :update_internal do
-      accept [:position]
+      accept [:label, :position]
     end
 
     destroy :destroy_internal
@@ -137,7 +169,10 @@ defmodule QuickTrain.Forms.PresentationElement do
     end
 
     policy action(:read) do
-      authorize_if accessing_from(Module.concat(["QuickTrain.Forms.FormVersion"]), :elements)
+      authorize_if accessing_from(
+                     Module.concat(["QuickTrain.Forms.Questions.QuestionDefinition"]),
+                     :options
+                   )
     end
 
     policy action([:list_scoped, :get_scoped]) do
@@ -151,19 +186,24 @@ defmodule QuickTrain.Forms.PresentationElement do
     end
   end
 
+  validations do
+    validate match(:label, ~r/\S/u), where: [changing(:label)]
+  end
+
   graphql do
-    type :form_presentation_element
+    type :form_question_option
     derive_filter? false
     derive_sort? false
     complexity {Module.concat(["QuickTrain.Forms"]), :connection_complexity}
-    relationships [:instruction, :heading, :section, :bound_value, :question_placement]
+    relationships []
   end
 
   postgres do
-    table "form_presentation_elements"
+    table "form_question_options"
     repo QuickTrain.Repo
 
     references do
+      reference :question, on_delete: :restrict, match_with: [version_id: :version_id]
       reference :version, on_delete: :restrict
     end
 
@@ -172,11 +212,12 @@ defmodule QuickTrain.Forms.PresentationElement do
     end
 
     check_constraints do
-      check_constraint :kind, "form_presentation_elements_check_0",
-        check: "kind IN ('instruction', 'heading', 'section', 'bound_value', 'question')"
-
-      check_constraint :position, "form_presentation_elements_check_1",
+      check_constraint :position, "form_question_options_check_0",
         check: "position BETWEEN 0 AND 2147483647"
     end
+  end
+
+  identities do
+    identity :parent_key, [:question_id, :key]
   end
 end

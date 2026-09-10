@@ -4,17 +4,11 @@ defmodule QuickTrain.Forms.FormIntegrityTest do
   @moduletag :committed_db
   import QuickTrain.FormsFixture
 
-  alias QuickTrain.Forms.{
-    Authoring,
-    FormVersion,
-    Graph,
-    InputFieldRequirement,
-    InputSlotDefinition,
-    IntegerConstraints,
-    PresentationElement,
-    QuestionDefinition,
-    TextConstraints
-  }
+  alias QuickTrain.Forms.{Authoring, FormVersion, Graph}
+  alias QuickTrain.Forms.Inputs.{InputFieldRequirement, InputSlotDefinition}
+  alias QuickTrain.Forms.Presentation.PresentationElement
+  alias QuickTrain.Forms.Questions.Constraints.{IntegerConstraints, TextConstraints}
+  alias QuickTrain.Forms.Questions.QuestionDefinition
 
   setup do
     ctx = context!()

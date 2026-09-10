@@ -1,4 +1,4 @@
-defmodule QuickTrain.Forms.QuestionDefinition do
+defmodule QuickTrain.Forms.Questions.QuestionDefinition do
   @moduledoc "Organization-scoped question definition definition."
   use Ash.Resource,
     otp_app: :quick_train,
@@ -10,7 +10,7 @@ defmodule QuickTrain.Forms.QuestionDefinition do
   attributes do
     uuid_primary_key :id
 
-    attribute :key, QuickTrain.Forms.PlainText,
+    attribute :key, QuickTrain.Forms.Types.PlainText,
       public?: true,
       allow_nil?: false,
       constraints: [
@@ -22,7 +22,7 @@ defmodule QuickTrain.Forms.QuestionDefinition do
         min_length: 1
       ]
 
-    attribute :prompt, QuickTrain.Forms.PlainText,
+    attribute :prompt, QuickTrain.Forms.Types.PlainText,
       public?: true,
       allow_nil?: false,
       constraints: [
@@ -34,11 +34,11 @@ defmodule QuickTrain.Forms.QuestionDefinition do
         min_length: 1
       ]
 
-    attribute :family, QuickTrain.Forms.AnswerFamily,
+    attribute :family, QuickTrain.Forms.Types.AnswerFamily,
       public?: true,
       allow_nil?: false
 
-    attribute :renderer, QuickTrain.Forms.Renderer,
+    attribute :renderer, QuickTrain.Forms.Types.Renderer,
       public?: true,
       allow_nil?: false
 
@@ -48,31 +48,31 @@ defmodule QuickTrain.Forms.QuestionDefinition do
   relationships do
     belongs_to :version, QuickTrain.Forms.FormVersion, allow_nil?: false, attribute_public?: true
 
-    has_one :text_constraints, QuickTrain.Forms.TextConstraints,
+    has_one :text_constraints, QuickTrain.Forms.Questions.Constraints.TextConstraints,
       destination_attribute: :question_id,
       public?: true
 
-    has_one :integer_constraints, QuickTrain.Forms.IntegerConstraints,
+    has_one :integer_constraints, QuickTrain.Forms.Questions.Constraints.IntegerConstraints,
       destination_attribute: :question_id,
       public?: true
 
-    has_one :decimal_constraints, QuickTrain.Forms.DecimalConstraints,
+    has_one :decimal_constraints, QuickTrain.Forms.Questions.Constraints.DecimalConstraints,
       destination_attribute: :question_id,
       public?: true
 
-    has_one :selection_constraints, QuickTrain.Forms.SelectionConstraints,
+    has_one :selection_constraints, QuickTrain.Forms.Questions.Constraints.SelectionConstraints,
       destination_attribute: :question_id,
       public?: true
 
-    has_one :annotation_constraints, QuickTrain.Forms.AnnotationConstraints,
+    has_one :annotation_constraints, QuickTrain.Forms.Questions.Constraints.AnnotationConstraints,
       destination_attribute: :question_id,
       public?: true
 
-    has_one :input_source, QuickTrain.Forms.InputSource,
+    has_one :input_source, QuickTrain.Forms.Questions.InputSource,
       destination_attribute: :question_id,
       public?: true
 
-    has_many :options, QuickTrain.Forms.QuestionOption,
+    has_many :options, QuickTrain.Forms.Questions.QuestionOption,
       destination_attribute: :question_id,
       public?: true
   end
@@ -112,7 +112,7 @@ defmodule QuickTrain.Forms.QuestionDefinition do
       argument :organization_id, :uuid, allow_nil?: false
       argument :version_id, :uuid, allow_nil?: false
 
-      argument :key, QuickTrain.Forms.PlainText,
+      argument :key, QuickTrain.Forms.Types.PlainText,
         allow_nil?: false,
         constraints: [
           trim?: false,
@@ -123,7 +123,7 @@ defmodule QuickTrain.Forms.QuestionDefinition do
           min_length: 1
         ]
 
-      argument :prompt, QuickTrain.Forms.PlainText,
+      argument :prompt, QuickTrain.Forms.Types.PlainText,
         allow_nil?: false,
         constraints: [
           trim?: false,
@@ -134,9 +134,9 @@ defmodule QuickTrain.Forms.QuestionDefinition do
           min_length: 1
         ]
 
-      argument :family, QuickTrain.Forms.AnswerFamily, allow_nil?: false
+      argument :family, QuickTrain.Forms.Types.AnswerFamily, allow_nil?: false
 
-      argument :renderer, QuickTrain.Forms.Renderer, allow_nil?: false
+      argument :renderer, QuickTrain.Forms.Types.Renderer, allow_nil?: false
 
       run {Module.concat(["QuickTrain.Forms.Authoring"]), []}
     end
@@ -148,7 +148,7 @@ defmodule QuickTrain.Forms.QuestionDefinition do
       argument :version_id, :uuid, allow_nil?: false
       argument :id, :uuid, allow_nil?: false
 
-      argument :prompt, QuickTrain.Forms.PlainText,
+      argument :prompt, QuickTrain.Forms.Types.PlainText,
         constraints: [
           trim?: false,
           allow_empty?: true,
@@ -158,9 +158,9 @@ defmodule QuickTrain.Forms.QuestionDefinition do
           min_length: 1
         ]
 
-      argument :family, QuickTrain.Forms.AnswerFamily
+      argument :family, QuickTrain.Forms.Types.AnswerFamily
 
-      argument :renderer, QuickTrain.Forms.Renderer
+      argument :renderer, QuickTrain.Forms.Types.Renderer
 
       run {Module.concat(["QuickTrain.Forms.Authoring"]), []}
     end
@@ -193,7 +193,7 @@ defmodule QuickTrain.Forms.QuestionDefinition do
       authorize_if accessing_from(Module.concat(["QuickTrain.Forms.FormVersion"]), :questions)
 
       authorize_if accessing_from(
-                     Module.concat(["QuickTrain.Forms.QuestionPlacement"]),
+                     Module.concat(["QuickTrain.Forms.Presentation.QuestionPlacement"]),
                      :question
                    )
     end

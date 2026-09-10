@@ -1,5 +1,5 @@
-defmodule QuickTrain.Forms.LabelSet do
-  @moduledoc "Organization-scoped label set definition."
+defmodule QuickTrain.Forms.Inputs.InputFieldRequirement do
+  @moduledoc "Organization-scoped input field requirement definition."
   use Ash.Resource,
     otp_app: :quick_train,
     domain: QuickTrain.Forms,
@@ -10,7 +10,7 @@ defmodule QuickTrain.Forms.LabelSet do
   attributes do
     uuid_primary_key :id
 
-    attribute :key, QuickTrain.Forms.PlainText,
+    attribute :key, QuickTrain.Forms.Types.PlainText,
       public?: true,
       allow_nil?: false,
       constraints: [
@@ -22,22 +22,26 @@ defmodule QuickTrain.Forms.LabelSet do
         min_length: 1
       ]
 
-    attribute :name, QuickTrain.Forms.PlainText,
+    attribute :value_family, QuickTrain.Forms.Types.InputValueFamily,
       public?: true,
-      constraints: [
-        trim?: false,
-        allow_empty?: true,
-        match: ~r/\A[^\x00]*\z/u,
-        max_length: 1024,
-        length_count: :bytes
-      ]
+      allow_nil?: false
 
+    attribute :cardinality, QuickTrain.Forms.Types.FieldCardinality,
+      public?: true,
+      allow_nil?: false,
+      default: :single
+
+    attribute :required, :boolean, public?: true, allow_nil?: false
+    attribute :intended_use, QuickTrain.Forms.Types.AssetIntendedUse, public?: true
     timestamps()
   end
 
   relationships do
+    belongs_to :input_slot, QuickTrain.Forms.Inputs.InputSlotDefinition,
+      allow_nil?: false,
+      attribute_public?: true
+
     belongs_to :version, QuickTrain.Forms.FormVersion, allow_nil?: false, attribute_public?: true
-    has_many :labels, QuickTrain.Forms.Label, destination_attribute: :label_set_id, public?: true
   end
 
   actions do
@@ -75,7 +79,7 @@ defmodule QuickTrain.Forms.LabelSet do
       argument :organization_id, :uuid, allow_nil?: false
       argument :version_id, :uuid, allow_nil?: false
 
-      argument :key, QuickTrain.Forms.PlainText,
+      argument :key, QuickTrain.Forms.Types.PlainText,
         allow_nil?: false,
         constraints: [
           trim?: false,
@@ -86,15 +90,15 @@ defmodule QuickTrain.Forms.LabelSet do
           min_length: 1
         ]
 
-      argument :name, QuickTrain.Forms.PlainText,
-        constraints: [
-          trim?: false,
-          allow_empty?: true,
-          match: ~r/\A[^\x00]*\z/u,
-          max_length: 1024,
-          length_count: :bytes
-        ]
+      argument :value_family, QuickTrain.Forms.Types.InputValueFamily, allow_nil?: false
 
+      argument :cardinality, QuickTrain.Forms.Types.FieldCardinality,
+        allow_nil?: false,
+        default: :single
+
+      argument :required, :boolean, allow_nil?: false
+      argument :intended_use, QuickTrain.Forms.Types.AssetIntendedUse
+      argument :input_slot_id, :uuid, allow_nil?: false
       run {Module.concat(["QuickTrain.Forms.Authoring"]), []}
     end
 
@@ -105,15 +109,11 @@ defmodule QuickTrain.Forms.LabelSet do
       argument :version_id, :uuid, allow_nil?: false
       argument :id, :uuid, allow_nil?: false
 
-      argument :name, QuickTrain.Forms.PlainText,
-        constraints: [
-          trim?: false,
-          allow_empty?: true,
-          match: ~r/\A[^\x00]*\z/u,
-          max_length: 1024,
-          length_count: :bytes
-        ]
+      argument :value_family, QuickTrain.Forms.Types.InputValueFamily
 
+      argument :cardinality, QuickTrain.Forms.Types.FieldCardinality
+      argument :required, :boolean
+      argument :intended_use, QuickTrain.Forms.Types.AssetIntendedUse
       run {Module.concat(["QuickTrain.Forms.Authoring"]), []}
     end
 
@@ -126,11 +126,19 @@ defmodule QuickTrain.Forms.LabelSet do
     end
 
     create :create_internal do
-      accept [:key, :name, :version_id]
+      accept [
+        :key,
+        :value_family,
+        :cardinality,
+        :required,
+        :intended_use,
+        :input_slot_id,
+        :version_id
+      ]
     end
 
     update :update_internal do
-      accept [:name]
+      accept [:value_family, :cardinality, :required, :intended_use]
     end
 
     destroy :destroy_internal
@@ -142,11 +150,28 @@ defmodule QuickTrain.Forms.LabelSet do
     end
 
     policy action(:read) do
-      authorize_if accessing_from(Module.concat(["QuickTrain.Forms.FormVersion"]), :label_sets)
+      authorize_if accessing_from(Module.concat(["QuickTrain.Forms.FormVersion"]), :requirements)
 
       authorize_if accessing_from(
-                     Module.concat(["QuickTrain.Forms.AnnotationConstraints"]),
-                     :label_set
+                     Module.concat(["QuickTrain.Forms.Inputs.InputSlotDefinition"]),
+                     :requirements
+                   )
+
+      authorize_if accessing_from(
+                     Module.concat([
+                       "QuickTrain.Forms.Questions.Constraints.AnnotationConstraints"
+                     ]),
+                     :source_requirement
+                   )
+
+      authorize_if accessing_from(
+                     Module.concat(["QuickTrain.Forms.Questions.InputSource"]),
+                     :source_requirement
+                   )
+
+      authorize_if accessing_from(
+                     Module.concat(["QuickTrain.Forms.Presentation.BoundValue"]),
+                     :requirement
                    )
     end
 
@@ -162,28 +187,44 @@ defmodule QuickTrain.Forms.LabelSet do
   end
 
   graphql do
-    type :form_label_set
+    type :form_input_field_requirement
     derive_filter? false
     derive_sort? false
     complexity {Module.concat(["QuickTrain.Forms"]), :connection_complexity}
-    relationships [:labels]
-    paginate_relationship_with labels: :relay
+    relationships []
   end
 
   postgres do
-    table "form_label_sets"
+    table "form_input_field_requirements"
     repo QuickTrain.Repo
 
     references do
+      reference :input_slot, on_delete: :restrict, match_with: [version_id: :version_id]
       reference :version, on_delete: :restrict
     end
 
     custom_indexes do
       index [:id, :version_id], unique: true
     end
+
+    check_constraints do
+      check_constraint :value_family, "form_input_field_requirements_check_0",
+        check:
+          "value_family IN ('text', 'integer', 'decimal', 'boolean', 'utc_datetime', 'asset')"
+
+      check_constraint :cardinality, "form_input_field_requirements_check_1",
+        check: "cardinality IN ('single')"
+
+      check_constraint :intended_use, "form_input_field_requirements_check_2",
+        check: "intended_use IN ('download', 'image')"
+
+      check_constraint :intended_use, "form_input_field_requirements_check_3",
+        check:
+          "(value_family = 'asset' AND intended_use IS NOT NULL) OR (value_family <> 'asset' AND intended_use IS NULL)"
+    end
   end
 
   identities do
-    identity :parent_key, [:version_id, :key]
+    identity :parent_key, [:input_slot_id, :key]
   end
 end

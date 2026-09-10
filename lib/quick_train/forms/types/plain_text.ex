@@ -1,4 +1,4 @@
-defmodule QuickTrain.Forms.PlainText do
+defmodule QuickTrain.Forms.Types.PlainText do
   @moduledoc "UTF-8 text with the ordinary Ash string constraints."
   use Ash.Type.NewType, subtype_of: :string
 

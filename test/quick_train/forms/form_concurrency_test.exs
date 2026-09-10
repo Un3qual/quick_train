@@ -4,13 +4,11 @@ defmodule QuickTrain.Forms.FormConcurrencyTest do
   import QuickTrain.FormsFixture
   alias Ecto.Adapters.SQL.Sandbox
 
-  alias QuickTrain.Forms.{
-    AnnotationConstraints,
-    FormVersion,
-    InputFieldRequirement,
-    LabelSet,
-    QuestionDefinition
-  }
+  alias QuickTrain.Forms.FormVersion
+  alias QuickTrain.Forms.Inputs.InputFieldRequirement
+  alias QuickTrain.Forms.Labels.LabelSet
+  alias QuickTrain.Forms.Questions.Constraints.AnnotationConstraints
+  alias QuickTrain.Forms.Questions.QuestionDefinition
 
   setup do
     ctx = context!()

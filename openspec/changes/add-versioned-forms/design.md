@@ -92,6 +92,10 @@ Use Ash integer constraints and database bounds for every persisted integer expo
 
 ## Implementation notes
 
+- Forms source files are grouped into `inputs`, `questions` (including `constraints`),
+  `presentation`, `labels`, and shared `types` directories. Form lifecycle and domain-wide
+  support modules remain at the domain root. Module namespaces match their directories;
+  GraphQL contracts and database tables are unchanged.
 - `QuickTrain.Forms` exposes typed Ash generic actions for organization-scoped authoring;
   low-level persistence actions are private to authorized transactions. The complete graph uses
   20 resources, with separate presentation subtypes, five constraint resources, and a distinct

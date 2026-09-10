@@ -3,15 +3,11 @@ defmodule QuickTrain.Forms.FormLifecycleTest do
 
   alias QuickTrain.Accounts
 
-  alias QuickTrain.Forms.{
-    Form,
-    FormVersion,
-    InputFieldRequirement,
-    InputSlotDefinition,
-    IntegerConstraints,
-    PresentationElement,
-    QuestionDefinition
-  }
+  alias QuickTrain.Forms.{Form, FormVersion}
+  alias QuickTrain.Forms.Inputs.{InputFieldRequirement, InputSlotDefinition}
+  alias QuickTrain.Forms.Presentation.PresentationElement
+  alias QuickTrain.Forms.Questions.Constraints.IntegerConstraints
+  alias QuickTrain.Forms.Questions.QuestionDefinition
 
   setup do
     actor = Accounts.register_user!("forms@example.test", "Forms Author")
