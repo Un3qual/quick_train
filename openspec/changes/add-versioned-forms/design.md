@@ -92,25 +92,40 @@ Use Ash integer constraints and database bounds for every persisted integer expo
 
 ## Implementation notes
 
-- Forms source files are grouped into `inputs`, `questions` (including `constraints`),
+- Forms source files are grouped into `changes`, `inputs`, `questions` (including `constraints`),
   `presentation`, `labels`, and shared `types` directories. Form lifecycle and domain-wide
   support modules remain at the domain root. Module namespaces match their directories;
-  GraphQL contracts and database tables are unchanged.
-- `QuickTrain.Forms` exposes typed Ash generic actions for organization-scoped authoring;
-  low-level persistence actions are private to authorized transactions. The complete graph uses
-  20 resources, with separate presentation subtypes, five constraint resources, and a distinct
-  dynamic input source. Named Ash enums expose the closed families and renderers through GraphQL.
-- `Authoring` holds the Form allocation lock or FormVersion mutation lock through the enclosing
-  Ash transaction. `Graph` reads all owned rows with a cumulative 10,000-row bound, validates the
-  graph, and copies in dependency order with new UUIDs. Reorders validate the current parent and
-  complete ID set before assigning consecutive positions.
+  database tables are unchanged; native mutation envelopes are documented below.
+- `QuickTrain.Forms` exposes named create/update/destroy actions and generated domain code
+  interfaces. Updates and destroys accept resource records in Elixir; scoped inspection also has
+  generated interfaces. Parameterized contract fixtures dispatch through those interfaces.
+  The graph uses 20 resources with separate presentation subtypes, five constraint resources,
+  and a distinct dynamic input source. Named Ash enums expose the closed families and renderers.
+- Native Ash mutation actions own their transactions. `AllocateVersion` locks Form before
+  allocating its next number; `DraftWrite` locks FormVersion, reloads a mutation's record, and
+  reapplies Ash's cast inputs before writing. This preserves explicit updates against stale
+  records while leaving omitted fields unchanged. Its after-action validation runs before commit.
+  Publication, copying, and the three reorders remain five generic actions with `transaction? true`.
+- GraphQL create/update/destroy mutations use AshGraphql's native result/error envelopes, such as
+  `createForm(...) { result { id } errors { message } }`. Mutation names and explicit organization
+  scope remain the same. `updateFormDraft` identifies its version with `id`, replacing `versionId`;
+  descendant mutations retain both `id` and `versionId`. Generic publication, copy, and reorder
+  results retain their existing shape. Mutation lookup reads require a bulk-mutation context and
+  current `forms.manage` eligibility; they are not exposed as inspection queries or domain interfaces.
+- `Graph` loads all owned rows with a cumulative 10,000-row bound. Copy uses `Ash.bulk_create!`
+  per resource in dependency order, with an internal copy action assigning remapped UUIDs; reference
+  attributes come from Ash relationship metadata. Reorders validate the complete scoped ID set and
+  use `Ash.update_many!` to assign distinct consecutive positions. Presentation destruction uses
+  `cascade_destroy` before deleting its parent, retaining restrictive foreign keys and typed guards.
 - Nested relationship policies require both an allowed parent traversal and a current active
-  organization capability. General inspection requires `forms.read`; the returned mutation graph
+  organization capability through a correlated Ash `exists` filter, without enumerating memberships
+  or checking each organization individually. General inspection requires `forms.read`; the returned mutation graph
   also permits `forms.manage`. GraphQL exposes no back-reference from a version to the owning Form
   or from a definition to a version, so mutation results cannot expand into other versions.
 - The endpoint's existing 512 KiB body limit bounds Forms requests before decoding. The item,
   row, count, and UTF-8 byte limits in decision 5 apply to ordinary authoring and copy destinations.
-  `PlainText` checks UTF-8 before applying Ash's string constraints; nonblank content uses Ash's
+  `PlainText` checks UTF-8 and centralizes shared trimming, empty-string, NUL, and byte-count
+  constraints through `Ash.Type.NewType`; field-specific limits remain on attributes. Nonblank content uses Ash's
   built-in match validation only when the field changes. Read paths do not apply authoring limits
   to published historical graphs.
 - Annotation inspection exposes `sourceConvention`: `normalized_image_coordinates` for boxes

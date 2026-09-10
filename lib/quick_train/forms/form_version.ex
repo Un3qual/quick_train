@@ -61,6 +61,18 @@ defmodule QuickTrain.Forms.FormVersion do
   end
 
   actions do
+    read :lock_for_authoring do
+      get? true
+      argument :id, :uuid, allow_nil?: false
+      argument :organization_id, :uuid, allow_nil?: false
+      filter expr(id == ^arg(:id) and form.organization_id == ^arg(:organization_id))
+      prepare build(lock: :for_update)
+    end
+
+    read :read_for_authoring do
+      pagination keyset?: true, required?: false
+    end
+
     read :read do
       primary? true
 
@@ -89,26 +101,14 @@ defmodule QuickTrain.Forms.FormVersion do
       filter expr(id == ^arg(:id) and form.organization_id == ^arg(:organization_id))
     end
 
-    action :create_draft, :struct do
-      allow_nil? false
-      constraints instance_of: __MODULE__
+    create :create_draft do
+      accept [:title, :description, :form_id]
       argument :organization_id, :uuid, allow_nil?: false
-      argument :form_id, :uuid, allow_nil?: false
-
-      argument :title, QuickTrain.Forms.Types.PlainText,
-        constraints: [
-          max_length: 1024
-        ]
-
-      argument :description, QuickTrain.Forms.Types.PlainText,
-        constraints: [
-          max_length: 16_384
-        ]
-
-      run {Module.concat(["QuickTrain.Forms.Authoring"]), []}
+      change QuickTrain.Forms.Changes.AllocateVersion
     end
 
     action :copy_published, :struct do
+      transaction? true
       allow_nil? false
       constraints instance_of: __MODULE__
       argument :organization_id, :uuid, allow_nil?: false
@@ -117,26 +117,16 @@ defmodule QuickTrain.Forms.FormVersion do
       run {Module.concat(["QuickTrain.Forms.Authoring"]), []}
     end
 
-    action :update_draft, :struct do
-      allow_nil? false
-      constraints instance_of: __MODULE__
+    update :update_draft do
+      require_atomic? false
+      atomic_upgrade_with :read_for_authoring
+      accept [:title, :description]
       argument :organization_id, :uuid, allow_nil?: false
-      argument :version_id, :uuid, allow_nil?: false
-
-      argument :title, QuickTrain.Forms.Types.PlainText,
-        constraints: [
-          max_length: 1024
-        ]
-
-      argument :description, QuickTrain.Forms.Types.PlainText,
-        constraints: [
-          max_length: 16_384
-        ]
-
-      run {Module.concat(["QuickTrain.Forms.Authoring"]), []}
+      change QuickTrain.Forms.Changes.DraftWrite
     end
 
     action :publish, :struct do
+      transaction? true
       allow_nil? false
       constraints instance_of: __MODULE__
       argument :organization_id, :uuid, allow_nil?: false
@@ -160,6 +150,15 @@ defmodule QuickTrain.Forms.FormVersion do
   end
 
   policies do
+    policy action(:read_for_authoring) do
+      authorize_if context_equals(:query_for, :bulk_update)
+      authorize_if context_equals(:query_for, :bulk_destroy)
+    end
+
+    policy action(:read_for_authoring) do
+      authorize_if {QuickTrain.Forms.NestedRead, path: [:form], capabilities: ["forms.manage"]}
+    end
+
     policy action(:read) do
       authorize_if {QuickTrain.Forms.NestedRead, path: [:form]}
     end

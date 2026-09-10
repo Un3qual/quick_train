@@ -28,6 +28,10 @@ defmodule QuickTrain.Forms.Presentation.QuestionPlacement do
   end
 
   actions do
+    read :read_for_authoring do
+      pagination keyset?: true, required?: false
+    end
+
     read :read do
       primary? true
 
@@ -56,14 +60,13 @@ defmodule QuickTrain.Forms.Presentation.QuestionPlacement do
       filter expr(id == ^arg(:id) and version.form.organization_id == ^arg(:organization_id))
     end
 
-    action :update_in_draft, :struct do
-      allow_nil? false
-      constraints instance_of: __MODULE__
+    update :update_in_draft do
+      require_atomic? false
+      atomic_upgrade_with :read_for_authoring
+      accept [:question_id]
       argument :organization_id, :uuid, allow_nil?: false
       argument :version_id, :uuid, allow_nil?: false
-      argument :id, :uuid, allow_nil?: false
-      argument :question_id, :uuid
-      run {Module.concat(["QuickTrain.Forms.Authoring"]), []}
+      change QuickTrain.Forms.Changes.DraftWrite
     end
 
     create :create_internal do
@@ -84,6 +87,28 @@ defmodule QuickTrain.Forms.Presentation.QuestionPlacement do
   end
 
   policies do
+    policy action(:destroy_internal) do
+      authorize_if accessing_from(
+                     Module.concat(["QuickTrain.Forms.Presentation.PresentationElement"]),
+                     :question_placement
+                   )
+    end
+
+    policy action(:destroy_internal) do
+      authorize_if {QuickTrain.Forms.NestedRead,
+                    path: [:version, :form], capabilities: ["forms.manage"]}
+    end
+
+    policy action(:read_for_authoring) do
+      authorize_if context_equals(:query_for, :bulk_update)
+      authorize_if context_equals(:query_for, :bulk_destroy)
+    end
+
+    policy action(:read_for_authoring) do
+      authorize_if {QuickTrain.Forms.NestedRead,
+                    path: [:version, :form], capabilities: ["forms.manage"]}
+    end
+
     policy action(:read) do
       authorize_if {QuickTrain.Forms.NestedRead, path: [:version, :form]}
     end

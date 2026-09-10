@@ -4,7 +4,7 @@ defmodule QuickTrain.Forms.FormIntegrityTest do
   @moduletag :committed_db
   import QuickTrain.FormsFixture
 
-  alias QuickTrain.Forms.{Authoring, FormVersion, Graph}
+  alias QuickTrain.Forms.{FormVersion, Graph}
   alias QuickTrain.Forms.Inputs.{InputFieldRequirement, InputSlotDefinition}
   alias QuickTrain.Forms.Presentation.PresentationElement
   alias QuickTrain.Forms.Questions.Constraints.{IntegerConstraints, TextConstraints}
@@ -147,13 +147,18 @@ defmodule QuickTrain.Forms.FormIntegrityTest do
   test "later-page invalid definitions are validated and issue output is capped", ctx do
     for n <- 1..101 do
       question =
-        Authoring.create(QuestionDefinition, %{
-          version_id: ctx.version.id,
-          key: "q#{n}",
-          prompt: "Private prompt #{n}",
-          family: :boolean,
-          renderer: :toggle
-        })
+        Ash.create!(
+          QuestionDefinition,
+          %{
+            version_id: ctx.version.id,
+            key: "q#{n}",
+            prompt: "Private prompt #{n}",
+            family: :boolean,
+            renderer: :toggle
+          },
+          action: :create_internal,
+          authorize?: false
+        )
 
       if n < 101,
         do:
@@ -198,13 +203,18 @@ defmodule QuickTrain.Forms.FormIntegrityTest do
     # Simulates an older source authored with a larger per-slot limit; inspection stays available.
     for n <- 2..65,
         do:
-          Authoring.create(InputFieldRequirement, %{
-            version_id: ctx.version.id,
-            input_slot_id: ctx.slot.id,
-            key: "f#{n}",
-            value_family: :text,
-            required: false
-          })
+          Ash.create!(
+            InputFieldRequirement,
+            %{
+              version_id: ctx.version.id,
+              input_slot_id: ctx.slot.id,
+              key: "f#{n}",
+              value_family: :text,
+              required: false
+            },
+            action: :create_internal,
+            authorize?: false
+          )
 
     Ash.update!(ctx.version, %{}, action: :publish_internal, authorize?: false)
 

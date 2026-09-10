@@ -1,8 +1,8 @@
 defmodule QuickTrain.FormsFixture do
   @moduledoc false
-  alias QuickTrain.{Accounts, Authorization, Organizations}
+  alias QuickTrain.{Accounts, Authorization, Forms, Organizations}
 
-  alias QuickTrain.Forms.{Form, FormVersion}
+  alias QuickTrain.Forms.FormVersion
   alias QuickTrain.Forms.Inputs.{InputFieldRequirement, InputSlotDefinition}
   alias QuickTrain.Forms.Presentation.PresentationElement
   alias QuickTrain.Forms.Questions.Constraints.IntegerConstraints
@@ -30,8 +30,13 @@ defmodule QuickTrain.FormsFixture do
   end
 
   def draft!(context, key \\ "form") do
-    form = run!(Form, :create_form, context, %{key: key})
-    version = run!(FormVersion, :create_draft, context, %{form_id: form.id, title: "Form"})
+    form = Forms.create_form!(context.org.id, %{key: key}, actor: context.actor)
+
+    version =
+      Forms.create_form_draft!(context.org.id, %{form_id: form.id, title: "Form"},
+        actor: context.actor
+      )
+
     %{form: form, version: version}
   end
 
@@ -92,18 +97,32 @@ defmodule QuickTrain.FormsFixture do
         Map.merge(attrs, %{version_id: record.version_id, id: record.id})
       )
 
-  def run!(resource, action, context, attrs) do
-    case run(resource, action, context, attrs) do
-      {:ok, result} -> result
-      {:error, error} -> raise error
-    end
-  end
+  # Parameterized contract tests exercise the same generated domain functions as callers.
+  def run!(resource, action, context, attrs), do: invoke(resource, action, context, attrs, "!")
+  def run(resource, action, context, attrs), do: invoke(resource, action, context, attrs, "")
 
-  def run(resource, action, context, attrs) do
-    resource
-    |> Ash.ActionInput.for_action(action, Map.put(attrs, :organization_id, context.org.id),
-      actor: context.actor
-    )
-    |> Ash.run_action()
+  defp invoke(resource, action, context, attrs, suffix) do
+    reference = Enum.find(Ash.Domain.Info.resource_references(Forms), &(&1.resource == resource))
+    interface = Enum.find(reference.definitions, &(&1.action == action))
+    attrs = Map.put(attrs, :organization_id, context.org.id)
+
+    attrs =
+      if resource == FormVersion and action == :update_draft,
+        do: attrs |> Map.put(:id, attrs.version_id) |> Map.delete(:version_id),
+        else: attrs
+
+    action_type = Ash.Resource.Info.action(resource, action).type
+
+    record_args =
+      if action_type in [:update, :destroy],
+        do: [Ash.get!(resource, attrs.id, authorize?: false)],
+        else: []
+
+    inputs =
+      record_args ++
+        Enum.map(interface.args, &Map.fetch!(attrs, &1)) ++
+        [Map.drop(attrs, [:id | interface.args]), [actor: context.actor]]
+
+    apply(Forms, String.to_existing_atom("#{interface.name}#{suffix}"), inputs)
   end
 end

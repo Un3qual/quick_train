@@ -1,7 +1,8 @@
 defmodule QuickTrain.Forms.FormLifecycleTest do
   use QuickTrain.DataCase, async: true
+  import QuickTrain.FormsFixture
 
-  alias QuickTrain.Accounts
+  alias QuickTrain.{Accounts, Forms}
 
   alias QuickTrain.Forms.{Form, FormVersion}
   alias QuickTrain.Forms.Inputs.{InputFieldRequirement, InputSlotDefinition}
@@ -88,21 +89,43 @@ defmodule QuickTrain.Forms.FormLifecycleTest do
              "Repaired"
   end
 
-  defp add!(resource, context, version, attrs),
-    do: run!(resource, :add_to_draft, context, Map.put(attrs, :version_id, version.id))
+  test "native updates preserve explicit stale values and distinguish omitted fields from null",
+       context do
+    graph = rating!(context)
 
-  defp run!(resource, action, context, attrs) do
-    case run(resource, action, context, attrs) do
-      {:ok, result} -> result
-      {:error, error} -> raise error
-    end
-  end
-
-  defp run(resource, action, context, attrs) do
-    resource
-    |> Ash.ActionInput.for_action(action, Map.put(attrs, :organization_id, context.org.id),
+    Forms.update_form_question_definition!(
+      graph.question,
+      context.org.id,
+      %{version_id: graph.version.id, prompt: "Changed"},
       actor: context.actor
     )
-    |> Ash.run_action()
+
+    restored =
+      Forms.update_form_question_definition!(
+        graph.question,
+        context.org.id,
+        %{version_id: graph.version.id, prompt: graph.question.prompt},
+        actor: context.actor
+      )
+
+    assert restored.prompt == graph.question.prompt
+
+    Forms.update_form_draft!(
+      graph.version,
+      context.org.id,
+      %{title: "Current title", description: "Description"},
+      actor: context.actor
+    )
+
+    updated =
+      Forms.update_form_draft!(graph.version, context.org.id, %{description: nil},
+        actor: context.actor
+      )
+
+    assert updated.title == "Current title"
+    assert updated.description == nil
+
+    assert Forms.get_form_version!(context.org.id, graph.version.id, actor: context.actor).title ==
+             "Current title"
   end
 end

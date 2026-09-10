@@ -33,6 +33,14 @@ defmodule QuickTrain.Forms.Form do
   end
 
   actions do
+    read :lock_for_allocation do
+      get? true
+      argument :id, :uuid, allow_nil?: false
+      argument :organization_id, :uuid, allow_nil?: false
+      filter expr(id == ^arg(:id) and organization_id == ^arg(:organization_id))
+      prepare build(lock: :for_update)
+    end
+
     read :read do
       primary? true
 
@@ -61,19 +69,8 @@ defmodule QuickTrain.Forms.Form do
       filter expr(id == ^arg(:id) and organization_id == ^arg(:organization_id))
     end
 
-    action :create_form, :struct do
-      allow_nil? false
-      constraints instance_of: __MODULE__
-      argument :organization_id, :uuid, allow_nil?: false
-
-      argument :key, QuickTrain.Forms.Types.PlainText,
-        allow_nil?: false,
-        constraints: [
-          max_length: 512,
-          min_length: 1
-        ]
-
-      run {Module.concat(["QuickTrain.Forms.Authoring"]), []}
+    create :create_form do
+      accept [:key, :organization_id]
     end
 
     create :create_internal do

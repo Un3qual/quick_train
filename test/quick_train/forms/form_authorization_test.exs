@@ -1,7 +1,7 @@
 defmodule QuickTrain.Forms.FormAuthorizationTest do
   use QuickTrain.DataCase, async: true
   import QuickTrain.FormsFixture
-  alias QuickTrain.{Accounts, Authorization, Organizations}
+  alias QuickTrain.{Accounts, Authorization, Forms, Organizations}
   alias QuickTrain.Forms.{Form, FormVersion}
   alias QuickTrain.Forms.Questions.QuestionDefinition
 
@@ -12,6 +12,9 @@ defmodule QuickTrain.Forms.FormAuthorizationTest do
 
   test "unscoped reads and internal writes fail closed", ctx do
     assert {:error, %Ash.Error.Forbidden{}} = Ash.read(FormVersion, actor: ctx.actor)
+
+    assert {:error, %Ash.Error.Forbidden{}} =
+             Ash.read(FormVersion, action: :read_for_authoring, actor: ctx.actor)
 
     assert {:error, %Ash.Error.Forbidden{}} =
              Ash.create(Form, %{organization_id: ctx.org.id, key: "internal"},
@@ -45,13 +48,7 @@ defmodule QuickTrain.Forms.FormAuthorizationTest do
                run(FormVersion, :publish, %{ctx | actor: actor}, %{version_id: ctx.version.id})
 
       assert {:error, %Ash.Error.Forbidden{}} =
-               FormVersion
-               |> Ash.Query.for_read(
-                 :get_scoped,
-                 %{organization_id: ctx.org.id, id: ctx.version.id},
-                 actor: actor
-               )
-               |> Ash.read_one()
+               Forms.get_form_version(ctx.org.id, ctx.version.id, actor: actor)
     end
 
     other = context!(~w(forms.read forms.manage), "other")
@@ -94,15 +91,19 @@ defmodule QuickTrain.Forms.FormAuthorizationTest do
     Authorization.grant_capability!(role.id, capability.id)
 
     assert {:ok, _} =
-             FormVersion
-             |> Ash.Query.for_read(
-               :get_scoped,
-               %{organization_id: ctx.org.id, id: ctx.version.id},
-               actor: reader
-             )
-             |> Ash.read_one()
+             Forms.get_form_version(ctx.org.id, ctx.version.id, actor: reader)
 
     assert {:error, %Ash.Error.Forbidden{}} =
              run(FormVersion, :publish, %{ctx | actor: reader}, %{version_id: ctx.version.id})
+  end
+
+  test "nested inspection reflects revoked membership with a previously loaded actor", ctx do
+    assert [%{id: id}] = Ash.load!(ctx.version, :questions, actor: ctx.actor).questions
+    assert id == ctx.question.id
+    Organizations.deactivate_membership!(ctx.membership)
+    result = Ash.load(ctx.version, :questions, actor: ctx.actor)
+
+    assert match?({:error, %Ash.Error.Forbidden{}}, result) or
+             match?({:ok, %{questions: []}}, result)
   end
 end

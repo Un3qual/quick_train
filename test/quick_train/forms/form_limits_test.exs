@@ -2,7 +2,7 @@ defmodule QuickTrain.Forms.FormLimitsTest do
   use QuickTrain.DataCase, async: true
   import QuickTrain.FormsFixture
 
-  alias QuickTrain.Forms.{Authoring, FormVersion, Graph}
+  alias QuickTrain.Forms.{FormVersion, Graph}
   alias QuickTrain.Forms.Inputs.InputSlotDefinition
   alias QuickTrain.Forms.Labels.{Label, LabelSet}
   alias QuickTrain.Forms.Questions.Constraints.SelectionConstraints
@@ -88,14 +88,23 @@ defmodule QuickTrain.Forms.FormLimitsTest do
   end
 
   test "version exhaustion fails without wrapping or creating a destination", ctx do
-    Authoring.create(FormVersion, %{form_id: ctx.form.id, version: 2_147_483_647})
+    Ash.create!(FormVersion, %{form_id: ctx.form.id, version: 2_147_483_647},
+      action: :create_internal,
+      authorize?: false
+    )
+
     assert {:error, _} = run(FormVersion, :create_draft, ctx, %{form_id: ctx.form.id})
     assert Ash.count!(FormVersion, authorize?: false) == 2
   end
 
   test "10000 owned rows are allowed and the next authoring write rolls back", ctx do
     for n <- 1..50 do
-      set = Authoring.create(LabelSet, %{version_id: ctx.version.id, key: "set#{n}"})
+      set =
+        Ash.create!(LabelSet, %{version_id: ctx.version.id, key: "set#{n}"},
+          action: :create_internal,
+          authorize?: false
+        )
+
       count = if n == 50, do: 144, else: 200
 
       rows =

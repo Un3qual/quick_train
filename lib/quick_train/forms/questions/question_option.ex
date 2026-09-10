@@ -45,6 +45,10 @@ defmodule QuickTrain.Forms.Questions.QuestionOption do
   end
 
   actions do
+    read :read_for_authoring do
+      pagination keyset?: true, required?: false
+    end
+
     read :read do
       primary? true
 
@@ -73,57 +77,31 @@ defmodule QuickTrain.Forms.Questions.QuestionOption do
       filter expr(id == ^arg(:id) and version.form.organization_id == ^arg(:organization_id))
     end
 
-    action :add_to_draft, :struct do
-      allow_nil? false
-      constraints instance_of: __MODULE__
+    create :add_to_draft do
+      accept [:key, :label, :position, :question_id, :version_id]
       argument :organization_id, :uuid, allow_nil?: false
-      argument :version_id, :uuid, allow_nil?: false
-
-      argument :key, QuickTrain.Forms.Types.PlainText,
-        allow_nil?: false,
-        constraints: [
-          max_length: 512,
-          min_length: 1
-        ]
-
-      argument :label, QuickTrain.Forms.Types.PlainText,
-        allow_nil?: false,
-        constraints: [
-          max_length: 1024,
-          min_length: 1
-        ]
-
-      argument :position, :integer, allow_nil?: false, constraints: [min: 0, max: 2_147_483_647]
-      argument :question_id, :uuid, allow_nil?: false
-      run {Module.concat(["QuickTrain.Forms.Authoring"]), []}
+      change QuickTrain.Forms.Changes.DraftWrite
     end
 
-    action :update_in_draft, :struct do
-      allow_nil? false
-      constraints instance_of: __MODULE__
+    update :update_in_draft do
+      require_atomic? false
+      atomic_upgrade_with :read_for_authoring
+      accept [:label, :position]
       argument :organization_id, :uuid, allow_nil?: false
       argument :version_id, :uuid, allow_nil?: false
-      argument :id, :uuid, allow_nil?: false
-
-      argument :label, QuickTrain.Forms.Types.PlainText,
-        constraints: [
-          max_length: 1024,
-          min_length: 1
-        ]
-
-      argument :position, :integer, constraints: [min: 0, max: 2_147_483_647]
-      run {Module.concat(["QuickTrain.Forms.Authoring"]), []}
+      change QuickTrain.Forms.Changes.DraftWrite
     end
 
-    action :remove_from_draft, :boolean do
-      allow_nil? false
+    destroy :remove_from_draft do
+      require_atomic? false
+      atomic_upgrade_with :read_for_authoring
       argument :organization_id, :uuid, allow_nil?: false
       argument :version_id, :uuid, allow_nil?: false
-      argument :id, :uuid, allow_nil?: false
-      run {Module.concat(["QuickTrain.Forms.Authoring"]), []}
+      change QuickTrain.Forms.Changes.DraftWrite
     end
 
     action :reorder, :boolean do
+      transaction? true
       allow_nil? false
       argument :organization_id, :uuid, allow_nil?: false
       argument :version_id, :uuid, allow_nil?: false
@@ -150,6 +128,16 @@ defmodule QuickTrain.Forms.Questions.QuestionOption do
   end
 
   policies do
+    policy action(:read_for_authoring) do
+      authorize_if context_equals(:query_for, :bulk_update)
+      authorize_if context_equals(:query_for, :bulk_destroy)
+    end
+
+    policy action(:read_for_authoring) do
+      authorize_if {QuickTrain.Forms.NestedRead,
+                    path: [:version, :form], capabilities: ["forms.manage"]}
+    end
+
     policy action(:read) do
       authorize_if {QuickTrain.Forms.NestedRead, path: [:version, :form]}
     end

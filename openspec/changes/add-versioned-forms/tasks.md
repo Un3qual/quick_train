@@ -47,17 +47,17 @@
 
 ## 7. Approved Ash cleanup
 
-- [ ] 7.1 Replace ordinary generic mutations with named create/update/destroy actions and shared transaction hooks, preserving scoped locking, partial updates, and publication semantics.
-- [ ] 7.2 Expose Forms domain code interfaces and use them in callers and fixtures.
+- [x] 7.1 Replace ordinary generic mutations with named create/update/destroy actions and shared transaction hooks, preserving scoped locking, partial updates, and publication semantics.
+- [x] 7.2 Expose Forms domain code interfaces and use them in callers and fixtures.
 - [x] 7.3 Use bulk Ash operations for reorder and copy while retaining graph bounds, dependency order, and rollback.
 - [x] 7.4 Centralize common PlainText constraints in its existing Ash NewType.
 - [x] 7.5 Use relationship metadata for copy remapping and Ash cascade destruction for presentation children.
 - [x] 7.6 Replace membership enumeration in nested authorization with a relational eligibility filter.
-- [ ] 7.7 Reconcile the GraphQL contract and design, then rerun focused behavior/concurrency tests and the full verification gate.
+- [x] 7.7 Reconcile the GraphQL contract and design, then rerun focused behavior/concurrency tests and the full verification gate.
 
 ## Verification record
 
-- `mise run verify` passed with 205 tests, including 48 Forms tests. The gate also passed
+- `mise run verify` passed with 208 tests, including 51 Forms tests. The gate also passed
   compilation, formatting, Ash code-generation consistency, boundary/cycle checks, static
   analysis, Dialyzer, the dependency audit, and production compilation.
 - `mise run openspec.validate` passed independently for all seven current changes/specifications.

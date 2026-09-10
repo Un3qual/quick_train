@@ -404,7 +404,7 @@ defmodule QuickTrainWeb.GraphqlApiTest do
       "updateFormBoundValue" => MapSet.new(~w(id organizationId requirementId versionId)),
       "updateFormDecimalConstraints" =>
         MapSet.new(~w(id maximum minimum organizationId versionId)),
-      "updateFormDraft" => MapSet.new(~w(description organizationId title versionId)),
+      "updateFormDraft" => MapSet.new(~w(description id organizationId title)),
       "updateFormHeading" => MapSet.new(~w(id organizationId text versionId)),
       "updateFormInputFieldRequirement" =>
         MapSet.new(~w(cardinality id intendedUse organizationId required valueFamily versionId)),

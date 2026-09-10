@@ -5,6 +5,52 @@ defmodule QuickTrainWeb.FormGraphqlTest do
   alias QuickTrain.Forms.Questions.Constraints.SelectionConstraints
   alias QuickTrain.Forms.Questions.{QuestionDefinition, QuestionOption}
 
+  test "native create and destroy mutations return results and cascade presentation children", %{
+    conn: conn
+  } do
+    ctx = context!(~w(forms.manage))
+    conn = bearer(conn, ctx.actor)
+
+    form =
+      graphql!(conn, """
+      mutation { createForm(organizationId: "#{ctx.org.id}", key: "native") {
+        result { id } errors { message }
+      } }
+      """)["createForm"]
+
+    assert form["errors"] == []
+
+    version =
+      graphql!(conn, """
+      mutation { createFormDraft(organizationId: "#{ctx.org.id}", formId: "#{form["result"]["id"]}", title: "Native") {
+        result { id } errors { message }
+      } }
+      """)["createFormDraft"]
+
+    assert version["errors"] == []
+    version_id = version["result"]["id"]
+
+    element =
+      graphql!(conn, """
+      mutation { addFormPresentationElement(organizationId: "#{ctx.org.id}", versionId: "#{version_id}", kind: HEADING, position: 0, text: "Heading") {
+        result { id heading { id text } } errors { message }
+      } }
+      """)["addFormPresentationElement"]
+
+    assert element["errors"] == []
+    assert element["result"]["heading"]["text"] == "Heading"
+
+    result =
+      graphql!(conn, """
+      mutation { removeFormPresentationElement(organizationId: "#{ctx.org.id}", versionId: "#{version_id}", id: "#{element["result"]["id"]}") {
+        errors { message }
+      } }
+      """)["removeFormPresentationElement"]
+
+    assert result["errors"] == []
+    assert Ash.count!(QuickTrain.Forms.Presentation.Heading, authorize?: false) == 0
+  end
+
   test "a manage-only actor receives the authorized graph but has no general read API", %{
     conn: conn
   } do
@@ -85,10 +131,10 @@ defmodule QuickTrainWeb.FormGraphqlTest do
 
     updated =
       graphql!(conn, """
-      mutation { updateFormQuestionDefinition(organizationId: "#{ctx.org.id}", versionId: "#{graph.version.id}", id: "#{question.id}", prompt: "Choose one") { id prompt } }
+      mutation { updateFormQuestionDefinition(organizationId: "#{ctx.org.id}", versionId: "#{graph.version.id}", id: "#{question.id}", prompt: "Choose one") { result { id prompt } errors { message } } }
       """)
 
-    assert updated["updateFormQuestionDefinition"]["prompt"] == "Choose one"
+    assert updated["updateFormQuestionDefinition"]["result"]["prompt"] == "Choose one"
   end
 
   test "query complexity and request byte limits apply to Forms", %{conn: conn} do

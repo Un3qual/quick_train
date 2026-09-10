@@ -1,14 +1,13 @@
 defmodule QuickTrain.Forms.Authoring do
-  alias Ash.Resource.Info, as: ResourceInfo
   @moduledoc false
   use Ash.Resource.Actions.Implementation
-  alias QuickTrain.Forms.{Error, Form, FormVersion, Graph}
-  alias QuickTrain.Forms.Presentation.PresentationElement
+  alias QuickTrain.Forms
+  alias QuickTrain.Forms.{Error, FormVersion, Graph}
   require Ash.Query
 
   @impl true
   def run(input, _opts, _context) do
-    Ash.transact(FormVersion, fn -> execute(input) end)
+    {:ok, execute(input)}
   rescue
     error in Ash.Error.Invalid ->
       if Enum.any?(error.errors, &is_struct(&1, Error)),
@@ -19,31 +18,19 @@ defmodule QuickTrain.Forms.Authoring do
       Error.invalid(:invalid_definition)
   end
 
-  defp execute(%{action: %{name: :create_form}, arguments: args}) do
-    create(Form, Map.take(args, [:organization_id, :key]))
-  end
-
-  defp execute(%{action: %{name: action}, arguments: args})
-       when action in [:create_draft, :copy_published] do
-    form = locked(Form, organization_id: args.organization_id, id: args.form_id)
+  defp execute(%{action: %{name: :copy_published}, arguments: args}) do
+    form = Forms.lock_form!(args.form_id, args.organization_id, authorize?: false)
     if is_nil(form), do: Error.reject!(:invalid_form)
+    source = published_source!(form, args.source_version_id)
 
-    source = if action == :copy_published, do: published_source!(form, args.source_version_id)
-
-    number =
-      Ash.max!(FormVersion, :version,
-        query: [filter: [form_id: form.id]],
-        default: 0,
+    version =
+      Forms.create_form_draft!(
+        args.organization_id,
+        Map.take(source, [:title, :description]) |> Map.put(:form_id, form.id),
         authorize?: false
-      ) + 1
+      )
 
-    metadata =
-      if source,
-        do: Map.take(source, [:title, :description]),
-        else: Map.take(args, [:title, :description])
-
-    version = create(FormVersion, Map.merge(metadata, %{form_id: form.id, version: number}))
-    if source, do: Graph.copy!(source, version)
+    Graph.copy!(source, version)
     version
   end
 
@@ -51,7 +38,7 @@ defmodule QuickTrain.Forms.Authoring do
     args = input.arguments
 
     version =
-      locked(FormVersion, id: args.version_id, form: [organization_id: args.organization_id])
+      Forms.lock_form_version!(args.version_id, args.organization_id, authorize?: false)
 
     if is_nil(version), do: Error.reject!(:invalid_form_version)
 
@@ -74,20 +61,7 @@ defmodule QuickTrain.Forms.Authoring do
   defp publish(version) do
     Graph.validate!(version, :published)
 
-    version
-    |> Ash.Changeset.for_update(:publish_internal, %{}, authorize?: false)
-    |> Ash.update!()
-  end
-
-  defp edit(%{action: %{name: :update_draft}} = input, version),
-    do: update(version, supplied(input, [:title, :description]))
-
-  defp edit(%{action: %{name: :add_to_draft}, resource: resource, arguments: args}, version) do
-    if resource == PresentationElement do
-      Graph.create_element!(version.id, args)
-    else
-      create(resource, Map.drop(args, [:organization_id]))
-    end
+    Ash.update!(version, %{}, action: :publish_internal, authorize?: false)
   end
 
   defp edit(%{action: %{name: :reorder}, resource: resource, arguments: args}, version) do
@@ -128,42 +102,6 @@ defmodule QuickTrain.Forms.Authoring do
     true
   end
 
-  defp edit(input, version) do
-    record =
-      input.resource
-      |> Ash.Query.filter(id == ^input.arguments.id and version_id == ^version.id)
-      |> Ash.read_one!(authorize?: false)
-
-    if is_nil(record), do: Error.reject!(:invalid_definition)
-
-    case input.action.name do
-      :update_in_draft ->
-        accepted = ResourceInfo.action(input.resource, :update_internal).accept
-        update(record, supplied(input, accepted))
-
-      :remove_from_draft ->
-        Ash.destroy!(record, action: :destroy_internal, authorize?: false)
-        true
-    end
-  end
-
-  defp supplied(input, names) do
-    names =
-      Enum.filter(
-        names,
-        &(Map.has_key?(input.params, &1) or Map.has_key?(input.params, to_string(&1)))
-      )
-
-    Map.take(input.arguments, names)
-  end
-
-  defp locked(resource, filter),
-    do:
-      resource
-      |> Ash.Query.filter(^filter)
-      |> Ash.Query.lock(:for_update)
-      |> Ash.read_one!(authorize?: false)
-
   defp published_source!(form, id) do
     source =
       FormVersion
@@ -173,16 +111,4 @@ defmodule QuickTrain.Forms.Authoring do
     if is_nil(source), do: Error.reject!(:invalid_copy_source)
     source
   end
-
-  def create(resource, attributes),
-    do:
-      resource
-      |> Ash.Changeset.for_create(:create_internal, attributes, authorize?: false)
-      |> Ash.create!()
-
-  defp update(record, attributes),
-    do:
-      record
-      |> Ash.Changeset.for_update(:update_internal, attributes, authorize?: false)
-      |> Ash.update!()
 end
