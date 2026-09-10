@@ -24,11 +24,15 @@ The system SHALL require an active authenticated account, active owning organiza
 - **THEN** the mutation fails without exposing or modifying that foreign record
 
 ### Requirement: Stable forms and independently editable numbered versions
-The system SHALL give each form a stable identity and organization-unique nonempty key, and each version a unique positive increasing number within its form. Each version SHALL own its title, description, input definitions, presentation, questions, options, and labels. New versions SHALL start as drafts; multiple drafts SHALL be allowed. Creating an empty draft or copying a published version of the same form SHALL allocate a new number. A copy SHALL preserve authored values, keys, and ordering while allocating new identities for every owned record and remapping every internal reference. Draft sources, foreign forms, and foreign organizations SHALL be rejected as copy sources. Copying SHALL be atomic. This release SHALL expose no version or form deletion operation; numbers assigned to committed versions SHALL never be recycled. A rolled-back creation or copy SHALL consume no version number and SHALL expose no destination version; a later successful transaction can use that uncommitted candidate number. Organization ownership, parent identities, version numbers, and authored keys SHALL be immutable after creation; authors can replace an unreferenced draft definition by removing it and creating another.
+The system SHALL give each form a stable identity and organization-unique nonempty key, and each version a unique positive increasing number within its form. Each version SHALL own its title, description, input definitions, presentation, questions, options, and labels. New versions SHALL start as drafts; multiple drafts SHALL be allowed. Creating an empty draft or copying a published version of the same form SHALL allocate a new number. Both operations SHALL share one per-form serialization boundary held from before reading the next number until commit or rollback. A competing allocation SHALL wait for that outcome and then read the committed state, so committed version numbers increase strictly in commit order. A copy SHALL preserve authored values, keys, and ordering while allocating new identities for every owned record and remapping every internal reference. Draft sources, foreign forms, and foreign organizations SHALL be rejected as copy sources. Copying SHALL be atomic. This release SHALL expose no version or form deletion operation; numbers assigned to committed versions SHALL never be recycled. A rolled-back creation or copy SHALL consume no version number and SHALL expose no destination version; a later successful transaction can use that uncommitted candidate number. Organization ownership, parent identities, version numbers, and authored keys SHALL be immutable after creation; authors can replace an unreferenced draft definition by removing it and creating another.
 
 #### Scenario: Concurrent draft creation
 - **WHEN** two authors create drafts of the same form concurrently
 - **THEN** both successful drafts have distinct increasing version numbers
+
+#### Scenario: Allocation rollback precedes a competing creation
+- **WHEN** one create or copy transaction has candidate version 2 and another creation starts before it rolls back
+- **THEN** the competing creation waits, then can commit version 2; it cannot commit version 3 while the first candidate remains unresolved
 
 #### Scenario: Author copies a published contract
 - **WHEN** an author creates a draft from a published version of the same form
@@ -39,7 +43,7 @@ The system SHALL give each form a stable identity and organization-unique nonemp
 - **THEN** no partial destination version is persisted and no version number is consumed
 
 ### Requirement: Typed reusable input requirements
-The system SHALL let a draft define input slots with version-unique nonempty keys, positive minimum item counts, and finite maximum item counts no smaller than their minimums. Each slot SHALL own field requirements with slot-unique keys, a value family (`text`, `integer`, `decimal`, `boolean`, `utc_datetime`, or `asset`), single-value cardinality, and explicit requiredness. Definitions SHALL NOT contain concrete dataset, field, item, revision, or asset bindings. Repeated slot items SHALL be distinct from repeated values inside a dataset field; repeated or nested field requirements SHALL be rejected in this release. The `utc_datetime` family SHALL describe UTC date-time values using the same family identifier as datasets, without an alias or conversion. An asset requirement SHALL declare intended use as `download` or `image`; `image` SHALL describe a future consumer requirement and SHALL NOT certify any actual file or permit inline delivery.
+The system SHALL let a draft define input slots with version-unique nonempty keys, positive minimum item counts, and finite maximum item counts no smaller than their minimums. Each slot SHALL own field requirements with slot-unique keys, a value family (`text`, `integer`, `decimal`, `boolean`, `utc_datetime`, or `asset`), single-value cardinality, and explicit requiredness. Definitions SHALL NOT contain concrete dataset, field, item, revision, or asset bindings. Repeated slot items SHALL be distinct from repeated values inside a dataset field; repeated or nested field requirements SHALL be rejected in this release. The `utc_datetime` family SHALL describe UTC date-time values using the same family identifier as datasets, without an alias or conversion. Non-asset requirements SHALL have no intended-use value; creation or update with a non-null intended use on a non-asset family SHALL be rejected, including a family change that retains an asset-only value. An asset requirement SHALL declare intended use as `download` or `image`; `image` SHALL describe a future consumer requirement and SHALL NOT certify any actual file or permit inline delivery.
 
 #### Scenario: Pairwise input is reusable
 - **WHEN** an author defines `candidate` with minimum and maximum item count two and a required `body` text field
@@ -49,16 +53,24 @@ The system SHALL let a draft define input slots with version-unique nonempty key
 - **WHEN** an author supplies a nonpositive slot minimum, a maximum below its minimum, or a repeated or nested field requirement
 - **THEN** the write fails without persisting the invalid definition
 
+#### Scenario: Asset intent cannot accompany a scalar field
+- **WHEN** an author supplies image or download intent for a text or other non-asset requirement, or changes an asset requirement to a non-asset family while retaining that intent
+- **THEN** the write fails without persisting contradictory type metadata
+
 #### Scenario: Input contract is independent of data access
 - **WHEN** an authorized form reader inspects a field requirement
 - **THEN** the result contains its type and intended use without dataset content or storage access
 
 ### Requirement: One normalized presentation sequence
-The system SHALL define one ordered sequence per version containing typed instructions, headings, section markers, bound-value placements, and question placements. Positions SHALL be unique nonnegative integers within the sequence, with gaps permitted. Instructions, headings, section markers, prompts, and labels SHALL contain plain text rather than executable HTML, scripts, or embedded external-form references. A section marker SHALL introduce a section for following elements until the next marker, without nested containers. Bound-value placements SHALL reference an input field requirement from the same version and describe presentation for all items in its slot in eventual task presentation order. Question placements SHALL reference a question from the same version. Each published question SHALL appear exactly once. Reordering SHALL atomically accept a complete permutation of the current element IDs and reject duplicates, omissions, or foreign IDs. A successful reorder SHALL canonicalize positions to consecutive integers starting at zero in the supplied ID order, including for previously sparse sequences; it SHALL preserve record identities.
+The system SHALL define one ordered sequence per version containing typed instructions, headings, section markers, bound-value placements, and question placements. Positions SHALL be unique nonnegative integers within the sequence, with gaps permitted. Instructions, headings, section markers, prompts, and labels SHALL contain plain text rather than executable HTML, scripts, or embedded external-form references. Instruction and heading text SHALL contain at least one non-whitespace character, enforced on creation and update. Section-marker text can be empty because the marker also serves as a structural boundary for an unnamed section. A section marker SHALL introduce a section for following elements until the next marker, without nested containers. Bound-value placements SHALL reference an input field requirement from the same version and describe presentation for all items in its slot in eventual task presentation order. Question placements SHALL reference a question from the same version. Each published question SHALL appear exactly once. Reordering SHALL atomically accept a complete permutation of the current element IDs and reject duplicates, omissions, or foreign IDs. A successful reorder SHALL canonicalize positions to consecutive integers starting at zero in the supplied ID order, including for previously sparse sequences; it SHALL preserve record identities.
 
 #### Scenario: Ordered pairwise presentation
 - **WHEN** an author places instructions, a candidate body requirement, and a choice question in order
 - **THEN** inspection returns that exact sequence with typed references independent of future dataset items
+
+#### Scenario: Blank content-only presentation text is rejected
+- **WHEN** an author creates or updates an instruction or heading with empty or whitespace-only text
+- **THEN** the write fails without persisting an empty content element
 
 #### Scenario: Reordering is atomic
 - **WHEN** an author swaps two elements using a complete valid permutation
@@ -163,7 +175,7 @@ Publication SHALL require a nonblank version title containing at least one non-w
 - **THEN** they resolve to the same published version and publication timestamp with no duplicate version or partial graph
 
 ### Requirement: Bounded GraphQL authoring and inspection
-The system SHALL expose form creation, empty or published-copy draft creation, draft metadata and definition editing, reordering, publication, and scoped inspection through GraphQL. Public lifecycle operations SHALL require explicit organization scope. Lists of forms, versions, slots, requirements, elements, questions, options, label sets, and labels SHALL use stable cursor pagination with a default page size of 50 and maximum 100, including nested collections. Ordered collections SHALL paginate in authored position order with an identity tie-breaker. Queries SHALL enforce the existing query-complexity controls. Writes and publication SHALL enforce documented finite limits for total definitions, text sizes, option and label counts, and slot sizes; oversized requests SHALL fail without partial writes. Published inspection SHALL include version number, state, publication timestamp, typed constraints, and stable definition identities needed for future consumers. Internal unrestricted writes, storage locations, worker operations, and response mutations SHALL NOT be exposed.
+The system SHALL expose form creation, empty or published-copy draft creation, draft metadata and definition editing, reordering, publication, and scoped inspection through GraphQL. Public lifecycle operations SHALL require explicit organization scope. Lists of forms, versions, slots, requirements, elements, questions, options, label sets, and labels SHALL use stable cursor pagination with a default page size of 50 and maximum 100, including nested collections. Ordered collections SHALL paginate in authored position order with an identity tie-breaker. Queries SHALL enforce the existing query-complexity controls. Every integer exposed by the form contract SHALL fit GraphQL Int (−2,147,483,648 through 2,147,483,647), including text-length and annotation-count bounds, slot/selection counts, positions, and version numbers. Nonnegative or positive lower bounds and tighter domain limits SHALL still apply. Public and internal authoring paths SHALL reject out-of-range values before persistence; generated positions and version allocation SHALL fail atomically at exhaustion without wrapping or widening the scalar. Writes and publication SHALL enforce documented finite limits for total definitions, text sizes, option and label counts, and slot sizes; oversized requests SHALL fail without partial writes. Published inspection SHALL include version number, state, publication timestamp, typed constraints, and stable definition identities needed for future consumers. Internal unrestricted writes, storage locations, worker operations, and response mutations SHALL NOT be exposed.
 
 #### Scenario: Later-page definitions remain accessible
 - **WHEN** an authorized reader follows cursors through a published version with more than one page of options or elements
@@ -172,6 +184,10 @@ The system SHALL expose form creation, empty or published-copy draft creation, d
 #### Scenario: Oversized mutation is rejected
 - **WHEN** a mutation exceeds a documented definition or payload limit
 - **THEN** the system rejects it atomically with a sanitized validation error
+
+#### Scenario: Constraint metadata fits GraphQL Int
+- **WHEN** an author supplies a text-length or annotation-count bound of 2,147,483,648 through a direct authoring action
+- **THEN** the write fails before persistence; 2,147,483,647 remains representable where no tighter domain limit applies
 
 #### Scenario: Published inspection is a definition contract
 - **WHEN** a reader inspects a published form through GraphQL
