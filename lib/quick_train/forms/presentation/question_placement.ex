@@ -71,20 +71,13 @@ defmodule QuickTrain.Forms.Presentation.QuestionPlacement do
 
     create :create_internal do
       accept [:element_id, :question_id, :version_id]
+      argument :copied_id, :uuid
 
       change set_attribute(:version_id, context([:shared, :forms_version_id]),
                set_when_nil?: false
              )
-    end
 
-    create :copy_internal do
-      accept [:element_id, :question_id, :version_id]
-      argument :copied_id, :uuid, allow_nil?: false
-      change set_attribute(:id, arg(:copied_id))
-    end
-
-    update :update_internal do
-      accept [:question_id]
+      change set_attribute(:id, arg(:copied_id), set_when_nil?: false)
     end
 
     destroy :destroy_internal

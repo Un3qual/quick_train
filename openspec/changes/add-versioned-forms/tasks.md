@@ -63,6 +63,13 @@
 - [x] 8.4 Remove custom UTF-8/NUL checks and dedicated tests as requested; keep ordinary Ash text-size constraints.
 - [x] 8.5 Verify behavior, authorization, and concurrency; document the custom logic that still requires a domain implementation and run both verification gates.
 
+## 9. Approved Ponytail simplifications
+
+- [x] 9.1 Remove 29 uncalled internal write actions and the test-only version creation action; use Ash seeding for the version-exhaustion fixture, retaining the updates used by reorder and the destroys used by presentation cascades.
+- [x] 9.2 Fold the 18 copy actions into internal creation with an optional copied ID and the built-in attribute change.
+- [x] 9.3 Derive the constraint-resource list from the existing family-to-constraint mapping.
+- [x] 9.4 Verify copy, ordinary creation, reorder, cascades, and concurrency with the existing tests; synchronize the design and run both verification gates.
+
 ## Verification record
 
 - `mise run verify` passed with 209 tests, including 52 Forms tests. The gate also passed

@@ -88,10 +88,7 @@ defmodule QuickTrain.Forms.FormLimitsTest do
   end
 
   test "version exhaustion fails without wrapping or creating a destination", ctx do
-    Ash.create!(FormVersion, %{form_id: ctx.form.id, version: 2_147_483_647},
-      action: :create_internal,
-      authorize?: false
-    )
+    Ash.Seed.seed!(FormVersion, %{form_id: ctx.form.id, version: 2_147_483_647})
 
     assert {:error, _} = run(FormVersion, :create_draft, ctx, %{form_id: ctx.form.id})
     assert Ash.count!(FormVersion, authorize?: false) == 2

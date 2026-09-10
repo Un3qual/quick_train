@@ -81,13 +81,7 @@ defmodule QuickTrain.Forms.Graph do
     raster_masks: AnnotationConstraints,
     text_spans: AnnotationConstraints
   }
-  @constraint_resources [
-    TextConstraints,
-    IntegerConstraints,
-    DecimalConstraints,
-    SelectionConstraints,
-    AnnotationConstraints
-  ]
+  @constraint_resources @constraints |> Map.values() |> Enum.uniq()
   @static [:static_single_choice, :static_multiple_choice]
   @dynamic [:task_input_single_choice, :task_input_multiple_choice, :task_input_ranking]
   @single [:static_single_choice, :task_input_single_choice]
@@ -362,7 +356,7 @@ defmodule QuickTrain.Forms.Graph do
     Enum.each(@resources, fn resource ->
       attributes = Enum.map(graph[resource], &copy_attributes(resource, &1, destination.id, ids))
 
-      Ash.bulk_create!(attributes, resource, :copy_internal,
+      Ash.bulk_create!(attributes, resource, :create_internal,
         authorize?: false,
         transaction: :all,
         stop_on_error?: true

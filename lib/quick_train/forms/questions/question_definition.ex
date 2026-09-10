@@ -127,19 +127,9 @@ defmodule QuickTrain.Forms.Questions.QuestionDefinition do
 
     create :create_internal do
       accept [:key, :prompt, :family, :renderer, :version_id]
+      argument :copied_id, :uuid
+      change set_attribute(:id, arg(:copied_id), set_when_nil?: false)
     end
-
-    create :copy_internal do
-      accept [:key, :prompt, :family, :renderer, :version_id]
-      argument :copied_id, :uuid, allow_nil?: false
-      change set_attribute(:id, arg(:copied_id))
-    end
-
-    update :update_internal do
-      accept [:prompt, :family, :renderer]
-    end
-
-    destroy :destroy_internal
   end
 
   policies do

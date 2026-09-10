@@ -172,25 +172,12 @@ defmodule QuickTrain.Forms.Presentation.PresentationElement do
 
     create :create_internal do
       accept [:kind, :position, :version_id]
-    end
-
-    create :copy_internal do
-      accept [:kind, :position, :version_id]
-      argument :copied_id, :uuid, allow_nil?: false
-      change set_attribute(:id, arg(:copied_id))
+      argument :copied_id, :uuid
+      change set_attribute(:id, arg(:copied_id), set_when_nil?: false)
     end
 
     update :update_internal do
       accept [:position]
-    end
-
-    destroy :destroy_internal do
-      require_atomic? false
-      change cascade_destroy(:instruction, action: :destroy_internal, after_action?: false)
-      change cascade_destroy(:heading, action: :destroy_internal, after_action?: false)
-      change cascade_destroy(:section, action: :destroy_internal, after_action?: false)
-      change cascade_destroy(:bound_value, action: :destroy_internal, after_action?: false)
-      change cascade_destroy(:question_placement, action: :destroy_internal, after_action?: false)
     end
   end
 

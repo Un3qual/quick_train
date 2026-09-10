@@ -134,14 +134,6 @@ defmodule QuickTrain.Forms.FormVersion do
       run {Module.concat(["QuickTrain.Forms.Authoring"]), []}
     end
 
-    create :create_internal do
-      accept [:version, :title, :description, :form_id]
-    end
-
-    update :update_internal do
-      accept [:title, :description]
-    end
-
     update :publish_internal do
       accept []
       change set_attribute(:state, :published)

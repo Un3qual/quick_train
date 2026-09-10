@@ -1,3 +1,5 @@
+# ex_dna:disable-for-this-file
+# Intentional typed Ash declarations; executable authoring is shared in Authoring and Graph.
 defmodule QuickTrain.Forms.Labels.LabelSet do
   @moduledoc "Organization-scoped label set definition."
   use Ash.Resource,
@@ -93,19 +95,9 @@ defmodule QuickTrain.Forms.Labels.LabelSet do
 
     create :create_internal do
       accept [:key, :name, :version_id]
+      argument :copied_id, :uuid
+      change set_attribute(:id, arg(:copied_id), set_when_nil?: false)
     end
-
-    create :copy_internal do
-      accept [:key, :name, :version_id]
-      argument :copied_id, :uuid, allow_nil?: false
-      change set_attribute(:id, arg(:copied_id))
-    end
-
-    update :update_internal do
-      accept [:name]
-    end
-
-    destroy :destroy_internal
   end
 
   policies do

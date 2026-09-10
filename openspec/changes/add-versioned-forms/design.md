@@ -113,7 +113,8 @@ Use Ash integer constraints and database bounds for every persisted integer expo
   results retain their existing shape. Mutation lookup reads require a bulk-mutation context and
   current `forms.manage` eligibility; they are not exposed as inspection queries or domain interfaces.
 - `Graph` loads all owned rows with a cumulative 10,000-row bound. Copy uses `Ash.bulk_create!`
-  per resource in dependency order, with an internal copy action assigning remapped UUIDs; reference
+  per resource in dependency order, with internal creation accepting an optional copied ID and
+  assigning it through `set_attribute`. Ordinary creation retains generated UUIDs; reference
   attributes come from Ash relationship metadata. Reorders validate the complete scoped ID set and
   use `Ash.update_many!` to assign distinct consecutive positions. Presentation destruction uses
   `cascade_destroy` before deleting its parent, retaining restrictive foreign keys and typed guards.
@@ -161,6 +162,13 @@ Enum types use `Ash.Type.Enum`, including the GraphQL naming callbacks required 
 names. Annotation conventions already use an Ash expression calculation. Read preparations,
 ordinary writes, constraints, nonblank validations, cascades, and actor/traversal checks use Ash's
 built-ins.
+
+The approved Ponytail pass removed 29 uncalled internal write actions left after the native-action
+conversion and the test-only version creation action; the version-exhaustion fixture uses
+`Ash.Seed.seed!`. The three reorder updates and five presentation-child destroys remain in use. All 18
+descendant resources share their internal creation action with copying, using an optional copied
+ID instead of a separate copy action. The constraint-resource list is derived from the existing
+family-to-constraint mapping.
 
 ### Capability provisioning
 
