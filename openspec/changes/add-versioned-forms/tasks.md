@@ -86,6 +86,11 @@
 - [x] 11.3 Verify migration up/down on disposable data and rerun independent-connection publication/edit/allocation races with no Forms business-rule triggers installed.
 - [x] 11.4 Synchronize the proposal, spec, and design with the application boundary; run focused tests, independent OpenSpec validation, and the full verification gate.
 
+## 12. PR review follow-through
+
+- [x] 12.1 Remove redundant position-constraint rebuilds from both migration directions, correct resource documentation, and strengthen existing authorization, copy, telemetry, and graph-limit assertions without changing the authored contract.
+- [x] 12.2 Verify reported failures against the pinned dependencies, exercise fresh migration and rollback/reapply while preserving constraint/index identities, and run focused tests plus both repository verification gates.
+
 ## Verification record
 
 - `mise run verify` passed with 211 tests, including 54 Forms tests. The gate also passed
@@ -106,4 +111,9 @@
   zero again after reapply, with all three deferred position constraints retained throughout.
 - The full verification gate passed again after removing the database business rules: 211
   tests passed, including all 54 Forms tests and the independent-connection race tests.
+- PR review follow-through passed 59 focused tests and the full 211-test gate. Fresh migrations
+  and rollback/reapply preserved the published graph and all three position constraint/index
+  identities. The restored typed-question function executed successfully, and the pinned Ash
+  transaction API returned an exception for the deliberate rollback. Nonempty keys, unnamed
+  sections, byte limits, and historical migration snapshots retain their approved contracts.
 - No dependency changes, external blockers, or deferred implementation tasks remain in this change.

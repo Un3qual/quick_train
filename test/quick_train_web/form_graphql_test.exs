@@ -213,15 +213,16 @@ defmodule QuickTrainWeb.FormGraphqlTest do
     handler = "forms-inspection-#{System.unique_integer([:positive])}"
     parent = self()
 
-    :telemetry.attach(
-      handler,
-      [:quick_train, :repo, :query],
-      fn _, _, metadata, _ ->
-        if Regex.match?(~r/\b(?:FROM|JOIN)\s+"(?:assets|dataset_)/, metadata.query),
-          do: send(parent, :content_read)
-      end,
-      nil
-    )
+    :ok =
+      :telemetry.attach(
+        handler,
+        [:quick_train, :repo, :query],
+        fn _, _, metadata, _ ->
+          if Regex.match?(~r/\b(?:FROM|JOIN)\s+"(?:assets|dataset_)/, metadata.query),
+            do: send(parent, :content_read)
+        end,
+        nil
+      )
 
     try do
       data =

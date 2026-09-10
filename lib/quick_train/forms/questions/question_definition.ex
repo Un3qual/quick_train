@@ -1,5 +1,5 @@
 defmodule QuickTrain.Forms.Questions.QuestionDefinition do
-  @moduledoc "Organization-scoped question definition definition."
+  @moduledoc "Organization-scoped question definition."
   use Ash.Resource,
     otp_app: :quick_train,
     domain: QuickTrain.Forms,

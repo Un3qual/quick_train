@@ -102,7 +102,7 @@ defmodule QuickTrain.Forms.FormLimitsTest do
           authorize?: false
         )
 
-      count = if n == 50, do: 144, else: 200
+      count = if n == 50, do: 10_000 - graph_size(ctx.version.id), else: 200
 
       rows =
         for position <- 1..count,
@@ -117,9 +117,7 @@ defmodule QuickTrain.Forms.FormLimitsTest do
       Ash.bulk_create!(rows, Label, :create_internal, authorize?: false)
     end
 
-    assert Enum.sum(
-             Enum.map(Graph.load!(ctx.version.id), fn {_resource, rows} -> length(rows) end)
-           ) == 10_000
+    assert graph_size(ctx.version.id) == 10_000
 
     assert {:error, _} =
              run(InputSlotDefinition, :add_to_draft, ctx, %{
@@ -138,7 +136,9 @@ defmodule QuickTrain.Forms.FormLimitsTest do
         source_version_id: ctx.version.id
       })
 
-    assert Enum.sum(Enum.map(Graph.load!(copied.id), fn {_resource, rows} -> length(rows) end)) ==
-             10_000
+    assert graph_size(copied.id) == 10_000
   end
+
+  defp graph_size(version_id),
+    do: Enum.sum(Enum.map(Graph.load!(version_id), fn {_resource, rows} -> length(rows) end))
 end

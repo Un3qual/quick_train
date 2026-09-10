@@ -83,6 +83,7 @@ defmodule QuickTrain.Forms.FormContractTest do
       original = Graph.load!(published.id)
       copied = Graph.load!(copy.id)
       source_ids = original |> Map.values() |> List.flatten() |> MapSet.new(& &1.id)
+      copied_ids = copied |> Map.values() |> List.flatten() |> MapSet.new(& &1.id)
 
       for resource <- Graph.resources() do
         assert length(original[resource]) == length(copied[resource])
@@ -94,7 +95,7 @@ defmodule QuickTrain.Forms.FormContractTest do
           for relationship <- ResourceInfo.relationships(resource),
               relationship.type == :belongs_to do
             id = Map.fetch!(row, relationship.source_attribute)
-            refute id in source_ids
+            assert is_nil(id) or id == copy.id or id in copied_ids
           end
         end
       end

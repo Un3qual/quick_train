@@ -58,12 +58,17 @@ defmodule QuickTrain.Forms.FormAuthorizationTest do
     assert Exception.message(error) =~ "invalid_form_version"
     refute Exception.message(error) =~ ctx.version.id
 
-    assert {:error, _} =
+    assert {:error, error} =
              run(QuestionDefinition, :update_in_draft, other, %{
                version_id: ctx.version.id,
                id: ctx.question.id,
                prompt: "Foreign"
              })
+
+    refute Exception.message(error) =~ ctx.question.id
+    version = Forms.get_form_version!(ctx.org.id, ctx.version.id, actor: ctx.actor)
+    assert [question] = Ash.load!(version, :questions, actor: ctx.actor).questions
+    assert question.prompt == ctx.question.prompt
 
     Organizations.deactivate_membership!(ctx.membership)
 
