@@ -1,0 +1,481 @@
+{
+  "attributes": [
+    {
+      "allow_nil?": false,
+      "default": "fragment(\"gen_random_uuid()\")",
+      "generated?": false,
+      "precision": null,
+      "primary_key?": true,
+      "references": null,
+      "scale": null,
+      "size": null,
+      "source": "id",
+      "type": "uuid"
+    },
+    {
+      "allow_nil?": false,
+      "default": "0",
+      "generated?": false,
+      "precision": null,
+      "primary_key?": false,
+      "references": null,
+      "scale": null,
+      "size": null,
+      "source": "ordinal",
+      "type": "bigint"
+    },
+    {
+      "allow_nil?": false,
+      "default": "fragment(\"(now() AT TIME ZONE 'utc')\")",
+      "generated?": false,
+      "precision": null,
+      "primary_key?": false,
+      "references": null,
+      "scale": null,
+      "size": null,
+      "source": "inserted_at",
+      "type": "utc_datetime_usec"
+    },
+    {
+      "allow_nil?": false,
+      "default": "fragment(\"(now() AT TIME ZONE 'utc')\")",
+      "generated?": false,
+      "precision": null,
+      "primary_key?": false,
+      "references": null,
+      "scale": null,
+      "size": null,
+      "source": "updated_at",
+      "type": "utc_datetime_usec"
+    },
+    {
+      "allow_nil?": false,
+      "default": "nil",
+      "generated?": false,
+      "precision": null,
+      "primary_key?": false,
+      "references": {
+        "deferrable": false,
+        "destination_attribute": "id",
+        "destination_attribute_default": null,
+        "destination_attribute_generated": null,
+        "index?": false,
+        "index_where": null,
+        "match_tenant?": false,
+        "match_type": null,
+        "match_with": null,
+        "multitenancy": {
+          "attribute": null,
+          "global": null,
+          "strategy": null
+        },
+        "name": "dataset_values_organization_id_fkey",
+        "on_delete": "restrict",
+        "on_update": null,
+        "primary_key?": true,
+        "schema": "public",
+        "table": "organizations"
+      },
+      "scale": null,
+      "size": null,
+      "source": "organization_id",
+      "type": "uuid"
+    },
+    {
+      "allow_nil?": false,
+      "default": "nil",
+      "generated?": false,
+      "precision": null,
+      "primary_key?": false,
+      "references": {
+        "deferrable": false,
+        "destination_attribute": "id",
+        "destination_attribute_default": null,
+        "destination_attribute_generated": null,
+        "index?": false,
+        "index_where": null,
+        "match_tenant?": false,
+        "match_type": null,
+        "match_with": {
+          "dataset_id": "dataset_id",
+          "organization_id": "organization_id",
+          "record_type_id": "record_type_id",
+          "schema_version_id": "schema_version_id"
+        },
+        "multitenancy": {
+          "attribute": null,
+          "global": null,
+          "strategy": null
+        },
+        "name": "dataset_values_record_full_scope_fkey",
+        "on_delete": "restrict",
+        "on_update": null,
+        "primary_key?": true,
+        "schema": "public",
+        "table": "dataset_records"
+      },
+      "scale": null,
+      "size": null,
+      "source": "record_id",
+      "type": "uuid"
+    },
+    {
+      "allow_nil?": false,
+      "default": "nil",
+      "generated?": false,
+      "precision": null,
+      "primary_key?": false,
+      "references": {
+        "deferrable": false,
+        "destination_attribute": "id",
+        "destination_attribute_default": null,
+        "destination_attribute_generated": null,
+        "index?": false,
+        "index_where": null,
+        "match_tenant?": false,
+        "match_type": null,
+        "match_with": {
+          "record_type_id": "record_type_id"
+        },
+        "multitenancy": {
+          "attribute": null,
+          "global": null,
+          "strategy": null
+        },
+        "name": "dataset_values_field_definition_record_type_id_fkey",
+        "on_delete": "restrict",
+        "on_update": null,
+        "primary_key?": true,
+        "schema": "public",
+        "table": "dataset_field_definitions"
+      },
+      "scale": null,
+      "size": null,
+      "source": "field_definition_id",
+      "type": "uuid"
+    },
+    {
+      "allow_nil?": false,
+      "default": "nil",
+      "generated?": false,
+      "precision": null,
+      "primary_key?": false,
+      "references": {
+        "deferrable": false,
+        "destination_attribute": "id",
+        "destination_attribute_default": null,
+        "destination_attribute_generated": null,
+        "index?": false,
+        "index_where": null,
+        "match_tenant?": false,
+        "match_type": null,
+        "match_with": {
+          "schema_version_id": "schema_version_id"
+        },
+        "multitenancy": {
+          "attribute": null,
+          "global": null,
+          "strategy": null
+        },
+        "name": "dataset_values_record_type_id_schema_version_id_fkey",
+        "on_delete": "restrict",
+        "on_update": null,
+        "primary_key?": true,
+        "schema": "public",
+        "table": "dataset_record_types"
+      },
+      "scale": null,
+      "size": null,
+      "source": "record_type_id",
+      "type": "uuid"
+    },
+    {
+      "allow_nil?": false,
+      "default": "nil",
+      "generated?": false,
+      "precision": null,
+      "primary_key?": false,
+      "references": {
+        "deferrable": false,
+        "destination_attribute": "id",
+        "destination_attribute_default": null,
+        "destination_attribute_generated": null,
+        "index?": false,
+        "index_where": null,
+        "match_tenant?": false,
+        "match_type": null,
+        "match_with": {
+          "organization_id": "organization_id"
+        },
+        "multitenancy": {
+          "attribute": null,
+          "global": null,
+          "strategy": null
+        },
+        "name": "dataset_values_dataset_id_organization_id_fkey",
+        "on_delete": "restrict",
+        "on_update": null,
+        "primary_key?": true,
+        "schema": "public",
+        "table": "datasets"
+      },
+      "scale": null,
+      "size": null,
+      "source": "dataset_id",
+      "type": "uuid"
+    },
+    {
+      "allow_nil?": false,
+      "default": "nil",
+      "generated?": false,
+      "precision": null,
+      "primary_key?": false,
+      "references": {
+        "deferrable": false,
+        "destination_attribute": "id",
+        "destination_attribute_default": null,
+        "destination_attribute_generated": null,
+        "index?": false,
+        "index_where": null,
+        "match_tenant?": false,
+        "match_type": null,
+        "match_with": {
+          "dataset_id": "dataset_id"
+        },
+        "multitenancy": {
+          "attribute": null,
+          "global": null,
+          "strategy": null
+        },
+        "name": "dataset_values_schema_version_id_dataset_id_fkey",
+        "on_delete": "restrict",
+        "on_update": null,
+        "primary_key?": true,
+        "schema": "public",
+        "table": "dataset_schema_versions"
+      },
+      "scale": null,
+      "size": null,
+      "source": "schema_version_id",
+      "type": "uuid"
+    }
+  ],
+  "base_filter": null,
+  "check_constraints": [
+    {
+      "attribute": [
+        "ordinal"
+      ],
+      "base_filter": null,
+      "check": "ordinal >= 0",
+      "name": "dataset_values_ordinal_nonnegative"
+    }
+  ],
+  "create_table_options": null,
+  "custom_indexes": [
+    {
+      "all_tenants?": false,
+      "concurrently": false,
+      "error_fields": [
+        "id",
+        "organization_id"
+      ],
+      "fields": [
+        {
+          "type": "atom",
+          "value": "id"
+        },
+        {
+          "type": "atom",
+          "value": "organization_id"
+        }
+      ],
+      "include": null,
+      "include_base_filter?": true,
+      "message": null,
+      "name": "dataset_values_id_organization_id_index",
+      "nulls_distinct": true,
+      "prefix": null,
+      "table": null,
+      "unique": true,
+      "using": null,
+      "where": null
+    },
+    {
+      "all_tenants?": false,
+      "concurrently": false,
+      "error_fields": [
+        "record_id",
+        "field_definition_id",
+        "ordinal",
+        "id"
+      ],
+      "fields": [
+        {
+          "type": "atom",
+          "value": "record_id"
+        },
+        {
+          "type": "atom",
+          "value": "field_definition_id"
+        },
+        {
+          "type": "atom",
+          "value": "ordinal"
+        },
+        {
+          "type": "atom",
+          "value": "id"
+        }
+      ],
+      "include": null,
+      "include_base_filter?": true,
+      "message": null,
+      "name": "dataset_values_record_cursor_index",
+      "nulls_distinct": true,
+      "prefix": null,
+      "table": null,
+      "unique": false,
+      "using": null,
+      "where": null
+    }
+  ],
+  "custom_statements": [
+    {
+      "after_tables": [
+        "dataset_values",
+        "dataset_text_values",
+        "dataset_integer_values",
+        "dataset_decimal_values",
+        "dataset_boolean_values",
+        "dataset_date_time_values",
+        "dataset_asset_values"
+      ],
+      "code?": false,
+      "down": "DROP FUNCTION IF EXISTS quick_train_validate_dataset_value(uuid);",
+      "global?": false,
+      "name": "dataset_values_validate_typed_child_function",
+      "up": "CREATE FUNCTION quick_train_validate_dataset_value(p_value_id uuid)\nRETURNS void\nLANGUAGE plpgsql\nAS $$\nDECLARE\n  v_family text;\n  v_text_count bigint;\n  v_integer_count bigint;\n  v_decimal_count bigint;\n  v_boolean_count bigint;\n  v_date_time_count bigint;\n  v_asset_count bigint;\n  v_total bigint;\n  v_compatible boolean;\nBEGIN\n  SELECT field_definition.value_family\n  INTO v_family\n  FROM dataset_values AS dataset_value\n  JOIN dataset_field_definitions AS field_definition\n    ON field_definition.id = dataset_value.field_definition_id\n  WHERE dataset_value.id = p_value_id;\n\n  IF v_family IS NULL THEN\n    RETURN;\n  END IF;\n\n  SELECT\n    (SELECT count(*) FROM dataset_text_values WHERE dataset_value_id = p_value_id),\n    (SELECT count(*) FROM dataset_integer_values WHERE dataset_value_id = p_value_id),\n    (SELECT count(*) FROM dataset_decimal_values WHERE dataset_value_id = p_value_id),\n    (SELECT count(*) FROM dataset_boolean_values WHERE dataset_value_id = p_value_id),\n    (SELECT count(*) FROM dataset_date_time_values WHERE dataset_value_id = p_value_id),\n    (SELECT count(*) FROM dataset_asset_values WHERE dataset_value_id = p_value_id)\n  INTO\n    v_text_count,\n    v_integer_count,\n    v_decimal_count,\n    v_boolean_count,\n    v_date_time_count,\n    v_asset_count;\n\n  v_total :=\n    v_text_count + v_integer_count + v_decimal_count +\n    v_boolean_count + v_date_time_count + v_asset_count;\n\n  v_compatible := CASE v_family\n    WHEN 'text' THEN v_text_count = 1\n    WHEN 'integer' THEN v_integer_count = 1\n    WHEN 'decimal' THEN v_decimal_count = 1\n    WHEN 'boolean' THEN v_boolean_count = 1\n    WHEN 'utc_datetime' THEN v_date_time_count = 1\n    WHEN 'asset' THEN v_asset_count = 1\n    ELSE false\n  END;\n\n  IF v_total <> 1 OR NOT v_compatible THEN\n    RAISE EXCEPTION USING\n      ERRCODE = '23514',\n      MESSAGE = 'dataset value must have exactly one compatible typed child',\n      CONSTRAINT = 'dataset_values_exactly_one_typed_child',\n      TABLE = 'dataset_values';\n  END IF;\nEND;\n$$;\n"
+    },
+    {
+      "after_tables": [
+        "dataset_values",
+        "dataset_text_values",
+        "dataset_integer_values",
+        "dataset_decimal_values",
+        "dataset_boolean_values",
+        "dataset_date_time_values",
+        "dataset_asset_values"
+      ],
+      "code?": false,
+      "down": "DROP FUNCTION IF EXISTS quick_train_enforce_dataset_value_typed_child();",
+      "global?": false,
+      "name": "dataset_values_enforce_typed_child_function",
+      "up": "CREATE FUNCTION quick_train_enforce_dataset_value_typed_child()\nRETURNS trigger\nLANGUAGE plpgsql\nAS $$\nDECLARE\n  v_previous_id uuid;\n  v_current_id uuid;\nBEGIN\n  IF TG_TABLE_NAME = 'dataset_values' THEN\n    IF TG_OP <> 'INSERT' THEN\n      v_previous_id := OLD.id;\n    END IF;\n\n    IF TG_OP <> 'DELETE' THEN\n      v_current_id := NEW.id;\n    END IF;\n  ELSE\n    IF TG_OP <> 'INSERT' THEN\n      v_previous_id := OLD.dataset_value_id;\n    END IF;\n\n    IF TG_OP <> 'DELETE' THEN\n      v_current_id := NEW.dataset_value_id;\n    END IF;\n  END IF;\n\n  IF v_previous_id IS NOT NULL AND v_previous_id IS DISTINCT FROM v_current_id THEN\n    PERFORM quick_train_validate_dataset_value(v_previous_id);\n  END IF;\n\n  IF v_current_id IS NOT NULL THEN\n    PERFORM quick_train_validate_dataset_value(v_current_id);\n  END IF;\n\n  IF TG_OP = 'DELETE' THEN\n    RETURN OLD;\n  END IF;\n\n  RETURN NEW;\nEND;\n$$;\n"
+    },
+    {
+      "after_tables": [
+        "dataset_values"
+      ],
+      "code?": false,
+      "down": "DROP TRIGGER IF EXISTS dataset_values_typed_child_constraint ON dataset_values;",
+      "global?": false,
+      "name": "dataset_values_typed_child_trigger",
+      "up": "CREATE CONSTRAINT TRIGGER dataset_values_typed_child_constraint\nAFTER INSERT OR UPDATE OR DELETE ON dataset_values\nDEFERRABLE INITIALLY DEFERRED\nFOR EACH ROW EXECUTE FUNCTION quick_train_enforce_dataset_value_typed_child();\n"
+    },
+    {
+      "after_tables": [
+        "dataset_text_values"
+      ],
+      "code?": false,
+      "down": "DROP TRIGGER IF EXISTS dataset_text_values_typed_child_constraint ON dataset_text_values;",
+      "global?": false,
+      "name": "dataset_text_values_typed_child_trigger",
+      "up": "CREATE CONSTRAINT TRIGGER dataset_text_values_typed_child_constraint\nAFTER INSERT OR UPDATE OR DELETE ON dataset_text_values\nDEFERRABLE INITIALLY DEFERRED\nFOR EACH ROW EXECUTE FUNCTION quick_train_enforce_dataset_value_typed_child();\n"
+    },
+    {
+      "after_tables": [
+        "dataset_integer_values"
+      ],
+      "code?": false,
+      "down": "DROP TRIGGER IF EXISTS dataset_integer_values_typed_child_constraint ON dataset_integer_values;",
+      "global?": false,
+      "name": "dataset_integer_values_typed_child_trigger",
+      "up": "CREATE CONSTRAINT TRIGGER dataset_integer_values_typed_child_constraint\nAFTER INSERT OR UPDATE OR DELETE ON dataset_integer_values\nDEFERRABLE INITIALLY DEFERRED\nFOR EACH ROW EXECUTE FUNCTION quick_train_enforce_dataset_value_typed_child();\n"
+    },
+    {
+      "after_tables": [
+        "dataset_decimal_values"
+      ],
+      "code?": false,
+      "down": "DROP TRIGGER IF EXISTS dataset_decimal_values_typed_child_constraint ON dataset_decimal_values;",
+      "global?": false,
+      "name": "dataset_decimal_values_typed_child_trigger",
+      "up": "CREATE CONSTRAINT TRIGGER dataset_decimal_values_typed_child_constraint\nAFTER INSERT OR UPDATE OR DELETE ON dataset_decimal_values\nDEFERRABLE INITIALLY DEFERRED\nFOR EACH ROW EXECUTE FUNCTION quick_train_enforce_dataset_value_typed_child();\n"
+    },
+    {
+      "after_tables": [
+        "dataset_boolean_values"
+      ],
+      "code?": false,
+      "down": "DROP TRIGGER IF EXISTS dataset_boolean_values_typed_child_constraint ON dataset_boolean_values;",
+      "global?": false,
+      "name": "dataset_boolean_values_typed_child_trigger",
+      "up": "CREATE CONSTRAINT TRIGGER dataset_boolean_values_typed_child_constraint\nAFTER INSERT OR UPDATE OR DELETE ON dataset_boolean_values\nDEFERRABLE INITIALLY DEFERRED\nFOR EACH ROW EXECUTE FUNCTION quick_train_enforce_dataset_value_typed_child();\n"
+    },
+    {
+      "after_tables": [
+        "dataset_date_time_values"
+      ],
+      "code?": false,
+      "down": "DROP TRIGGER IF EXISTS dataset_date_time_values_typed_child_constraint ON dataset_date_time_values;",
+      "global?": false,
+      "name": "dataset_date_time_values_typed_child_trigger",
+      "up": "CREATE CONSTRAINT TRIGGER dataset_date_time_values_typed_child_constraint\nAFTER INSERT OR UPDATE OR DELETE ON dataset_date_time_values\nDEFERRABLE INITIALLY DEFERRED\nFOR EACH ROW EXECUTE FUNCTION quick_train_enforce_dataset_value_typed_child();\n"
+    },
+    {
+      "after_tables": [
+        "dataset_asset_values"
+      ],
+      "code?": false,
+      "down": "DROP TRIGGER IF EXISTS dataset_asset_values_typed_child_constraint ON dataset_asset_values;",
+      "global?": false,
+      "name": "dataset_asset_values_typed_child_trigger",
+      "up": "CREATE CONSTRAINT TRIGGER dataset_asset_values_typed_child_constraint\nAFTER INSERT OR UPDATE OR DELETE ON dataset_asset_values\nDEFERRABLE INITIALLY DEFERRED\nFOR EACH ROW EXECUTE FUNCTION quick_train_enforce_dataset_value_typed_child();\n"
+    }
+  ],
+  "has_create_action": false,
+  "hash": "DE1E095AFF1040E2224FF963B7FFDE5CA3E8BD7CD7CC7B8530C46DF2912450ED",
+  "identities": [
+    {
+      "all_tenants?": false,
+      "base_filter": null,
+      "index_name": "dataset_values_record_field_ordinal_index",
+      "keys": [
+        {
+          "type": "atom",
+          "value": "record_id"
+        },
+        {
+          "type": "atom",
+          "value": "field_definition_id"
+        },
+        {
+          "type": "atom",
+          "value": "ordinal"
+        }
+      ],
+      "name": "record_field_ordinal",
+      "nils_distinct?": true,
+      "where": null
+    }
+  ],
+  "multitenancy": {
+    "attribute": null,
+    "global": null,
+    "strategy": null
+  },
+  "repo": "Elixir.QuickTrain.Repo",
+  "schema": null,
+  "table": "dataset_values"
+}

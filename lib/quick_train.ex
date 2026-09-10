@@ -4,7 +4,10 @@ defmodule QuickTrain do
     exports: [
       Accounts,
       Accounts.Oidc,
+      Assets,
+      Assets.Storage,
       Authorization,
+      Datasets,
       EnterpriseIdentity,
       EnterpriseIdentity.Adapter,
       Organizations

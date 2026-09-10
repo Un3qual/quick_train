@@ -11,11 +11,6 @@ defmodule QuickTrain.Accounts.Session do
     table "sessions"
     repo QuickTrain.Repo
     identity_index_names token_hash: "sessions_token_hash_index"
-
-    custom_indexes do
-      index [:expires_at], name: "sessions_expires_at_index"
-      index [:revoked_at], name: "sessions_revoked_at_index", where: "revoked_at IS NOT NULL"
-    end
   end
 
   attributes do
@@ -32,10 +27,9 @@ defmodule QuickTrain.Accounts.Session do
   end
 
   relationships do
-    belongs_to :user, User do
-      allow_nil? false
-      filter expr(status == "active")
-    end
+    belongs_to :user, User,
+      allow_nil?: false,
+      filter: expr(status == "active")
   end
 
   actions do
@@ -65,12 +59,6 @@ defmodule QuickTrain.Accounts.Session do
       run QuickTrain.Accounts.Session.Actions.IssueBearer
     end
 
-    action :cleanup_retained, :boolean do
-      public? false
-      argument :now, :utc_datetime_usec, allow_nil?: false
-      run QuickTrain.Accounts.Session.Actions.CleanupRetained
-    end
-
     create :persist do
       public? false
       argument :user_id, :uuid, allow_nil?: false
@@ -90,6 +78,10 @@ defmodule QuickTrain.Accounts.Session do
              )
 
       validate compare(:expires_at, greater_than: :issued_at)
+
+      validate compare(:issued_at, less_than_or_equal_to: &DateTime.utc_now/0),
+        message: "cannot be in the future"
+
       validate QuickTrain.Accounts.Session.Validations.LifetimeWithinMaximum
     end
 
@@ -97,10 +89,6 @@ defmodule QuickTrain.Accounts.Session do
       public? false
       accept []
       change atomic_update(:revoked_at, expr(now()))
-    end
-
-    destroy :delete_retained do
-      public? false
     end
   end
 

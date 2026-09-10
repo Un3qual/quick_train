@@ -8,6 +8,8 @@
   all sessions still require an account.
 - Keep authorization fail-closed and explicitly scoped to an organization.
 - Run `mise run verify` before merging changes.
+- Channel YAGNI when writing code. A simpler solution is always better.
+- If Elixir, Ash, or another library has a built-in way to accomplish something, use that rather than hand-rolling a solution.
 
 ## OpenSpec
 - Use OpenSpec for durable specifications and implementation plans. Do not create

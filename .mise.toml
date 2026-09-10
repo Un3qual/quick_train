@@ -29,6 +29,10 @@ run = "MIX_ENV=test mix test"
 description = "Validate all OpenSpec changes and specifications"
 run = "openspec validate --all --strict --no-interactive"
 
+[tasks."dependency.audit"]
+description = "Audit locked packages for security advisories and retired releases"
+run = "MIX_ENV=test mix dependency.audit"
+
 [tasks.verify]
 description = "Run the complete project verification gate"
 run = [

@@ -62,7 +62,7 @@ defmodule QuickTrain.Accounts.User do
     defaults [:read]
 
     read :list_active do
-      pagination required?: false, offset?: false, keyset?: true
+      pagination required?: false, keyset?: true
       filter expr(status == "active")
     end
 
@@ -88,14 +88,6 @@ defmodule QuickTrain.Accounts.User do
       change update_change(:email, fn email ->
                email |> String.trim() |> String.downcase()
              end)
-    end
-
-    action :bootstrap_first_manager, :map do
-      argument :user_id, :uuid, allow_nil?: false
-      argument :organization_slug, :string, allow_nil?: false
-      argument :organization_name, :string, allow_nil?: false
-
-      run QuickTrain.Accounts.User.Actions.BootstrapFirstManager
     end
 
     update :set_status do

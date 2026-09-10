@@ -274,3 +274,21 @@ Future tests cover lifecycle actions, policies, GraphQL integration, normalized 
 ## Migration Plan
 
 There is no runtime migration. When a future domain is selected, create or update its dedicated OpenSpec change, cite the relevant decisions from this record, revise them where product evidence requires, and leave unrelated sections deferred.
+
+## Deferred file interpretation and HTTP storage integration
+
+Approved on 2026-09-09: MVP assets are opaque downloads. Restore format sniffing,
+image dimensions, bounded decoding, sanitization, or previews only when a concrete
+Forms or Tasks rendering requirement needs them. Readiness currently certifies
+size/hash integrity and immutability, never decodability or safe rendering.
+
+Before introducing inline rendering, define the supported formats, isolated serving
+origin, parser/decoder choice, resource limits, and response-header policy in a
+separate scoped change. Prefer a maintained library over handwritten format parsers;
+do not restore the PNG/JPEG/GIF/PDF branches merely for theoretical completeness.
+
+A reachable development/production HTTP storage adapter also remains unselected.
+That change must prove provider-enforced upload caps, immutable publication, direct
+nonredirecting endpoints, and download responses with attachment disposition,
+application/octet-stream, and nosniff. The in-memory test double does not provide
+HTTP endpoints. These are deferred requirements, not implementation tasks here.

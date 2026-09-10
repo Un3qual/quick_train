@@ -1,0 +1,268 @@
+defmodule QuickTrainWeb.DatasetImportGraphqlTest do
+  use QuickTrain.ConnCase, async: false
+  use Oban.Testing, repo: QuickTrain.Repo
+
+  alias QuickTrain.{Accounts, Datasets}
+  alias QuickTrain.Datasets.Workers.ProcessImportRow
+
+  setup %{conn: conn} do
+    manager = Accounts.register_user!("graphql-imports@example.test", "GraphQL Imports")
+    graph = organization_manager_fixture(manager.id, "graphql-imports", "GraphQL Imports")
+    session = Accounts.issue_bearer_session!(manager.id)
+
+    dataset =
+      Datasets.create_dataset!(graph.organization.id, "customers", "Customers", actor: manager)
+
+    schema = Datasets.create_schema_version!(graph.organization.id, dataset.id, actor: manager)
+
+    root =
+      Datasets.add_record_type!(graph.organization.id, schema.id, "customer", "Customer",
+        actor: manager
+      )
+
+    Datasets.add_field_definition!(
+      graph.organization.id,
+      root.id,
+      "name",
+      "Name",
+      "text",
+      "single",
+      true,
+      actor: manager
+    )
+
+    Datasets.add_field_definition!(
+      graph.organization.id,
+      root.id,
+      "number",
+      "Number",
+      "integer",
+      "single",
+      false,
+      actor: manager
+    )
+
+    schema =
+      Datasets.publish_schema_version!(graph.organization.id, schema.id, root.id, actor: manager)
+
+    %{
+      conn: put_req_header(conn, "authorization", "Bearer #{session.token}"),
+      organization: graph.organization,
+      dataset: dataset,
+      schema: schema
+    }
+  end
+
+  test "standard Int boundaries stay numeric and invalid GraphQL inputs fail", context do
+    opened =
+      graphql!(context.conn, """
+      mutation {
+        openDatasetImport(organizationId: "#{context.organization.id}", datasetId: "#{context.dataset.id}",
+          schemaVersionId: "#{context.schema.id}", idempotencyKey: "numeric-boundaries") { id }
+      }
+      """)["openDatasetImport"]
+
+    query = """
+    mutation Append($position: Int!, $values: [DatasetImportRowValuesInput!]!) {
+      appendDatasetImportRow(organizationId: "#{context.organization.id}", importId: "#{opened["id"]}",
+        rowKey: "boundary", sourcePosition: $position, values: $values) { sourcePosition outcome }
+    }
+    """
+
+    entries = [
+      %{"field" => "name", "text" => "Alice"},
+      %{"field" => "number", "integer" => -2_147_483_648}
+    ]
+
+    for {position, integer} <- [
+          {2_147_483_648, 1},
+          {0, 2_147_483_648},
+          {0, -2_147_483_649},
+          {0, "1"}
+        ] do
+      variables = %{
+        "position" => position,
+        "values" => [%{"field" => "number", "integer" => integer}]
+      }
+
+      response =
+        context.conn
+        |> post("/graphql", %{query: query, variables: variables})
+        |> json_response(200)
+
+      assert response["errors"] != nil
+    end
+
+    result =
+      graphql!(context.conn, query, %{"position" => 2_147_483_647, "values" => entries})[
+        "appendDatasetImportRow"
+      ]
+
+    assert result == %{"sourcePosition" => 2_147_483_647, "outcome" => "PENDING"}
+  end
+
+  test "transactional import failures have stable GraphQL codes", context do
+    response =
+      context.conn
+      |> post("/graphql", %{
+        query: """
+        mutation {
+          openDatasetImport(organizationId: "#{context.organization.id}",
+            datasetId: "#{context.dataset.id}", schemaVersionId: "#{Ash.UUID.generate()}",
+            idempotencyKey: "invalid-schema") { id }
+        }
+        """
+      })
+      |> json_response(200)
+
+    assert [%{"code" => "invalid_schema", "message" => "invalid_schema"}] = response["errors"]
+  end
+
+  test "GraphQL import lifecycle uses fixed flat input and a keyset Relay row connection",
+       context do
+    opened =
+      graphql!(
+        context.conn,
+        """
+        mutation Open($organizationId: ID!, $datasetId: ID!, $schemaVersionId: ID!) {
+          openDatasetImport(
+            organizationId: $organizationId,
+            datasetId: $datasetId,
+            schemaVersionId: $schemaVersionId,
+            idempotencyKey: "graphql-batch"
+          ) { id phase schemaVersionId }
+        }
+        """,
+        %{
+          "organizationId" => context.organization.id,
+          "datasetId" => context.dataset.id,
+          "schemaVersionId" => context.schema.id
+        }
+      )["openDatasetImport"]
+
+    assert opened["phase"] == "OPEN"
+
+    for {row_key, source_position, values, expected_outcome} <- [
+          {"valid", 0,
+           [
+             %{"field" => "name", "text" => "Alice"},
+             %{"field" => "number", "integer" => 2_147_483_647}
+           ], "PENDING"},
+          {"invalid", 1, [], "FAILED"}
+        ] do
+      row =
+        graphql!(
+          context.conn,
+          """
+          mutation Append(
+            $organizationId: ID!,
+            $importId: ID!,
+            $rowKey: String!,
+            $sourcePosition: Int!,
+            $values: [DatasetImportRowValuesInput!]!
+          ) {
+            appendDatasetImportRow(
+              organizationId: $organizationId,
+              importId: $importId,
+              rowKey: $rowKey,
+              sourcePosition: $sourcePosition,
+              values: $values
+            ) { id rowKey sourcePosition outcome errorCode }
+          }
+          """,
+          %{
+            "organizationId" => context.organization.id,
+            "importId" => opened["id"],
+            "rowKey" => row_key,
+            "sourcePosition" => source_position,
+            "values" => values
+          }
+        )["appendDatasetImportRow"]
+
+      assert row["rowKey"] == row_key
+      assert row["outcome"] == expected_outcome
+    end
+
+    finalized =
+      graphql!(
+        context.conn,
+        """
+        mutation Finalize($organizationId: ID!, $importId: ID!) {
+          finalizeDatasetImport(organizationId: $organizationId, importId: $importId) {
+            id phase
+          }
+        }
+        """,
+        %{"organizationId" => context.organization.id, "importId" => opened["id"]}
+      )["finalizeDatasetImport"]
+
+    assert finalized["phase"] == "SEALED"
+
+    assert [%Oban.Job{args: %{"row_id" => row_id}}] =
+             all_enqueued(worker: ProcessImportRow)
+
+    assert {:ok, _outcome} = perform_job(ProcessImportRow, %{"row_id" => row_id})
+
+    data =
+      graphql!(
+        context.conn,
+        """
+        query Inspect($organizationId: ID!, $importId: ID!) {
+          datasetImport(organizationId: $organizationId, importId: $importId) {
+            importId phase lifecycle rowCount pending succeeded unchanged failed
+            dataset { id key }
+            schemaVersion { id version }
+            rows(first: 1) {
+              edges {
+                cursor
+                node {
+                  id rowKey outcome
+                  itemRevision { id revisionNumber rootRecord { values(first: 2) { edges { node { integerValue { value } } } } } }
+                }
+              }
+              pageInfo { hasNextPage endCursor }
+            }
+          }
+          datasetImportRows(
+            organizationId: $organizationId,
+            importId: $importId,
+            first: 1
+          ) {
+            edges { cursor node { id rowKey sourcePosition outcome errorCode itemRevisionId } }
+            pageInfo { hasNextPage endCursor }
+          }
+        }
+        """,
+        %{"organizationId" => context.organization.id, "importId" => opened["id"]}
+      )
+
+    assert data["datasetImport"]["rowCount"] == 2
+    assert data["datasetImport"]["lifecycle"] == "PARTIALLY_FAILED"
+    assert data["datasetImport"]["dataset"]["id"] == context.dataset.id
+    assert data["datasetImport"]["schemaVersion"]["id"] == context.schema.id
+
+    assert [%{"cursor" => nested_cursor, "node" => nested_row}] =
+             data["datasetImport"]["rows"]["edges"]
+
+    assert is_binary(nested_cursor)
+    assert nested_row["rowKey"] == "valid"
+    assert nested_row["outcome"] == "SUCCEEDED"
+
+    assert Enum.any?(
+             nested_row["itemRevision"]["rootRecord"]["values"]["edges"],
+             &(&1["node"]["integerValue"] == %{"value" => 2_147_483_647})
+           )
+
+    assert is_binary(nested_row["itemRevision"]["id"])
+    assert nested_row["itemRevision"]["revisionNumber"] == 1
+    assert data["datasetImport"]["rows"]["pageInfo"]["hasNextPage"]
+    assert is_binary(data["datasetImport"]["rows"]["pageInfo"]["endCursor"])
+
+    assert [%{"cursor" => cursor, "node" => %{"rowKey" => "valid"}}] =
+             data["datasetImportRows"]["edges"]
+
+    assert is_binary(cursor)
+    assert data["datasetImportRows"]["pageInfo"]["hasNextPage"]
+    assert is_binary(data["datasetImportRows"]["pageInfo"]["endCursor"])
+  end
+end

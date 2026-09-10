@@ -46,8 +46,7 @@ defmodule QuickTrain.AuthenticationPersistenceTest do
         redemption_secret_hash: redemption_secret_hash,
         callback_key: "primary",
         callback_uri: "https://client.example.test/oidc/callback",
-        expires_at: DateTime.add(now, 5, :minute),
-        retain_until: DateTime.add(now, 1, :day)
+        expires_at: DateTime.add(now, 5, :minute)
       })
 
     assert transaction.status == "pending"
@@ -72,8 +71,7 @@ defmodule QuickTrain.AuthenticationPersistenceTest do
         redemption_secret_hash: :crypto.hash(:sha256, "redemption-secret"),
         callback_key: "primary",
         callback_uri: "https://client.example.test/oidc/callback",
-        expires_at: DateTime.add(now, 5, :minute),
-        retain_until: DateTime.add(now, 1, :day)
+        expires_at: DateTime.add(now, 5, :minute)
       })
 
     claimed = Accounts.claim_oidc_login!(transaction)

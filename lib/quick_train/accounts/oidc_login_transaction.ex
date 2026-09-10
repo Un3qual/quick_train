@@ -12,7 +12,6 @@ defmodule QuickTrain.Accounts.OidcLoginTransaction do
 
     custom_indexes do
       index [:status, :expires_at], name: "oidc_login_transactions_status_expires_at_index"
-      index [:retain_until], name: "oidc_login_transactions_retain_until_index"
     end
   end
 
@@ -26,7 +25,6 @@ defmodule QuickTrain.Accounts.OidcLoginTransaction do
     attribute :callback_uri, :string, allow_nil?: false, sensitive?: true
     attribute :status, :string, allow_nil?: false, default: "pending"
     attribute :expires_at, :utc_datetime_usec, allow_nil?: false
-    attribute :retain_until, :utc_datetime_usec, allow_nil?: false
     attribute :exchange_started_at, :utc_datetime_usec
     attribute :consumed_at, :utc_datetime_usec
     create_timestamp :inserted_at
@@ -36,11 +34,6 @@ defmodule QuickTrain.Accounts.OidcLoginTransaction do
   actions do
     defaults [:read]
 
-    action :cleanup_retained, :boolean do
-      argument :now, :utc_datetime_usec, allow_nil?: false
-      run QuickTrain.Accounts.OidcLoginTransaction.Actions.CleanupRetained
-    end
-
     create :begin do
       accept [
         :state_hash,
@@ -49,8 +42,7 @@ defmodule QuickTrain.Accounts.OidcLoginTransaction do
         :redemption_secret_hash,
         :callback_key,
         :callback_uri,
-        :expires_at,
-        :retain_until
+        :expires_at
       ]
     end
 
@@ -70,7 +62,6 @@ defmodule QuickTrain.Accounts.OidcLoginTransaction do
     end
 
     destroy :discard
-    destroy :delete_retained
   end
 
   validations do

@@ -1,32 +1,28 @@
 defmodule QuickTrain.Authentication.OidcExchangeResult do
   @moduledoc "The one-time public result of exchanging an OIDC login."
 
+  alias QuickTrain.Accounts.User
+
   use Ash.Resource,
     otp_app: :quick_train,
     data_layer: :embedded,
     extensions: [AshGraphql.Resource]
 
   attributes do
-    attribute :token, :string do
-      allow_nil? false
-      public? true
-      sensitive? true
-    end
+    attribute :token, :string,
+      allow_nil?: false,
+      public?: true,
+      sensitive?: true
 
-    attribute :session_id, :uuid do
-      allow_nil? false
-      public? true
-    end
+    attribute :session_id, :uuid,
+      allow_nil?: false,
+      public?: true
 
-    attribute :expires_at, :utc_datetime_usec do
-      allow_nil? false
-      public? true
-    end
+    attribute :expires_at, :utc_datetime_usec,
+      allow_nil?: false,
+      public?: true
 
-    attribute :user, :struct do
-      public? false
-      constraints instance_of: QuickTrain.Accounts.User
-    end
+    attribute :user, :struct, constraints: [instance_of: User]
   end
 
   graphql do

@@ -6,6 +6,7 @@ QuickTrain has approved cross-domain decisions for Forms, Projects, Tasks, Finan
 
 - Record the approved product-domain boundaries, dependency direction, and named cross-domain workflows.
 - Preserve approved decisions for versioned forms, dataset bindings, project cohorts, fetch-time task selection, worker audiences, attempts, responses, skips, reviews, exports, advanced annotations, finance, and reputation.
+- Record deferred format-aware file rendering and reachable HTTP storage integration; MVP retains opaque downloads.
 - Mark every recorded decision as deferred architecture rather than a current behavioral requirement or implementation task.
 - Require each future product change to restate and validate the relevant decisions in its own proposal, specs, design, and tasks before implementation.
 

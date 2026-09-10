@@ -134,13 +134,6 @@ defmodule QuickTrain.Authentication.Api.Actions.BeginOidcLogin do
         :second
       )
 
-    retain_until =
-      DateTime.add(
-        expires_at,
-        Keyword.fetch!(settings, :oidc_replay_retention_seconds),
-        :second
-      )
-
     attributes = %{
       state_hash: state_hash,
       nonce_hash: sha256(material.nonce),
@@ -148,8 +141,7 @@ defmodule QuickTrain.Authentication.Api.Actions.BeginOidcLogin do
       redemption_secret_hash: sha256(material.client_proof),
       callback_key: to_string(callback_key),
       callback_uri: callback_uri,
-      expires_at: expires_at,
-      retain_until: retain_until
+      expires_at: expires_at
     }
 
     create_transaction(attributes, material, callback_key, callback_uri, attempts)

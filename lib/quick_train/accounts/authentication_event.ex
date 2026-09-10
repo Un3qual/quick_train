@@ -23,13 +23,9 @@ defmodule QuickTrain.Accounts.AuthenticationEvent do
   end
 
   relationships do
-    belongs_to :user, User,
-      allow_nil?: true,
-      attribute_public?: true
+    belongs_to :user, User, attribute_public?: true
 
-    belongs_to :organization, Organization,
-      allow_nil?: true,
-      attribute_public?: true
+    belongs_to :organization, Organization, attribute_public?: true
   end
 
   actions do

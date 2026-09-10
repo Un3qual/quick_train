@@ -80,13 +80,15 @@ defmodule QuickTrainWeb.GraphqlApiTest do
     assert_receive {:oidc_exchange, "provider-code", _options}
   end
 
-  test "public GraphQL roots contain only API version and OIDC mutations", %{conn: conn} do
+  test "public GraphQL roots contain only deliberate authenticated product operations", %{
+    conn: conn
+  } do
     query = """
     {
       __schema {
         queryType { fields { name args { name } } }
         mutationType { fields { name args { name } } }
-        types { name }
+        types { name kind enumValues { name } }
       }
     }
     """
@@ -94,7 +96,73 @@ defmodule QuickTrainWeb.GraphqlApiTest do
     response = conn |> post("/graphql", %{query: query}) |> json_response(200)
     schema = response["data"]["__schema"]
 
-    assert schema["queryType"]["fields"] == [%{"args" => [], "name" => "apiVersion"}]
+    queries =
+      Map.new(schema["queryType"]["fields"], fn field ->
+        {field["name"], MapSet.new(field["args"], & &1["name"])}
+      end)
+
+    assert queries == %{
+             "apiVersion" => MapSet.new(),
+             "asset" => MapSet.new(["assetId", "organizationId"]),
+             "assetAccess" => MapSet.new(["assetId", "organizationId"]),
+             "datasetFieldDefinitions" =>
+               MapSet.new([
+                 "after",
+                 "before",
+                 "first",
+                 "last",
+                 "organizationId",
+                 "recordTypeId"
+               ]),
+             "datasetImport" => MapSet.new(["importId", "organizationId"]),
+             "datasetImportRows" =>
+               MapSet.new([
+                 "after",
+                 "before",
+                 "first",
+                 "importId",
+                 "last",
+                 "organizationId"
+               ]),
+             "datasetItemRevisions" =>
+               MapSet.new([
+                 "after",
+                 "before",
+                 "first",
+                 "itemId",
+                 "last",
+                 "organizationId"
+               ]),
+             "datasetItems" =>
+               MapSet.new([
+                 "after",
+                 "before",
+                 "datasetId",
+                 "first",
+                 "last",
+                 "organizationId"
+               ]),
+             "datasetRecordTypes" =>
+               MapSet.new([
+                 "after",
+                 "before",
+                 "first",
+                 "last",
+                 "organizationId",
+                 "schemaVersionId"
+               ]),
+             "datasetSchemaVersion" => MapSet.new(["organizationId", "schemaVersionId"]),
+             "datasetValues" =>
+               MapSet.new([
+                 "after",
+                 "before",
+                 "first",
+                 "last",
+                 "organizationId",
+                 "revisionId"
+               ]),
+             "datasets" => MapSet.new(["after", "before", "first", "last", "organizationId"])
+           }
 
     mutations =
       Map.new(schema["mutationType"]["fields"], fn field ->
@@ -102,8 +170,58 @@ defmodule QuickTrainWeb.GraphqlApiTest do
       end)
 
     assert mutations == %{
+             "addDatasetFieldDefinition" =>
+               MapSet.new([
+                 "cardinality",
+                 "key",
+                 "name",
+                 "organizationId",
+                 "recordTypeId",
+                 "required",
+                 "valueFamily"
+               ]),
+             "addDatasetRecordType" =>
+               MapSet.new(["key", "name", "organizationId", "schemaVersionId"]),
+             "appendDatasetImportRow" =>
+               MapSet.new([
+                 "externalKey",
+                 "importId",
+                 "organizationId",
+                 "rowKey",
+                 "sourcePosition",
+                 "values"
+               ]),
              "beginOidcLogin" => MapSet.new(["callbackKey"]),
-             "exchangeOidcLogin" => MapSet.new(["clientProof", "code", "state"])
+             "createDataset" => MapSet.new(["input"]),
+             "createDatasetSchemaVersion" => MapSet.new(["datasetId", "organizationId"]),
+             "exchangeOidcLogin" => MapSet.new(["clientProof", "code", "state"]),
+             "registerAsset" => MapSet.new(["organizationId", "sha256", "byteSize", "mediaType"]),
+             "finalizeAsset" => MapSet.new(["assetId", "organizationId"]),
+             "finalizeDatasetImport" => MapSet.new(["importId", "organizationId"]),
+             "openDatasetImport" =>
+               MapSet.new([
+                 "datasetId",
+                 "idempotencyKey",
+                 "organizationId",
+                 "schemaVersionId"
+               ]),
+             "publishDatasetSchemaVersion" =>
+               MapSet.new(["organizationId", "rootRecordTypeId", "schemaVersionId"]),
+             "removeDatasetFieldDefinition" =>
+               MapSet.new(["fieldDefinitionId", "organizationId"]),
+             "removeDatasetRecordType" => MapSet.new(["organizationId", "recordTypeId"]),
+             "updateDatasetFieldDefinition" =>
+               MapSet.new([
+                 "cardinality",
+                 "fieldDefinitionId",
+                 "key",
+                 "name",
+                 "organizationId",
+                 "required",
+                 "valueFamily"
+               ]),
+             "updateDatasetRecordType" =>
+               MapSet.new(["key", "name", "organizationId", "recordTypeId"])
            }
 
     type_names = MapSet.new(schema["types"], & &1["name"])
@@ -111,6 +229,35 @@ defmodule QuickTrainWeb.GraphqlApiTest do
     refute MapSet.member?(type_names, "Session")
     refute MapSet.member?(type_names, "OidcLoginTransaction")
     refute MapSet.member?(type_names, "ExternalIdentity")
+
+    enum_values =
+      schema["types"]
+      |> Enum.filter(&(&1["kind"] == "ENUM"))
+      |> Map.new(fn type ->
+        {type["name"], MapSet.new(type["enumValues"], & &1["name"])}
+      end)
+
+    assert Map.take(enum_values, [
+             "AssetState",
+             "AssetStorageMethod",
+             "DatasetFieldCardinality",
+             "DatasetImportLifecycle",
+             "DatasetImportPhase",
+             "DatasetImportRowOutcome",
+             "DatasetSchemaState",
+             "DatasetValueFamily"
+           ]) == %{
+             "AssetState" => MapSet.new(~w(DUPLICATE_CONTENT FAILED PENDING READY)),
+             "AssetStorageMethod" => MapSet.new(~w(GET PUT)),
+             "DatasetFieldCardinality" => MapSet.new(~w(SINGLE)),
+             "DatasetImportLifecycle" =>
+               MapSet.new(~w(COMPLETED FAILED OPEN PARTIALLY_FAILED PENDING)),
+             "DatasetImportPhase" => MapSet.new(~w(OPEN SEALED)),
+             "DatasetImportRowOutcome" => MapSet.new(~w(FAILED PENDING SUCCEEDED UNCHANGED)),
+             "DatasetSchemaState" => MapSet.new(~w(DRAFT PUBLISHED)),
+             "DatasetValueFamily" =>
+               MapSet.new(~w(ASSET BOOLEAN DECIMAL INTEGER TEXT UTC_DATETIME))
+           }
 
     version_response = conn |> post("/graphql", %{query: "{ apiVersion }"}) |> json_response(200)
     assert %{"apiVersion" => version} = version_response["data"]

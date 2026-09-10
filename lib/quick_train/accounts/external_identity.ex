@@ -1,6 +1,8 @@
 defmodule QuickTrain.Accounts.ExternalIdentity do
   @moduledoc "Links an OIDC provider subject to a global user account."
 
+  alias QuickTrain.Accounts.User
+
   use Ash.Resource,
     domain: QuickTrain.Accounts,
     data_layer: AshPostgres.DataLayer
@@ -24,10 +26,9 @@ defmodule QuickTrain.Accounts.ExternalIdentity do
   end
 
   relationships do
-    belongs_to :user, QuickTrain.Accounts.User do
-      allow_nil? false
-      attribute_public? true
-    end
+    belongs_to :user, User,
+      allow_nil?: false,
+      attribute_public?: true
   end
 
   actions do

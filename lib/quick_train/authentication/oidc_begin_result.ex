@@ -7,28 +7,24 @@ defmodule QuickTrain.Authentication.OidcBeginResult do
     extensions: [AshGraphql.Resource]
 
   attributes do
-    attribute :authorization_uri, :string do
-      allow_nil? false
-      public? true
-      sensitive? true
-    end
+    attribute :authorization_uri, :string,
+      allow_nil?: false,
+      public?: true,
+      sensitive?: true
 
-    attribute :state, :string do
-      allow_nil? false
-      public? true
-      sensitive? true
-    end
+    attribute :state, :string,
+      allow_nil?: false,
+      public?: true,
+      sensitive?: true
 
-    attribute :client_proof, :string do
-      allow_nil? false
-      public? true
-      sensitive? true
-    end
+    attribute :client_proof, :string,
+      allow_nil?: false,
+      public?: true,
+      sensitive?: true
 
-    attribute :expires_at, :utc_datetime_usec do
-      allow_nil? false
-      public? true
-    end
+    attribute :expires_at, :utc_datetime_usec,
+      allow_nil?: false,
+      public?: true
   end
 
   graphql do

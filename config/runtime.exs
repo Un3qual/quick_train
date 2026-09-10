@@ -51,9 +51,7 @@ authentication_overrides =
     oidc_begin_network_limit: parse_positive_integer.("OIDC_BEGIN_NETWORK_LIMIT"),
     oidc_outstanding_limit: parse_positive_integer.("OIDC_OUTSTANDING_LIMIT"),
     oidc_transaction_ttl_seconds: parse_positive_integer.("OIDC_TRANSACTION_TTL_SECONDS"),
-    oidc_replay_retention_seconds: parse_positive_integer.("OIDC_REPLAY_RETENTION_SECONDS"),
-    session_max_lifetime_seconds: parse_positive_integer.("HUMAN_SESSION_MAX_LIFETIME_SECONDS"),
-    session_retention_seconds: parse_positive_integer.("HUMAN_SESSION_RETENTION_SECONDS")
+    session_max_lifetime_seconds: parse_positive_integer.("HUMAN_SESSION_MAX_LIFETIME_SECONDS")
   ]
   |> Enum.reject(fn {_key, value} -> is_nil(value) end)
 

@@ -9,13 +9,18 @@ defmodule QuickTrainWeb.Router do
   scope "/" do
     pipe_through :api
 
-    forward "/graphql", Absinthe.Plug, schema: QuickTrainWeb.GraphQL.Schema
+    forward "/graphql", Absinthe.Plug,
+      schema: QuickTrainWeb.GraphQL.Schema,
+      analyze_complexity: true,
+      max_complexity: 10_000
 
     if Mix.env() == :dev do
       forward "/graphiql",
               Absinthe.Plug.GraphiQL,
               schema: QuickTrainWeb.GraphQL.Schema,
-              interface: :simple
+              interface: :simple,
+              analyze_complexity: true,
+              max_complexity: 10_000
     end
   end
 

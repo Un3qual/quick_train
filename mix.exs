@@ -52,7 +52,7 @@ defmodule QuickTrain.MixProject do
       {:phoenix_ecto, "== 4.7.0"},
       {:ecto_sql, "== 3.14.0"},
       {:postgrex, "== 0.22.4"},
-      {:ash, "== 3.32.1"},
+      {:ash, "== 3.33.0"},
       {:ash_postgres, "== 2.13.0"},
       {:ash_graphql, "== 1.11.0"},
       {:absinthe, "== 1.11.0"},
@@ -76,8 +76,8 @@ defmodule QuickTrain.MixProject do
       {:ecto_dev_logger, "== 0.15.0", only: :dev},
       {:ash_diagram, "~> 0.2.2"},
       {:ex_cmd, "~> 0.18.0"},
-      {:usage_rules, "~> 1.2", only: [:dev]},
-      {:igniter, "~> 0.8.3", only: [:dev]},
+      {:usage_rules, "== 1.2.8", only: [:dev]},
+      {:igniter, "== 0.8.4", only: [:dev]},
       {:picosat_elixir, "~> 0.2.3"}
     ]
   end
@@ -89,7 +89,11 @@ defmodule QuickTrain.MixProject do
       "ecto.reset": ["ecto.drop", "ecto.setup"],
       test: ["ecto.create --quiet", "ecto.migrate --quiet", "test"],
       "dependency.audit": ["cmd mix hex.audit"],
-      "static.analysis": ["credo --strict", "reach.check --arch --smells --strict"],
+      "static.analysis": [
+        "credo --strict",
+        "ex_dna --max-clones 0",
+        "reach.check --arch --smells --strict"
+      ],
       typecheck: ["dialyzer --quiet-with-result"],
       "architecture.check": [
         "xref graph --format cycles --label compile-connected --fail-above 0"
