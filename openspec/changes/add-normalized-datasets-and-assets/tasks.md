@@ -563,3 +563,17 @@ change value IDs or import-generated item IDs. No module or migration is added.
 Verification on 2026-09-09: 38 focused tests and all 156 full-suite tests passed.
 The full gate passed static analysis, Dialyzer, production compilation, and a clean
 dependency audit. Independent strict OpenSpec validation passed all four artifacts.
+
+## 35. Publication result contract
+
+- [x] 35.1 Require returned sealed key and verified facts to match the publication request before committing readiness; return `invalid_storage_result` for malformed adapter results (3975328661).
+- [x] 35.2 Verify missing/wrong keys and mismatched facts never mark an asset ready, the full gate, and independent OpenSpec validation.
+
+The fix uses pattern matching without another storage read. An invalid response
+retains the bounded claim because publication may have occurred; deferred recovery
+scope is unchanged. Matching assertions cannot prove a dishonest adapter wrote bytes;
+the adapter still owns publication and verification under its existing contract.
+
+Verification on 2026-09-09: all 12 focused tests and all 157 full-suite tests passed.
+The full gate passed static analysis, Dialyzer, production compilation, and a clean
+dependency audit. Independent strict OpenSpec validation passed all four artifacts.

@@ -23,6 +23,16 @@ defmodule QuickTrain.Assets.AssetLifecycleTest do
     end
   end
 
+  defmodule InvalidPublicationStorage do
+    def verify_and_publish(_staging_key, sealed_key, expected, _deadline) do
+      case Process.get(:publication_fault) do
+        :missing_key -> {:ok, %{facts: expected}}
+        :wrong_key -> {:ok, %{sealed_key: "wrong", facts: expected}}
+        :wrong_facts -> {:ok, %{sealed_key: sealed_key, facts: %{expected | byte_size: 0}}}
+      end
+    end
+  end
+
   setup do
     :ok = TestStorage.reset()
 
@@ -141,6 +151,34 @@ defmodule QuickTrain.Assets.AssetLifecycleTest do
       stored_asset = Ash.get!(Asset, finalized.asset.id, authorize?: false)
       Ash.Changeset.for_update(stored_asset, :update, %{media_type: "application/pdf"})
     end
+  end
+
+  test "invalid publication success never marks an asset ready", %{manager: actor, graph: graph} do
+    config = Application.fetch_env!(:quick_train, :assets)
+    on_exit(fn -> Application.put_env(:quick_train, :assets, config) end)
+
+    for fault <- [:missing_key, :wrong_key, :wrong_facts] do
+      Application.put_env(:quick_train, :assets, config)
+      registration = register!(graph.organization.id, actor, "bytes", "text/plain")
+
+      Application.put_env(
+        :quick_train,
+        :assets,
+        Keyword.put(config, :storage_adapter, InvalidPublicationStorage)
+      )
+
+      Process.put(:publication_fault, fault)
+
+      assert {:error, error} =
+               Assets.finalize_asset(registration.asset.id, graph.organization.id, actor: actor)
+
+      assert Exception.message(error) =~ "invalid_storage_result"
+      asset = Ash.get!(Asset, registration.asset.id, authorize?: false)
+      assert asset.state == :pending
+      assert is_nil(asset.sealed_key)
+    end
+
+    assert TestStorage.sealed_count() == 0
   end
 
   test "mismatched bytes become a sanitized failure without canonical publication", %{

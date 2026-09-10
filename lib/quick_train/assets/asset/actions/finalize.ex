@@ -80,7 +80,7 @@ defmodule QuickTrain.Assets.Asset.Actions.Finalize do
              expected,
              deadline_ms
            ) do
-        {:ok, %{facts: _facts}} ->
+        {:ok, %{sealed_key: ^sealed_key, facts: ^expected}} ->
           commit_success(asset.id, asset.organization_id, claim_id, sealed_key)
 
         {:error, :content_mismatch} ->
@@ -95,6 +95,9 @@ defmodule QuickTrain.Assets.Asset.Actions.Finalize do
 
         {:error, reason} ->
           {:error, reason}
+
+        _invalid ->
+          {:error, :invalid_storage_result}
       end
     end
   end
