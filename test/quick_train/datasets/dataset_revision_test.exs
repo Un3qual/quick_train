@@ -25,6 +25,41 @@ defmodule QuickTrain.Datasets.DatasetRevisionTest do
     Map.merge(graph, %{manager: manager, organization: graph.organization, asset: asset})
   end
 
+  test "direct decimals apply library limits to strings and structs before persistence",
+       context do
+    for decimal <- [
+          "1e999999999",
+          %Decimal{sign: 1, coef: 1, exp: 999_999_999},
+          %Decimal{sign: 1, coef: 1, exp: -999_999_999}
+        ] do
+      assert {:error, error} =
+               Datasets.put_item_revision(
+                 context.organization.id,
+                 context.dataset.id,
+                 context.schema.id,
+                 nil,
+                 "decimal-limit",
+                 values(context.asset.id, "Alice", decimal, "2026-01-02T01:04:05Z"),
+                 actor: context.manager
+               )
+
+      assert Exception.message(error) =~ "type_mismatch"
+    end
+
+    assert Ash.count!(DatasetRecord, authorize?: false) == 0
+    assert Ash.count!(DatasetItem, authorize?: false) == 0
+
+    first =
+      put!(
+        context,
+        values(context.asset.id, "Alice", Decimal.new("1.00"), "2026-01-02T01:04:05Z")
+      )
+
+    retry = put!(context, values(context.asset.id, "Alice", "1.0", "2026-01-02T01:04:05Z"))
+    assert retry.revision.id == first.revision.id
+    refute retry.changed
+  end
+
   test "direct external keys reject NUL before record construction", context do
     assert {:error, %Ash.Error.Invalid{} = error} =
              Datasets.put_item_revision(

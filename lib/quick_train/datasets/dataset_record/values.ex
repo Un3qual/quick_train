@@ -87,12 +87,10 @@ defmodule QuickTrain.Datasets.DatasetRecord.Values do
               value <= 9_223_372_036_854_775_807,
        do: {:ok, :integer, value}
 
-  defp normalize_family(:decimal, %Decimal{} = value), do: {:ok, :decimal, value}
-
-  defp normalize_family(:decimal, value) when is_binary(value) do
-    case Decimal.parse(value) do
-      {%Decimal{} = decimal, ""} -> {:ok, :decimal, decimal}
-      _other -> {:error, :type_mismatch}
+  defp normalize_family(:decimal, value) when is_binary(value) or is_struct(value, Decimal) do
+    case Decimal.cast(value) do
+      {:ok, decimal} -> {:ok, :decimal, decimal}
+      :error -> {:error, :type_mismatch}
     end
   end
 

@@ -520,3 +520,17 @@ Verification on 2026-09-09: 12 focused tests and all 153 full-suite tests passed
 The full gate passed formatting, static analysis, Dialyzer, production compilation,
 and a clean dependency audit. Independent strict OpenSpec validation passed all
 four artifacts.
+
+## 32. Direct decimal input limits
+
+- [x] 32.1 Validate direct decimal strings and structs with Decimal.cast/1 before fingerprinting (3974405944).
+- [x] 32.2 Verify controlled rejection before persistence, equivalent valid decimal identity, the full gate, and independent OpenSpec validation.
+
+The reported string already fails Decimal 3.1.1 parsing. The valid gap was the
+unchecked struct branch; use the same library coefficient/exponent limits for both
+forms. No custom decimal parser, numeric-range abstraction, or dependency is added.
+
+Verification on 2026-09-09: all 16 focused revision tests and all 154 full-suite
+tests passed. The full gate passed static analysis, Dialyzer, production
+compilation, and a clean dependency audit. Independent strict OpenSpec validation
+passed all four artifacts.
