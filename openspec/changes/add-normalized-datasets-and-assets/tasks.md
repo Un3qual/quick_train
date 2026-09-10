@@ -550,3 +550,16 @@ precision workaround, or new module is added.
 Verification on 2026-09-09: 40 focused tests and all 155 full-suite tests passed.
 The full gate passed static analysis, Dialyzer, production compilation, and a clean
 dependency audit. Independent strict OpenSpec validation passed all four artifacts.
+
+## 34. Scoped caller item identities
+
+- [x] 34.1 Treat direct caller-supplied item IDs as references to existing scoped items; reject nonexistent and foreign IDs identically before creation (3975017123).
+- [x] 34.2 Preserve external-key creation and backend-generated keyless import identities without a new lookup or retry mechanism.
+- [x] 34.3 Verify foreign/missing equivalence, existing keyless revisions, import behavior, the full gate, and independent OpenSpec validation.
+
+This changes direct supplied-ID creation to prevent an existence probe. It does not
+change value IDs or import-generated item IDs. No module or migration is added.
+
+Verification on 2026-09-09: 38 focused tests and all 156 full-suite tests passed.
+The full gate passed static analysis, Dialyzer, production compilation, and a clean
+dependency audit. Independent strict OpenSpec validation passed all four artifacts.

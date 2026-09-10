@@ -57,6 +57,11 @@ The system SHALL represent a dataset schema through immutable published schema v
 ### Requirement: Stable items and immutable revisions
 The system SHALL give each dataset item a stable identity within its dataset and SHALL store content changes as immutable, monotonically ordered item revisions. Every revision SHALL pin one published schema version belonging to the same dataset and one root record whose record type is exactly that schema version's designated root type. Its deterministic SHA-256 fingerprint SHALL use a versioned, domain-separated, length-prefixed canonical byte encoding that includes the schema-version and root-record-type identities and orders occurrences by field-definition identity then ordinal. Each occurrence SHALL include its field identity, family, ordinal, and canonical typed bytes: exact validated UTF-8 text excluding NUL characters, minimal signed base-10 integers, normalized non-exponent decimals without insignificant trailing zeroes or negative zero, one-byte booleans, signed UTC Unix microseconds, or immutable asset identity. The hash SHALL remain a raw 32-byte binary in Elixir and PostgreSQL and SHALL be encoded as 64 lowercase hexadecimal characters only at the GraphQL output boundary. Identical values under a different schema SHALL therefore create a distinct revision. Ash actions and composite database identities and foreign keys SHALL prevent dataset, item, revision, schema, record, and designated-root-type relationships from crossing dataset, organization, schema version, or record-type boundaries.
 
+#### Scenario: Caller-supplied item IDs resolve only existing scoped items
+- **WHEN** a direct revision request supplies an item ID absent from its organization and dataset
+- **THEN** it returns `item_not_found` identically for nonexistent and out-of-scope IDs without creating an item
+- **AND** new direct items use external-key creation, while trusted imports retain their backend-generated keyless item identities
+
 #### Scenario: First revision is created
 - **WHEN** valid content is added under a new customer external key
 - **THEN** the system creates one stable item and its first immutable revision

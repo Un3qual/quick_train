@@ -398,8 +398,64 @@ defmodule QuickTrain.Datasets.DatasetRevisionTest do
     assert Ash.count!(DatasetItemRevision, authorize?: false) == 1
   end
 
-  test "a supplied keyless identity remains stable", context do
-    item_id = Ecto.UUID.generate()
+  test "missing and out-of-scope caller item IDs return the same error", context do
+    other_dataset =
+      Datasets.create_dataset!(context.organization.id, "other", "Other", actor: context.manager)
+
+    other_org =
+      organization_manager_fixture(context.manager.id, "foreign-items", "Foreign Items").organization
+
+    foreign_dataset =
+      Datasets.create_dataset!(other_org.id, "foreign", "Foreign", actor: context.manager)
+
+    foreign_ids =
+      for {org_id, dataset_id} <- [
+            {context.organization.id, other_dataset.id},
+            {other_org.id, foreign_dataset.id}
+          ] do
+        item =
+          DatasetItem
+          |> Ash.Changeset.for_create(:create_internal, %{
+            organization_id: org_id,
+            dataset_id: dataset_id
+          })
+          |> Ash.create!(authorize?: false)
+
+        item.id
+      end
+
+    errors =
+      for item_id <- [Ash.UUID.generate() | foreign_ids] do
+        assert {:error, error} =
+                 Datasets.put_item_revision(
+                   context.organization.id,
+                   context.dataset.id,
+                   context.schema.id,
+                   item_id,
+                   nil,
+                   values(context.asset.id, "Alice", "1", "2026-01-02T01:04:05Z"),
+                   actor: context.manager
+                 )
+
+        Exception.message(error)
+      end
+
+    assert [message] = Enum.uniq(errors)
+    assert message =~ "item_not_found"
+    assert Ash.count!(DatasetItem, authorize?: false) == 2
+    assert Ash.count!(DatasetRecord, authorize?: false) == 0
+  end
+
+  test "an existing keyless identity remains stable", context do
+    item =
+      DatasetItem
+      |> Ash.Changeset.for_create(:create_internal, %{
+        organization_id: context.organization.id,
+        dataset_id: context.dataset.id
+      })
+      |> Ash.create!(authorize?: false)
+
+    item_id = item.id
     input = values(context.asset.id, "Keyless", "2", "2026-01-02T01:04:05Z")
 
     first =

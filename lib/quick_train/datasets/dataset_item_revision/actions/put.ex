@@ -108,8 +108,15 @@ defmodule QuickTrain.Datasets.DatasetItemRevision.Actions.Put do
 
   defp stable_item(arguments) do
     case existing_item(arguments) do
-      nil -> create_item(arguments)
-      item -> {:ok, item}
+      nil
+      when not is_nil(arguments.item_id) and not is_map_key(arguments, :candidate_record_id) ->
+        {:error, :item_not_found}
+
+      nil ->
+        create_item(arguments)
+
+      item ->
+        {:ok, item}
     end
   end
 
