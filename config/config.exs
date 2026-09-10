@@ -42,6 +42,7 @@ config :quick_train, :dataset_imports,
 
 config :quick_train,
   ash_domains: [
+    QuickTrain.Forms,
     QuickTrain.Datasets,
     QuickTrain.Assets,
     QuickTrain.Authentication,

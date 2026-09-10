@@ -1,8 +1,8 @@
 # QuickTrain
 
 QuickTrain is a backend-only Elixir template for enterprise applications. It keeps reusable
-account, tenant, authorization, and enterprise identity foundations while leaving product domains
-and the frontend empty.
+account, tenant, authorization, and enterprise identity foundations, with organization-owned
+datasets, assets, and versioned form definitions. It has no frontend.
 
 ## Deliberate model choices
 
@@ -30,9 +30,11 @@ and the frontend empty.
   assignments, and optional decision evidence.
 - `QuickTrain.EnterpriseIdentity`: provider-neutral connections, directories, users, groups,
   memberships, group-to-role mappings, and an adapter behaviour.
-- `QuickTrainWeb.GraphQL.Schema`: an explicit public allowlist containing the read-only
-  `apiVersion` query and OIDC begin and exchange mutations until product changes add their own
-  authorized fields.
+- `QuickTrain.Forms`: reusable typed input and question contracts, editable drafts, immutable
+  publication, and copying to new numbered drafts. See the versioned-forms OpenSpec change for
+  capability provisioning and authoring limits. Forms do not access dataset content or storage.
+- `QuickTrainWeb.GraphQL.Schema`: an explicit allowlist of authentication, dataset, asset, and
+  form operations with scoped authorization, paginated collections, and query-complexity limits.
 
 ## Toolchain
 

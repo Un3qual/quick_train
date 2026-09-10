@@ -89,3 +89,49 @@ Use Ash integer constraints and database bounds for every persisted integer expo
 2. Integrate GraphQL and document capability provisioning through the existing primitive actions and test fixture. Existing dataset, asset, account, and role data require no transformation or implicit grants. The change does not depend on the deferred operator-maintenance work.
 3. Verify fresh database creation, focused policy/lifecycle/GraphQL tests, independent-connection races, and the full repository gate before merge. Synchronize all OpenSpec tasks and specs with any implementation decisions.
 4. Before production use, rollback can remove the additive schema through verified down migrations. After published forms exist, prefer reverting application exposure while retaining their tables and evidence; destructive schema rollback requires a separate data-retention decision.
+
+## Implementation notes
+
+- `QuickTrain.Forms` exposes typed Ash generic actions for organization-scoped authoring;
+  low-level persistence actions are private to authorized transactions. The complete graph uses
+  20 resources, with separate presentation subtypes, five constraint resources, and a distinct
+  dynamic input source. Named Ash enums expose the closed families and renderers through GraphQL.
+- `Authoring` holds the Form allocation lock or FormVersion mutation lock through the enclosing
+  Ash transaction. `Graph` reads all owned rows with a cumulative 10,000-row bound, validates the
+  graph, and copies in dependency order with new UUIDs. Reorders validate the current parent and
+  complete ID set before assigning consecutive positions.
+- Nested relationship policies require both an allowed parent traversal and a current active
+  organization capability. General inspection requires `forms.read`; the returned mutation graph
+  also permits `forms.manage`. GraphQL exposes no back-reference from a version to the owning Form
+  or from a definition to a version, so mutation results cannot expand into other versions.
+- The endpoint's existing 512 KiB body limit bounds Forms requests before decoding. The item,
+  row, count, and UTF-8 byte limits in decision 5 apply to ordinary authoring and copy destinations.
+  `PlainText` checks UTF-8 before applying Ash's string constraints; nonblank content uses Ash's
+  built-in match validation only when the field changes. Read paths do not apply authoring limits
+  to published historical graphs.
+- Annotation inspection exposes `sourceConvention`: `normalized_image_coordinates` for boxes
+  and polygons, `immutable_mask_asset_with_source_dimensions` for masks, and
+  `unicode_codepoints_zero_based_end_exclusive` for text spans. These are definition conventions,
+  not rendering, storage-access, or response-validation operations.
+- The generated migration keeps composite foreign-key changes in a separate `alter table` block
+  from additions of the same columns. Forms-specific custom statements are tracked in Ash
+  snapshots and install deferred position/subtype constraints plus owner/descendant guards.
+
+### Capability provisioning
+
+An operator explicitly creates the two catalog entries and grants them to an existing role in
+its intended organization using the existing primitives. For example, from an authorized
+application console, with `role_id` already resolved to that organization's chosen author role:
+
+```elixir
+for key <- ["forms.read", "forms.manage"] do
+  capability = QuickTrain.Authorization.create_capability!(key, key,
+    upsert?: true, upsert_identity: :key, upsert_fields: [])
+  QuickTrain.Authorization.grant_capability!(role_id, capability.id)
+end
+```
+
+Grant only `forms.read` to inspection-only roles. Granting `forms.manage` alone permits authoring
+and its returned graph, but not general read queries. No existing production role receives an
+implicit grant. Only `organization_manager_fixture/3` composes both grants for tests. Operator
+bootstrap and maintenance remain deferred to their separate OpenSpec change.
