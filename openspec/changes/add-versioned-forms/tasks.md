@@ -18,7 +18,7 @@
 
 ## 3. Publish and copy immutable contracts
 
-- [ ] 3.1 Implement publication validation over the complete bounded graph, including rows beyond the first page: title, input requirements, one placement per question, typed children, choice feasibility, source/label compatibility, bounds, keys, and positions.
+- [ ] 3.1 Implement publication validation over the complete bounded graph, including rows beyond the first page: nonblank title, input requirements, one placement per question, typed children, choice feasibility, source/label compatibility, bounds, keys, and positions.
 - [ ] 3.2 Implement atomic draft-to-published transition and authorized idempotent publication retries under the same version lock; preserve graph state on failure and freeze the publication timestamp.
 - [ ] 3.3 Add narrowly scoped database guards for published parent/descendant insert, update, delete, and ownership changes, using the same parent lock to protect internal bypass paths; keep product publication validation in Ash.
 - [ ] 3.4 Implement copying a same-form published version to a new numbered draft in one transaction, remapping all owned identities and references in dependency order; reject draft and foreign sources and roll back partial copies.
@@ -33,7 +33,7 @@
 
 - [ ] 5.1 Test a successful single-item rating contract (one-item slot and an integer question using the stars renderer with bounds 1–5), static-choice, pairwise, ranking, text-span, and spatial-definition contracts; cover representative invalid renderer, source, signed 32-bit integer endpoints and overflow, bounds, cardinality, empty/whitespace-only question prompts and option/annotation labels, omitted and oversized stars/Likert bounds plus the 200-value boundary, UTC family naming, placement, and cross-version-reference cases with focused parameterized tests.
 - [ ] 5.2 Test all authorization failure classes, cross-organization IDs, nested relationship reads, read-only callers, and manage-only mutation results through Ash and authenticated GraphQL.
-- [ ] 5.3 Test complete copy/remapping and source immutability, copy rollback without number consumption, invalid source rejection, draft repair after failed publication, and stable repeated publication results.
+- [ ] 5.3 Test complete copy/remapping and source immutability, copy rollback without number consumption, invalid source rejection, draft repair after failed publication (including empty and whitespace-only titles), and stable repeated publication results.
 - [ ] 5.4 Use independent database connections and deliberate barriers to test concurrent version allocation, publication/publication, child edit/publication in both orders, and referenced-source edit races; assert serialized valid outcomes rather than timing assumptions.
 - [ ] 5.5 Test published insert/update/delete/reparent rejection through direct persistence paths, typed-child and same-version database integrity, and rollback of incomplete transactional writes.
 - [ ] 5.6 Test reorder permutations and sparse-to-consecutive atomic swaps, later-page publication validation and nested pagination, graph/request limits including heading and section-marker text at and above 1,024 UTF-8 bytes, and the absence of data or storage access from form inspection; keep tests behavioral rather than source-shape assertions.
