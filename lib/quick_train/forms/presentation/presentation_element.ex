@@ -224,6 +224,14 @@ defmodule QuickTrain.Forms.Presentation.PresentationElement do
     table "form_presentation_elements"
     repo QuickTrain.Repo
 
+    custom_statements do
+      statement :position_unique do
+        up "ALTER TABLE form_presentation_elements ADD CONSTRAINT form_presentation_elements_position_unique UNIQUE (version_id, position) DEFERRABLE INITIALLY DEFERRED;"
+
+        down "ALTER TABLE form_presentation_elements DROP CONSTRAINT form_presentation_elements_position_unique;"
+      end
+    end
+
     references do
       reference :version, on_delete: :restrict
     end

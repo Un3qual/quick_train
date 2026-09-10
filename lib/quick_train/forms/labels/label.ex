@@ -168,6 +168,13 @@ defmodule QuickTrain.Forms.Labels.Label do
     table "form_labels"
     repo QuickTrain.Repo
 
+    custom_statements do
+      statement :position_unique do
+        up "ALTER TABLE form_labels ADD CONSTRAINT form_labels_position_unique UNIQUE (label_set_id, position) DEFERRABLE INITIALLY DEFERRED;"
+        down "ALTER TABLE form_labels DROP CONSTRAINT form_labels_position_unique;"
+      end
+    end
+
     references do
       reference :label_set, on_delete: :restrict, match_with: [version_id: :version_id]
       reference :version, on_delete: :restrict, index?: true

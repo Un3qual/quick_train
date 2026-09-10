@@ -2,11 +2,11 @@
 
 See `proposal.md` for motivation and scope. The live repository has Accounts, organization capabilities, AshGraphql, normalized Datasets, and Assets. It has no Forms resources. The prior architecture record's sections A–C, I, M, and N establish reusable, normalized form contracts; its later opaque-file decision explicitly defers media interpretation and inline delivery.
 
-The existing dataset schema actions demonstrate `Ash.transact`, parent-row locking, scoped child resolution, and serialized version-number allocation. Reuse those Ash patterns in Forms without refactoring Datasets or introducing a generic versioning framework. Existing PostgreSQL typed-child constraints demonstrate the repository's narrow migration-level exception for relational invariants.
+The existing dataset schema actions demonstrate `Ash.transact`, parent-row locking, scoped child resolution, and serialized version-number allocation. Reuse those Ash patterns in Forms without refactoring Datasets or introducing a generic versioning framework. Keep Forms business rules in Elixir; ordinary database constraints retain relational integrity.
 
 ## Goals / Non-Goals
 
-**Goals:** Keep a form version a self-contained, bounded graph that can be inspected and later pinned by immutable identity. Make draft edits and publication share one transactional boundary. Enforce relational ownership and published immutability beneath the public API.
+**Goals:** Keep a form version a self-contained, bounded graph that can be inspected and later pinned by immutable identity. Make draft edits and publication share one transactional boundary. Enforce relational ownership with foreign keys and published immutability through the Ash authoring boundary.
 
 **Non-Goals:** See the proposal's exclusions. In particular, a published form is a structurally valid definition, not a promise that a Projects/Tasks executor or safe image renderer already exists. Do not add placeholder domains for those consumers.
 
@@ -35,7 +35,7 @@ Form -> FormVersion
 
 Use one version owner on every descendant, with composite foreign keys ensuring intermediate parents and referenced records share that version. UUID primary keys remain stable external identities. Ash identities and database unique constraints cover form keys per organization, version numbers per form, definition keys in their documented scopes, and ordered positions per parent. Restrict foreign-key deletion; do not cascade through published graphs. Descendant ownership and parent IDs are immutable even in drafts, so moving a question or option between parents is expressed as explicit creation and removal.
 
-PresentationElement stores kind and position. Typed children hold plain text for instruction, heading, and section variants, a field-requirement relationship for bound values, or a question relationship for question placement. A transactional public write creates a complete element and matching child; deferred relational checks enforce exactly one matching subtype at commit. Instructions and headings use the existing nonblank-text validation on creation and update. Section text can be empty to identify an unnamed structural section. A section is a flat marker, not a nested tree. Bound values describe all eventual task inputs in the referenced slot; actual per-attempt ordering belongs to Tasks.
+PresentationElement stores kind and position. Typed children hold plain text for instruction, heading, and section variants, a field-requirement relationship for bound values, or a question relationship for question placement. A transactional authoring action creates a complete element and matching child through Ash managed relationships; `Graph` validates exactly one matching subtype before the action commits. Instructions and headings use the existing nonblank-text validation on creation and update. Section text can be empty to identify an unnamed structural section. A section is a flat marker, not a nested tree. Bound values describe all eventual task inputs in the referenced slot; actual per-attempt ordering belongs to Tasks.
 
 QuestionDefinition stores key, prompt, family, and renderer. Prompt creation and update require at least one non-whitespace character, using the same nonblank-text validation as option and annotation labels. Use typed resources for TextConstraints, IntegerConstraints, DecimalConstraints, SelectionConstraints, and AnnotationConstraints. Boolean and ranking need no empty constraint table; ranking references its slot and always ranks all items. Selection constraints cover the single/multiple count contract; static options remain QuestionOption rows, and dynamic selections use slot relationships. Annotation constraints reference one source requirement and one label set and hold min/max count; coordinate and offset conventions are fixed by the spec, not configurable blobs. Enforce one applicable constraint resource and prohibit unrelated typed children. Draft creation and family changes may temporarily leave required constraint children absent, but never admit a wrong-family child. Publication requires the complete set.
 
@@ -57,9 +57,9 @@ Public actions authorize using the existing organization-capability check, then 
 
 Publication locks the version, loads its bounded full graph through internal scoped reads (not a default first page), validates every spec invariant, and writes state and timestamp together. Already-published retries return the existing record after authorization. Failed publication rolls back without modifying graph content. Both empty-draft creation and copying lock the owning Form before reading the maximum committed version, retain that lock through transaction commit or rollback, and compute the next number with a database uniqueness backstop. Competing allocations wait and then reread committed state; a later candidate cannot commit while the earlier allocation is unresolved. Allocation commits with the new version; rollback consumes no number and returns no destination version. The non-recycling guarantee applies to committed versions, so no reservation records, tombstones, or per-form sequences are needed. Copy locks Form for allocation; its published source cannot change. No version-write path subsequently locks Form, avoiding inverse lock order.
 
-Add narrowly scoped PostgreSQL guards for parent immutability and descendant insert/update/delete. A descendant guard locks its version, rejects a published owner, and prohibits reparenting using both old and new ownership values. The parent guard rejects mutation or deletion once published and invalid lifecycle transitions. This protects internal bypass paths and closes publication races even when a child write bypasses the action wrapper. Use database constraints for same-version references, valid bounds, position uniqueness, and subtype integrity. Full publication completeness and renderer compatibility remain owned by the deliberate Ash publication action; public/internal generic actions cannot set publication state outside it.
+Ash owns lifecycle transitions, immutable ownership, draft-only writes, and subtype compatibility. Explicit action accept lists prevent changes to identity, ownership, keys, and presentation kind. `DraftWrite` checks current draft state under the version lock and validates structural changes before commit; `Graph` checks presentation subtypes and question-family children. `Authoring` applies the same lock to publication and reorder, and validates copy destinations before commit. This single application boundary serializes concurrent requests without database triggers.
 
-Custom SQL is justified only for these database invariants that ordinary Ash validations cannot guarantee against bypass or concurrent writes. Keep it Forms-specific, with reversible migrations and focused SQL boundary tests. Do not introduce raw Ecto queries into product actions or a generic trigger generator.
+Low-level internal actions are implementation steps for copy, managed relationships, cascade deletion, reorder, and publication inside these transactions. They are not independently supported authoring entry points and remain unauthorized by default and unexposed to GraphQL. Code running with `authorize?: false`, `Ash.Seed`, or direct SQL is trusted infrastructure and can bypass the authoring contract. Such callers must use the scoped domain actions for ordinary writes. PostgreSQL keeps foreign keys, uniqueness, nullability, and scalar checks; it contains no Forms lifecycle or cross-table subtype functions or triggers. Historical migrations retain the former definitions only to support upgrades and rollback.
 
 For a reorder, require the complete current child ID set under the version lock, then atomically assign consecutive positions starting at zero in the supplied ID order, canonicalizing any old gaps while preserving record identities. Use a deferrable position-uniqueness constraint for swaps if the generated schema requires it; do not expose transient positions or persist fractional-order schemes. Option and label ordering use the same operation contract on their respective parents.
 
@@ -79,13 +79,13 @@ Use Ash integer constraints and database bounds for every persisted integer expo
 
 - **[Definition breadth without execution]** -> Support the recorded scalar, choice, ranking, and annotation contracts, but make publication semantics explicit. No media execution or answer validation is claimed by this release.
 - **[Normalized graph needs several tables]** -> Generate resources and migrations, share only actual family behavior, and omit empty boolean/ranking constraint tables and future response resources.
-- **[Graph edits race publication or reference changes]** -> One version lock, restrictive foreign keys, narrow database guards, and independent-connection race tests.
-- **[Database guards become a second implementation]** -> Limit them to durable integrity and immutability; keep product validation and lifecycle orchestration in Ash.
+- **[Graph edits race publication or reference changes]** -> One version lock in the Ash authoring boundary, restrictive foreign keys, and independent-connection race tests.
+- **[Trusted persistence bypasses business rules]** -> Keep low-level writes inside the scoped Ash authoring operations. Direct SQL and seeding retain relational checks but do not enforce publication or subtype business rules.
 - **[Large graphs cause slow publication or copies]** -> Bound row counts and text sizes, load all pages deliberately, and keep storage/network I/O out of these transactions.
 
 ## Migration Plan
 
-1. Generate Forms resources, additive migrations, and resource snapshots with the pinned toolchain. Add constraints and immutability guards, then inspect generated SQL and migration ordering.
+1. Generate Forms resources, additive migrations, and resource snapshots with the pinned toolchain. Add relational constraints, then inspect generated SQL and migration ordering. A reversible follow-up migration removes the original business-rule triggers/functions while retaining position uniqueness; existing form data requires no transformation.
 2. Integrate GraphQL and document capability provisioning through the existing primitive actions and test fixture. Existing dataset, asset, account, and role data require no transformation or implicit grants. The change does not depend on the deferred operator-maintenance work.
 3. Verify fresh database creation, focused policy/lifecycle/GraphQL tests, independent-connection races, and the full repository gate before merge. Synchronize all OpenSpec tasks and specs with any implementation decisions.
 4. Before production use, rollback can remove the additive schema through verified down migrations. After published forms exist, prefer reverting application exposure while retaining their tables and evidence; destructive schema rollback requires a separate data-retention decision.
@@ -118,7 +118,7 @@ Use Ash integer constraints and database bounds for every persisted integer expo
   assigning it through `set_attribute`. Ordinary creation retains generated UUIDs; reference
   attributes come from Ash relationship metadata. Reorders validate the complete scoped ID set and
   use `Ash.update_many!` to assign distinct consecutive positions. Presentation destruction uses
-  `cascade_destroy` before deleting its parent, retaining restrictive foreign keys and typed guards.
+  `cascade_destroy` before deleting its parent, retaining restrictive foreign keys; the enclosing draft action validates the final graph.
 - Presentation creation uses conditional `manage_relationship` changes with `present`/`absent`
   validations for the kind-specific inputs. Shared change context supplies the locked version ID
   through `set_attribute`. Unnamed sections use a private empty-map relationship input and pass
@@ -140,8 +140,9 @@ Use Ash integer constraints and database bounds for every persisted integer expo
   `unicode_codepoints_zero_based_end_exclusive` for text spans. These are definition conventions,
   not rendering, storage-access, or response-validation operations.
 - The generated migration keeps composite foreign-key changes in a separate `alter table` block
-  from additions of the same columns. Forms-specific custom statements are tracked in Ash
-  snapshots and install deferred position/subtype constraints plus owner/descendant guards.
+  from additions of the same columns. Resource-local custom statements are tracked in Ash
+  snapshots and install only the three deferred position-uniqueness constraints. The migration
+  removes all 34 Forms business-rule triggers and their five PL/pgSQL functions.
 - Version-scoped graph reads have a leading version index on every descendant, supplied by an
   existing identity/position index or AshPostgres's `reference :version, index?: true`. Only the
   five referenced parent resources retain `(id, version_id)` unique indexes for composite foreign
@@ -169,7 +170,6 @@ responsibilities beyond a built-in change, validation, or policy:
 | `Authoring` | Coordinates bounded copy, complete-permutation reorder, and idempotent publication across resources; persistence and transactions use Ash primitives. |
 | `Graph` | Checks a complete bounded graph, including inbound references and publication-only completeness. Its collection callbacks use Elixir's Enum/Map functions rather than action callbacks. |
 | `Error` | Carries capped, sanitized graph issues and their truncation indicator through Splode and AshGraphql. |
-| `Integrity` | Installs the cross-row database guards needed to protect published graphs against direct persistence and concurrent writes. |
 
 Enum types use `Ash.Type.Enum`, including the GraphQL naming callbacks required for their public
 names. Annotation conventions already use an Ash expression calculation. Read preparations,

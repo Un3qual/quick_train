@@ -5,7 +5,7 @@
 - [x] 1.3 Generate presentation elements and typed text/reference subtypes; add nonblank instruction/heading text, ordered positions, flat section markers that permit unnamed sections, same-version field/question references, and matching-subtype integrity.
 - [x] 1.4 Generate question definitions with nonblank prompts enforced on creation and update, and typed text, integer, decimal, selection, and annotation constraints; add signed 32-bit integer bounds with implicit endpoints only for `integer_input`, plus explicit stars/Likert bounds at publication and a 200-value maximum range and the specified renderer/family matrix and omit empty constraint tables for boolean and ranking.
 - [x] 1.5 Generate static options, version-owned label sets, and labels; add dynamic slot/source references separately from static options and enforce parent-scoped keys, nonblank static option labels and annotation label display text, and ordering.
-- [x] 1.6 Generate and review additive AshPostgres migrations and snapshots; add restrictive/composite foreign keys, unique identities, signed 32-bit checks for all exposed integer fields plus tighter domain bounds, subtype checks, immutable ownership, and the position-constraint support required for atomic reorder.
+- [x] 1.6 Generate and review additive AshPostgres migrations and snapshots; add restrictive/composite foreign keys, unique identities, signed 32-bit checks for all exposed integer fields plus tighter domain bounds, relational checks and the position-constraint support required for atomic reorder; enforce immutable ownership and subtype rules in Ash.
 
 ## 2. Authorize and serialize draft authoring
 
@@ -20,7 +20,7 @@
 
 - [x] 3.1 Implement publication validation over the complete bounded graph, including rows beyond the first page: nonblank title, input requirements, one placement per question, typed children, choice feasibility, source/label compatibility, bounds, keys, and positions.
 - [x] 3.2 Implement atomic draft-to-published transition and authorized idempotent publication retries under the same version lock; preserve graph state on failure and freeze the publication timestamp.
-- [x] 3.3 Add narrowly scoped database guards for published parent/descendant insert, update, delete, and ownership changes, using the same parent lock to protect internal bypass paths; keep product publication validation in Ash.
+- [x] 3.3 Enforce published parent/descendant insert, update, delete, and ownership rules in the Ash authoring boundary using the shared version lock, restricted action inputs, and Elixir graph validation; keep low-level persistence private to those operations.
 - [x] 3.4 Implement copying a same-form published version to a new numbered draft while holding the same owning Form allocation lock from before reading the next number through commit or rollback, remapping all owned identities and references in dependency order; reject draft and foreign sources and roll back partial copies.
 
 ## 4. Expose deliberate GraphQL operations
@@ -35,7 +35,7 @@
 - [x] 5.2 Test all authorization failure classes, cross-organization IDs, nested relationship reads, read-only callers, and manage-only mutation results through Ash and authenticated GraphQL.
 - [x] 5.3 Test complete copy/remapping and source immutability, copy rollback without number consumption, invalid source rejection, draft repair after failed publication (including empty and whitespace-only titles), and stable repeated publication results.
 - [x] 5.4 Use independent database connections and deliberate barriers to test concurrent version allocation across empty creation and copying (including allocation rollback while another request waits, with strictly increasing committed numbers), publication/publication, child edit/publication in both orders, and referenced-source edit races; assert serialized valid outcomes rather than timing assumptions.
-- [x] 5.5 Test published insert/update/delete/reparent rejection through direct persistence paths, typed-child and same-version database integrity, and rollback of incomplete transactional writes.
+- [x] 5.5 Test published insert/update/delete/reparent rejection through Ash authoring actions, subtype validation and rollback in Ash, and same-version foreign-key integrity in PostgreSQL.
 - [x] 5.6 Test reorder permutations and sparse-to-consecutive atomic swaps, later-page publication validation and nested pagination, graph/request limits including heading and section-marker text at and above 1,024 bytes, and the absence of data or storage access from form inspection; keep tests behavioral rather than source-shape assertions.
 - [x] 5.7 Verify additive migrations on a fresh test database and their down/up behavior on disposable data; inspect generated migration and snapshot consistency and compile through the repository toolchain.
 
@@ -79,6 +79,13 @@
 - [x] 10.5 Validate questions once per publication and retain the bounded, sanitized issue contract.
 - [x] 10.6 Verify the focused behavior, concurrency, and query-cost changes; synchronize the design and run both repository verification gates.
 
+## 11. Keep Forms business rules in Elixir
+
+- [x] 11.1 Remove the Forms trigger/function generator and generate a reversible migration removing its 34 triggers and five functions; keep relational constraints and declare position uniqueness on its owning resources.
+- [x] 11.2 Verify that scoped Ash actions, restricted inputs, managed relationships, and graph validation cover the removed lifecycle, ownership, and subtype rules; replace SQL business-rule tests with action behavior tests.
+- [x] 11.3 Verify migration up/down on disposable data and rerun independent-connection publication/edit/allocation races with no Forms business-rule triggers installed.
+- [x] 11.4 Synchronize the proposal, spec, and design with the application boundary; run focused tests, independent OpenSpec validation, and the full verification gate.
+
 ## Verification record
 
 - `mise run verify` passed with 211 tests, including 54 Forms tests. The gate also passed
@@ -93,4 +100,10 @@
   title-update probe on a version containing 2,000 labels dropped from 20 SELECTs to two (authorization
   and the version lock), loading no descendants. The query planner uses the new version index for
   label graph reads; catalog inspection confirmed no unused leaf composite indexes remain.
+- The Forms business-rule removal passed 59 focused Forms/GraphQL tests. A fresh disposable
+  database retained a published rating graph across migration down/up: catalog checks found
+  zero Forms business-rule triggers/functions after migration, 34/five after rollback, and
+  zero again after reapply, with all three deferred position constraints retained throughout.
+- The full verification gate passed again after removing the database business rules: 211
+  tests passed, including all 54 Forms tests and the independent-connection race tests.
 - No dependency changes, external blockers, or deferred implementation tasks remain in this change.

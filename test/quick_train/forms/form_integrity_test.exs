@@ -1,9 +1,9 @@
 defmodule QuickTrain.Forms.FormIntegrityTest do
-  alias AshPostgres.DataLayer.Info, as: DataLayerInfo
   use QuickTrain.DataCase, async: false
   @moduletag :committed_db
   import QuickTrain.FormsFixture
 
+  alias QuickTrain.Forms
   alias QuickTrain.Forms.{FormVersion, Graph}
   alias QuickTrain.Forms.Inputs.{InputFieldRequirement, InputSlotDefinition}
   alias QuickTrain.Forms.Presentation.PresentationElement
@@ -15,76 +15,116 @@ defmodule QuickTrain.Forms.FormIntegrityTest do
     Map.merge(ctx, rating!(ctx))
   end
 
-  test "published owners and descendants reject direct persistence changes", ctx do
+  test "published graphs reject authoring actions even with stale draft records", ctx do
     published = run!(FormVersion, :publish, ctx, %{version_id: ctx.version.id})
     graph = Graph.load!(published.id)
+    stored_version = Ash.get!(FormVersion, published.id, authorize?: false)
 
-    for {resource, records} <- graph, record <- records do
-      table = DataLayerInfo.table(resource)
+    for record <- [ctx.slot, ctx.field, ctx.question, ctx.bounds, ctx.element] do
+      assert {:error, error} = edit(record.__struct__, ctx, record, %{})
+      assert Exception.message(error) =~ "version_not_draft"
 
-      for sql <- [
-            "UPDATE #{table} SET updated_at = now() WHERE id = $1",
-            "DELETE FROM #{table} WHERE id = $1"
-          ] do
-        assert {:error, %Postgrex.Error{postgres: %{code: :check_violation}}} =
-                 Repo.query(sql, [Ecto.UUID.dump!(record.id)])
-      end
+      assert {:error, error} =
+               run(record.__struct__, :remove_from_draft, ctx, %{
+                 version_id: published.id,
+                 id: record.id
+               })
+
+      assert Exception.message(error) =~ "version_not_draft"
     end
 
-    for sql <- [
-          "UPDATE form_versions SET title = 'Changed' WHERE id = $1",
-          "DELETE FROM form_versions WHERE id = $1"
-        ] do
-      assert {:error, %Postgrex.Error{postgres: %{code: :check_violation}}} =
-               Repo.query(sql, [Ecto.UUID.dump!(published.id)])
-    end
-
-    assert {:error, %Postgrex.Error{postgres: %{code: :check_violation}}} =
-             Repo.query(
-               "INSERT INTO form_input_slot_definitions (version_id, key, minimum, maximum) VALUES ($1, 'late', 1, 1)",
-               [Ecto.UUID.dump!(published.id)]
+    assert {:error, error} =
+             Forms.update_form_draft(ctx.version, ctx.org.id, %{title: "Changed"},
+               actor: ctx.actor
              )
 
-    other = run!(FormVersion, :create_draft, ctx, %{form_id: ctx.form.id})
+    assert Exception.message(error) =~ "version_not_draft"
 
-    assert {:error, %Postgrex.Error{postgres: %{code: :check_violation}}} =
-             Repo.query(
-               "UPDATE form_input_slot_definitions SET version_id = $1 WHERE id = $2",
-               Enum.map([other.id, ctx.slot.id], &Ecto.UUID.dump!/1)
-             )
+    assert {:error, error} =
+             run(InputSlotDefinition, :add_to_draft, ctx, %{
+               version_id: published.id,
+               key: "late",
+               minimum: 1,
+               maximum: 1
+             })
 
+    assert Exception.message(error) =~ "version_not_draft"
+
+    assert {:error, error} =
+             run(PresentationElement, :reorder, ctx, %{
+               version_id: published.id,
+               ids: [ctx.element.id]
+             })
+
+    assert Exception.message(error) =~ "version_not_draft"
     assert Graph.load!(published.id) == graph
+    assert Ash.get!(FormVersion, published.id, authorize?: false) == stored_version
   end
 
-  test "ownership and authored keys are immutable even on drafts", ctx do
+  test "authoring cannot change ownership, keys, or lifecycle fields", ctx do
     other = run!(FormVersion, :create_draft, ctx, %{form_id: ctx.form.id})
+    stored_version = Ash.get!(FormVersion, ctx.version.id, authorize?: false)
 
-    for {sql, params} <- [
-          {"UPDATE form_input_slot_definitions SET key = 'changed' WHERE id = $1", [ctx.slot.id]},
-          {"UPDATE form_input_slot_definitions SET version_id = $1 WHERE id = $2",
-           [other.id, ctx.slot.id]},
-          {"UPDATE form_versions SET version = 99 WHERE id = $1", [ctx.version.id]},
-          {"UPDATE forms SET key = 'changed' WHERE id = $1", [ctx.form.id]}
+    for {record, attributes} <- [
+          {ctx.slot, %{key: "changed"}},
+          {ctx.slot, %{version_id: other.id}},
+          {ctx.field, %{input_slot_id: Ash.UUID.generate()}},
+          {ctx.bounds, %{question_id: Ash.UUID.generate()}},
+          {ctx.element, %{kind: :heading}}
         ] do
-      assert {:error, %Postgrex.Error{postgres: %{code: :check_violation}}} =
-               Repo.query(sql, Enum.map(params, &Ecto.UUID.dump!/1))
+      stored_record = Ash.get!(record.__struct__, record.id, authorize?: false)
+
+      assert {:error, _} =
+               Ash.update(
+                 record,
+                 Map.merge(
+                   %{organization_id: ctx.org.id, version_id: ctx.version.id},
+                   attributes
+                 ),
+                 action: :update_in_draft,
+                 actor: ctx.actor
+               )
+
+      assert Ash.get!(record.__struct__, record.id, authorize?: false) == stored_record
     end
+
+    for attributes <- [
+          %{version: 99},
+          %{form_id: Ash.UUID.generate()},
+          %{state: :published},
+          %{published_at: DateTime.utc_now()}
+        ] do
+      assert {:error, _} =
+               Forms.update_form_draft(ctx.version, ctx.org.id, attributes, actor: ctx.actor)
+    end
+
+    assert {:error, _} =
+             run(FormVersion, :create_draft, ctx, %{
+               form_id: ctx.form.id,
+               state: :published,
+               published_at: DateTime.utc_now()
+             })
+
+    assert Ash.get!(FormVersion, ctx.version.id, authorize?: false) == stored_version
+    assert Ash.count!(FormVersion, authorize?: false) == 2
   end
 
-  @tag capture_log: true
-  test "presentation subtype and wrong-family constraints fail at transaction commit", ctx do
-    assert {:error, %Postgrex.Error{postgres: %{code: :check_violation}}} =
-             Repo.query(
-               "INSERT INTO form_presentation_elements (version_id, kind, position) VALUES ($1, 'heading', 99)",
-               [Ecto.UUID.dump!(ctx.version.id)]
-             )
+  test "invalid presentation content and wrong-family children roll back in Ash", ctx do
+    assert {:error, _} =
+             run(PresentationElement, :add_to_draft, ctx, %{
+               version_id: ctx.version.id,
+               kind: :heading,
+               position: 99,
+               text: " "
+             })
 
-    assert {:error, %Postgrex.Error{postgres: %{code: :check_violation}}} =
-             Repo.query(
-               "INSERT INTO form_text_constraints (version_id, question_id) VALUES ($1, $2)",
-               Enum.map([ctx.version.id, ctx.question.id], &Ecto.UUID.dump!/1)
-             )
+    assert {:error, error} =
+             run(TextConstraints, :add_to_draft, ctx, %{
+               version_id: ctx.version.id,
+               question_id: ctx.question.id
+             })
 
+    assert Exception.message(error) =~ "incompatible constraints"
     assert Ash.count!(TextConstraints, authorize?: false) == 0
     assert Ash.count!(PresentationElement, authorize?: false) == 1
   end
@@ -120,13 +160,8 @@ defmodule QuickTrain.Forms.FormIntegrityTest do
   test "a mid-copy database failure rolls back children and version allocation", ctx do
     run!(FormVersion, :publish, ctx, %{version_id: ctx.version.id})
 
-    Repo.query!("""
-    CREATE FUNCTION pg_temp.reject_form_copy() RETURNS trigger LANGUAGE plpgsql AS $$
-    BEGIN RAISE EXCEPTION 'injected copy failure' USING ERRCODE = '23514'; END $$;
-    """)
-
     Repo.query!(
-      "CREATE TRIGGER reject_form_copy BEFORE INSERT ON form_integer_constraints FOR EACH ROW EXECUTE FUNCTION pg_temp.reject_form_copy()"
+      "ALTER TABLE form_integer_constraints ADD CONSTRAINT injected_copy_failure CHECK (id = '#{ctx.bounds.id}')"
     )
 
     try do
@@ -136,12 +171,12 @@ defmodule QuickTrain.Forms.FormIntegrityTest do
                  source_version_id: ctx.version.id
                })
 
-      assert Exception.message(error) =~ "injected copy failure"
+      assert Exception.message(error) =~ "injected_copy_failure"
       assert Ash.count!(FormVersion, authorize?: false) == 1
       assert Ash.count!(QuestionDefinition, authorize?: false) == 1
       assert run!(FormVersion, :create_draft, ctx, %{form_id: ctx.form.id}).version == 2
     after
-      Repo.query!("DROP TRIGGER reject_form_copy ON form_integer_constraints")
+      Repo.query!("ALTER TABLE form_integer_constraints DROP CONSTRAINT injected_copy_failure")
     end
   end
 

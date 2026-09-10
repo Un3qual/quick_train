@@ -171,6 +171,14 @@ defmodule QuickTrain.Forms.Questions.QuestionOption do
     table "form_question_options"
     repo QuickTrain.Repo
 
+    custom_statements do
+      statement :position_unique do
+        up "ALTER TABLE form_question_options ADD CONSTRAINT form_question_options_position_unique UNIQUE (question_id, position) DEFERRABLE INITIALLY DEFERRED;"
+
+        down "ALTER TABLE form_question_options DROP CONSTRAINT form_question_options_position_unique;"
+      end
+    end
+
     references do
       reference :question, on_delete: :restrict, match_with: [version_id: :version_id]
       reference :version, on_delete: :restrict, index?: true

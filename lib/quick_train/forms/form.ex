@@ -1,5 +1,4 @@
 defmodule QuickTrain.Forms.Form do
-  alias QuickTrain.Forms.Integrity, as: Integrity
   @moduledoc "Organization-scoped form definition."
   use Ash.Resource,
     otp_app: :quick_train,
@@ -128,14 +127,6 @@ defmodule QuickTrain.Forms.Form do
   postgres do
     table "forms"
     repo QuickTrain.Repo
-
-    custom_statements do
-      statement :forms_graph_integrity do
-        after_tables Integrity.tables()
-        up Integrity.up()
-        down Integrity.down()
-      end
-    end
 
     references do
       reference :organization, on_delete: :restrict

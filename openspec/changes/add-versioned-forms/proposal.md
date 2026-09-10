@@ -9,7 +9,8 @@ Organizations can now ingest immutable dataset content, but cannot define the re
 - Store one ordered presentation sequence with typed instruction, heading, section, bound-value, and question-placement elements.
 - Define typed scalar, static-choice, task-input-choice, ranking, and annotation question contracts, separating renderer type from answer family. Keep static options, input-slot references, label sets, labels, and family-specific constraints relational.
 - Expose scoped authoring and paginated inspection through deliberate AshGraphql actions protected by `forms.read` and `forms.manage`.
-- Preserve published child identities and content, including under concurrent authoring and publication. Support creating an empty draft or copying a published version of the same form into a new draft.
+- Keep lifecycle, ownership, subtype compatibility, and publication rules in Ash/Elixir; PostgreSQL provides relational constraints and transactional locks.
+- Preserve published child identities and content through authoring actions, including under concurrent authoring and publication. Support creating an empty draft or copying a published version of the same form into a new draft.
 
 Explicit non-goals:
 
