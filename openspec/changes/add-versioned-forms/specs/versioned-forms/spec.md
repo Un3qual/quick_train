@@ -24,7 +24,7 @@ The system SHALL require an active authenticated account, active owning organiza
 - **THEN** the mutation fails without exposing or modifying that foreign record
 
 ### Requirement: Stable forms and independently editable numbered versions
-The system SHALL give each form a stable identity and organization-unique nonempty key, and each version a unique positive increasing number within its form. Each version SHALL own its title, description, input definitions, presentation, questions, options, and labels. New versions SHALL start as drafts; multiple drafts SHALL be allowed. Creating an empty draft or copying a published version of the same form SHALL allocate a new number. A copy SHALL preserve authored values, keys, and ordering while allocating new identities for every owned record and remapping every internal reference. Draft sources, foreign forms, and foreign organizations SHALL be rejected as copy sources. Copying SHALL be atomic. This release SHALL expose no version or form deletion operation; version numbers SHALL never be recycled. Organization ownership, parent identities, version numbers, and authored keys SHALL be immutable after creation; authors can replace an unreferenced draft definition by removing it and creating another.
+The system SHALL give each form a stable identity and organization-unique nonempty key, and each version a unique positive increasing number within its form. Each version SHALL own its title, description, input definitions, presentation, questions, options, and labels. New versions SHALL start as drafts; multiple drafts SHALL be allowed. Creating an empty draft or copying a published version of the same form SHALL allocate a new number. A copy SHALL preserve authored values, keys, and ordering while allocating new identities for every owned record and remapping every internal reference. Draft sources, foreign forms, and foreign organizations SHALL be rejected as copy sources. Copying SHALL be atomic. This release SHALL expose no version or form deletion operation; numbers assigned to committed versions SHALL never be recycled. A rolled-back creation or copy SHALL consume no version number and SHALL expose no destination version; a later successful transaction can use that uncommitted candidate number. Organization ownership, parent identities, version numbers, and authored keys SHALL be immutable after creation; authors can replace an unreferenced draft definition by removing it and creating another.
 
 #### Scenario: Concurrent draft creation
 - **WHEN** two authors create drafts of the same form concurrently
@@ -36,7 +36,7 @@ The system SHALL give each form a stable identity and organization-unique nonemp
 
 #### Scenario: Copy fails midway
 - **WHEN** any definition cannot be copied successfully
-- **THEN** no partial destination version is persisted
+- **THEN** no partial destination version is persisted and no version number is consumed
 
 ### Requirement: Typed reusable input requirements
 The system SHALL let a draft define input slots with version-unique nonempty keys, positive minimum item counts, and finite maximum item counts no smaller than their minimums. Each slot SHALL own field requirements with slot-unique keys, a value family (`text`, `integer`, `decimal`, `boolean`, `date_time`, or `asset`), single-value cardinality, and explicit requiredness. Definitions SHALL NOT contain concrete dataset, field, item, revision, or asset bindings. Repeated slot items SHALL be distinct from repeated values inside a dataset field; repeated or nested field requirements SHALL be rejected in this release. An asset requirement SHALL declare intended use as `download` or `image`; `image` SHALL describe a future consumer requirement and SHALL NOT certify any actual file or permit inline delivery.
@@ -54,7 +54,7 @@ The system SHALL let a draft define input slots with version-unique nonempty key
 - **THEN** the result contains its type and intended use without dataset content or storage access
 
 ### Requirement: One normalized presentation sequence
-The system SHALL define one ordered sequence per version containing typed instructions, headings, section markers, bound-value placements, and question placements. Positions SHALL be unique nonnegative integers within the sequence, with gaps permitted. Instructions, headings, section markers, prompts, and labels SHALL contain plain text rather than executable HTML, scripts, or embedded external-form references. A section marker SHALL introduce a section for following elements until the next marker, without nested containers. Bound-value placements SHALL reference an input field requirement from the same version and describe presentation for all items in its slot in eventual task presentation order. Question placements SHALL reference a question from the same version. Each published question SHALL appear exactly once. Reordering SHALL atomically accept a complete permutation of the current element IDs and reject duplicates, omissions, or foreign IDs.
+The system SHALL define one ordered sequence per version containing typed instructions, headings, section markers, bound-value placements, and question placements. Positions SHALL be unique nonnegative integers within the sequence, with gaps permitted. Instructions, headings, section markers, prompts, and labels SHALL contain plain text rather than executable HTML, scripts, or embedded external-form references. A section marker SHALL introduce a section for following elements until the next marker, without nested containers. Bound-value placements SHALL reference an input field requirement from the same version and describe presentation for all items in its slot in eventual task presentation order. Question placements SHALL reference a question from the same version. Each published question SHALL appear exactly once. Reordering SHALL atomically accept a complete permutation of the current element IDs and reject duplicates, omissions, or foreign IDs. A successful reorder SHALL canonicalize positions to consecutive integers starting at zero in the supplied ID order, including for previously sparse sequences; it SHALL preserve record identities.
 
 #### Scenario: Ordered pairwise presentation
 - **WHEN** an author places instructions, a candidate body requirement, and a choice question in order
@@ -62,7 +62,7 @@ The system SHALL define one ordered sequence per version containing typed instru
 
 #### Scenario: Reordering is atomic
 - **WHEN** an author swaps two elements using a complete valid permutation
-- **THEN** readers see the committed old or new order, never duplicate positions or a partially applied order
+- **THEN** readers see the committed old or new order, never duplicate positions or a partially applied order, and the new positions are consecutive integers starting at zero even if the old sequence had gaps
 
 #### Scenario: Invalid reference or referenced deletion
 - **WHEN** an author references a question from another version or removes a definition still referenced by a placement or question
@@ -87,18 +87,18 @@ The system SHALL store questions with version-unique nonempty keys, plain-text p
 | raster_masks | raster_masks |
 | text_spans | text_spans |
 
-Text constraints SHALL support optional nonnegative minimum and maximum Unicode code-point lengths. Integer and decimal constraints SHALL support optional inclusive minimum and maximum values, preserving decimal precision. Paired bounds SHALL satisfy minimum no greater than maximum. Stars and Likert SHALL require finite integer bounds. Boolean questions SHALL have no unrelated scalar or selection constraints. Selection and annotation constraints SHALL use explicit count bounds as specified below. Unknown families, renderer values, and configuration fields SHALL be rejected. Changing family or renderer SHALL reject incompatible existing children or constraints rather than silently dropping them. No generic JSON configuration or answer payload SHALL substitute for the typed contract. Per-question answer targets, worker skipping, and review policy SHALL be left to Projects and Tasks.
+Text constraints SHALL support optional nonnegative minimum and maximum Unicode code-point lengths. Integer and decimal constraints SHALL support optional inclusive minimum and maximum values, preserving decimal precision. Integer questions and their supplied bounds SHALL use the signed 32-bit range −2,147,483,648 through 2,147,483,647 supported by GraphQL Int; an omitted bound SHALL mean the corresponding endpoint of that range. Paired bounds SHALL satisfy minimum no greater than maximum. Stars and Likert SHALL require finite integer bounds. Boolean questions SHALL have no unrelated scalar or selection constraints. Selection and annotation constraints SHALL use explicit count bounds as specified below. Unknown families, renderer values, and configuration fields SHALL be rejected. Changing family or renderer SHALL reject incompatible existing children or constraints rather than silently dropping them. No generic JSON configuration or answer payload SHALL substitute for the typed contract. Per-question answer targets, worker skipping, and review policy SHALL be left to Projects and Tasks.
 
 #### Scenario: Renderer changes without changing value family
 - **WHEN** an author changes a compatible integer question from integer input to stars with finite integer bounds
 - **THEN** its answer family remains integer and its renderer and typed constraints reflect the new contract
 
 #### Scenario: Incompatible configuration is rejected
-- **WHEN** an author selects a text renderer for an integer question, supplies reversed bounds, or attaches choice constraints to a boolean question
+- **WHEN** an author selects a text renderer for an integer question, supplies reversed or out-of-range integer bounds, or attaches choice constraints to a boolean question
 - **THEN** the write fails without partially changing the question
 
 ### Requirement: Static choices and dynamic input choices remain distinct
-Static-choice questions SHALL own ordered options with question-unique nonempty keys and plain-text labels. Input-choice and ranking questions SHALL reference one input slot in the same version and SHALL NOT own static options. Single-choice questions SHALL require exactly one selection; multiple-choice questions SHALL define a positive minimum and finite maximum selection count with minimum no greater than maximum; ranking SHALL order every input item of its referenced slot without ties or omissions. Publication SHALL require at least two options for static choice and at least two guaranteed input items for input choice or ranking. For static multiple choice, the maximum SHALL be no greater than the option count. For input multiple choice, the maximum SHALL be no greater than the slot minimum, so the constraint is feasible for every allowed slot size. Pairwise SHALL require a slot fixed at exactly two items. Image choice SHALL additionally reference a required, single asset field requirement with intended use `image` from its referenced slot. Option positions SHALL be unique nonnegative integers per question. Their reordering SHALL follow the same complete-permutation rule as presentation reordering. Published option identity SHALL remain stable for future answers.
+Static-choice questions SHALL own ordered options with question-unique nonempty keys and nonblank plain-text labels containing at least one non-whitespace character. Blank option labels SHALL be rejected on creation and update. Input-choice and ranking questions SHALL reference one input slot in the same version and SHALL NOT own static options. Single-choice questions SHALL require exactly one selection; multiple-choice questions SHALL define a positive minimum and finite maximum selection count with minimum no greater than maximum; ranking SHALL order every input item of its referenced slot without ties or omissions. Publication SHALL require at least two options for static choice and at least two guaranteed input items for input choice or ranking. For static multiple choice, the maximum SHALL be no greater than the option count. For input multiple choice, the maximum SHALL be no greater than the slot minimum, so the constraint is feasible for every allowed slot size. Pairwise SHALL require a slot fixed at exactly two items. Image choice SHALL additionally reference a required, single asset field requirement with intended use `image` from its referenced slot. Option positions SHALL be unique nonnegative integers per question. Their reordering SHALL follow the same complete-permutation rule as presentation reordering. Published option identity SHALL remain stable for future answers.
 
 #### Scenario: Pairwise contract uses actual input identity later
 - **WHEN** an author publishes a pairwise question targeting a two-item candidate slot
@@ -107,6 +107,10 @@ Static-choice questions SHALL own ordered options with question-unique nonempty 
 #### Scenario: Impossible choice fails publication
 - **WHEN** a version has a static choice with fewer than two options, a pairwise slot allowing three items, or selection bounds exceeding the guaranteed available choices
 - **THEN** publication fails and the version remains an editable draft
+
+#### Scenario: Blank option label is rejected
+- **WHEN** an author creates or updates a static option with an empty or whitespace-only label
+- **THEN** the write fails without persisting an unusable choice
 
 #### Scenario: Static and dynamic options cannot be mixed
 - **WHEN** an author adds a static option to an input-choice question or a slot reference to a static-choice question
@@ -131,7 +135,7 @@ The system SHALL support version-owned label sets with ordered labels whose none
 Publication SHALL require a nonempty version title, at least one input slot with at least one field requirement per slot, at least one question, exactly one placement per question, all required typed constraints and child records, valid same-version references, compatible types, feasible bounds, and unique keys and positions. Drafts SHALL permit incomplete graphs but SHALL never persist invalid local values or dangling references. Every write to version metadata or owned definitions, including additions, removals, reordering, and related-reference changes, SHALL serialize against publication of that version and revalidate draft state after acquiring the shared mutation boundary. Publication SHALL change the complete graph atomically from draft to published with a publication timestamp. A successful authorized retry of publication SHALL return the same published version without changing it. A failed validation SHALL leave the graph and state unchanged. Published versions and every owned definition SHALL reject update, deletion, ownership changes, and further child insertion, including through internal persistence paths.
 
 #### Scenario: Incomplete draft can be repaired
-- **WHEN** an author publishes a draft with an unplaced question or empty required option or label set
+- **WHEN** an author publishes a draft with an unplaced question or empty required option set or label set
 - **THEN** publication returns sanitized validation issues identifying only definitions in the authorized version, and the author can repair and retry the draft
 
 #### Scenario: Child edit races publication
