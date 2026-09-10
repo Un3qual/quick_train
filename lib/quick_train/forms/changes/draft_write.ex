@@ -5,6 +5,9 @@ defmodule QuickTrain.Forms.Changes.DraftWrite do
   alias QuickTrain.Forms.{Error, FormVersion, Graph}
   require Ash.Query
 
+  # These fields cannot change graph counts, references, or type compatibility.
+  @local_attributes [:title, :description, :prompt, :text, :label, :name, :position, :updated_at]
+
   @impl true
   def change(changeset, _opts, _context) do
     changeset
@@ -34,7 +37,11 @@ defmodule QuickTrain.Forms.Changes.DraftWrite do
   end
 
   defp validate(changeset, result) do
-    Graph.validate!(changeset.context.forms_version, :draft)
+    unless changeset.action_type == :update and changeset.atomics == [] and
+             Map.drop(changeset.attributes, @local_attributes) == %{} do
+      Graph.validate!(changeset.context.forms_version, :draft)
+    end
+
     {:ok, result}
   rescue
     error in Ash.Error.Invalid -> {:error, error}

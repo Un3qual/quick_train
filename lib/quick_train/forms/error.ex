@@ -2,8 +2,6 @@ defmodule QuickTrain.Forms.Error do
   @moduledoc "Bounded, definition-only Forms validation errors."
   use Splode.Error, fields: [:category, issues: [], truncated: false], class: :invalid
 
-  def invalid(category), do: {:error, exception(category: category)}
-
   @spec reject!(atom()) :: no_return()
   @spec reject!(atom(), [String.t()]) :: no_return()
   def reject!(category, issues \\ []) do

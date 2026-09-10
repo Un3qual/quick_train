@@ -146,11 +146,7 @@ defmodule QuickTrain.Forms.Presentation.Section do
 
     references do
       reference :element, on_delete: :restrict, match_with: [version_id: :version_id]
-      reference :version, on_delete: :restrict
-    end
-
-    custom_indexes do
-      index [:id, :version_id], unique: true
+      reference :version, on_delete: :restrict, index?: true
     end
   end
 

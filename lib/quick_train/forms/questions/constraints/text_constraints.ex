@@ -121,6 +121,13 @@ defmodule QuickTrain.Forms.Questions.Constraints.TextConstraints do
     end
   end
 
+  validations do
+    validate compare(:minimum, less_than_or_equal_to: :maximum),
+      where: [present([:minimum, :maximum])],
+      before_action?: true,
+      only_when_valid?: true
+  end
+
   graphql do
     type :form_text_constraints
     derive_filter? false
@@ -135,11 +142,7 @@ defmodule QuickTrain.Forms.Questions.Constraints.TextConstraints do
 
     references do
       reference :question, on_delete: :restrict, match_with: [version_id: :version_id]
-      reference :version, on_delete: :restrict
-    end
-
-    custom_indexes do
-      index [:id, :version_id], unique: true
+      reference :version, on_delete: :restrict, index?: true
     end
 
     check_constraints do

@@ -128,4 +128,59 @@ defmodule QuickTrain.Forms.FormLifecycleTest do
     assert Forms.get_form_version!(context.org.id, graph.version.id, actor: context.actor).title ==
              "Current title"
   end
+
+  test "local validations use current bounds and asset intent after refreshing stale records",
+       context do
+    graph = rating!(context)
+
+    Forms.update_form_integer_constraints!(
+      graph.bounds,
+      context.org.id,
+      %{version_id: graph.version.id, maximum: 10},
+      actor: context.actor
+    )
+
+    assert %{minimum: 8, maximum: 10} =
+             Forms.update_form_integer_constraints!(
+               graph.bounds,
+               context.org.id,
+               %{version_id: graph.version.id, minimum: 8},
+               actor: context.actor
+             )
+
+    assert {:error, error} =
+             Forms.update_form_integer_constraints(
+               graph.bounds,
+               context.org.id,
+               %{version_id: graph.version.id, maximum: 7},
+               actor: context.actor
+             )
+
+    assert Exception.message(error) =~ "must be less than or equal to"
+
+    Forms.update_form_input_field_requirement!(
+      graph.field,
+      context.org.id,
+      %{version_id: graph.version.id, value_family: :asset, intended_use: :download},
+      actor: context.actor
+    )
+
+    assert %{value_family: :asset, intended_use: :image} =
+             Forms.update_form_input_field_requirement!(
+               graph.field,
+               context.org.id,
+               %{version_id: graph.version.id, intended_use: :image},
+               actor: context.actor
+             )
+
+    assert {:error, error} =
+             Forms.update_form_input_field_requirement(
+               graph.field,
+               context.org.id,
+               %{version_id: graph.version.id, value_family: :text},
+               actor: context.actor
+             )
+
+    assert Exception.message(error) =~ "must be absent"
+  end
 end

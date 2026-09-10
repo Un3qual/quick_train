@@ -138,6 +138,13 @@ defmodule QuickTrain.Forms.Inputs.InputSlotDefinition do
     end
   end
 
+  validations do
+    validate compare(:minimum, less_than_or_equal_to: :maximum),
+      where: [present([:minimum, :maximum])],
+      before_action?: true,
+      only_when_valid?: true
+  end
+
   graphql do
     type :form_input_slot_definition
     derive_filter? false

@@ -130,18 +130,30 @@ defmodule QuickTrain.Forms.FormIntegrityTest do
     )
 
     try do
-      assert {:error, _} =
+      assert {:error, error} =
                run(FormVersion, :copy_published, ctx, %{
                  form_id: ctx.form.id,
                  source_version_id: ctx.version.id
                })
 
+      assert Exception.message(error) =~ "injected copy failure"
       assert Ash.count!(FormVersion, authorize?: false) == 1
       assert Ash.count!(QuestionDefinition, authorize?: false) == 1
       assert run!(FormVersion, :create_draft, ctx, %{form_id: ctx.form.id}).version == 2
     after
       Repo.query!("DROP TRIGGER reject_form_copy ON form_integer_constraints")
     end
+  end
+
+  test "publication reports each contract issue once", ctx do
+    Repo.query!(
+      "UPDATE form_question_definitions SET renderer = 'text_input' WHERE id = $1",
+      [Ecto.UUID.dump!(ctx.question.id)]
+    )
+
+    assert {:error, error} = run(FormVersion, :publish, ctx, %{version_id: ctx.version.id})
+    assert [%QuickTrain.Forms.Error{issues: [issue], truncated: false}] = error.errors
+    assert issue == "#{ctx.question.id}: incompatible renderer"
   end
 
   test "later-page invalid definitions are validated and issue output is capped", ctx do

@@ -70,9 +70,18 @@
 - [x] 9.3 Derive the constraint-resource list from the existing family-to-constraint mapping.
 - [x] 9.4 Verify copy, ordinary creation, reorder, cascades, and concurrency with the existing tests; synchronize the design and run both verification gates.
 
+## 10. Approved code-quality review fixes
+
+- [x] 10.1 Skip full-graph validation for text, metadata, and position-only updates and reorders while preserving scoped version locking and local validations.
+- [x] 10.2 Generate version-reference indexes for the 14 uncovered descendants and remove 13 leaf composite indexes that support no incoming foreign key; verify migration up/down and retained integrity.
+- [x] 10.3 Preserve native authoring errors and unexpected database diagnostics for AshGraphql's existing error handling.
+- [x] 10.4 Use built-in resource validations for paired bounds and conditional asset intent after locked refresh; preserve nullable bounds and database constraints.
+- [x] 10.5 Validate questions once per publication and retain the bounded, sanitized issue contract.
+- [x] 10.6 Verify the focused behavior, concurrency, and query-cost changes; synchronize the design and run both repository verification gates.
+
 ## Verification record
 
-- `mise run verify` passed with 209 tests, including 52 Forms tests. The gate also passed
+- `mise run verify` passed with 211 tests, including 54 Forms tests. The gate also passed
   compilation, formatting, Ash code-generation consistency, boundary/cycle checks, static
   analysis, Dialyzer, the dependency audit, and production compilation.
 - `mise run openspec.validate` passed independently for all seven current changes/specifications.
@@ -80,4 +89,8 @@
   rating graph; that database was removed afterward.
 - The maximum 10,000-row graph was published and copied successfully. Independent-connection
   race tests observed actual PostgreSQL blocking before allowing the first transaction to finish.
+- The index-only follow-up migration passed down/up on the dedicated test database. A sandboxed
+  title-update probe on a version containing 2,000 labels dropped from 20 SELECTs to two (authorization
+  and the version lock), loading no descendants. The query planner uses the new version index for
+  label graph reads; catalog inspection confirmed no unused leaf composite indexes remain.
 - No dependency changes, external blockers, or deferred implementation tasks remain in this change.

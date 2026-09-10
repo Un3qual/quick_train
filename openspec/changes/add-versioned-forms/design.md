@@ -53,7 +53,7 @@ Asset requirements have intended use `download | image`; non-asset requirements 
 
 ### 4. Serialize every draft write and publication on FormVersion
 
-Public actions authorize using the existing organization-capability check, then use `Ash.transact` with an organization-scoped `FOR UPDATE` read of the owning version. Resolve children again under that lock. Validate state, related references, inbound compatibility, and count limits after locking. All writes, including removal, reorder, options, constraints, labels, and metadata, follow this boundary. Internal low-level actions remain unexposed and are used only within the authorized transaction.
+Public actions authorize using the existing organization-capability check, then use Ash transactions with an organization-scoped `FOR UPDATE` read of the owning version. Resolve children again under that lock. Validate state, related references, inbound compatibility, and count limits after locking. All writes, including removal, reorder, options, constraints, labels, and metadata, follow this boundary. Updates limited to text, metadata, or position retain the lock and local attribute validations but do not reload the graph: they cannot change counts, references, or type compatibility. Structural writes retain full-graph validation. Reorders rely on their complete scoped permutation check and database position constraint. Internal low-level actions remain unexposed and are used only within the authorized transaction.
 
 Publication locks the version, loads its bounded full graph through internal scoped reads (not a default first page), validates every spec invariant, and writes state and timestamp together. Already-published retries return the existing record after authorization. Failed publication rolls back without modifying graph content. Both empty-draft creation and copying lock the owning Form before reading the maximum committed version, retain that lock through transaction commit or rollback, and compute the next number with a database uniqueness backstop. Competing allocations wait and then reread committed state; a later candidate cannot commit while the earlier allocation is unresolved. Allocation commits with the new version; rollback consumes no number and returns no destination version. The non-recycling guarantee applies to committed versions, so no reservation records, tombstones, or per-form sequences are needed. Copy locks Form for allocation; its published source cannot change. No version-write path subsequently locks Form, avoiding inverse lock order.
 
@@ -104,7 +104,8 @@ Use Ash integer constraints and database bounds for every persisted integer expo
 - Native Ash mutation actions own their transactions. `AllocateVersion` locks Form before
   allocating its next number; `DraftWrite` locks FormVersion, reloads a mutation's record, and
   reapplies Ash's cast inputs before writing. This preserves explicit updates against stale
-  records while leaving omitted fields unchanged. Its after-action validation runs before commit.
+  records while leaving omitted fields unchanged. Its after-action graph validation runs before commit
+  for structural writes; updates limited to text, metadata, or position omit that scan.
   Publication, copying, and the three reorders remain five generic actions with `transaction? true`.
 - GraphQL create/update/destroy mutations use AshGraphql's native result/error envelopes, such as
   `createForm(...) { result { id } errors { message } }`. Mutation names and explicit organization
@@ -141,6 +142,18 @@ Use Ash integer constraints and database bounds for every persisted integer expo
 - The generated migration keeps composite foreign-key changes in a separate `alter table` block
   from additions of the same columns. Forms-specific custom statements are tracked in Ash
   snapshots and install deferred position/subtype constraints plus owner/descendant guards.
+- Version-scoped graph reads have a leading version index on every descendant, supplied by an
+  existing identity/position index or AshPostgres's `reference :version, index?: true`. Only the
+  five referenced parent resources retain `(id, version_id)` unique indexes for composite foreign
+  keys; leaves use their primary key for identity. A generated reversible index-only migration
+  replaces 13 unnecessary composite indexes and adds 14 version-reference indexes.
+- Paired bounds use Ash's `compare` validation when both endpoints are present; asset intent uses
+  conditional `present` and `absent` validations. These resource validations run before persistence,
+  after the draft lock and record refresh, including for stale partial updates. PostgreSQL constraints
+  continue to enforce the same invariants for direct persistence.
+- Publication validates each question once with publication completeness enabled, preserving the
+  100-issue cap without duplicate local errors. Native validation and unexpected database errors
+  retain their diagnostics; AshGraphql supplies its existing sanitized response and server logging.
 
 ### Follow-up built-in review
 

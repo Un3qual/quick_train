@@ -9,13 +9,7 @@ defmodule QuickTrain.Forms.Authoring do
   def run(input, _opts, _context) do
     {:ok, execute(input)}
   rescue
-    error in Ash.Error.Invalid ->
-      if Enum.any?(error.errors, &is_struct(&1, Error)),
-        do: {:error, error},
-        else: Error.invalid(:invalid_definition)
-
-    _error in [Ash.Error.Unknown, Postgrex.Error] ->
-      Error.invalid(:invalid_definition)
+    error in [Ash.Error.Invalid, Ash.Error.Unknown, Postgrex.Error] -> {:error, error}
   end
 
   defp execute(%{action: %{name: :copy_published}, arguments: args}) do
@@ -50,9 +44,7 @@ defmodule QuickTrain.Forms.Authoring do
         Error.reject!(:version_not_draft)
 
       true ->
-        result = edit(input, version)
-        Graph.validate!(version, :draft)
-        result
+        edit(input, version)
     end
   end
 

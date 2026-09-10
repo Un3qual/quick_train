@@ -118,7 +118,8 @@ defmodule QuickTrain.Forms.Graph do
     graph = load!(version.id)
 
     issues =
-      limit_issues(graph) ++ local_issues(graph) ++ publication_issues(graph, version, state)
+      limit_issues(graph) ++
+        local_issues(graph, state) ++ publication_issues(graph, version, state)
 
     if issues != [], do: Error.reject!(:invalid_form_contract, issues)
     graph
@@ -134,15 +135,8 @@ defmodule QuickTrain.Forms.Graph do
     end)
   end
 
-  defp local_issues(graph) do
-    Enum.flat_map(graph[QuestionDefinition], &question_issues(&1, graph, false)) ++
-      Enum.flat_map(graph[InputFieldRequirement], fn field ->
-        issue(
-          field.value_family == :asset != field.intended_use in [:download, :image],
-          field.id,
-          "invalid asset intent"
-        )
-      end) ++
+  defp local_issues(graph, state) do
+    Enum.flat_map(graph[QuestionDefinition], &question_issues(&1, graph, state == :published)) ++
       Enum.flat_map(graph[PresentationElement], fn element ->
         children =
           Enum.flat_map(Map.values(@presentations), fn resource ->
@@ -180,8 +174,7 @@ defmodule QuickTrain.Forms.Graph do
           Enum.count(graph[QuestionPlacement], &(&1.question_id == question.id)) != 1,
           question.id,
           "exactly one placement is required"
-        ) ++
-          question_issues(question, graph, true)
+        )
       end)
   end
 

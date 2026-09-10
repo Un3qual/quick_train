@@ -174,6 +174,18 @@ defmodule QuickTrain.Forms.Inputs.InputFieldRequirement do
     end
   end
 
+  validations do
+    validate present(:intended_use),
+      where: [attribute_equals(:value_family, :asset)],
+      before_action?: true,
+      only_when_valid?: true
+
+    validate absent(:intended_use),
+      where: [attribute_does_not_equal(:value_family, :asset)],
+      before_action?: true,
+      only_when_valid?: true
+  end
+
   graphql do
     type :form_input_field_requirement
     derive_filter? false
@@ -188,7 +200,7 @@ defmodule QuickTrain.Forms.Inputs.InputFieldRequirement do
 
     references do
       reference :input_slot, on_delete: :restrict, match_with: [version_id: :version_id]
-      reference :version, on_delete: :restrict
+      reference :version, on_delete: :restrict, index?: true
     end
 
     custom_indexes do
