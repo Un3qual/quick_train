@@ -14,11 +14,7 @@ defmodule QuickTrain.Forms.Presentation.Section do
       public?: true,
       allow_nil?: false,
       constraints: [
-        trim?: false,
-        allow_empty?: true,
-        match: ~r/\A[^\x00]*\z/u,
-        max_length: 1024,
-        length_count: :bytes
+        max_length: 1024
       ]
 
     timestamps()
@@ -70,11 +66,7 @@ defmodule QuickTrain.Forms.Presentation.Section do
 
       argument :text, QuickTrain.Forms.Types.PlainText,
         constraints: [
-          trim?: false,
-          allow_empty?: true,
-          match: ~r/\A[^\x00]*\z/u,
-          max_length: 1024,
-          length_count: :bytes
+          max_length: 1024
         ]
 
       run {Module.concat(["QuickTrain.Forms.Authoring"]), []}
@@ -82,6 +74,12 @@ defmodule QuickTrain.Forms.Presentation.Section do
 
     create :create_internal do
       accept [:text, :element_id, :version_id]
+    end
+
+    create :copy_internal do
+      accept [:text, :element_id, :version_id]
+      argument :copied_id, :uuid, allow_nil?: false
+      change set_attribute(:id, arg(:copied_id))
     end
 
     update :update_internal do

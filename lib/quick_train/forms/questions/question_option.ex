@@ -16,11 +16,7 @@ defmodule QuickTrain.Forms.Questions.QuestionOption do
       public?: true,
       allow_nil?: false,
       constraints: [
-        trim?: false,
-        allow_empty?: true,
-        match: ~r/\A[^\x00]*\z/u,
         max_length: 512,
-        length_count: :bytes,
         min_length: 1
       ]
 
@@ -28,11 +24,7 @@ defmodule QuickTrain.Forms.Questions.QuestionOption do
       public?: true,
       allow_nil?: false,
       constraints: [
-        trim?: false,
-        allow_empty?: true,
-        match: ~r/\A[^\x00]*\z/u,
         max_length: 1024,
-        length_count: :bytes,
         min_length: 1
       ]
 
@@ -90,22 +82,14 @@ defmodule QuickTrain.Forms.Questions.QuestionOption do
       argument :key, QuickTrain.Forms.Types.PlainText,
         allow_nil?: false,
         constraints: [
-          trim?: false,
-          allow_empty?: true,
-          match: ~r/\A[^\x00]*\z/u,
           max_length: 512,
-          length_count: :bytes,
           min_length: 1
         ]
 
       argument :label, QuickTrain.Forms.Types.PlainText,
         allow_nil?: false,
         constraints: [
-          trim?: false,
-          allow_empty?: true,
-          match: ~r/\A[^\x00]*\z/u,
           max_length: 1024,
-          length_count: :bytes,
           min_length: 1
         ]
 
@@ -123,11 +107,7 @@ defmodule QuickTrain.Forms.Questions.QuestionOption do
 
       argument :label, QuickTrain.Forms.Types.PlainText,
         constraints: [
-          trim?: false,
-          allow_empty?: true,
-          match: ~r/\A[^\x00]*\z/u,
           max_length: 1024,
-          length_count: :bytes,
           min_length: 1
         ]
 
@@ -154,6 +134,12 @@ defmodule QuickTrain.Forms.Questions.QuestionOption do
 
     create :create_internal do
       accept [:key, :label, :position, :question_id, :version_id]
+    end
+
+    create :copy_internal do
+      accept [:key, :label, :position, :question_id, :version_id]
+      argument :copied_id, :uuid, allow_nil?: false
+      change set_attribute(:id, arg(:copied_id))
     end
 
     update :update_internal do

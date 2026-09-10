@@ -87,11 +87,7 @@ defmodule QuickTrain.Forms.Presentation.PresentationElement do
 
       argument :text, QuickTrain.Forms.Types.PlainText,
         constraints: [
-          trim?: false,
-          allow_empty?: true,
-          match: ~r/\A[^\x00]*\z/u,
-          max_length: 16_384,
-          length_count: :bytes
+          max_length: 16_384
         ]
 
       argument :requirement_id, :uuid
@@ -129,11 +125,24 @@ defmodule QuickTrain.Forms.Presentation.PresentationElement do
       accept [:kind, :position, :version_id]
     end
 
+    create :copy_internal do
+      accept [:kind, :position, :version_id]
+      argument :copied_id, :uuid, allow_nil?: false
+      change set_attribute(:id, arg(:copied_id))
+    end
+
     update :update_internal do
       accept [:position]
     end
 
-    destroy :destroy_internal
+    destroy :destroy_internal do
+      require_atomic? false
+      change cascade_destroy(:instruction, action: :destroy_internal, after_action?: false)
+      change cascade_destroy(:heading, action: :destroy_internal, after_action?: false)
+      change cascade_destroy(:section, action: :destroy_internal, after_action?: false)
+      change cascade_destroy(:bound_value, action: :destroy_internal, after_action?: false)
+      change cascade_destroy(:question_placement, action: :destroy_internal, after_action?: false)
+    end
   end
 
   policies do

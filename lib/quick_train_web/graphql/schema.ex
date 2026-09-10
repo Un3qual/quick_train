@@ -8,7 +8,6 @@ defmodule QuickTrainWeb.GraphQL.Schema do
       QuickTrain.Authentication,
       QuickTrain.Assets,
       QuickTrain.Datasets,
-      QuickTrain.Forms,
       QuickTrain.Forms
     ],
     define_relay_types?: true,

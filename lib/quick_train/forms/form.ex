@@ -15,11 +15,7 @@ defmodule QuickTrain.Forms.Form do
       public?: true,
       allow_nil?: false,
       constraints: [
-        trim?: false,
-        allow_empty?: true,
-        match: ~r/\A[^\x00]*\z/u,
         max_length: 512,
-        length_count: :bytes,
         min_length: 1
       ]
 
@@ -73,11 +69,7 @@ defmodule QuickTrain.Forms.Form do
       argument :key, QuickTrain.Forms.Types.PlainText,
         allow_nil?: false,
         constraints: [
-          trim?: false,
-          allow_empty?: true,
-          match: ~r/\A[^\x00]*\z/u,
           max_length: 512,
-          length_count: :bytes,
           min_length: 1
         ]
 

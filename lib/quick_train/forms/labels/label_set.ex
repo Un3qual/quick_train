@@ -14,22 +14,14 @@ defmodule QuickTrain.Forms.Labels.LabelSet do
       public?: true,
       allow_nil?: false,
       constraints: [
-        trim?: false,
-        allow_empty?: true,
-        match: ~r/\A[^\x00]*\z/u,
         max_length: 512,
-        length_count: :bytes,
         min_length: 1
       ]
 
     attribute :name, QuickTrain.Forms.Types.PlainText,
       public?: true,
       constraints: [
-        trim?: false,
-        allow_empty?: true,
-        match: ~r/\A[^\x00]*\z/u,
-        max_length: 1024,
-        length_count: :bytes
+        max_length: 1024
       ]
 
     timestamps()
@@ -81,21 +73,13 @@ defmodule QuickTrain.Forms.Labels.LabelSet do
       argument :key, QuickTrain.Forms.Types.PlainText,
         allow_nil?: false,
         constraints: [
-          trim?: false,
-          allow_empty?: true,
-          match: ~r/\A[^\x00]*\z/u,
           max_length: 512,
-          length_count: :bytes,
           min_length: 1
         ]
 
       argument :name, QuickTrain.Forms.Types.PlainText,
         constraints: [
-          trim?: false,
-          allow_empty?: true,
-          match: ~r/\A[^\x00]*\z/u,
-          max_length: 1024,
-          length_count: :bytes
+          max_length: 1024
         ]
 
       run {Module.concat(["QuickTrain.Forms.Authoring"]), []}
@@ -110,11 +94,7 @@ defmodule QuickTrain.Forms.Labels.LabelSet do
 
       argument :name, QuickTrain.Forms.Types.PlainText,
         constraints: [
-          trim?: false,
-          allow_empty?: true,
-          match: ~r/\A[^\x00]*\z/u,
-          max_length: 1024,
-          length_count: :bytes
+          max_length: 1024
         ]
 
       run {Module.concat(["QuickTrain.Forms.Authoring"]), []}
@@ -130,6 +110,12 @@ defmodule QuickTrain.Forms.Labels.LabelSet do
 
     create :create_internal do
       accept [:key, :name, :version_id]
+    end
+
+    create :copy_internal do
+      accept [:key, :name, :version_id]
+      argument :copied_id, :uuid, allow_nil?: false
+      change set_attribute(:id, arg(:copied_id))
     end
 
     update :update_internal do

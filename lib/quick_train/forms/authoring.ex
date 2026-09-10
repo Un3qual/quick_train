@@ -118,10 +118,12 @@ defmodule QuickTrain.Forms.Authoring do
     by_id = Map.new(records, &{&1.id, &1})
 
     ids
-    |> Enum.with_index()
-    |> Enum.each(fn {id, position} ->
-      update(Map.fetch!(by_id, id), %{position: position})
-    end)
+    |> Enum.with_index(fn id, position -> {Map.fetch!(by_id, id), %{position: position}} end)
+    |> Ash.update_many!(resource, :update_internal,
+      authorize?: false,
+      strategy: [:atomic],
+      return_records?: true
+    )
 
     true
   end
@@ -140,7 +142,6 @@ defmodule QuickTrain.Forms.Authoring do
         update(record, supplied(input, accepted))
 
       :remove_from_draft ->
-        if input.resource == PresentationElement, do: Graph.remove_element_child!(record)
         Ash.destroy!(record, action: :destroy_internal, authorize?: false)
         true
     end

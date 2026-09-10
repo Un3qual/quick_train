@@ -16,11 +16,7 @@ defmodule QuickTrain.Forms.Presentation.Heading do
       public?: true,
       allow_nil?: false,
       constraints: [
-        trim?: false,
-        allow_empty?: true,
-        match: ~r/\A[^\x00]*\z/u,
         max_length: 1024,
-        length_count: :bytes,
         min_length: 1
       ]
 
@@ -73,11 +69,7 @@ defmodule QuickTrain.Forms.Presentation.Heading do
 
       argument :text, QuickTrain.Forms.Types.PlainText,
         constraints: [
-          trim?: false,
-          allow_empty?: true,
-          match: ~r/\A[^\x00]*\z/u,
           max_length: 1024,
-          length_count: :bytes,
           min_length: 1
         ]
 
@@ -86,6 +78,12 @@ defmodule QuickTrain.Forms.Presentation.Heading do
 
     create :create_internal do
       accept [:text, :element_id, :version_id]
+    end
+
+    create :copy_internal do
+      accept [:text, :element_id, :version_id]
+      argument :copied_id, :uuid, allow_nil?: false
+      change set_attribute(:id, arg(:copied_id))
     end
 
     update :update_internal do

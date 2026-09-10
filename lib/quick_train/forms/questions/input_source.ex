@@ -93,6 +93,12 @@ defmodule QuickTrain.Forms.Questions.InputSource do
       accept [:question_id, :input_slot_id, :source_requirement_id, :version_id]
     end
 
+    create :copy_internal do
+      accept [:question_id, :input_slot_id, :source_requirement_id, :version_id]
+      argument :copied_id, :uuid, allow_nil?: false
+      change set_attribute(:id, arg(:copied_id))
+    end
+
     update :update_internal do
       accept [:input_slot_id, :source_requirement_id]
     end

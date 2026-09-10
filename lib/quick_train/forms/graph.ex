@@ -381,46 +381,38 @@ defmodule QuickTrain.Forms.Graph do
     element
   end
 
-  def remove_element_child!(element) do
-    resource = Map.fetch!(@presentations, element.kind)
-
-    child =
-      resource
-      |> Ash.Query.filter(element_id == ^element.id and version_id == ^element.version_id)
-      |> Ash.read_one!(authorize?: false)
-
-    Ash.destroy!(child, action: :destroy_internal, authorize?: false)
-  end
-
   def copy!(source, destination) do
     graph = load!(source.id)
     ids = graph |> Map.values() |> List.flatten() |> Map.new(&{&1.id, Ash.UUID.generate()})
 
     Enum.each(@resources, fn resource ->
-      Enum.each(graph[resource], &copy_record!(resource, &1, destination.id, ids))
+      attributes = Enum.map(graph[resource], &copy_attributes(resource, &1, destination.id, ids))
+
+      Ash.bulk_create!(attributes, resource, :copy_internal,
+        authorize?: false,
+        transaction: :all,
+        stop_on_error?: true
+      )
     end)
 
     validate!(destination, :draft)
   end
 
-  defp copy_record!(resource, original, destination_id, ids) do
+  defp copy_attributes(resource, original, destination_id, ids) do
     names = ResourceInfo.action(resource, :create_internal).accept
-    attributes = original |> Map.take(names) |> Map.new(&remap_attribute(&1, destination_id, ids))
 
-    resource
-    |> Ash.Changeset.for_create(:create_internal, attributes, authorize?: false)
-    |> Ash.Changeset.force_change_attribute(:id, ids[original.id])
-    |> Ash.create!()
-  end
+    references =
+      resource |> ResourceInfo.relationships() |> Enum.filter(&(&1.type == :belongs_to))
 
-  defp remap_attribute({:version_id, _old}, destination_id, _ids),
-    do: {:version_id, destination_id}
+    attributes = Map.take(original, names)
 
-  defp remap_attribute({key, nil}, _destination_id, _ids), do: {key, nil}
-
-  defp remap_attribute({key, value}, _destination_id, ids) do
-    if String.ends_with?(to_string(key), "_id"),
-      do: {key, Map.fetch!(ids, value)},
-      else: {key, value}
+    Enum.reduce(references, attributes, fn relationship, attributes ->
+      Map.update!(attributes, relationship.source_attribute, fn
+        nil -> nil
+        _old when relationship.source_attribute == :version_id -> destination_id
+        old -> Map.fetch!(ids, old)
+      end)
+    end)
+    |> Map.put(:copied_id, Map.fetch!(ids, original.id))
   end
 end

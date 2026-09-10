@@ -14,11 +14,7 @@ defmodule QuickTrain.Forms.Inputs.InputFieldRequirement do
       public?: true,
       allow_nil?: false,
       constraints: [
-        trim?: false,
-        allow_empty?: true,
-        match: ~r/\A[^\x00]*\z/u,
         max_length: 512,
-        length_count: :bytes,
         min_length: 1
       ]
 
@@ -82,11 +78,7 @@ defmodule QuickTrain.Forms.Inputs.InputFieldRequirement do
       argument :key, QuickTrain.Forms.Types.PlainText,
         allow_nil?: false,
         constraints: [
-          trim?: false,
-          allow_empty?: true,
-          match: ~r/\A[^\x00]*\z/u,
           max_length: 512,
-          length_count: :bytes,
           min_length: 1
         ]
 
@@ -135,6 +127,21 @@ defmodule QuickTrain.Forms.Inputs.InputFieldRequirement do
         :input_slot_id,
         :version_id
       ]
+    end
+
+    create :copy_internal do
+      accept [
+        :key,
+        :value_family,
+        :cardinality,
+        :required,
+        :intended_use,
+        :input_slot_id,
+        :version_id
+      ]
+
+      argument :copied_id, :uuid, allow_nil?: false
+      change set_attribute(:id, arg(:copied_id))
     end
 
     update :update_internal do

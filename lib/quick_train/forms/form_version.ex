@@ -23,21 +23,13 @@ defmodule QuickTrain.Forms.FormVersion do
     attribute :title, QuickTrain.Forms.Types.PlainText,
       public?: true,
       constraints: [
-        trim?: false,
-        allow_empty?: true,
-        match: ~r/\A[^\x00]*\z/u,
-        max_length: 1024,
-        length_count: :bytes
+        max_length: 1024
       ]
 
     attribute :description, QuickTrain.Forms.Types.PlainText,
       public?: true,
       constraints: [
-        trim?: false,
-        allow_empty?: true,
-        match: ~r/\A[^\x00]*\z/u,
-        max_length: 16_384,
-        length_count: :bytes
+        max_length: 16_384
       ]
 
     attribute :published_at, :utc_datetime_usec, public?: true
@@ -105,20 +97,12 @@ defmodule QuickTrain.Forms.FormVersion do
 
       argument :title, QuickTrain.Forms.Types.PlainText,
         constraints: [
-          trim?: false,
-          allow_empty?: true,
-          match: ~r/\A[^\x00]*\z/u,
-          max_length: 1024,
-          length_count: :bytes
+          max_length: 1024
         ]
 
       argument :description, QuickTrain.Forms.Types.PlainText,
         constraints: [
-          trim?: false,
-          allow_empty?: true,
-          match: ~r/\A[^\x00]*\z/u,
-          max_length: 16_384,
-          length_count: :bytes
+          max_length: 16_384
         ]
 
       run {Module.concat(["QuickTrain.Forms.Authoring"]), []}
@@ -141,20 +125,12 @@ defmodule QuickTrain.Forms.FormVersion do
 
       argument :title, QuickTrain.Forms.Types.PlainText,
         constraints: [
-          trim?: false,
-          allow_empty?: true,
-          match: ~r/\A[^\x00]*\z/u,
-          max_length: 1024,
-          length_count: :bytes
+          max_length: 1024
         ]
 
       argument :description, QuickTrain.Forms.Types.PlainText,
         constraints: [
-          trim?: false,
-          allow_empty?: true,
-          match: ~r/\A[^\x00]*\z/u,
-          max_length: 16_384,
-          length_count: :bytes
+          max_length: 16_384
         ]
 
       run {Module.concat(["QuickTrain.Forms.Authoring"]), []}

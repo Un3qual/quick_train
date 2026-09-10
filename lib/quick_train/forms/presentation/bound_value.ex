@@ -70,6 +70,12 @@ defmodule QuickTrain.Forms.Presentation.BoundValue do
       accept [:element_id, :requirement_id, :version_id]
     end
 
+    create :copy_internal do
+      accept [:element_id, :requirement_id, :version_id]
+      argument :copied_id, :uuid, allow_nil?: false
+      change set_attribute(:id, arg(:copied_id))
+    end
+
     update :update_internal do
       accept [:requirement_id]
     end
