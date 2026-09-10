@@ -162,12 +162,13 @@ defmodule QuickTrain.Forms.Questions.Constraints.AnnotationConstraints do
     end
 
     policy action(:read_for_authoring) do
-      authorize_if {QuickTrain.Forms.NestedRead,
-                    path: [:version, :form], capabilities: ["forms.manage"]}
+      forbid_unless actor_attribute_equals(:status, "active")
+      authorize_if relates_to_actor_via([:version, :form, :manager_role_assignments, :user])
     end
 
     policy action(:read) do
-      authorize_if {QuickTrain.Forms.NestedRead, path: [:version, :form]}
+      forbid_unless actor_attribute_equals(:status, "active")
+      authorize_if relates_to_actor_via([:version, :form, :reader_role_assignments, :user])
     end
 
     policy action(:read) do

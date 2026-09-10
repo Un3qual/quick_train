@@ -355,28 +355,6 @@ defmodule QuickTrain.Forms.Graph do
   defp issue(true, id, message), do: [id <> ": " <> message]
   defp issue(false, _id, _message), do: []
 
-  def create_element_child!(element, args) do
-    args = Map.put(args, :kind, element.kind)
-
-    fields =
-      case args.kind do
-        kind when kind in [:instruction, :heading, :section] -> [:text]
-        :bound_value -> [:requirement_id]
-        :question -> [:question_id]
-      end
-
-    if Enum.any?([:text, :requirement_id, :question_id] -- fields, &(not is_nil(args[&1]))),
-      do: Error.reject!(:invalid_presentation_content)
-
-    Ash.create!(
-      Map.fetch!(@presentations, element.kind),
-      Map.take(args, fields)
-      |> Map.merge(%{version_id: element.version_id, element_id: element.id}),
-      action: :create_internal,
-      authorize?: false
-    )
-  end
-
   def copy!(source, destination) do
     graph = load!(source.id)
     ids = graph |> Map.values() |> List.flatten() |> Map.new(&{&1.id, Ash.UUID.generate()})

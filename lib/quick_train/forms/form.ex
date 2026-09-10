@@ -30,6 +30,28 @@ defmodule QuickTrain.Forms.Form do
     has_many :versions, QuickTrain.Forms.FormVersion,
       destination_attribute: :form_id,
       public?: true
+
+    has_many :reader_role_assignments, QuickTrain.Authorization.RoleAssignment do
+      source_attribute :organization_id
+      destination_attribute :organization_id
+
+      filter expr(
+               user.status == "active" and organization.status == "active" and
+                 exists(role.role_capabilities, capability.key in ["forms.read", "forms.manage"]) and
+                 exists(organization.memberships, user_id == ^actor(:id) and status == "active")
+             )
+    end
+
+    has_many :manager_role_assignments, QuickTrain.Authorization.RoleAssignment do
+      source_attribute :organization_id
+      destination_attribute :organization_id
+
+      filter expr(
+               user.status == "active" and organization.status == "active" and
+                 exists(role.role_capabilities, capability.key == "forms.manage") and
+                 exists(organization.memberships, user_id == ^actor(:id) and status == "active")
+             )
+    end
   end
 
   actions do

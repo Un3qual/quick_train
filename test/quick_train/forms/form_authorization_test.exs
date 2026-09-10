@@ -28,8 +28,10 @@ defmodule QuickTrain.Forms.FormAuthorizationTest do
 
   test "nested reads recheck account and organization capability", ctx do
     outsider = Accounts.register_user!("outsider@example.test", "Outsider")
+    member = Accounts.register_user!("unprivileged@example.test", "Member")
+    Organizations.add_member!(ctx.org.id, member.id)
 
-    for actor <- [nil, outsider, %{ctx.actor | status: "disabled"}] do
+    for actor <- [nil, outsider, member, %{ctx.actor | status: "disabled"}] do
       result = Ash.load(ctx.version, :questions, actor: actor)
 
       assert match?({:error, %Ash.Error.Forbidden{}}, result) or

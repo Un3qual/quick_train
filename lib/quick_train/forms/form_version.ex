@@ -156,11 +156,13 @@ defmodule QuickTrain.Forms.FormVersion do
     end
 
     policy action(:read_for_authoring) do
-      authorize_if {QuickTrain.Forms.NestedRead, path: [:form], capabilities: ["forms.manage"]}
+      forbid_unless actor_attribute_equals(:status, "active")
+      authorize_if relates_to_actor_via([:form, :manager_role_assignments, :user])
     end
 
     policy action(:read) do
-      authorize_if {QuickTrain.Forms.NestedRead, path: [:form]}
+      forbid_unless actor_attribute_equals(:status, "active")
+      authorize_if relates_to_actor_via([:form, :reader_role_assignments, :user])
     end
 
     policy action(:read) do

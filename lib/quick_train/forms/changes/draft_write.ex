@@ -25,7 +25,10 @@ defmodule QuickTrain.Forms.Changes.DraftWrite do
 
     changeset
     |> refresh(version)
-    |> Ash.Changeset.set_context(%{forms_version: version})
+    |> Ash.Changeset.set_context(%{
+      forms_version: version,
+      shared: %{forms_version_id: version.id}
+    })
   rescue
     error in Ash.Error.Invalid -> Ash.Changeset.add_error(changeset, error)
   end

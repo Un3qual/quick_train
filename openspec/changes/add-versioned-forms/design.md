@@ -71,7 +71,7 @@ Provision `forms.read` and `forms.manage` using the existing `QuickTrain.Authori
 
 Integrate Forms into the existing GraphQL schema. Expose typed lifecycle actions and typed resource relationships; disable automatic unrestricted filters, sorting, and writes as in Datasets. Lists and nested collections use cursor pagination, default 50 and maximum 100, and existing query-complexity accounting. Ordered collections sort by position then ID; other collections use stable creation time and ID, with versions ordered by number. A multi-request traversal of an actively edited draft is not a snapshot; published traversals are stable.
 
-Use Ash integer constraints and database bounds for every persisted integer exposed through GraphQL, including length/count metadata, positions, and version numbers; all must fit signed 32-bit Int even for internal authoring actions. Keep tighter domain limits, and fail generated-value exhaustion atomically without wrapping or adding a custom scalar. Keep synchronous authoring and publication bounded. Initial named application limits are 32 slots, 64 requirements per slot, 200 questions, 1,000 presentation elements, 200 options per question, 100 label sets, 200 labels per set, 100 items per slot, and 10,000 owned rows total per version, including constraint/subtype rows. Keys have a 512-byte maximum; names, titles, headings, section-marker text, and option/label text 1,024 bytes; prompts, instructions, and descriptions 16 KiB each. Reject NUL and invalid UTF-8. Apply finite application/request body limits before decoding large payloads, then graph limits inside the locked transaction. Copy uses the same destination limits and fails atomically if an older source exceeds current limits. Publication issues are sanitized and capped at 100 entries with a truncation indicator. These defaults are documented implementation choices; changing them must preserve bounded behavior and the validity of already-published reads.
+Use Ash integer constraints and database bounds for every persisted integer exposed through GraphQL, including length/count metadata, positions, and version numbers; all must fit signed 32-bit Int even for internal authoring actions. Keep tighter domain limits, and fail generated-value exhaustion atomically without wrapping or adding a custom scalar. Keep synchronous authoring and publication bounded. Initial named application limits are 32 slots, 64 requirements per slot, 200 questions, 1,000 presentation elements, 200 options per question, 100 label sets, 200 labels per set, 100 items per slot, and 10,000 owned rows total per version, including constraint/subtype rows. Keys have a 512-byte maximum; names, titles, headings, section-marker text, and option/label text 1,024 bytes; prompts, instructions, and descriptions 16 KiB each. Apply finite application/request body limits before decoding large payloads, then graph limits inside the locked transaction. Copy uses the same destination limits and fails atomically if an older source exceeds current limits. Publication issues are sanitized and capped at 100 entries with a truncation indicator. These defaults are documented implementation choices; changing them must preserve bounded behavior and the validity of already-published reads.
 
 **Alternatives:** Returning the entire graph recursively defeats API complexity limits. Background publication adds a lifecycle and failure recovery system despite a bounded graph. A public schema-only worker read shortcut would prematurely implement the separate project-worker eligibility path.
 
@@ -117,14 +117,19 @@ Use Ash integer constraints and database bounds for every persisted integer expo
   attributes come from Ash relationship metadata. Reorders validate the complete scoped ID set and
   use `Ash.update_many!` to assign distinct consecutive positions. Presentation destruction uses
   `cascade_destroy` before deleting its parent, retaining restrictive foreign keys and typed guards.
+- Presentation creation uses conditional `manage_relationship` changes with `present`/`absent`
+  validations for the kind-specific inputs. Shared change context supplies the locked version ID
+  through `set_attribute`. Unnamed sections use a private empty-map relationship input and pass
+  their text through `set_context`, because Ash treats an empty scalar relationship input as absent.
 - Nested relationship policies require both an allowed parent traversal and a current active
-  organization capability through a correlated Ash `exists` filter, without enumerating memberships
-  or checking each organization individually. General inspection requires `forms.read`; the returned mutation graph
+  actor through `actor_attribute_equals` and `relates_to_actor_via`. Private filtered role-assignment
+  relationships on Form require an active account, organization, membership, and the appropriate
+  capability on the actor's own role. General inspection requires `forms.read`; the returned mutation graph
   also permits `forms.manage`. GraphQL exposes no back-reference from a version to the owning Form
   or from a definition to a version, so mutation results cannot expand into other versions.
 - The endpoint's existing 512 KiB body limit bounds Forms requests before decoding. The item,
-  row, count, and UTF-8 byte limits in decision 5 apply to ordinary authoring and copy destinations.
-  `PlainText` checks UTF-8 and centralizes shared trimming, empty-string, NUL, and byte-count
+  row, count, and text-size limits in decision 5 apply to ordinary authoring and copy destinations.
+  `PlainText` centralizes shared trimming, empty-string, and byte-count
   constraints through `Ash.Type.NewType`; field-specific limits remain on attributes. Nonblank content uses Ash's
   built-in match validation only when the field changes. Read paths do not apply authoring limits
   to published historical graphs.
@@ -135,6 +140,27 @@ Use Ash integer constraints and database bounds for every persisted integer expo
 - The generated migration keeps composite foreign-key changes in a separate `alter table` block
   from additions of the same columns. Forms-specific custom statements are tracked in Ash
   snapshots and install deferred position/subtype constraints plus owner/descendant guards.
+
+### Follow-up built-in review
+
+The review removed the custom presentation change and nested-read policy implementations. Text
+encoding guards and their dedicated tests were removed at the user's request; the shared text
+type now contains only ordinary Ash string constraints. The remaining custom modules have
+responsibilities beyond a built-in change, validation, or policy:
+
+| Implementation | Reason retained |
+| --- | --- |
+| `AllocateVersion` | Locks the owning Form before computing the next committed version number; incrementing a new row cannot coordinate concurrent allocators. |
+| `DraftWrite` | Locks and scopes the parent version before refreshing a child and reapplying explicit cast inputs. Ash's `get_and_lock` only reloads and locks the record being changed. |
+| `Authoring` | Coordinates bounded copy, complete-permutation reorder, and idempotent publication across resources; persistence and transactions use Ash primitives. |
+| `Graph` | Checks a complete bounded graph, including inbound references and publication-only completeness. Its collection callbacks use Elixir's Enum/Map functions rather than action callbacks. |
+| `Error` | Carries capped, sanitized graph issues and their truncation indicator through Splode and AshGraphql. |
+| `Integrity` | Installs the cross-row database guards needed to protect published graphs against direct persistence and concurrent writes. |
+
+Enum types use `Ash.Type.Enum`, including the GraphQL naming callbacks required for their public
+names. Annotation conventions already use an Ash expression calculation. Read preparations,
+ordinary writes, constraints, nonblank validations, cascades, and actor/traversal checks use Ash's
+built-ins.
 
 ### Capability provisioning
 

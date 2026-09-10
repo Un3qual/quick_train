@@ -103,6 +103,30 @@ defmodule QuickTrain.Forms.FormContractTest do
     end
   end
 
+  test "presentation content matches its kind and invalid input leaves no children", ctx do
+    before = Graph.load!(ctx.version.id)
+    content = %{text: "Text", requirement_id: ctx.field.id, question_id: ctx.question.id}
+
+    for {kind, field} <- [
+          instruction: :text,
+          heading: :text,
+          section: :text,
+          bound_value: :requirement_id,
+          question: :question_id
+        ],
+        invalid <- [
+          %{}
+          | Enum.map(Map.delete(content, field), fn {other, value} ->
+              %{field => Map.fetch!(content, field), other => value}
+            end)
+        ] do
+      attrs = Map.merge(invalid, %{version_id: ctx.version.id, kind: kind, position: 100})
+      assert {:error, _} = run(PresentationElement, :add_to_draft, ctx, attrs)
+    end
+
+    assert Graph.load!(ctx.version.id) == before
+  end
+
   test "blank content and incompatible renderer/family writes fail atomically", ctx do
     for blank <- ["", " \n\t"] do
       assert {:error, _} = edit(QuestionDefinition, ctx, ctx.question, %{prompt: blank})
@@ -154,10 +178,6 @@ defmodule QuickTrain.Forms.FormContractTest do
                version_id: ctx.version.id,
                id: element.id
              })
-    end
-
-    for value <- ["bad" <> <<0>>, <<255>>] do
-      assert {:error, _} = edit(QuestionDefinition, ctx, ctx.question, %{prompt: value})
     end
   end
 

@@ -72,6 +72,12 @@ defmodule QuickTrain.Forms.Presentation.Section do
 
     create :create_internal do
       accept [:text, :element_id, :version_id]
+
+      change set_attribute(:text, context([:shared, :forms_section_text]), set_when_nil?: false)
+
+      change set_attribute(:version_id, context([:shared, :forms_version_id]),
+               set_when_nil?: false
+             )
     end
 
     create :copy_internal do
@@ -96,8 +102,8 @@ defmodule QuickTrain.Forms.Presentation.Section do
     end
 
     policy action(:destroy_internal) do
-      authorize_if {QuickTrain.Forms.NestedRead,
-                    path: [:version, :form], capabilities: ["forms.manage"]}
+      forbid_unless actor_attribute_equals(:status, "active")
+      authorize_if relates_to_actor_via([:version, :form, :manager_role_assignments, :user])
     end
 
     policy action(:read_for_authoring) do
@@ -106,12 +112,13 @@ defmodule QuickTrain.Forms.Presentation.Section do
     end
 
     policy action(:read_for_authoring) do
-      authorize_if {QuickTrain.Forms.NestedRead,
-                    path: [:version, :form], capabilities: ["forms.manage"]}
+      forbid_unless actor_attribute_equals(:status, "active")
+      authorize_if relates_to_actor_via([:version, :form, :manager_role_assignments, :user])
     end
 
     policy action(:read) do
-      authorize_if {QuickTrain.Forms.NestedRead, path: [:version, :form]}
+      forbid_unless actor_attribute_equals(:status, "active")
+      authorize_if relates_to_actor_via([:version, :form, :reader_role_assignments, :user])
     end
 
     policy action(:read) do

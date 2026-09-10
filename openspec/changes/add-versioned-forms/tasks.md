@@ -36,7 +36,7 @@
 - [x] 5.3 Test complete copy/remapping and source immutability, copy rollback without number consumption, invalid source rejection, draft repair after failed publication (including empty and whitespace-only titles), and stable repeated publication results.
 - [x] 5.4 Use independent database connections and deliberate barriers to test concurrent version allocation across empty creation and copying (including allocation rollback while another request waits, with strictly increasing committed numbers), publication/publication, child edit/publication in both orders, and referenced-source edit races; assert serialized valid outcomes rather than timing assumptions.
 - [x] 5.5 Test published insert/update/delete/reparent rejection through direct persistence paths, typed-child and same-version database integrity, and rollback of incomplete transactional writes.
-- [x] 5.6 Test reorder permutations and sparse-to-consecutive atomic swaps, later-page publication validation and nested pagination, graph/request limits including heading and section-marker text at and above 1,024 UTF-8 bytes, and the absence of data or storage access from form inspection; keep tests behavioral rather than source-shape assertions.
+- [x] 5.6 Test reorder permutations and sparse-to-consecutive atomic swaps, later-page publication validation and nested pagination, graph/request limits including heading and section-marker text at and above 1,024 bytes, and the absence of data or storage access from form inspection; keep tests behavioral rather than source-shape assertions.
 - [x] 5.7 Verify additive migrations on a fresh test database and their down/up behavior on disposable data; inspect generated migration and snapshot consistency and compile through the repository toolchain.
 
 ## 6. Final validation and closeout
@@ -55,9 +55,17 @@
 - [x] 7.6 Replace membership enumeration in nested authorization with a relational eligibility filter.
 - [x] 7.7 Reconcile the GraphQL contract and design, then rerun focused behavior/concurrency tests and the full verification gate.
 
+## 8. Follow-up built-in review
+
+- [x] 8.1 Inspect custom actions, changes, policies, validations, types, and callbacks against the pinned Ash built-ins.
+- [x] 8.2 Replace custom presentation child creation and content checks with managed relationships and built-in validations.
+- [x] 8.3 Replace the nested-read policy callback with filtered relationships and built-in actor checks.
+- [x] 8.4 Remove custom UTF-8/NUL checks and dedicated tests as requested; keep ordinary Ash text-size constraints.
+- [x] 8.5 Verify behavior, authorization, and concurrency; document the custom logic that still requires a domain implementation and run both verification gates.
+
 ## Verification record
 
-- `mise run verify` passed with 208 tests, including 51 Forms tests. The gate also passed
+- `mise run verify` passed with 209 tests, including 52 Forms tests. The gate also passed
   compilation, formatting, Ash code-generation consistency, boundary/cycle checks, static
   analysis, Dialyzer, the dependency audit, and production compilation.
 - `mise run openspec.validate` passed independently for all seven current changes/specifications.

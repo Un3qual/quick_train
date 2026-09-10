@@ -85,8 +85,58 @@ defmodule QuickTrain.Forms.Presentation.PresentationElement do
       argument :text, QuickTrain.Forms.Types.PlainText, constraints: [max_length: 16_384]
       argument :requirement_id, :uuid
       argument :question_id, :uuid
-      change QuickTrain.Forms.Changes.CreatePresentation
+      argument :section_content, :map, public?: false, default: %{}
+
+      validate present(:text), where: [attribute_in(:kind, [:instruction, :heading, :section])]
+      validate present(:requirement_id), where: [attribute_equals(:kind, :bound_value)]
+      validate present(:question_id), where: [attribute_equals(:kind, :question)]
+      validate absent(:text), where: [attribute_in(:kind, [:bound_value, :question])]
+      validate absent(:requirement_id), where: [attribute_does_not_equal(:kind, :bound_value)]
+      validate absent(:question_id), where: [attribute_does_not_equal(:kind, :question)]
+
       change QuickTrain.Forms.Changes.DraftWrite
+
+      change manage_relationship(:text, :instruction,
+               type: :create,
+               on_no_match: {:create, :create_internal},
+               value_is_key: :text,
+               authorize?: false
+             ),
+             where: [attribute_equals(:kind, :instruction)]
+
+      change manage_relationship(:text, :heading,
+               type: :create,
+               on_no_match: {:create, :create_internal},
+               value_is_key: :text,
+               authorize?: false
+             ),
+             where: [attribute_equals(:kind, :heading)]
+
+      change set_context(%{shared: %{forms_section_text: arg(:text)}}),
+        where: [attribute_equals(:kind, :section)]
+
+      change manage_relationship(:section_content, :section,
+               type: :create,
+               on_no_match: {:create, :create_internal},
+               authorize?: false
+             ),
+             where: [attribute_equals(:kind, :section)]
+
+      change manage_relationship(:requirement_id, :bound_value,
+               type: :create,
+               on_no_match: {:create, :create_internal},
+               value_is_key: :requirement_id,
+               authorize?: false
+             ),
+             where: [attribute_equals(:kind, :bound_value)]
+
+      change manage_relationship(:question_id, :question_placement,
+               type: :create,
+               on_no_match: {:create, :create_internal},
+               value_is_key: :question_id,
+               authorize?: false
+             ),
+             where: [attribute_equals(:kind, :question)]
     end
 
     update :update_in_draft do
@@ -151,12 +201,13 @@ defmodule QuickTrain.Forms.Presentation.PresentationElement do
     end
 
     policy action(:read_for_authoring) do
-      authorize_if {QuickTrain.Forms.NestedRead,
-                    path: [:version, :form], capabilities: ["forms.manage"]}
+      forbid_unless actor_attribute_equals(:status, "active")
+      authorize_if relates_to_actor_via([:version, :form, :manager_role_assignments, :user])
     end
 
     policy action(:read) do
-      authorize_if {QuickTrain.Forms.NestedRead, path: [:version, :form]}
+      forbid_unless actor_attribute_equals(:status, "active")
+      authorize_if relates_to_actor_via([:version, :form, :reader_role_assignments, :user])
     end
 
     policy action(:read) do
