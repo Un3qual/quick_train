@@ -34,6 +34,10 @@ The system SHALL require an active authenticated account, an active owning organ
 ### Requirement: Versioned normalized dataset schemas
 The system SHALL represent a dataset schema through immutable published schema versions containing record types and typed field definitions. Each published first-release schema version SHALL designate exactly one of its own record types as the root, backed by same-schema relational constraints. Publication and every record-type or field create, update, or delete action SHALL lock and recheck the same parent schema-version row in its transaction, so no child edit can commit after the version becomes published. Field keys SHALL be unique within a record type, and every field SHALL declare its value family and cardinality. The only permitted first-release cardinality SHALL be `single`; a separate required flag SHALL determine whether its valid occurrence count is exactly one or zero-or-one.
 
+#### Scenario: Required root fields fit the import cap
+- **WHEN** the designated root has more required fields than the configured maximum fields per import row
+- **THEN** publication fails with `invalid_schema` and leaves the draft editable; optional fields beyond the cap do not prevent publication
+
 #### Scenario: Valid schema version is published
 - **WHEN** a draft schema version contains a root record type and valid uniquely keyed field definitions
 - **THEN** the system publishes the version and prevents later structural mutation

@@ -31,6 +31,17 @@ defmodule QuickTrainWeb.DatasetImportGraphqlTest do
       actor: manager
     )
 
+    Datasets.add_field_definition!(
+      graph.organization.id,
+      root.id,
+      "number",
+      "Number",
+      "integer",
+      "single",
+      false,
+      actor: manager
+    )
+
     schema =
       Datasets.publish_schema_version!(graph.organization.id, schema.id, root.id, actor: manager)
 
@@ -84,7 +95,11 @@ defmodule QuickTrainWeb.DatasetImportGraphqlTest do
     assert opened["phase"] == "OPEN"
 
     for {row_key, source_position, values, expected_outcome} <- [
-          {"valid", 0, [%{"field" => "name", "text" => "Alice"}], "PENDING"},
+          {"valid", 0,
+           [
+             %{"field" => "name", "text" => "Alice"},
+             %{"field" => "number", "integer" => "9223372036854775807"}
+           ], "PENDING"},
           {"invalid", 1, [], "FAILED"}
         ] do
       row =
@@ -154,7 +169,7 @@ defmodule QuickTrainWeb.DatasetImportGraphqlTest do
                 cursor
                 node {
                   id rowKey outcome
-                  itemRevision { id revisionNumber }
+                  itemRevision { id revisionNumber rootRecord { values(first: 2) { edges { node { integerValue { value } } } } } }
                 }
               }
               pageInfo { hasNextPage endCursor }
@@ -184,6 +199,12 @@ defmodule QuickTrainWeb.DatasetImportGraphqlTest do
     assert is_binary(nested_cursor)
     assert nested_row["rowKey"] == "valid"
     assert nested_row["outcome"] == "SUCCEEDED"
+
+    assert Enum.any?(
+             nested_row["itemRevision"]["rootRecord"]["values"]["edges"],
+             &(&1["node"]["integerValue"] == %{"value" => "9223372036854775807"})
+           )
+
     assert is_binary(nested_row["itemRevision"]["id"])
     assert nested_row["itemRevision"]["revisionNumber"] == 1
     assert data["datasetImport"]["rows"]["pageInfo"]["hasNextPage"]

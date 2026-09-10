@@ -68,6 +68,46 @@ defmodule QuickTrain.Datasets.DatasetSchemaLifecycleTest do
     end
   end
 
+  test "publication rejects a root requiring more fields than an import can carry", %{
+    manager: actor,
+    organization: org
+  } do
+    dataset = Datasets.create_dataset!(org.id, "wide", "Wide", actor: actor)
+    schema = Datasets.create_schema_version!(org.id, dataset.id, actor: actor)
+    root = Datasets.add_record_type!(org.id, schema.id, "root", "Root", actor: actor)
+
+    cap =
+      Application.fetch_env!(:quick_train, :dataset_imports)
+      |> Keyword.fetch!(:max_fields_per_row)
+
+    fields =
+      for n <- 1..(cap + 1) do
+        Datasets.add_field_definition!(org.id, root.id, "f#{n}", "Field", :text, :single, true,
+          actor: actor
+        )
+      end
+
+    assert {:error, error} =
+             Datasets.publish_schema_version(org.id, schema.id, root.id, actor: actor)
+
+    assert Exception.message(error) =~ "invalid_schema"
+    [field | _] = fields
+
+    Datasets.update_field_definition!(
+      org.id,
+      field.id,
+      field.key,
+      field.name,
+      :text,
+      :single,
+      false,
+      actor: actor
+    )
+
+    assert Datasets.publish_schema_version!(org.id, schema.id, root.id, actor: actor).state ==
+             :published
+  end
+
   test "identifier limits count UTF-8 bytes", %{manager: actor, organization: org} do
     assert Datasets.create_dataset!(org.id, String.duplicate("é", 256), "Boundary", actor: actor).id
 

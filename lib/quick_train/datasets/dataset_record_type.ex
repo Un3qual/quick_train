@@ -38,6 +38,12 @@ defmodule QuickTrain.Datasets.DatasetRecordType do
       public?: true
   end
 
+  aggregates do
+    count :required_field_count, :field_definitions do
+      filter expr(required == true)
+    end
+  end
+
   code_interface do
     define :get_internal, action: :read, get_by: [:id], not_found_error?: false
     define :create_internal

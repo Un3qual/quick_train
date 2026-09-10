@@ -103,9 +103,20 @@ defmodule QuickTrain.Datasets.DatasetSchemaVersion do
 
     update :publish_internal do
       argument :root_record_type_id, :uuid, allow_nil?: false
+      argument :max_fields_per_row, :integer, allow_nil?: false
       accept []
       validate attribute_equals(:state, :draft)
-      change filter(expr(exists(record_types, id == ^arg(:root_record_type_id))))
+
+      change filter(
+               expr(
+                 exists(
+                   record_types,
+                   id == ^arg(:root_record_type_id) and
+                     required_field_count <= ^arg(:max_fields_per_row)
+                 )
+               )
+             )
+
       change set_attribute(:root_record_type_id, arg(:root_record_type_id))
       change atomic_update(:published_at, expr(now()))
       change set_attribute(:state, :published)

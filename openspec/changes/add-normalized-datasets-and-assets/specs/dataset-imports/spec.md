@@ -7,6 +7,10 @@ Provide provenance-preserving, idempotent programmatic imports that create or re
 ### Requirement: Organization-scoped import authorization
 The system SHALL require an active authenticated account, an active dataset-owning organization, an active membership in that organization, and the dataset-import capability for every caller-initiated open, append, finalize, or inspect action. Finalization SHALL authorize a durable command pinned to the accepted import's organization, dataset, and schema version. Internal retries SHALL advance only that immutable scope and SHALL NOT grant access to any other organization data.
 
+#### Scenario: GraphQL preserves signed 64-bit integer precision
+- **WHEN** a GraphQL caller supplies the integer selector as a decimal string within the signed 64-bit range
+- **THEN** Ash casts it to an integer for normalization/storage and typed GraphQL integer reads return decimal strings without precision loss
+
 #### Scenario: Indexed import identifiers are byte-bounded
 - **WHEN** an import idempotency key, row key, or item external key exceeds 512 UTF-8 bytes
 - **THEN** the input is rejected before persistence or candidate construction; the same external-key limit applies to direct revisions

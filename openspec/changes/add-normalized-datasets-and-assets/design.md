@@ -259,3 +259,16 @@ compressibility. Display names are not indexed and do not inherit that limit.
 Schema keys/names reject NUL. Typed integers are signed 64-bit values; normalization
 rejects overflow before candidate construction. Asset hash input is not trimmed.
 These are input constraints, not new parsing, cleanup, or recovery workflows.
+
+## GraphQL integer representation and usable root schemas
+
+Dataset integer input/output fields use GraphQL String via AshGraphql attribute
+input/output overrides. Ash retains integer casting and storage; Absinthe's built-in
+String serializer preserves exact decimal output. Clients must send quoted decimal
+strings for the integer selector, including values previously representable as Int.
+No custom scalar or database type is added.
+
+Publication checks the root's required-field count against the current import field
+cap with an Ash aggregate in the atomic update filter, under the existing parent
+schema lock. Optional fields do not all need to fit in one row. An oversized required
+root remains draft and returns invalid_schema so it can be corrected before freezing.

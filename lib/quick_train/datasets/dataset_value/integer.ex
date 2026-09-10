@@ -48,6 +48,7 @@ defmodule QuickTrain.Datasets.DatasetValue.Integer do
     derive_filter? false
     derive_sort? false
     type :dataset_integer_value
+    attribute_types value: :string
   end
 
   postgres do

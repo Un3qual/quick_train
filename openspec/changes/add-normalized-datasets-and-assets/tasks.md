@@ -506,3 +506,17 @@ Verification on 2026-09-09: all 36 focused tests and all 152 full-suite tests pa
 `mise run verify` passed static analysis, Dialyzer, production compilation, and a
 clean dependency audit. Independent strict OpenSpec validation passed all four
 artifacts.
+
+## 31. GraphQL bigint compatibility and root publication
+
+- [x] 31.1 Use built-in GraphQL String overrides for dataset integer input/output, retaining Ash integer storage (3974177754).
+- [x] 31.2 Atomically reject publication when the root's required-field aggregate exceeds the configured import cap (3974177759).
+- [x] 31.3 Verify exact GraphQL bigint round trips, correction of an oversized required root, the full gate, and independent OpenSpec validation.
+
+No custom scalar, parser, storage type, or new transaction/locking workflow is added.
+Existing review dispositions and deferred scopes remain unchanged.
+
+Verification on 2026-09-09: 12 focused tests and all 153 full-suite tests passed.
+The full gate passed formatting, static analysis, Dialyzer, production compilation,
+and a clean dependency audit. Independent strict OpenSpec validation passed all
+four artifacts.

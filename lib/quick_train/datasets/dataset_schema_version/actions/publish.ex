@@ -26,7 +26,12 @@ defmodule QuickTrain.Datasets.DatasetSchemaVersion.Actions.Publish do
   defp publish(schema, root_record_type_id) do
     case Datasets.publish_schema_version_internal(
            schema.id,
-           %{root_record_type_id: root_record_type_id},
+           %{
+             root_record_type_id: root_record_type_id,
+             max_fields_per_row:
+               Application.fetch_env!(:quick_train, :dataset_imports)
+               |> Keyword.fetch!(:max_fields_per_row)
+           },
            authorize?: false,
            bulk_options: [strategy: [:atomic]]
          ) do
