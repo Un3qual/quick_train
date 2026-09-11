@@ -6,8 +6,8 @@ Organizations can now ingest immutable dataset content, but cannot define the re
 
 - Add organization-owned Forms and numbered FormVersions with editable drafts and an irreversible, atomic publication boundary.
 - Define reusable input slots and typed field requirements independently of concrete datasets, item revisions, and dataset field IDs.
-- Store one ordered presentation sequence with typed instruction, heading, section, bound-value, and question-placement elements.
-- Define typed scalar, static-choice, task-input-choice, ranking, and annotation question contracts, separating renderer type from answer family. Keep static options, input-slot references, label sets, labels, and family-specific constraints relational.
+- Store one ordered presentation sequence with typed instruction, heading, section, bound-value, and question-placement elements; content and references live on the element itself.
+- Define typed scalar, static-choice, task-input-choice, ranking, and annotation question contracts, separating renderer type from answer family. Keep static options, question-owned input-slot references, label sets, labels, and family-specific constraints relational.
 - Expose scoped authoring and paginated inspection through deliberate AshGraphql actions protected by `forms.read` and `forms.manage`.
 - Keep lifecycle, ownership, subtype compatibility, and publication rules in Ash/Elixir; PostgreSQL provides relational constraints and transactional locks.
 - Preserve published child identities and content through authoring actions, including under concurrent authoring and publication. Support creating an empty draft or copying a published version of the same form into a new draft.

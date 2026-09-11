@@ -70,7 +70,9 @@ The form declares typed reusable requirements instead of concrete dataset field 
 
 Question renderer type is separate from answer value family. Radio, dropdown, pairwise, and image choice can share a selection representation; stars, Likert, and integer controls can share an integer representation. Static options and dynamic task-input options remain distinct relational references.
 
-Form elements form one ordered presentation sequence with normalized subtypes for instructions, bound values, question placement, and structural headings or sections. Question-family constraints use typed resources rather than JSON configuration.
+Form elements form one ordered presentation sequence. Following the `add-versioned-forms` architecture review, kind-specific text and bound-value/question references live on PresentationElement itself; separate presentation-subtype identities are unnecessary. Dynamic input-slot and optional image-source references live directly on QuestionDefinition, remaining distinct from static options. Question-family constraints use typed resources rather than JSON configuration and are inspected through their owning question.
+
+Future Projects and Tasks retain stable FormVersion, InputFieldRequirement, QuestionDefinition, QuestionOption, Label, and PresentationElement references. Attempt-specific input presentation remains owned by Tasks. No planned consumer references the retired presentation-subtype or input-source wrapper IDs. Worker reads still require the separate attempt-ownership path described in section M.
 
 ### C. Dataset content and task grouping are separate
 

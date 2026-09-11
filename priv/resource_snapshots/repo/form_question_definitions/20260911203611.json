@@ -21,7 +21,43 @@
       "references": null,
       "scale": null,
       "size": null,
-      "source": "text",
+      "source": "key",
+      "type": "text"
+    },
+    {
+      "allow_nil?": false,
+      "default": "nil",
+      "generated?": false,
+      "precision": null,
+      "primary_key?": false,
+      "references": null,
+      "scale": null,
+      "size": null,
+      "source": "prompt",
+      "type": "text"
+    },
+    {
+      "allow_nil?": false,
+      "default": "nil",
+      "generated?": false,
+      "precision": null,
+      "primary_key?": false,
+      "references": null,
+      "scale": null,
+      "size": null,
+      "source": "family",
+      "type": "text"
+    },
+    {
+      "allow_nil?": false,
+      "default": "nil",
+      "generated?": false,
+      "precision": null,
+      "primary_key?": false,
+      "references": null,
+      "scale": null,
+      "size": null,
+      "source": "renderer",
       "type": "text"
     },
     {
@@ -63,28 +99,26 @@
         "index_where": null,
         "match_tenant?": false,
         "match_type": null,
-        "match_with": {
-          "version_id": "version_id"
-        },
+        "match_with": null,
         "multitenancy": {
           "attribute": null,
           "global": null,
           "strategy": null
         },
-        "name": "form_instructions_element_id_fkey",
+        "name": "form_question_definitions_version_id_fkey",
         "on_delete": "restrict",
         "on_update": null,
         "primary_key?": true,
         "schema": "public",
-        "table": "form_presentation_elements"
+        "table": "form_versions"
       },
       "scale": null,
       "size": null,
-      "source": "element_id",
+      "source": "version_id",
       "type": "uuid"
     },
     {
-      "allow_nil?": false,
+      "allow_nil?": true,
       "default": "nil",
       "generated?": false,
       "precision": null,
@@ -98,27 +132,81 @@
         "index_where": null,
         "match_tenant?": false,
         "match_type": null,
-        "match_with": null,
+        "match_with": {
+          "version_id": "version_id"
+        },
         "multitenancy": {
           "attribute": null,
           "global": null,
           "strategy": null
         },
-        "name": "form_instructions_version_id_fkey",
+        "name": "form_question_definitions_input_slot_id_fkey",
         "on_delete": "restrict",
         "on_update": null,
         "primary_key?": true,
         "schema": "public",
-        "table": "form_versions"
+        "table": "form_input_slot_definitions"
       },
       "scale": null,
       "size": null,
-      "source": "version_id",
+      "source": "input_slot_id",
+      "type": "uuid"
+    },
+    {
+      "allow_nil?": true,
+      "default": "nil",
+      "generated?": false,
+      "precision": null,
+      "primary_key?": false,
+      "references": {
+        "deferrable": false,
+        "destination_attribute": "id",
+        "destination_attribute_default": null,
+        "destination_attribute_generated": null,
+        "index?": false,
+        "index_where": null,
+        "match_tenant?": false,
+        "match_type": null,
+        "match_with": {
+          "version_id": "version_id"
+        },
+        "multitenancy": {
+          "attribute": null,
+          "global": null,
+          "strategy": null
+        },
+        "name": "form_question_definitions_source_requirement_id_fkey",
+        "on_delete": "restrict",
+        "on_update": null,
+        "primary_key?": true,
+        "schema": "public",
+        "table": "form_input_field_requirements"
+      },
+      "scale": null,
+      "size": null,
+      "source": "source_requirement_id",
       "type": "uuid"
     }
   ],
   "base_filter": null,
-  "check_constraints": [],
+  "check_constraints": [
+    {
+      "attribute": [
+        "family"
+      ],
+      "base_filter": null,
+      "check": "family IN ('text', 'integer', 'decimal', 'boolean', 'static_single_choice', 'static_multiple_choice', 'task_input_single_choice', 'task_input_multiple_choice', 'task_input_ranking', 'bounding_boxes', 'polygon_regions', 'raster_masks', 'text_spans')",
+      "name": "form_question_definitions_check_0"
+    },
+    {
+      "attribute": [
+        "renderer"
+      ],
+      "base_filter": null,
+      "check": "renderer IN ('text_input', 'text_area', 'integer_input', 'stars', 'likert', 'decimal_input', 'checkbox', 'toggle', 'radio', 'dropdown', 'checkbox_group', 'pairwise', 'image_choice', 'ranking', 'bounding_boxes', 'polygon_regions', 'raster_masks', 'text_spans')",
+      "name": "form_question_definitions_check_1"
+    }
+  ],
   "create_table_options": null,
   "custom_indexes": [
     {
@@ -152,19 +240,23 @@
   ],
   "custom_statements": [],
   "has_create_action": true,
-  "hash": "A92DC8C46CBF4AAB95B805338F0C1D06E719346BB9516BC3F260F0A21CF55F92",
+  "hash": "347749874DB76909C1DD588B6D0BF81096E14C858E707F53749F39FC4F2ACFF1",
   "identities": [
     {
       "all_tenants?": false,
       "base_filter": null,
-      "index_name": "form_instructions_element_index",
+      "index_name": "form_question_definitions_parent_key_index",
       "keys": [
         {
           "type": "atom",
-          "value": "element_id"
+          "value": "version_id"
+        },
+        {
+          "type": "atom",
+          "value": "key"
         }
       ],
-      "name": "element",
+      "name": "parent_key",
       "nils_distinct?": true,
       "where": null
     }
@@ -176,5 +268,5 @@
   },
   "repo": "Elixir.QuickTrain.Repo",
   "schema": null,
-  "table": "form_instructions"
+  "table": "form_question_definitions"
 }

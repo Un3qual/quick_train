@@ -27,17 +27,17 @@ The graph is:
 ```text
 Form -> FormVersion
           -> InputSlotDefinition -> InputFieldRequirement
-          -> PresentationElement -> one typed presentation child
-          -> QuestionDefinition -> typed constraints and choice/source references
+          -> PresentationElement (kind, text, requirement/question references)
+          -> QuestionDefinition (input-slot/source references) -> typed constraints
                                 -> QuestionOption (static choices only)
           -> LabelSet -> Label
 ```
 
 Use one version owner on every descendant, with composite foreign keys ensuring intermediate parents and referenced records share that version. UUID primary keys remain stable external identities. Ash identities and database unique constraints cover form keys per organization, version numbers per form, definition keys in their documented scopes, and ordered positions per parent. Restrict foreign-key deletion; do not cascade through published graphs. Descendant ownership and parent IDs are immutable even in drafts, so moving a question or option between parents is expressed as explicit creation and removal.
 
-PresentationElement stores kind and position. Typed children hold plain text for instruction, heading, and section variants, a field-requirement relationship for bound values, or a question relationship for question placement. A transactional authoring action creates a complete element and matching child through Ash managed relationships; `Graph` validates exactly one matching subtype before the action commits. Instructions and headings use the existing nonblank-text validation on creation and update. Section text can be empty to identify an unnamed structural section. A section is a flat marker, not a nested tree. Bound values describe all eventual task inputs in the referenced slot; actual per-attempt ordering belongs to Tasks.
+PresentationElement stores kind, position, plain text, and optional requirement/question foreign keys in one row. Kind-specific Ash validations require exactly the applicable content and reject unrelated fields on creation and update. Instructions and headings require nonblank text; section text can be empty for an unnamed structural boundary. A section is a flat marker, not a nested tree. Bound values describe all eventual task inputs in the referenced slot; actual per-attempt ordering belongs to Tasks. Element identity is sufficient for future presentation references, so no separately identified subtype rows are needed.
 
-QuestionDefinition stores key, prompt, family, and renderer. Question and option keys require at least one non-whitespace character when set; other authored characters are preserved. Prompt creation and update require at least one non-whitespace character, using the same nonblank-text validation as option and annotation labels. Use typed resources for TextConstraints, IntegerConstraints, DecimalConstraints, SelectionConstraints, and AnnotationConstraints. Boolean and ranking need no empty constraint table; ranking references its slot and always ranks all items. Selection constraints cover the single/multiple count contract; static options remain QuestionOption rows, and dynamic selections use slot relationships. Annotation constraints reference one source requirement and one label set and hold min/max count; coordinate and offset conventions are fixed by the spec, not configurable blobs. Enforce one applicable constraint resource and prohibit unrelated typed children. Draft creation and family changes may temporarily leave required constraint children absent, but never admit a wrong-family child. Publication requires the complete set.
+QuestionDefinition stores key, prompt, family, and renderer. Question and option keys require at least one non-whitespace character when set; other authored characters are preserved. Prompt creation and update require at least one non-whitespace character, using the same nonblank-text validation as option and annotation labels. Use typed resources for TextConstraints, IntegerConstraints, DecimalConstraints, SelectionConstraints, and AnnotationConstraints. Boolean and ranking need no empty constraint table; ranking references its slot and always ranks all items. Selection constraints cover the single/multiple count contract; static options remain QuestionOption rows, and dynamic selections use the question's optional input-slot and source-requirement relationships. A missing slot represents an incomplete draft; a source requirement cannot be supplied without a slot. Clearing both references removes the input source without deleting the question. Annotation constraints reference one source requirement and one label set and hold min/max count; coordinate and offset conventions are fixed by the spec, not configurable blobs. Enforce one applicable constraint resource and prohibit unrelated typed children. Draft creation and family changes may temporarily leave required constraint children absent, but never admit a wrong-family child. Publication requires the complete set.
 
 Question-family and renderer compatibility is the closed matrix in the capability spec. Family or renderer changes reject incompatible existing children and require explicit removal or compatible replacement first. Source field updates also validate inbound question relationships under the same version lock. Integer question bounds use the existing signed 32-bit GraphQL Int range, including implicit endpoints for omitted `integer_input` bounds; no custom scalar is introduced. Stars and Likert require explicit minimum and maximum at publication and at most 200 discrete values, reusing the static-choice ceiling; incomplete drafts may omit bounds, but supplied oversized ranges fail immediately. Static option labels and annotation label display text must contain at least one non-whitespace character, checked on creation and update. Single-choice bounds are fixed at one. Multi-choice limits are feasible for every allowed slot size, and ranking has no partial-ranking toggle. Labels are version-owned and optionally shared by questions in that version; no external label library or automatic cross-version identity matching is added.
 
@@ -57,9 +57,9 @@ Public actions authorize using the existing organization-capability check, then 
 
 Publication locks the version, loads its bounded full graph through internal scoped reads (not a default first page), validates every spec invariant, and writes state and timestamp together. Already-published retries return the existing record after authorization. Failed publication rolls back without modifying graph content. Both empty-draft creation and copying lock the owning Form before reading the maximum committed version, retain that lock through transaction commit or rollback, and compute the next number with a database uniqueness backstop. Competing allocations wait and then reread committed state; a later candidate cannot commit while the earlier allocation is unresolved. Allocation commits with the new version; rollback consumes no number and returns no destination version. The non-recycling guarantee applies to committed versions, so no reservation records, tombstones, or per-form sequences are needed. Copy locks Form for allocation; its published source cannot change. No version-write path subsequently locks Form, avoiding inverse lock order.
 
-Ash owns lifecycle transitions, immutable ownership, draft-only writes, and subtype compatibility. Explicit action accept lists prevent changes to identity, ownership, keys, and presentation kind. `DraftWrite` checks current draft state under the version lock and validates structural changes before commit; `Graph` checks presentation subtypes and question-family children. `Authoring` applies the same lock to publication and reorder, and validates copy destinations before commit. This single application boundary serializes concurrent requests without database triggers.
+Ash owns lifecycle transitions, immutable ownership, draft-only writes, and subtype compatibility. Explicit action accept lists prevent changes to identity, ownership, keys, and presentation kind. `DraftWrite` checks current draft state under the version lock and validates structural changes before commit; `Graph` checks question-family children and cross-record compatibility. Presentation content is validated on its owning resource. `Authoring` applies the same lock to publication and reorder, and validates copy destinations before commit. This single application boundary serializes concurrent requests without database triggers.
 
-Low-level internal actions are implementation steps for copy, managed relationships, cascade deletion, reorder, and publication inside these transactions. They are not independently supported authoring entry points and remain unauthorized by default and unexposed to GraphQL. Code running with `authorize?: false`, `Ash.Seed`, or direct SQL is trusted infrastructure and can bypass the authoring contract. Such callers must use the scoped domain actions for ordinary writes. PostgreSQL keeps foreign keys, uniqueness, nullability, and scalar checks; it contains no Forms lifecycle or cross-table subtype functions or triggers. Historical migrations retain the former definitions only to support upgrades and rollback. The trigger-removal migration leaves the unchanged deferred position constraints and their indexes in place in both directions.
+Low-level internal actions are implementation steps for copy, reorder, and publication inside these transactions. They are not independently supported authoring entry points and remain unauthorized by default and unexposed to GraphQL. Code running with `authorize?: false`, `Ash.Seed`, or direct SQL is trusted infrastructure and can bypass the authoring contract. Such callers must use the scoped domain actions for ordinary writes. PostgreSQL keeps foreign keys, uniqueness, nullability, and scalar checks; it contains no Forms lifecycle or cross-table subtype functions or triggers. Historical migrations retain the former definitions only to support upgrades and rollback. The trigger-removal migration leaves the unchanged deferred position constraints and their indexes in place in both directions.
 
 For a reorder, require the complete current child ID set under the version lock, then atomically assign consecutive positions starting at zero in the supplied ID order, canonicalizing any old gaps while preserving record identities. Use a deferrable position-uniqueness constraint for swaps if the generated schema requires it; do not expose transient positions or persist fractional-order schemes. Option and label ordering use the same operation contract on their respective parents.
 
@@ -71,7 +71,7 @@ Provision `forms.read` and `forms.manage` using the existing `QuickTrain.Authori
 
 Integrate Forms into the existing GraphQL schema. Expose typed lifecycle actions and typed resource relationships; disable automatic unrestricted filters, sorting, and writes as in Datasets. Lists and nested collections use cursor pagination, default 50 and maximum 100, and existing query-complexity accounting. Ordered collections sort by position then ID; other collections use stable creation time and ID, with versions ordered by number. A multi-request traversal of an actively edited draft is not a snapshot; published traversals are stable.
 
-Use Ash integer constraints and database bounds for every persisted integer exposed through GraphQL, including length/count metadata, positions, and version numbers; all must fit signed 32-bit Int even for internal authoring actions. Keep tighter domain limits, and fail generated-value exhaustion atomically without wrapping or adding a custom scalar. Keep synchronous authoring and publication bounded. Initial named application limits are 32 slots, 64 requirements per slot, 200 questions, 1,000 presentation elements, 200 options per question, 100 label sets, 200 labels per set, 100 items per slot, and 10,000 owned rows total per version, including constraint/subtype rows. Keys have a 512-byte maximum; names, titles, headings, section-marker text, and option/label text 1,024 bytes; prompts, instructions, and descriptions 16 KiB each. Presentation creation checks the selected text subtype limit on the parent action before creating children. Apply finite application/request body limits before decoding large payloads, then graph limits inside the locked transaction. Copy uses the same destination limits and fails atomically if an older source exceeds current limits. Publication issues are sanitized and capped at 100 entries with a truncation indicator. These defaults are documented implementation choices; changing them must preserve bounded behavior and the validity of already-published reads.
+Use Ash integer constraints and database bounds for every persisted integer exposed through GraphQL, including length/count metadata, positions, and version numbers; all must fit signed 32-bit Int even for internal authoring actions. Keep tighter domain limits, and fail generated-value exhaustion atomically without wrapping or adding a custom scalar. Keep synchronous authoring and publication bounded. Initial named application limits are 32 slots, 64 requirements per slot, 200 questions, 1,000 presentation elements, 200 options per question, 100 label sets, 200 labels per set, 100 items per slot, and 10,000 owned rows total per version, including typed constraint rows. Keys have a 512-byte maximum; names, titles, headings, section-marker text, and option/label text 1,024 bytes; prompts, instructions, and descriptions 16 KiB each. Presentation creation and editing validate the text limit for the selected kind on the element itself. Apply finite application/request body limits before decoding large payloads, then graph limits inside the locked transaction. Copy uses the same destination limits and fails atomically if an older source exceeds current limits. Publication issues are sanitized and capped at 100 entries with a truncation indicator. These defaults are documented implementation choices; changing them must preserve bounded behavior and the validity of already-published reads.
 
 **Alternatives:** Returning the entire graph recursively defeats API complexity limits. Background publication adds a lifecycle and failure recovery system despite a bounded graph. A public schema-only worker read shortcut would prematurely implement the separate project-worker eligibility path.
 
@@ -95,7 +95,7 @@ Use Ash integer constraints and database bounds for every persisted integer expo
 - Forms source files are grouped into `changes`, `inputs`, `questions` (including `constraints`),
   `presentation`, `labels`, and shared `types` directories. Form lifecycle and domain-wide
   support modules remain at the domain root. Module namespaces match their directories;
-  database tables are unchanged; native mutation envelopes are documented below.
+  native mutation envelopes and the ownership migration are documented below.
   Domain and resource declarations use local aliases for related resources, types, changes,
   and policy checks. Ash modules remain fully qualified; Credo's alias check targets only
   `QuickTrain.*`. String-based late-bound references
@@ -103,8 +103,8 @@ Use Ash integer constraints and database bounds for every persisted integer expo
 - `QuickTrain.Forms` exposes named create/update/destroy actions and generated domain code
   interfaces. Updates and destroys accept resource records in Elixir; scoped inspection also has
   generated interfaces. Parameterized contract fixtures dispatch through those interfaces.
-  The graph uses 20 resources with separate presentation subtypes, five constraint resources,
-  and a distinct dynamic input source. Named Ash enums expose the closed families and renderers.
+  The graph uses 14 resources, including five typed constraint resources. Presentation content
+  and dynamic input-source references are stored on their owners. Named Ash enums expose the closed families and renderers.
 - Native Ash mutation actions own their transactions. `AllocateVersion` locks Form before
   allocating its next number; `DraftWrite` locks FormVersion, reloads a mutation's record, and
   reapplies Ash's cast inputs before writing. This preserves explicit updates against stale
@@ -113,22 +113,21 @@ Use Ash integer constraints and database bounds for every persisted integer expo
   Publication, copying, and the three reorders remain five generic actions with `transaction? true`.
 - GraphQL create/update/destroy mutations use AshGraphql's native result/error envelopes, such as
   `createForm(...) { result { id } errors { message } }`. Mutation names and explicit organization
-  scope remain the same. `updateFormDraft` identifies its version with `id`, replacing `versionId`;
+  scope remain the same for retained mutations. `updateFormDraft` identifies its version with `id`, replacing `versionId`;
   descendant mutations retain both `id` and `versionId`. Generic publication, copy, and reorder
   results retain their existing shape. Mutation lookup reads require a bulk-mutation context and
   current `forms.manage` eligibility; they are not exposed as inspection queries or domain interfaces.
-- `Graph` loads all owned rows with a cumulative 10,000-row bound. Copy uses `Ash.bulk_create!`
-  per resource in dependency order, with internal creation accepting `id` directly. Only those
-  internal actions accept caller-supplied IDs; public creation retains generated UUIDs and public
-  updates cannot change identity. Reference attributes come from Ash relationship metadata.
-  Form itself needs no internal creation action because copy only creates a new version and its
-  descendants. Reorders validate the complete scoped ID set and
-  use `Ash.update_many!` to assign distinct consecutive positions. Presentation destruction uses
-  `cascade_destroy` before deleting its parent, retaining restrictive foreign keys; the enclosing draft action validates the final graph.
-- Presentation creation uses conditional `manage_relationship` changes with `present`/`absent`
-  validations for the kind-specific inputs. Shared change context supplies the locked version ID
-  through `set_attribute`. Unnamed sections use a private empty-map relationship input and pass
-  their text through `set_context`, because Ash treats an empty scalar relationship input as absent.
+- `Graph` loads the 12 descendant resources with a cumulative 10,000-row bound. Copy uses
+  `Ash.bulk_create!` per resource in dependency order. Internal creation accepts `id` directly;
+  public creation generates UUIDs and public updates cannot change identity. Reference attributes
+  come from Ash relationship metadata. Reorders validate the complete scoped ID set and use
+  `Ash.update_many!` to assign consecutive positions. Presentation creation, editing, and deletion
+  each write a single element row, retaining the version lock and same-version foreign keys.
+- Kind-specific presentation fields use built-in `present`, `absent`, `match`, and `byte_size`
+  validations. No managed child creation, cascade destruction, or shared context is needed.
+- Constraints are read through their question relationships. Unused standalone get/list actions
+  and domain interfaces for these owned details are omitted; mutation lookup and authorized
+  nested reads remain available.
 - Nested relationship policies require both an allowed parent traversal and a current active
   actor through `actor_attribute_equals` and `relates_to_actor_via`. Private filtered role-assignment
   relationships on Form require an active account, organization, membership, and the appropriate
@@ -151,9 +150,10 @@ Use Ash integer constraints and database bounds for every persisted integer expo
   removes all 34 Forms business-rule triggers and their five PL/pgSQL functions.
 - Version-scoped graph reads have a leading version index on every descendant, supplied by an
   existing identity/position index or AshPostgres's `reference :version, index?: true`. Only the
-  five referenced parent resources retain `(id, version_id)` unique indexes for composite foreign
+  four referenced parent resources retain `(id, version_id)` unique indexes for composite foreign
   keys; leaves use their primary key for identity. A generated reversible index-only migration
-  replaces 13 unnecessary composite indexes and adds 14 version-reference indexes.
+  replaced 13 unnecessary composite indexes and added 14 version-reference indexes. The ownership
+  migration also removes the now-unused PresentationElement composite index and six wrapper tables.
 - Paired bounds use Ash's `compare` validation when both endpoints are present; asset intent uses
   conditional `present` and `absent` validations. These resource validations run before persistence,
   after the draft lock and record refresh, including for stale partial updates. PostgreSQL constraints
@@ -179,14 +179,14 @@ responsibilities beyond a built-in change, validation, or policy:
 
 Enum types use `Ash.Type.Enum`, including the GraphQL naming callbacks required for their public
 names. Annotation conventions already use an Ash expression calculation. Read preparations,
-ordinary writes, constraints, nonblank validations, cascades, and actor/traversal checks use Ash's
+ordinary writes, constraints, nonblank validations, and actor/traversal checks use Ash's
 built-ins.
 
 The approved Ponytail pass removed 29 uncalled internal write actions left after the native-action
 conversion and the test-only version creation action; the version-exhaustion fixture uses
-`Ash.Seed.seed!`. The three reorder updates and five presentation-child destroys remain in use. All 18
-descendant resources share their internal creation action with copying, using an optional copied
-ID instead of a separate copy action. The constraint-resource list is derived from the existing
+`Ash.Seed.seed!`. The three reorder updates remain in use. All 12 descendant resources share
+their internal creation action with copying, accepting `id` directly. The ownership simplification
+removes the five presentation-child destroy actions along with their resources. The constraint-resource list is derived from the existing
 family-to-constraint mapping.
 
 ### Capability provisioning
@@ -207,3 +207,40 @@ Grant only `forms.read` to inspection-only roles. Granting `forms.manage` alone 
 and its returned graph, but not general read queries. No existing production role receives an
 implicit grant. Only `organization_manager_fixture/3` composes both grants for tests. Operator
 bootstrap and maintenance remain deferred to their separate OpenSpec change.
+
+## Architectural simplification and future compatibility
+
+The September 2026 architecture pass checked all three simplifications against the future
+product record, especially sections B, D, F, G, I, and M. Projects pin FormVersion and bind
+InputFieldRequirement IDs. Tasks and responses reference QuestionDefinition, QuestionOption,
+Label, and TaskInput identities; presentation evidence can use PresentationElement IDs.
+None of those consumers requires independently identified presentation content or InputSource.
+The five constraint resources retain distinct typed bounds; options, labels, requirements,
+and input slots retain their own identities and relational ownership.
+
+The earlier table-per-presentation-subtype storage choice is replaced by typed columns on one
+ordered element. A question owns its input-slot and optional image-source references directly.
+These remain ordinary relational foreign keys, separate from static options, with no JSON
+configuration. A later feature needing additional presentation data can extend the closed
+kind-specific contract in its own scoped change. Worker authorization is still a future
+attempt-owned path; removing unused author-management reads does not add a worker read bypass.
+
+This is an intentional API revision before the Forms branch merges. Elements expose `text`,
+`requirement`, and `question` directly, and `updateFormPresentationElement` edits the content as
+well as position. Questions expose `inputSlot` and `sourceRequirement`; their create/update
+mutations accept the corresponding IDs. Separate subtype and input-source mutations and their
+wrapper IDs are retired. The 22 unused owned-detail Elixir get/list interfaces are removed;
+existing GraphQL collection queries and nested constraint reads remain.
+
+A generated migration adds the owner columns and same-version foreign keys, copies existing
+content and references before dropping the six wrapper tables, and preserves all surviving
+IDs, version numbers, publication timestamps, authored values, and order. Rollback restores
+wrapper records from the owner columns with new wrapper IDs; retired wrapper identities are
+not a compatibility promise. Validate migration up/down/reapply using published content and
+both optional and present image-source references. No triggers or stored business functions
+are introduced. The 10,000-row cap continues to count the actual owned records in the model.
+
+
+The MVP scope remains limited to these three ownership/read-surface simplifications. Combined
+question/constraint/option mutations, a worker rendering payload, and draft revision checks are
+deferred until their editor or Tasks consumers establish concrete requirements.

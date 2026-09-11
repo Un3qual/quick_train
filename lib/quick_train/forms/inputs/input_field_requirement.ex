@@ -158,12 +158,12 @@ defmodule QuickTrain.Forms.Inputs.InputFieldRequirement do
                    )
 
       authorize_if accessing_from(
-                     Module.concat(["QuickTrain.Forms.Questions.InputSource"]),
+                     Module.concat(["QuickTrain.Forms.Questions.QuestionDefinition"]),
                      :source_requirement
                    )
 
       authorize_if accessing_from(
-                     Module.concat(["QuickTrain.Forms.Presentation.BoundValue"]),
+                     Module.concat(["QuickTrain.Forms.Presentation.PresentationElement"]),
                      :requirement
                    )
     end

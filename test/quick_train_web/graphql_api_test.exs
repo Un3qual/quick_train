@@ -363,8 +363,6 @@ defmodule QuickTrainWeb.GraphqlApiTest do
         ),
       "addFormInputSlotDefinition" =>
         MapSet.new(~w(key maximum minimum organizationId versionId)),
-      "addFormInputSource" =>
-        MapSet.new(~w(inputSlotId organizationId questionId sourceRequirementId versionId)),
       "addFormIntegerConstraints" =>
         MapSet.new(~w(maximum minimum organizationId questionId versionId)),
       "addFormLabel" => MapSet.new(~w(key labelSetId organizationId position text versionId)),
@@ -372,7 +370,9 @@ defmodule QuickTrainWeb.GraphqlApiTest do
       "addFormPresentationElement" =>
         MapSet.new(~w(kind organizationId position questionId requirementId text versionId)),
       "addFormQuestionDefinition" =>
-        MapSet.new(~w(family key organizationId prompt renderer versionId)),
+        MapSet.new(
+          ~w(family inputSlotId key organizationId prompt renderer sourceRequirementId versionId)
+        ),
       "addFormQuestionOption" =>
         MapSet.new(~w(key label organizationId position questionId versionId)),
       "addFormSelectionConstraints" =>
@@ -387,7 +387,6 @@ defmodule QuickTrainWeb.GraphqlApiTest do
       "removeFormDecimalConstraints" => MapSet.new(~w(id organizationId versionId)),
       "removeFormInputFieldRequirement" => MapSet.new(~w(id organizationId versionId)),
       "removeFormInputSlotDefinition" => MapSet.new(~w(id organizationId versionId)),
-      "removeFormInputSource" => MapSet.new(~w(id organizationId versionId)),
       "removeFormIntegerConstraints" => MapSet.new(~w(id organizationId versionId)),
       "removeFormLabel" => MapSet.new(~w(id organizationId versionId)),
       "removeFormLabelSet" => MapSet.new(~w(id organizationId versionId)),
@@ -401,28 +400,24 @@ defmodule QuickTrainWeb.GraphqlApiTest do
       "reorderFormQuestionOption" => MapSet.new(~w(ids organizationId questionId versionId)),
       "updateFormAnnotationConstraints" =>
         MapSet.new(~w(id labelSetId maximum minimum organizationId sourceRequirementId versionId)),
-      "updateFormBoundValue" => MapSet.new(~w(id organizationId requirementId versionId)),
       "updateFormDecimalConstraints" =>
         MapSet.new(~w(id maximum minimum organizationId versionId)),
       "updateFormDraft" => MapSet.new(~w(description id organizationId title)),
-      "updateFormHeading" => MapSet.new(~w(id organizationId text versionId)),
       "updateFormInputFieldRequirement" =>
         MapSet.new(~w(cardinality id intendedUse organizationId required valueFamily versionId)),
       "updateFormInputSlotDefinition" =>
         MapSet.new(~w(id maximum minimum organizationId versionId)),
-      "updateFormInputSource" =>
-        MapSet.new(~w(id inputSlotId organizationId sourceRequirementId versionId)),
-      "updateFormInstruction" => MapSet.new(~w(id organizationId text versionId)),
       "updateFormIntegerConstraints" =>
         MapSet.new(~w(id maximum minimum organizationId versionId)),
       "updateFormLabel" => MapSet.new(~w(id organizationId position text versionId)),
       "updateFormLabelSet" => MapSet.new(~w(id name organizationId versionId)),
-      "updateFormPresentationElement" => MapSet.new(~w(id organizationId position versionId)),
+      "updateFormPresentationElement" =>
+        MapSet.new(~w(id organizationId position questionId requirementId text versionId)),
       "updateFormQuestionDefinition" =>
-        MapSet.new(~w(family id organizationId prompt renderer versionId)),
+        MapSet.new(
+          ~w(family id inputSlotId organizationId prompt renderer sourceRequirementId versionId)
+        ),
       "updateFormQuestionOption" => MapSet.new(~w(id label organizationId position versionId)),
-      "updateFormQuestionPlacement" => MapSet.new(~w(id organizationId questionId versionId)),
-      "updateFormSection" => MapSet.new(~w(id organizationId text versionId)),
       "updateFormSelectionConstraints" =>
         MapSet.new(~w(id maximum minimum organizationId versionId)),
       "updateFormTextConstraints" => MapSet.new(~w(id maximum minimum organizationId versionId))

@@ -127,7 +127,7 @@ defmodule QuickTrain.Forms.Inputs.InputSlotDefinition do
       authorize_if accessing_from(Module.concat(["QuickTrain.Forms.FormVersion"]), :input_slots)
 
       authorize_if accessing_from(
-                     Module.concat(["QuickTrain.Forms.Questions.InputSource"]),
+                     Module.concat(["QuickTrain.Forms.Questions.QuestionDefinition"]),
                      :input_slot
                    )
     end

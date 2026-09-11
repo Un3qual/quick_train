@@ -2,7 +2,7 @@
 
 - [x] 1.1 Use repository-pinned Ash generators through `mise` to create `QuickTrain.Forms`, Form, and FormVersion with organization ownership, stable keys, numbered versions, version metadata, and draft/published state; deliberately restrict generated default actions.
 - [x] 1.2 Generate input-slot and field-requirement resources, then add version-scoped relationships, keys, slot count bounds, single field cardinality, value-family enums matching datasets (including `utc_datetime` for UTC values), requiredness, and asset intended use restricted to asset-family requirements on create/update and family changes.
-- [x] 1.3 Generate presentation elements and typed text/reference subtypes; add nonblank instruction/heading text, ordered positions, flat section markers that permit unnamed sections, same-version field/question references, and matching-subtype integrity.
+- [x] 1.3 Generate presentation elements with typed content and reference fields; add nonblank instruction/heading text, ordered positions, flat section markers that permit unnamed sections, same-version field/question references, and kind-specific content validation.
 - [x] 1.4 Generate question definitions with nonblank prompts enforced on creation and update, and typed text, integer, decimal, selection, and annotation constraints; add signed 32-bit integer bounds with implicit endpoints only for `integer_input`, plus explicit stars/Likert bounds at publication and a 200-value maximum range and the specified renderer/family matrix and omit empty constraint tables for boolean and ranking.
 - [x] 1.5 Generate static options, version-owned label sets, and labels; add dynamic slot/source references separately from static options and enforce parent-scoped keys, nonblank static option labels and annotation label display text, and ordering.
 - [x] 1.6 Generate and review additive AshPostgres migrations and snapshots; add restrictive/composite foreign keys, unique identities, signed 32-bit checks for all exposed integer fields plus tighter domain bounds, relational checks and the position-constraint support required for atomic reorder; enforce immutable ownership and subtype rules in Ash.
@@ -51,24 +51,24 @@
 - [x] 7.2 Expose Forms domain code interfaces and use them in callers and fixtures.
 - [x] 7.3 Use bulk Ash operations for reorder and copy while retaining graph bounds, dependency order, and rollback.
 - [x] 7.4 Centralize common PlainText constraints in its existing Ash NewType.
-- [x] 7.5 Use relationship metadata for copy remapping and Ash cascade destruction for presentation children.
+- [x] 7.5 Use relationship metadata for copy remapping and ordinary element destruction for owned presentation content.
 - [x] 7.6 Replace membership enumeration in nested authorization with a relational eligibility filter.
 - [x] 7.7 Reconcile the GraphQL contract and design, then rerun focused behavior/concurrency tests and the full verification gate.
 
 ## 8. Follow-up built-in review
 
 - [x] 8.1 Inspect custom actions, changes, policies, validations, types, and callbacks against the pinned Ash built-ins.
-- [x] 8.2 Replace custom presentation child creation and content checks with managed relationships and built-in validations.
+- [x] 8.2 Replace custom presentation creation and content checks with native actions and built-in validations.
 - [x] 8.3 Replace the nested-read policy callback with filtered relationships and built-in actor checks.
 - [x] 8.4 Remove custom UTF-8/NUL checks and dedicated tests as requested; keep ordinary Ash text-size constraints.
 - [x] 8.5 Verify behavior, authorization, and concurrency; document the custom logic that still requires a domain implementation and run both verification gates.
 
 ## 9. Approved Ponytail simplifications
 
-- [x] 9.1 Remove 29 uncalled internal write actions and the test-only version creation action; use Ash seeding for the version-exhaustion fixture, retaining the updates used by reorder and the destroys used by presentation cascades.
-- [x] 9.2 Fold the 18 copy actions into internal creation; accept copied identities directly as `id` without forwarding arguments.
+- [x] 9.1 Remove 29 uncalled internal write actions and the test-only version creation action; use Ash seeding for the version-exhaustion fixture, retaining the updates used by reorder.
+- [x] 9.2 Fold copy actions into internal creation; accept copied identities directly as `id` without forwarding arguments.
 - [x] 9.3 Derive the constraint-resource list from the existing family-to-constraint mapping.
-- [x] 9.4 Verify copy, ordinary creation, reorder, cascades, and concurrency with the existing tests; synchronize the design and run both verification gates.
+- [x] 9.4 Verify copy, ordinary creation, reorder, element deletions, and concurrency with the existing tests; synchronize the design and run both verification gates.
 
 ## 10. Approved code-quality review fixes
 
@@ -104,6 +104,14 @@
 - [x] 15.1 Replace copied-ID forwarding in 18 resources with native internal ID inputs, remove unused internal Form creation, simplify constraint partitioning with `Enum.split_with`, and preserve the public identity boundary and complete graph behavior.
 - [x] 15.2 Verify existing copy, rollback, limits, authorization, and concurrency coverage; run the full gate and independent OpenSpec validation.
 
+## 16. Simplify owned details after checking future consumers
+
+- [x] 16.1 Check future Projects, Tasks, response, presentation, and worker-read plans; record the safe ownership model and intentional API revision in the current contract and future architecture record.
+- [x] 16.2 Store presentation content and references on PresentationElement; store dynamic input-source references on QuestionDefinition; remove six wrapper resources and their action/domain/GraphQL plumbing.
+- [x] 16.3 Remove 22 unused standalone get/list interfaces and their scoped read actions, retaining authorized parent traversal and mutation lookups.
+- [x] 16.4 Generate and verify a data-preserving migration, including rollback and reapply on a published contract; retire only wrapper identities and preserve surviving IDs and content.
+- [x] 16.5 Update behavioral, GraphQL, copy, limit, and concurrency coverage; run the full verification gate and independent OpenSpec validation.
+
 ## Verification record
 
 - `mise run verify` passed with 211 tests, including 54 Forms tests. The gate also passed
@@ -136,3 +144,16 @@
   limits, and concurrency coverage passed, along with explicit public identity rejection and
   internal-write authorization checks. The final `mise run verify` passed all 212 tests;
   independent OpenSpec validation passed all seven items.
+
+- The ownership simplification removed six resources and their wrapper mutations, moved content
+  and source references to the owning element/question, and removed 22 unused standalone detail
+  read interfaces. All 62 focused Forms and GraphQL tests passed, including copy/remapping,
+  source clearing, authorization, text bounds, reorders, and existing independent-connection races.
+- The generated ownership migration was extended with data-copy and rollback steps. A populated
+  disposable database preserved published version metadata, all five presentation kinds, empty
+  section text, and dynamic sources with and without an image requirement across up/down/reapply.
+  The four new composite foreign keys were verified and no Forms business triggers were installed.
+- The full `mise run verify` gate passed with 214 tests, including compilation, formatting,
+  generated-schema consistency, dependency-cycle checks, Credo, ExDNA, Reach, Dialyzer,
+  dependency auditing, and production compilation. Independent OpenSpec validation passed
+  all seven current changes/specifications.

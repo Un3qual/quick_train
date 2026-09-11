@@ -3,17 +3,8 @@ defmodule QuickTrain.Forms.Graph do
   alias QuickTrain.Forms.Error
   alias QuickTrain.Forms.Inputs.{InputFieldRequirement, InputSlotDefinition}
   alias QuickTrain.Forms.Labels.{Label, LabelSet}
-
-  alias QuickTrain.Forms.Presentation.{
-    BoundValue,
-    Heading,
-    Instruction,
-    PresentationElement,
-    QuestionPlacement,
-    Section
-  }
-
-  alias QuickTrain.Forms.Questions.{InputSource, QuestionDefinition, QuestionOption}
+  alias QuickTrain.Forms.Presentation.PresentationElement
+  alias QuickTrain.Forms.Questions.{QuestionDefinition, QuestionOption}
 
   alias QuickTrain.Forms.Questions.Constraints.{
     AnnotationConstraints,
@@ -36,22 +27,9 @@ defmodule QuickTrain.Forms.Graph do
     DecimalConstraints,
     SelectionConstraints,
     AnnotationConstraints,
-    InputSource,
     QuestionOption,
-    PresentationElement,
-    Instruction,
-    Heading,
-    Section,
-    BoundValue,
-    QuestionPlacement
+    PresentationElement
   ]
-  @presentations %{
-    instruction: Instruction,
-    heading: Heading,
-    section: Section,
-    bound_value: BoundValue,
-    question: QuestionPlacement
-  }
   @renderers %{
     text: [:text_input, :text_area],
     integer: [:integer_input, :stars, :likert],
@@ -118,7 +96,8 @@ defmodule QuickTrain.Forms.Graph do
 
     issues =
       limit_issues(graph) ++
-        local_issues(graph, state) ++ publication_issues(graph, version, state)
+        Enum.flat_map(graph[QuestionDefinition], &question_issues(&1, graph, state == :published)) ++
+        publication_issues(graph, version, state)
 
     if issues != [], do: Error.reject!(:invalid_form_contract, issues)
     graph
@@ -132,23 +111,6 @@ defmodule QuickTrain.Forms.Graph do
         issue(count > maximum, id, "definition limit exceeded")
       end)
     end)
-  end
-
-  defp local_issues(graph, state) do
-    Enum.flat_map(graph[QuestionDefinition], &question_issues(&1, graph, state == :published)) ++
-      Enum.flat_map(graph[PresentationElement], fn element ->
-        children =
-          Enum.flat_map(Map.values(@presentations), fn resource ->
-            Enum.filter(graph[resource], &(&1.element_id == element.id))
-          end)
-
-        issue(
-          not match?([_], children) or
-            not Enum.any?(children, &is_struct(&1, @presentations[element.kind])),
-          element.id,
-          "invalid presentation subtype"
-        )
-      end)
   end
 
   defp publication_issues(_graph, _version, :draft), do: []
@@ -170,7 +132,7 @@ defmodule QuickTrain.Forms.Graph do
       end) ++
       Enum.flat_map(graph[QuestionDefinition], fn question ->
         issue(
-          Enum.count(graph[QuestionPlacement], &(&1.question_id == question.id)) != 1,
+          Enum.count(graph[PresentationElement], &(&1.question_id == question.id)) != 1,
           question.id,
           "exactly one placement is required"
         )
@@ -189,7 +151,6 @@ defmodule QuickTrain.Forms.Graph do
     {matching, incompatible} = Enum.split_with(typed, &is_struct(&1, expected))
     own = List.first(matching)
 
-    source = Enum.find(graph[InputSource], &(&1.question_id == question.id))
     options = Enum.filter(graph[QuestionOption], &(&1.question_id == question.id))
 
     issue(
@@ -213,12 +174,18 @@ defmodule QuickTrain.Forms.Graph do
         "static options are incompatible"
       ) ++
       issue(
-        not is_nil(source) and question.family not in @dynamic,
+        (not is_nil(question.input_slot_id) or not is_nil(question.source_requirement_id)) and
+          question.family not in @dynamic,
         question.id,
         "input source is incompatible"
       ) ++
+      issue(
+        is_nil(question.input_slot_id) and not is_nil(question.source_requirement_id),
+        question.id,
+        "input slot is required for an image source"
+      ) ++
       scalar_issues(question, own, published?) ++
-      choice_issues(question, own, source, options, graph, published?) ++
+      choice_issues(question, own, options, graph, published?) ++
       annotation_issues(question, own, graph, published?)
   end
 
@@ -236,7 +203,7 @@ defmodule QuickTrain.Forms.Graph do
 
   defp scalar_issues(_question, _own, _published?), do: []
 
-  defp choice_issues(question, bounds, source, options, graph, published?) do
+  defp choice_issues(question, bounds, options, graph, published?) do
     issues = single_choice_issues(question, bounds)
 
     cond do
@@ -254,7 +221,7 @@ defmodule QuickTrain.Forms.Graph do
           )
 
       question.family in @dynamic ->
-        issues ++ dynamic_issues(question, bounds, source, graph, published?)
+        issues ++ dynamic_issues(question, bounds, graph, published?)
 
       true ->
         issues
@@ -272,19 +239,19 @@ defmodule QuickTrain.Forms.Graph do
 
   defp single_choice_issues(_question, _bounds), do: []
 
-  defp dynamic_issues(question, _bounds, nil, _graph, published?),
+  defp dynamic_issues(%{input_slot_id: nil} = question, _bounds, _graph, published?),
     do: issue(published?, question.id, "input source is required")
 
-  defp dynamic_issues(question, bounds, source, graph, published?) do
-    slot = Enum.find(graph[InputSlotDefinition], &(&1.id == source.input_slot_id))
-    field = Enum.find(graph[InputFieldRequirement], &(&1.id == source.source_requirement_id))
+  defp dynamic_issues(question, bounds, graph, published?) do
+    slot = Enum.find(graph[InputSlotDefinition], &(&1.id == question.input_slot_id))
+    field = Enum.find(graph[InputFieldRequirement], &(&1.id == question.source_requirement_id))
     image? = question.renderer == :image_choice
 
     issue(is_nil(slot), question.id, "invalid input slot") ++
       issue(image? and not image_source?(field), question.id, "required image source is required") ++
       issue(not image? and not is_nil(field), question.id, "unexpected image source") ++
       issue(
-        not is_nil(field) and field.input_slot_id != source.input_slot_id,
+        not is_nil(field) and field.input_slot_id != question.input_slot_id,
         question.id,
         "source belongs to another slot"
       ) ++

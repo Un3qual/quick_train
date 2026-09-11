@@ -5,8 +5,8 @@ defmodule QuickTrain.Forms.FormContractTest do
   alias QuickTrain.Forms.{FormVersion, Graph}
   alias QuickTrain.Forms.Inputs.{InputFieldRequirement, InputSlotDefinition}
   alias QuickTrain.Forms.Labels.{Label, LabelSet}
-  alias QuickTrain.Forms.Presentation.{Heading, Instruction, PresentationElement, Section}
-  alias QuickTrain.Forms.Questions.{InputSource, QuestionDefinition, QuestionOption}
+  alias QuickTrain.Forms.Presentation.PresentationElement
+  alias QuickTrain.Forms.Questions.{QuestionDefinition, QuestionOption}
 
   alias QuickTrain.Forms.Questions.Constraints.{
     AnnotationConstraints,
@@ -103,7 +103,8 @@ defmodule QuickTrain.Forms.FormContractTest do
     end
   end
 
-  test "presentation content matches its kind and invalid input leaves no children", ctx do
+  test "presentation content matches its kind and invalid writes leave the graph unchanged",
+       ctx do
     before = Graph.load!(ctx.version.id)
     content = %{text: "Text", requirement_id: ctx.field.id, question_id: ctx.question.id}
 
@@ -122,6 +123,12 @@ defmodule QuickTrain.Forms.FormContractTest do
         ] do
       attrs = Map.merge(invalid, %{version_id: ctx.version.id, kind: kind, position: 100})
       assert {:error, _} = run(PresentationElement, :add_to_draft, ctx, attrs)
+    end
+
+    assert Graph.load!(ctx.version.id) == before
+
+    for attrs <- [%{question_id: nil}, %{text: "Unexpected"}, %{requirement_id: ctx.field.id}] do
+      assert {:error, _} = edit(PresentationElement, ctx, ctx.element, attrs)
     end
 
     assert Graph.load!(ctx.version.id) == before
@@ -151,11 +158,7 @@ defmodule QuickTrain.Forms.FormContractTest do
   end
 
   test "text byte limits apply on create and update including unnamed sections", ctx do
-    for {kind, resource, limit} <- [
-          {:heading, Heading, 1024},
-          {:section, Section, 1024},
-          {:instruction, Instruction, 16_384}
-        ] do
+    for {kind, limit} <- [heading: 1024, section: 1024, instruction: 16_384] do
       element =
         add!(PresentationElement, ctx, ctx.version, %{
           kind: kind,
@@ -163,13 +166,16 @@ defmodule QuickTrain.Forms.FormContractTest do
           text: String.duplicate("é", div(limit, 2))
         })
 
-      child =
-        resource
-        |> Ash.Query.filter_input(%{element_id: element.id})
-        |> Ash.read_one!(authorize?: false)
-
       assert {:error, _} =
-               edit(resource, ctx, child, %{text: String.duplicate("é", div(limit, 2) + 1)})
+               edit(PresentationElement, ctx, element, %{
+                 text: String.duplicate("é", div(limit, 2) + 1)
+               })
+
+      if kind == :section do
+        assert {:ok, _} = edit(PresentationElement, ctx, element, %{text: ""})
+      else
+        assert {:error, _} = edit(PresentationElement, ctx, element, %{text: " \n\t"})
+      end
 
       changeset =
         Ash.Changeset.for_create(
@@ -397,6 +403,74 @@ defmodule QuickTrain.Forms.FormContractTest do
     assert run!(FormVersion, :create_draft, ctx, %{form_id: ctx.form.id}).version == 2
   end
 
+  test "question source edits preserve compatibility and can clear an incomplete draft", ctx do
+    question =
+      add!(QuestionDefinition, ctx, ctx.version, %{
+        key: "images",
+        prompt: "Choose an image",
+        family: :task_input_multiple_choice,
+        renderer: :image_choice
+      })
+
+    build_constraints!(:task_input_multiple_choice, question, ctx)
+    question = Ash.get!(QuestionDefinition, question.id, authorize?: false)
+
+    add!(PresentationElement, ctx, ctx.version, %{
+      kind: :question,
+      position: 20,
+      question_id: question.id
+    })
+
+    image = Ash.get!(InputFieldRequirement, question.source_requirement_id, authorize?: false)
+    other = rating!(context!(~w(forms.read forms.manage), "foreign-source"))
+
+    for attrs <- [
+          %{input_slot_id: nil},
+          %{input_slot_id: ctx.slot.id},
+          %{input_slot_id: other.slot.id, source_requirement_id: nil},
+          %{source_requirement_id: other.field.id},
+          %{renderer: :checkbox_group},
+          %{source_requirement_id: nil}
+        ] do
+      assert {:error, _} = edit(QuestionDefinition, ctx, question, attrs)
+    end
+
+    assert {:error, _} = edit(InputFieldRequirement, ctx, image, %{intended_use: :download})
+
+    assert {:error, _} =
+             edit(QuestionDefinition, ctx, ctx.question, %{input_slot_id: ctx.slot.id})
+
+    assert {:error, _} =
+             edit(PresentationElement, ctx, ctx.element, %{question_id: other.question.id})
+
+    assert {:ok, cleared} =
+             edit(QuestionDefinition, ctx, question, %{
+               input_slot_id: nil,
+               source_requirement_id: nil
+             })
+
+    assert is_nil(cleared.input_slot_id)
+    assert is_nil(cleared.source_requirement_id)
+
+    assert {:error, error} = run(FormVersion, :publish, ctx, %{version_id: ctx.version.id})
+    assert Exception.message(error) =~ "input source is required"
+
+    assert {:ok, _} =
+             edit(QuestionDefinition, ctx, cleared, %{
+               input_slot_id: question.input_slot_id,
+               source_requirement_id: image.id
+             })
+
+    assert run!(FormVersion, :publish, ctx, %{version_id: ctx.version.id}).state == :published
+    assert {:error, _} = edit(PresentationElement, ctx, ctx.element, %{question_id: question.id})
+
+    assert {:error, _} =
+             edit(QuestionDefinition, ctx, question, %{
+               input_slot_id: nil,
+               source_requirement_id: nil
+             })
+  end
+
   test "blank titles and foreign published copy sources fail without consuming numbers", ctx do
     for title <- [nil, "", " \n\t"] do
       run!(FormVersion, :update_draft, ctx, %{version_id: ctx.version.id, title: title})
@@ -469,11 +543,11 @@ defmodule QuickTrain.Forms.FormContractTest do
 
     source = if question.renderer == :image_choice, do: field.id
 
-    add!(InputSource, ctx, ctx.version, %{
-      question_id: question.id,
-      input_slot_id: slot.id,
-      source_requirement_id: source
-    })
+    assert {:ok, _} =
+             edit(QuestionDefinition, ctx, question, %{
+               input_slot_id: slot.id,
+               source_requirement_id: source
+             })
 
     unless family == :task_input_ranking,
       do:

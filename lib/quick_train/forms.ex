@@ -5,15 +5,7 @@ defmodule QuickTrain.Forms do
   alias QuickTrain.Forms.{Form, FormVersion}
   alias QuickTrain.Forms.Inputs.{InputFieldRequirement, InputSlotDefinition}
   alias QuickTrain.Forms.Labels.{Label, LabelSet}
-
-  alias QuickTrain.Forms.Presentation.{
-    BoundValue,
-    Heading,
-    Instruction,
-    PresentationElement,
-    QuestionPlacement,
-    Section
-  }
+  alias QuickTrain.Forms.Presentation.PresentationElement
 
   alias QuickTrain.Forms.Questions.Constraints.{
     AnnotationConstraints,
@@ -23,7 +15,7 @@ defmodule QuickTrain.Forms do
     TextConstraints
   }
 
-  alias QuickTrain.Forms.Questions.{InputSource, QuestionDefinition, QuestionOption}
+  alias QuickTrain.Forms.Questions.{QuestionDefinition, QuestionOption}
 
   resources do
     resource Form do
@@ -114,9 +106,6 @@ defmodule QuickTrain.Forms do
       define :remove_form_text_constraints,
         action: :remove_from_draft,
         args: [:organization_id]
-
-      define :get_form_text_constraints, action: :get_scoped, args: [:organization_id, :id]
-      define :list_form_text_constraints, action: :list_scoped, args: [:organization_id]
     end
 
     resource IntegerConstraints do
@@ -129,9 +118,6 @@ defmodule QuickTrain.Forms do
       define :remove_form_integer_constraints,
         action: :remove_from_draft,
         args: [:organization_id]
-
-      define :get_form_integer_constraints, action: :get_scoped, args: [:organization_id, :id]
-      define :list_form_integer_constraints, action: :list_scoped, args: [:organization_id]
     end
 
     resource DecimalConstraints do
@@ -144,9 +130,6 @@ defmodule QuickTrain.Forms do
       define :remove_form_decimal_constraints,
         action: :remove_from_draft,
         args: [:organization_id]
-
-      define :get_form_decimal_constraints, action: :get_scoped, args: [:organization_id, :id]
-      define :list_form_decimal_constraints, action: :list_scoped, args: [:organization_id]
     end
 
     resource SelectionConstraints do
@@ -159,9 +142,6 @@ defmodule QuickTrain.Forms do
       define :remove_form_selection_constraints,
         action: :remove_from_draft,
         args: [:organization_id]
-
-      define :get_form_selection_constraints, action: :get_scoped, args: [:organization_id, :id]
-      define :list_form_selection_constraints, action: :list_scoped, args: [:organization_id]
     end
 
     resource AnnotationConstraints do
@@ -174,24 +154,6 @@ defmodule QuickTrain.Forms do
       define :remove_form_annotation_constraints,
         action: :remove_from_draft,
         args: [:organization_id]
-
-      define :get_form_annotation_constraints, action: :get_scoped, args: [:organization_id, :id]
-      define :list_form_annotation_constraints, action: :list_scoped, args: [:organization_id]
-    end
-
-    resource InputSource do
-      define :add_form_input_source, action: :add_to_draft, args: [:organization_id]
-
-      define :update_form_input_source,
-        action: :update_in_draft,
-        args: [:organization_id]
-
-      define :remove_form_input_source,
-        action: :remove_from_draft,
-        args: [:organization_id]
-
-      define :get_form_input_source, action: :get_scoped, args: [:organization_id, :id]
-      define :list_form_input_sources, action: :list_scoped, args: [:organization_id]
     end
 
     resource QuestionOption do
@@ -255,51 +217,6 @@ defmodule QuickTrain.Forms do
       define :reorder_form_presentation_element, action: :reorder, args: [:organization_id]
       define :get_form_presentation_element, action: :get_scoped, args: [:organization_id, :id]
       define :list_form_presentation_elements, action: :list_scoped, args: [:organization_id]
-    end
-
-    resource Instruction do
-      define :update_form_instruction,
-        action: :update_in_draft,
-        args: [:organization_id]
-
-      define :get_form_instruction, action: :get_scoped, args: [:organization_id, :id]
-      define :list_form_instructions, action: :list_scoped, args: [:organization_id]
-    end
-
-    resource Heading do
-      define :update_form_heading,
-        action: :update_in_draft,
-        args: [:organization_id]
-
-      define :get_form_heading, action: :get_scoped, args: [:organization_id, :id]
-      define :list_form_headings, action: :list_scoped, args: [:organization_id]
-    end
-
-    resource Section do
-      define :update_form_section,
-        action: :update_in_draft,
-        args: [:organization_id]
-
-      define :get_form_section, action: :get_scoped, args: [:organization_id, :id]
-      define :list_form_sections, action: :list_scoped, args: [:organization_id]
-    end
-
-    resource BoundValue do
-      define :update_form_bound_value,
-        action: :update_in_draft,
-        args: [:organization_id]
-
-      define :get_form_bound_value, action: :get_scoped, args: [:organization_id, :id]
-      define :list_form_bound_values, action: :list_scoped, args: [:organization_id]
-    end
-
-    resource QuestionPlacement do
-      define :update_form_question_placement,
-        action: :update_in_draft,
-        args: [:organization_id]
-
-      define :get_form_question_placement, action: :get_scoped, args: [:organization_id, :id]
-      define :list_form_question_placements, action: :list_scoped, args: [:organization_id]
     end
   end
 
@@ -428,12 +345,29 @@ defmodule QuickTrain.Forms do
       create QuestionDefinition,
              :add_form_question_definition,
              :add_to_draft,
-             args: [:organization_id, :version_id, :key, :prompt, :family, :renderer]
+             args: [
+               :organization_id,
+               :version_id,
+               :key,
+               :prompt,
+               :family,
+               :renderer,
+               :input_slot_id,
+               :source_requirement_id
+             ]
 
       update QuestionDefinition,
              :update_form_question_definition,
              :update_in_draft,
-             args: [:organization_id, :version_id, :prompt, :family, :renderer],
+             args: [
+               :organization_id,
+               :version_id,
+               :prompt,
+               :family,
+               :renderer,
+               :input_slot_id,
+               :source_requirement_id
+             ],
              read_action: :read_for_authoring
 
       destroy QuestionDefinition,
@@ -542,25 +476,6 @@ defmodule QuickTrain.Forms do
               args: [:organization_id, :version_id],
               read_action: :read_for_authoring
 
-      create InputSource, :add_form_input_source, :add_to_draft,
-        args: [
-          :organization_id,
-          :version_id,
-          :question_id,
-          :input_slot_id,
-          :source_requirement_id
-        ]
-
-      update InputSource, :update_form_input_source, :update_in_draft,
-        args: [:organization_id, :version_id, :input_slot_id, :source_requirement_id],
-        read_action: :read_for_authoring
-
-      destroy InputSource,
-              :remove_form_input_source,
-              :remove_from_draft,
-              args: [:organization_id, :version_id],
-              read_action: :read_for_authoring
-
       create QuestionOption, :add_form_question_option, :add_to_draft,
         args: [:organization_id, :version_id, :key, :label, :position, :question_id]
 
@@ -620,7 +535,14 @@ defmodule QuickTrain.Forms do
       update PresentationElement,
              :update_form_presentation_element,
              :update_in_draft,
-             args: [:organization_id, :version_id, :position],
+             args: [
+               :organization_id,
+               :version_id,
+               :position,
+               :text,
+               :requirement_id,
+               :question_id
+             ],
              read_action: :read_for_authoring
 
       destroy PresentationElement,
@@ -632,30 +554,6 @@ defmodule QuickTrain.Forms do
       action PresentationElement,
              :reorder_form_presentation_element,
              :reorder, args: [:organization_id, :version_id, :ids]
-
-      update Instruction,
-             :update_form_instruction,
-             :update_in_draft,
-             args: [:organization_id, :version_id, :text],
-             read_action: :read_for_authoring
-
-      update Heading, :update_form_heading, :update_in_draft,
-        args: [:organization_id, :version_id, :text],
-        read_action: :read_for_authoring
-
-      update Section, :update_form_section, :update_in_draft,
-        args: [:organization_id, :version_id, :text],
-        read_action: :read_for_authoring
-
-      update BoundValue, :update_form_bound_value, :update_in_draft,
-        args: [:organization_id, :version_id, :requirement_id],
-        read_action: :read_for_authoring
-
-      update QuestionPlacement,
-             :update_form_question_placement,
-             :update_in_draft,
-             args: [:organization_id, :version_id, :question_id],
-             read_action: :read_for_authoring
     end
   end
 

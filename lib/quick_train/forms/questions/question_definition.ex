@@ -10,6 +10,7 @@ defmodule QuickTrain.Forms.Questions.QuestionDefinition do
   alias QuickTrain.Authorization.Checks.OrganizationCapability
   alias QuickTrain.Forms.Changes.DraftWrite
   alias QuickTrain.Forms.FormVersion
+  alias QuickTrain.Forms.Inputs.{InputFieldRequirement, InputSlotDefinition}
 
   alias QuickTrain.Forms.Questions.Constraints.{
     AnnotationConstraints,
@@ -19,7 +20,7 @@ defmodule QuickTrain.Forms.Questions.QuestionDefinition do
     TextConstraints
   }
 
-  alias QuickTrain.Forms.Questions.{InputSource, QuestionOption}
+  alias QuickTrain.Forms.Questions.QuestionOption
   alias QuickTrain.Forms.Types.{AnswerFamily, PlainText, Renderer}
   alias QuickTrain.Repo
 
@@ -76,9 +77,8 @@ defmodule QuickTrain.Forms.Questions.QuestionDefinition do
       destination_attribute: :question_id,
       public?: true
 
-    has_one :input_source, InputSource,
-      destination_attribute: :question_id,
-      public?: true
+    belongs_to :input_slot, InputSlotDefinition, public?: true, attribute_public?: true
+    belongs_to :source_requirement, InputFieldRequirement, public?: true, attribute_public?: true
 
     has_many :options, QuestionOption,
       destination_attribute: :question_id,
@@ -119,7 +119,16 @@ defmodule QuickTrain.Forms.Questions.QuestionDefinition do
     end
 
     create :add_to_draft do
-      accept [:key, :prompt, :family, :renderer, :version_id]
+      accept [
+        :key,
+        :prompt,
+        :family,
+        :renderer,
+        :version_id,
+        :input_slot_id,
+        :source_requirement_id
+      ]
+
       argument :organization_id, :uuid, allow_nil?: false
       change DraftWrite
     end
@@ -127,7 +136,7 @@ defmodule QuickTrain.Forms.Questions.QuestionDefinition do
     update :update_in_draft do
       require_atomic? false
       atomic_upgrade_with :read_for_authoring
-      accept [:prompt, :family, :renderer]
+      accept [:prompt, :family, :renderer, :input_slot_id, :source_requirement_id]
       argument :organization_id, :uuid, allow_nil?: false
       argument :version_id, :uuid, allow_nil?: false
       change DraftWrite
@@ -142,7 +151,16 @@ defmodule QuickTrain.Forms.Questions.QuestionDefinition do
     end
 
     create :create_internal do
-      accept [:id, :key, :prompt, :family, :renderer, :version_id]
+      accept [
+        :id,
+        :key,
+        :prompt,
+        :family,
+        :renderer,
+        :version_id,
+        :input_slot_id,
+        :source_requirement_id
+      ]
     end
   end
 
@@ -166,7 +184,7 @@ defmodule QuickTrain.Forms.Questions.QuestionDefinition do
       authorize_if accessing_from(Module.concat(["QuickTrain.Forms.FormVersion"]), :questions)
 
       authorize_if accessing_from(
-                     Module.concat(["QuickTrain.Forms.Presentation.QuestionPlacement"]),
+                     Module.concat(["QuickTrain.Forms.Presentation.PresentationElement"]),
                      :question
                    )
     end
@@ -181,6 +199,7 @@ defmodule QuickTrain.Forms.Questions.QuestionDefinition do
   end
 
   validations do
+    validate present(:input_slot_id), where: [present(:source_requirement_id)]
     validate match(:key, ~r/\S/u), where: [changing(:key)]
     validate match(:prompt, ~r/\S/u), where: [changing(:prompt)]
   end
@@ -197,7 +216,8 @@ defmodule QuickTrain.Forms.Questions.QuestionDefinition do
       :decimal_constraints,
       :selection_constraints,
       :annotation_constraints,
-      :input_source,
+      :input_slot,
+      :source_requirement,
       :options
     ]
 
@@ -210,6 +230,8 @@ defmodule QuickTrain.Forms.Questions.QuestionDefinition do
 
     references do
       reference :version, on_delete: :restrict
+      reference :input_slot, on_delete: :restrict, match_with: [version_id: :version_id]
+      reference :source_requirement, on_delete: :restrict, match_with: [version_id: :version_id]
     end
 
     custom_indexes do

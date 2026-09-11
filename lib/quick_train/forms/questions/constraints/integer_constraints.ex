@@ -52,24 +52,6 @@ defmodule QuickTrain.Forms.Questions.Constraints.IntegerConstraints do
                  stable_sort: [inserted_at: :asc, id: :asc]
     end
 
-    read :list_scoped do
-      argument :organization_id, :uuid, allow_nil?: false
-      filter expr(version.form.organization_id == ^arg(:organization_id))
-
-      pagination keyset?: true,
-                 required?: true,
-                 default_limit: 50,
-                 max_page_size: 100,
-                 stable_sort: [inserted_at: :asc, id: :asc]
-    end
-
-    read :get_scoped do
-      get? true
-      argument :organization_id, :uuid, allow_nil?: false
-      argument :id, :uuid, allow_nil?: false
-      filter expr(id == ^arg(:id) and version.form.organization_id == ^arg(:organization_id))
-    end
-
     create :add_to_draft do
       accept [:minimum, :maximum, :question_id, :version_id]
       argument :organization_id, :uuid, allow_nil?: false
@@ -119,10 +101,6 @@ defmodule QuickTrain.Forms.Questions.Constraints.IntegerConstraints do
                      Module.concat(["QuickTrain.Forms.Questions.QuestionDefinition"]),
                      :integer_constraints
                    )
-    end
-
-    policy action([:list_scoped, :get_scoped]) do
-      authorize_if {OrganizationCapability, capability: "forms.read"}
     end
 
     policy action([:add_to_draft, :update_in_draft, :remove_from_draft]) do

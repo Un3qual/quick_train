@@ -2,10 +2,11 @@ defmodule QuickTrainWeb.FormGraphqlTest do
   use QuickTrain.ConnCase, async: false
   import QuickTrain.FormsFixture
   alias QuickTrain.Accounts
+  alias QuickTrain.Forms.Presentation.PresentationElement
   alias QuickTrain.Forms.Questions.Constraints.SelectionConstraints
   alias QuickTrain.Forms.Questions.{QuestionDefinition, QuestionOption}
 
-  test "native create and destroy mutations return results and cascade presentation children", %{
+  test "native presentation mutations return and edit element content", %{
     conn: conn
   } do
     ctx = context!(~w(forms.manage))
@@ -33,12 +34,22 @@ defmodule QuickTrainWeb.FormGraphqlTest do
     element =
       graphql!(conn, """
       mutation { addFormPresentationElement(organizationId: "#{ctx.org.id}", versionId: "#{version_id}", kind: HEADING, position: 0, text: "Heading") {
-        result { id heading { id text } } errors { message }
+        result { id text } errors { message }
       } }
       """)["addFormPresentationElement"]
 
     assert element["errors"] == []
-    assert element["result"]["heading"]["text"] == "Heading"
+    assert element["result"]["text"] == "Heading"
+
+    updated =
+      graphql!(conn, """
+      mutation { updateFormPresentationElement(organizationId: "#{ctx.org.id}", versionId: "#{version_id}", id: "#{element["result"]["id"]}", text: "Updated heading") {
+        result { id text } errors { message }
+      } }
+      """)["updateFormPresentationElement"]
+
+    assert updated["errors"] == []
+    assert updated["result"]["text"] == "Updated heading"
 
     result =
       graphql!(conn, """
@@ -48,7 +59,7 @@ defmodule QuickTrainWeb.FormGraphqlTest do
       """)["removeFormPresentationElement"]
 
     assert result["errors"] == []
-    assert Ash.count!(QuickTrain.Forms.Presentation.Heading, authorize?: false) == 0
+    assert Ash.count!(PresentationElement, authorize?: false) == 0
   end
 
   test "a manage-only actor receives the authorized graph but has no general read API", %{
@@ -64,7 +75,7 @@ defmodule QuickTrainWeb.FormGraphqlTest do
         id version state publishedAt title
         inputSlots(first: 2) { edges { node { id key minimum maximum requirements(first: 2) { edges { node { valueFamily cardinality required } } } } } }
         questions(first: 2) { edges { node { id key prompt family renderer integerConstraints { minimum maximum } } } }
-        elements(first: 2) { edges { node { id kind position questionPlacement { question { id } } } } }
+        elements(first: 2) { edges { node { id kind position question { id } } } }
       } }
       """)
 
@@ -135,6 +146,44 @@ defmodule QuickTrainWeb.FormGraphqlTest do
       """)
 
     assert updated["updateFormQuestionDefinition"]["result"]["prompt"] == "Choose one"
+  end
+
+  test "manage-only authors can inspect direct question sources and bound references", %{
+    conn: conn
+  } do
+    ctx = context!(~w(forms.manage))
+    graph = rating!(ctx)
+    conn = bearer(conn, ctx.actor)
+
+    image =
+      add!(QuickTrain.Forms.Inputs.InputFieldRequirement, ctx, graph.version, %{
+        key: "image",
+        input_slot_id: graph.slot.id,
+        value_family: :asset,
+        intended_use: :image,
+        required: true
+      })
+
+    result =
+      graphql!(conn, """
+      mutation { addFormQuestionDefinition(organizationId: "#{ctx.org.id}", versionId: "#{graph.version.id}", key: "image-choice", prompt: "Choose", family: TASK_INPUT_SINGLE_CHOICE, renderer: IMAGE_CHOICE, inputSlotId: "#{graph.slot.id}", sourceRequirementId: "#{image.id}") {
+        result { id inputSlot { id } sourceRequirement { id valueFamily } } errors { message }
+      } }
+      """)["addFormQuestionDefinition"]
+
+    assert result["errors"] == []
+    assert result["result"]["inputSlot"]["id"] == graph.slot.id
+    assert result["result"]["sourceRequirement"] == %{"id" => image.id, "valueFamily" => "ASSET"}
+
+    element =
+      graphql!(conn, """
+      mutation { addFormPresentationElement(organizationId: "#{ctx.org.id}", versionId: "#{graph.version.id}", kind: BOUND_VALUE, position: 20, requirementId: "#{graph.field.id}") {
+        result { id requirement { id key } } errors { message }
+      } }
+      """)["addFormPresentationElement"]
+
+    assert element["errors"] == []
+    assert element["result"]["requirement"]["id"] == graph.field.id
   end
 
   test "query complexity and request byte limits apply to Forms", %{conn: conn} do
