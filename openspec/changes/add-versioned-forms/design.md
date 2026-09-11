@@ -96,6 +96,10 @@ Use Ash integer constraints and database bounds for every persisted integer expo
   `presentation`, `labels`, and shared `types` directories. Form lifecycle and domain-wide
   support modules remain at the domain root. Module namespaces match their directories;
   database tables are unchanged; native mutation envelopes are documented below.
+  Domain and resource declarations use local aliases for related resources, types, changes,
+  and policy checks. Ash modules remain fully qualified; Credo's alias check targets only
+  `QuickTrain.*`. String-based late-bound references
+  retain their dependency behavior.
 - `QuickTrain.Forms` exposes named create/update/destroy actions and generated domain code
   interfaces. Updates and destroys accept resource records in Elixir; scoped inspection also has
   generated interfaces. Parameterized contract fixtures dispatch through those interfaces.

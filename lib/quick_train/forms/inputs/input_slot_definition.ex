@@ -7,10 +7,17 @@ defmodule QuickTrain.Forms.Inputs.InputSlotDefinition do
     data_layer: AshPostgres.DataLayer,
     authorizers: [Ash.Policy.Authorizer]
 
+  alias QuickTrain.Authorization.Checks.OrganizationCapability
+  alias QuickTrain.Forms.Changes.DraftWrite
+  alias QuickTrain.Forms.FormVersion
+  alias QuickTrain.Forms.Inputs.InputFieldRequirement
+  alias QuickTrain.Forms.Types.PlainText
+  alias QuickTrain.Repo
+
   attributes do
     uuid_primary_key :id
 
-    attribute :key, QuickTrain.Forms.Types.PlainText,
+    attribute :key, PlainText,
       public?: true,
       allow_nil?: false,
       constraints: [
@@ -32,9 +39,9 @@ defmodule QuickTrain.Forms.Inputs.InputSlotDefinition do
   end
 
   relationships do
-    belongs_to :version, QuickTrain.Forms.FormVersion, allow_nil?: false, attribute_public?: true
+    belongs_to :version, FormVersion, allow_nil?: false, attribute_public?: true
 
-    has_many :requirements, QuickTrain.Forms.Inputs.InputFieldRequirement,
+    has_many :requirements, InputFieldRequirement,
       destination_attribute: :input_slot_id,
       public?: true
   end
@@ -75,7 +82,7 @@ defmodule QuickTrain.Forms.Inputs.InputSlotDefinition do
     create :add_to_draft do
       accept [:key, :minimum, :maximum, :version_id]
       argument :organization_id, :uuid, allow_nil?: false
-      change QuickTrain.Forms.Changes.DraftWrite
+      change DraftWrite
     end
 
     update :update_in_draft do
@@ -84,7 +91,7 @@ defmodule QuickTrain.Forms.Inputs.InputSlotDefinition do
       accept [:minimum, :maximum]
       argument :organization_id, :uuid, allow_nil?: false
       argument :version_id, :uuid, allow_nil?: false
-      change QuickTrain.Forms.Changes.DraftWrite
+      change DraftWrite
     end
 
     destroy :remove_from_draft do
@@ -92,7 +99,7 @@ defmodule QuickTrain.Forms.Inputs.InputSlotDefinition do
       atomic_upgrade_with :read_for_authoring
       argument :organization_id, :uuid, allow_nil?: false
       argument :version_id, :uuid, allow_nil?: false
-      change QuickTrain.Forms.Changes.DraftWrite
+      change DraftWrite
     end
 
     create :create_internal do
@@ -128,13 +135,11 @@ defmodule QuickTrain.Forms.Inputs.InputSlotDefinition do
     end
 
     policy action([:list_scoped, :get_scoped]) do
-      authorize_if {QuickTrain.Authorization.Checks.OrganizationCapability,
-                    capability: "forms.read"}
+      authorize_if {OrganizationCapability, capability: "forms.read"}
     end
 
     policy action([:add_to_draft, :update_in_draft, :remove_from_draft]) do
-      authorize_if {QuickTrain.Authorization.Checks.OrganizationCapability,
-                    capability: "forms.manage"}
+      authorize_if {OrganizationCapability, capability: "forms.manage"}
     end
   end
 
@@ -156,7 +161,7 @@ defmodule QuickTrain.Forms.Inputs.InputSlotDefinition do
 
   postgres do
     table "form_input_slot_definitions"
-    repo QuickTrain.Repo
+    repo Repo
 
     references do
       reference :version, on_delete: :restrict

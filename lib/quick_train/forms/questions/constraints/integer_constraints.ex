@@ -9,6 +9,12 @@ defmodule QuickTrain.Forms.Questions.Constraints.IntegerConstraints do
     data_layer: AshPostgres.DataLayer,
     authorizers: [Ash.Policy.Authorizer]
 
+  alias QuickTrain.Authorization.Checks.OrganizationCapability
+  alias QuickTrain.Forms.Changes.DraftWrite
+  alias QuickTrain.Forms.FormVersion
+  alias QuickTrain.Forms.Questions.QuestionDefinition
+  alias QuickTrain.Repo
+
   attributes do
     uuid_primary_key :id
 
@@ -24,11 +30,11 @@ defmodule QuickTrain.Forms.Questions.Constraints.IntegerConstraints do
   end
 
   relationships do
-    belongs_to :question, QuickTrain.Forms.Questions.QuestionDefinition,
+    belongs_to :question, QuestionDefinition,
       allow_nil?: false,
       attribute_public?: true
 
-    belongs_to :version, QuickTrain.Forms.FormVersion, allow_nil?: false, attribute_public?: true
+    belongs_to :version, FormVersion, allow_nil?: false, attribute_public?: true
   end
 
   actions do
@@ -67,7 +73,7 @@ defmodule QuickTrain.Forms.Questions.Constraints.IntegerConstraints do
     create :add_to_draft do
       accept [:minimum, :maximum, :question_id, :version_id]
       argument :organization_id, :uuid, allow_nil?: false
-      change QuickTrain.Forms.Changes.DraftWrite
+      change DraftWrite
     end
 
     update :update_in_draft do
@@ -76,7 +82,7 @@ defmodule QuickTrain.Forms.Questions.Constraints.IntegerConstraints do
       accept [:minimum, :maximum]
       argument :organization_id, :uuid, allow_nil?: false
       argument :version_id, :uuid, allow_nil?: false
-      change QuickTrain.Forms.Changes.DraftWrite
+      change DraftWrite
     end
 
     destroy :remove_from_draft do
@@ -84,7 +90,7 @@ defmodule QuickTrain.Forms.Questions.Constraints.IntegerConstraints do
       atomic_upgrade_with :read_for_authoring
       argument :organization_id, :uuid, allow_nil?: false
       argument :version_id, :uuid, allow_nil?: false
-      change QuickTrain.Forms.Changes.DraftWrite
+      change DraftWrite
     end
 
     create :create_internal do
@@ -118,13 +124,11 @@ defmodule QuickTrain.Forms.Questions.Constraints.IntegerConstraints do
     end
 
     policy action([:list_scoped, :get_scoped]) do
-      authorize_if {QuickTrain.Authorization.Checks.OrganizationCapability,
-                    capability: "forms.read"}
+      authorize_if {OrganizationCapability, capability: "forms.read"}
     end
 
     policy action([:add_to_draft, :update_in_draft, :remove_from_draft]) do
-      authorize_if {QuickTrain.Authorization.Checks.OrganizationCapability,
-                    capability: "forms.manage"}
+      authorize_if {OrganizationCapability, capability: "forms.manage"}
     end
   end
 
@@ -145,7 +149,7 @@ defmodule QuickTrain.Forms.Questions.Constraints.IntegerConstraints do
 
   postgres do
     table "form_integer_constraints"
-    repo QuickTrain.Repo
+    repo Repo
 
     references do
       reference :question, on_delete: :restrict, match_with: [version_id: :version_id]

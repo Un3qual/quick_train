@@ -91,6 +91,10 @@
 - [x] 12.1 Remove redundant position-constraint rebuilds from both migration directions, correct resource documentation, and strengthen existing authorization, copy, telemetry, and graph-limit assertions without changing the authored contract.
 - [x] 12.2 Verify reported failures against the pinned dependencies, exercise fresh migration and rollback/reapply while preserving constraint/index identities, and run focused tests plus both repository verification gates.
 
+## 13. Forms alias cleanup
+
+- [x] 13.1 Use readable local aliases for our own modules across Forms domain/resource declarations, keep Ash references fully qualified, preserve late-bound references, and verify compilation, schema consistency, and existing behavior.
+
 ## Verification record
 
 - `mise run verify` passed with 211 tests, including 54 Forms tests. The gate also passed

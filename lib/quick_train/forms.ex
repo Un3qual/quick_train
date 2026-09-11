@@ -2,8 +2,31 @@ defmodule QuickTrain.Forms do
   @moduledoc "Reusable organization-owned form definitions and immutable published versions."
   use Ash.Domain, otp_app: :quick_train, extensions: [AshGraphql.Domain]
 
+  alias QuickTrain.Forms.{Form, FormVersion}
+  alias QuickTrain.Forms.Inputs.{InputFieldRequirement, InputSlotDefinition}
+  alias QuickTrain.Forms.Labels.{Label, LabelSet}
+
+  alias QuickTrain.Forms.Presentation.{
+    BoundValue,
+    Heading,
+    Instruction,
+    PresentationElement,
+    QuestionPlacement,
+    Section
+  }
+
+  alias QuickTrain.Forms.Questions.Constraints.{
+    AnnotationConstraints,
+    DecimalConstraints,
+    IntegerConstraints,
+    SelectionConstraints,
+    TextConstraints
+  }
+
+  alias QuickTrain.Forms.Questions.{InputSource, QuestionDefinition, QuestionOption}
+
   resources do
-    resource QuickTrain.Forms.Form do
+    resource Form do
       define :create_form, action: :create_form, args: [:organization_id]
 
       define :lock_form,
@@ -16,7 +39,7 @@ defmodule QuickTrain.Forms do
       define :list_forms, action: :list_scoped, args: [:organization_id]
     end
 
-    resource QuickTrain.Forms.FormVersion do
+    resource FormVersion do
       define :create_form_draft, action: :create_draft, args: [:organization_id]
       define :copy_published_form, action: :copy_published, args: [:organization_id]
 
@@ -36,7 +59,7 @@ defmodule QuickTrain.Forms do
       define :list_form_versions, action: :list_scoped, args: [:organization_id]
     end
 
-    resource QuickTrain.Forms.Inputs.InputSlotDefinition do
+    resource InputSlotDefinition do
       define :add_form_input_slot_definition, action: :add_to_draft, args: [:organization_id]
 
       define :update_form_input_slot_definition,
@@ -51,7 +74,7 @@ defmodule QuickTrain.Forms do
       define :list_form_input_slot_definitions, action: :list_scoped, args: [:organization_id]
     end
 
-    resource QuickTrain.Forms.Inputs.InputFieldRequirement do
+    resource InputFieldRequirement do
       define :add_form_input_field_requirement, action: :add_to_draft, args: [:organization_id]
 
       define :update_form_input_field_requirement,
@@ -66,7 +89,7 @@ defmodule QuickTrain.Forms do
       define :list_form_input_field_requirements, action: :list_scoped, args: [:organization_id]
     end
 
-    resource QuickTrain.Forms.Questions.QuestionDefinition do
+    resource QuestionDefinition do
       define :add_form_question_definition, action: :add_to_draft, args: [:organization_id]
 
       define :update_form_question_definition,
@@ -81,7 +104,7 @@ defmodule QuickTrain.Forms do
       define :list_form_question_definitions, action: :list_scoped, args: [:organization_id]
     end
 
-    resource QuickTrain.Forms.Questions.Constraints.TextConstraints do
+    resource TextConstraints do
       define :add_form_text_constraints, action: :add_to_draft, args: [:organization_id]
 
       define :update_form_text_constraints,
@@ -96,7 +119,7 @@ defmodule QuickTrain.Forms do
       define :list_form_text_constraints, action: :list_scoped, args: [:organization_id]
     end
 
-    resource QuickTrain.Forms.Questions.Constraints.IntegerConstraints do
+    resource IntegerConstraints do
       define :add_form_integer_constraints, action: :add_to_draft, args: [:organization_id]
 
       define :update_form_integer_constraints,
@@ -111,7 +134,7 @@ defmodule QuickTrain.Forms do
       define :list_form_integer_constraints, action: :list_scoped, args: [:organization_id]
     end
 
-    resource QuickTrain.Forms.Questions.Constraints.DecimalConstraints do
+    resource DecimalConstraints do
       define :add_form_decimal_constraints, action: :add_to_draft, args: [:organization_id]
 
       define :update_form_decimal_constraints,
@@ -126,7 +149,7 @@ defmodule QuickTrain.Forms do
       define :list_form_decimal_constraints, action: :list_scoped, args: [:organization_id]
     end
 
-    resource QuickTrain.Forms.Questions.Constraints.SelectionConstraints do
+    resource SelectionConstraints do
       define :add_form_selection_constraints, action: :add_to_draft, args: [:organization_id]
 
       define :update_form_selection_constraints,
@@ -141,7 +164,7 @@ defmodule QuickTrain.Forms do
       define :list_form_selection_constraints, action: :list_scoped, args: [:organization_id]
     end
 
-    resource QuickTrain.Forms.Questions.Constraints.AnnotationConstraints do
+    resource AnnotationConstraints do
       define :add_form_annotation_constraints, action: :add_to_draft, args: [:organization_id]
 
       define :update_form_annotation_constraints,
@@ -156,7 +179,7 @@ defmodule QuickTrain.Forms do
       define :list_form_annotation_constraints, action: :list_scoped, args: [:organization_id]
     end
 
-    resource QuickTrain.Forms.Questions.InputSource do
+    resource InputSource do
       define :add_form_input_source, action: :add_to_draft, args: [:organization_id]
 
       define :update_form_input_source,
@@ -171,7 +194,7 @@ defmodule QuickTrain.Forms do
       define :list_form_input_sources, action: :list_scoped, args: [:organization_id]
     end
 
-    resource QuickTrain.Forms.Questions.QuestionOption do
+    resource QuestionOption do
       define :add_form_question_option, action: :add_to_draft, args: [:organization_id]
 
       define :update_form_question_option,
@@ -187,7 +210,7 @@ defmodule QuickTrain.Forms do
       define :list_form_question_options, action: :list_scoped, args: [:organization_id]
     end
 
-    resource QuickTrain.Forms.Labels.LabelSet do
+    resource LabelSet do
       define :add_form_label_set, action: :add_to_draft, args: [:organization_id]
 
       define :update_form_label_set,
@@ -202,7 +225,7 @@ defmodule QuickTrain.Forms do
       define :list_form_label_sets, action: :list_scoped, args: [:organization_id]
     end
 
-    resource QuickTrain.Forms.Labels.Label do
+    resource Label do
       define :add_form_label, action: :add_to_draft, args: [:organization_id]
 
       define :update_form_label,
@@ -218,7 +241,7 @@ defmodule QuickTrain.Forms do
       define :list_form_labels, action: :list_scoped, args: [:organization_id]
     end
 
-    resource QuickTrain.Forms.Presentation.PresentationElement do
+    resource PresentationElement do
       define :add_form_presentation_element, action: :add_to_draft, args: [:organization_id]
 
       define :update_form_presentation_element,
@@ -234,7 +257,7 @@ defmodule QuickTrain.Forms do
       define :list_form_presentation_elements, action: :list_scoped, args: [:organization_id]
     end
 
-    resource QuickTrain.Forms.Presentation.Instruction do
+    resource Instruction do
       define :update_form_instruction,
         action: :update_in_draft,
         args: [:organization_id]
@@ -243,7 +266,7 @@ defmodule QuickTrain.Forms do
       define :list_form_instructions, action: :list_scoped, args: [:organization_id]
     end
 
-    resource QuickTrain.Forms.Presentation.Heading do
+    resource Heading do
       define :update_form_heading,
         action: :update_in_draft,
         args: [:organization_id]
@@ -252,7 +275,7 @@ defmodule QuickTrain.Forms do
       define :list_form_headings, action: :list_scoped, args: [:organization_id]
     end
 
-    resource QuickTrain.Forms.Presentation.Section do
+    resource Section do
       define :update_form_section,
         action: :update_in_draft,
         args: [:organization_id]
@@ -261,7 +284,7 @@ defmodule QuickTrain.Forms do
       define :list_form_sections, action: :list_scoped, args: [:organization_id]
     end
 
-    resource QuickTrain.Forms.Presentation.BoundValue do
+    resource BoundValue do
       define :update_form_bound_value,
         action: :update_in_draft,
         args: [:organization_id]
@@ -270,7 +293,7 @@ defmodule QuickTrain.Forms do
       define :list_form_bound_values, action: :list_scoped, args: [:organization_id]
     end
 
-    resource QuickTrain.Forms.Presentation.QuestionPlacement do
+    resource QuestionPlacement do
       define :update_form_question_placement,
         action: :update_in_draft,
         args: [:organization_id]
@@ -282,95 +305,94 @@ defmodule QuickTrain.Forms do
 
   graphql do
     queries do
-      list QuickTrain.Forms.Form, :forms, :list_scoped,
+      list Form, :forms, :list_scoped,
         relay?: true,
         paginate_with: :keyset,
         complexity: {__MODULE__, :connection_complexity}
 
-      list QuickTrain.Forms.FormVersion, :form_versions, :list_scoped,
+      list FormVersion, :form_versions, :list_scoped,
         relay?: true,
         paginate_with: :keyset,
         complexity: {__MODULE__, :connection_complexity}
 
-      list QuickTrain.Forms.Inputs.InputSlotDefinition,
+      list InputSlotDefinition,
            :form_input_slot_definitions,
            :list_scoped,
            relay?: true,
            paginate_with: :keyset,
            complexity: {__MODULE__, :connection_complexity}
 
-      list QuickTrain.Forms.Inputs.InputFieldRequirement,
+      list InputFieldRequirement,
            :form_input_field_requirements,
            :list_scoped,
            relay?: true,
            paginate_with: :keyset,
            complexity: {__MODULE__, :connection_complexity}
 
-      list QuickTrain.Forms.Questions.QuestionDefinition,
+      list QuestionDefinition,
            :form_question_definitions,
            :list_scoped,
            relay?: true,
            paginate_with: :keyset,
            complexity: {__MODULE__, :connection_complexity}
 
-      list QuickTrain.Forms.Questions.QuestionOption, :form_question_options, :list_scoped,
+      list QuestionOption, :form_question_options, :list_scoped,
         relay?: true,
         paginate_with: :keyset,
         complexity: {__MODULE__, :connection_complexity}
 
-      list QuickTrain.Forms.Labels.LabelSet, :form_label_sets, :list_scoped,
+      list LabelSet, :form_label_sets, :list_scoped,
         relay?: true,
         paginate_with: :keyset,
         complexity: {__MODULE__, :connection_complexity}
 
-      list QuickTrain.Forms.Labels.Label, :form_labels, :list_scoped,
+      list Label, :form_labels, :list_scoped,
         relay?: true,
         paginate_with: :keyset,
         complexity: {__MODULE__, :connection_complexity}
 
-      list QuickTrain.Forms.Presentation.PresentationElement,
+      list PresentationElement,
            :form_presentation_elements,
            :list_scoped,
            relay?: true,
            paginate_with: :keyset,
            complexity: {__MODULE__, :connection_complexity}
 
-      read_one QuickTrain.Forms.FormVersion, :form_version, :get_scoped
+      read_one FormVersion, :form_version, :get_scoped
     end
 
     mutations do
-      create QuickTrain.Forms.Form, :create_form, :create_form, args: [:organization_id, :key]
+      create Form, :create_form, :create_form, args: [:organization_id, :key]
 
-      create QuickTrain.Forms.FormVersion, :create_form_draft, :create_draft,
+      create FormVersion, :create_form_draft, :create_draft,
         args: [:organization_id, :form_id, :title, :description]
 
-      action QuickTrain.Forms.FormVersion, :copy_published_form, :copy_published,
+      action FormVersion, :copy_published_form, :copy_published,
         args: [:organization_id, :form_id, :source_version_id]
 
-      update QuickTrain.Forms.FormVersion, :update_form_draft, :update_draft,
+      update FormVersion, :update_form_draft, :update_draft,
         args: [:organization_id, :title, :description],
         read_action: :read_for_authoring
 
-      action QuickTrain.Forms.FormVersion, :publish_form_version, :publish,
-        args: [:organization_id, :version_id]
+      action FormVersion, :publish_form_version, :publish, args: [:organization_id, :version_id]
 
-      create QuickTrain.Forms.Inputs.InputSlotDefinition,
+      create InputSlotDefinition,
              :add_form_input_slot_definition,
              :add_to_draft, args: [:organization_id, :version_id, :key, :minimum, :maximum]
 
-      update QuickTrain.Forms.Inputs.InputSlotDefinition,
+      update InputSlotDefinition,
              :update_form_input_slot_definition,
              :update_in_draft,
              args: [:organization_id, :version_id, :minimum, :maximum],
              read_action: :read_for_authoring
 
-      destroy QuickTrain.Forms.Inputs.InputSlotDefinition,
+      destroy InputSlotDefinition,
               :remove_form_input_slot_definition,
               :remove_from_draft,
               args: [:organization_id, :version_id],
               read_action: :read_for_authoring
 
-      create QuickTrain.Forms.Inputs.InputFieldRequirement,
+      create InputFieldRequirement,
              :add_form_input_field_requirement,
              :add_to_draft,
              args: [
@@ -384,7 +406,7 @@ defmodule QuickTrain.Forms do
                :input_slot_id
              ]
 
-      update QuickTrain.Forms.Inputs.InputFieldRequirement,
+      update InputFieldRequirement,
              :update_form_input_field_requirement,
              :update_in_draft,
              args: [
@@ -397,98 +419,98 @@ defmodule QuickTrain.Forms do
              ],
              read_action: :read_for_authoring
 
-      destroy QuickTrain.Forms.Inputs.InputFieldRequirement,
+      destroy InputFieldRequirement,
               :remove_form_input_field_requirement,
               :remove_from_draft,
               args: [:organization_id, :version_id],
               read_action: :read_for_authoring
 
-      create QuickTrain.Forms.Questions.QuestionDefinition,
+      create QuestionDefinition,
              :add_form_question_definition,
              :add_to_draft,
              args: [:organization_id, :version_id, :key, :prompt, :family, :renderer]
 
-      update QuickTrain.Forms.Questions.QuestionDefinition,
+      update QuestionDefinition,
              :update_form_question_definition,
              :update_in_draft,
              args: [:organization_id, :version_id, :prompt, :family, :renderer],
              read_action: :read_for_authoring
 
-      destroy QuickTrain.Forms.Questions.QuestionDefinition,
+      destroy QuestionDefinition,
               :remove_form_question_definition,
               :remove_from_draft,
               args: [:organization_id, :version_id],
               read_action: :read_for_authoring
 
-      create QuickTrain.Forms.Questions.Constraints.TextConstraints,
+      create TextConstraints,
              :add_form_text_constraints,
              :add_to_draft,
              args: [:organization_id, :version_id, :minimum, :maximum, :question_id]
 
-      update QuickTrain.Forms.Questions.Constraints.TextConstraints,
+      update TextConstraints,
              :update_form_text_constraints,
              :update_in_draft,
              args: [:organization_id, :version_id, :minimum, :maximum],
              read_action: :read_for_authoring
 
-      destroy QuickTrain.Forms.Questions.Constraints.TextConstraints,
+      destroy TextConstraints,
               :remove_form_text_constraints,
               :remove_from_draft,
               args: [:organization_id, :version_id],
               read_action: :read_for_authoring
 
-      create QuickTrain.Forms.Questions.Constraints.IntegerConstraints,
+      create IntegerConstraints,
              :add_form_integer_constraints,
              :add_to_draft,
              args: [:organization_id, :version_id, :minimum, :maximum, :question_id]
 
-      update QuickTrain.Forms.Questions.Constraints.IntegerConstraints,
+      update IntegerConstraints,
              :update_form_integer_constraints,
              :update_in_draft,
              args: [:organization_id, :version_id, :minimum, :maximum],
              read_action: :read_for_authoring
 
-      destroy QuickTrain.Forms.Questions.Constraints.IntegerConstraints,
+      destroy IntegerConstraints,
               :remove_form_integer_constraints,
               :remove_from_draft,
               args: [:organization_id, :version_id],
               read_action: :read_for_authoring
 
-      create QuickTrain.Forms.Questions.Constraints.DecimalConstraints,
+      create DecimalConstraints,
              :add_form_decimal_constraints,
              :add_to_draft,
              args: [:organization_id, :version_id, :minimum, :maximum, :question_id]
 
-      update QuickTrain.Forms.Questions.Constraints.DecimalConstraints,
+      update DecimalConstraints,
              :update_form_decimal_constraints,
              :update_in_draft,
              args: [:organization_id, :version_id, :minimum, :maximum],
              read_action: :read_for_authoring
 
-      destroy QuickTrain.Forms.Questions.Constraints.DecimalConstraints,
+      destroy DecimalConstraints,
               :remove_form_decimal_constraints,
               :remove_from_draft,
               args: [:organization_id, :version_id],
               read_action: :read_for_authoring
 
-      create QuickTrain.Forms.Questions.Constraints.SelectionConstraints,
+      create SelectionConstraints,
              :add_form_selection_constraints,
              :add_to_draft,
              args: [:organization_id, :version_id, :minimum, :maximum, :question_id]
 
-      update QuickTrain.Forms.Questions.Constraints.SelectionConstraints,
+      update SelectionConstraints,
              :update_form_selection_constraints,
              :update_in_draft,
              args: [:organization_id, :version_id, :minimum, :maximum],
              read_action: :read_for_authoring
 
-      destroy QuickTrain.Forms.Questions.Constraints.SelectionConstraints,
+      destroy SelectionConstraints,
               :remove_form_selection_constraints,
               :remove_from_draft,
               args: [:organization_id, :version_id],
               read_action: :read_for_authoring
 
-      create QuickTrain.Forms.Questions.Constraints.AnnotationConstraints,
+      create AnnotationConstraints,
              :add_form_annotation_constraints,
              :add_to_draft,
              args: [
@@ -501,7 +523,7 @@ defmodule QuickTrain.Forms do
                :label_set_id
              ]
 
-      update QuickTrain.Forms.Questions.Constraints.AnnotationConstraints,
+      update AnnotationConstraints,
              :update_form_annotation_constraints,
              :update_in_draft,
              args: [
@@ -514,13 +536,13 @@ defmodule QuickTrain.Forms do
              ],
              read_action: :read_for_authoring
 
-      destroy QuickTrain.Forms.Questions.Constraints.AnnotationConstraints,
+      destroy AnnotationConstraints,
               :remove_form_annotation_constraints,
               :remove_from_draft,
               args: [:organization_id, :version_id],
               read_action: :read_for_authoring
 
-      create QuickTrain.Forms.Questions.InputSource, :add_form_input_source, :add_to_draft,
+      create InputSource, :add_form_input_source, :add_to_draft,
         args: [
           :organization_id,
           :version_id,
@@ -529,60 +551,60 @@ defmodule QuickTrain.Forms do
           :source_requirement_id
         ]
 
-      update QuickTrain.Forms.Questions.InputSource, :update_form_input_source, :update_in_draft,
+      update InputSource, :update_form_input_source, :update_in_draft,
         args: [:organization_id, :version_id, :input_slot_id, :source_requirement_id],
         read_action: :read_for_authoring
 
-      destroy QuickTrain.Forms.Questions.InputSource,
+      destroy InputSource,
               :remove_form_input_source,
               :remove_from_draft,
               args: [:organization_id, :version_id],
               read_action: :read_for_authoring
 
-      create QuickTrain.Forms.Questions.QuestionOption, :add_form_question_option, :add_to_draft,
+      create QuestionOption, :add_form_question_option, :add_to_draft,
         args: [:organization_id, :version_id, :key, :label, :position, :question_id]
 
-      update QuickTrain.Forms.Questions.QuestionOption,
+      update QuestionOption,
              :update_form_question_option,
              :update_in_draft,
              args: [:organization_id, :version_id, :label, :position],
              read_action: :read_for_authoring
 
-      destroy QuickTrain.Forms.Questions.QuestionOption,
+      destroy QuestionOption,
               :remove_form_question_option,
               :remove_from_draft,
               args: [:organization_id, :version_id],
               read_action: :read_for_authoring
 
-      action QuickTrain.Forms.Questions.QuestionOption, :reorder_form_question_option, :reorder,
+      action QuestionOption, :reorder_form_question_option, :reorder,
         args: [:organization_id, :version_id, :question_id, :ids]
 
-      create QuickTrain.Forms.Labels.LabelSet, :add_form_label_set, :add_to_draft,
+      create LabelSet, :add_form_label_set, :add_to_draft,
         args: [:organization_id, :version_id, :key, :name]
 
-      update QuickTrain.Forms.Labels.LabelSet, :update_form_label_set, :update_in_draft,
+      update LabelSet, :update_form_label_set, :update_in_draft,
         args: [:organization_id, :version_id, :name],
         read_action: :read_for_authoring
 
-      destroy QuickTrain.Forms.Labels.LabelSet, :remove_form_label_set, :remove_from_draft,
+      destroy LabelSet, :remove_form_label_set, :remove_from_draft,
         args: [:organization_id, :version_id],
         read_action: :read_for_authoring
 
-      create QuickTrain.Forms.Labels.Label, :add_form_label, :add_to_draft,
+      create Label, :add_form_label, :add_to_draft,
         args: [:organization_id, :version_id, :key, :text, :position, :label_set_id]
 
-      update QuickTrain.Forms.Labels.Label, :update_form_label, :update_in_draft,
+      update Label, :update_form_label, :update_in_draft,
         args: [:organization_id, :version_id, :text, :position],
         read_action: :read_for_authoring
 
-      destroy QuickTrain.Forms.Labels.Label, :remove_form_label, :remove_from_draft,
+      destroy Label, :remove_form_label, :remove_from_draft,
         args: [:organization_id, :version_id],
         read_action: :read_for_authoring
 
-      action QuickTrain.Forms.Labels.Label, :reorder_form_label, :reorder,
+      action Label, :reorder_form_label, :reorder,
         args: [:organization_id, :version_id, :label_set_id, :ids]
 
-      create QuickTrain.Forms.Presentation.PresentationElement,
+      create PresentationElement,
              :add_form_presentation_element,
              :add_to_draft,
              args: [
@@ -595,41 +617,41 @@ defmodule QuickTrain.Forms do
                :question_id
              ]
 
-      update QuickTrain.Forms.Presentation.PresentationElement,
+      update PresentationElement,
              :update_form_presentation_element,
              :update_in_draft,
              args: [:organization_id, :version_id, :position],
              read_action: :read_for_authoring
 
-      destroy QuickTrain.Forms.Presentation.PresentationElement,
+      destroy PresentationElement,
               :remove_form_presentation_element,
               :remove_from_draft,
               args: [:organization_id, :version_id],
               read_action: :read_for_authoring
 
-      action QuickTrain.Forms.Presentation.PresentationElement,
+      action PresentationElement,
              :reorder_form_presentation_element,
              :reorder, args: [:organization_id, :version_id, :ids]
 
-      update QuickTrain.Forms.Presentation.Instruction,
+      update Instruction,
              :update_form_instruction,
              :update_in_draft,
              args: [:organization_id, :version_id, :text],
              read_action: :read_for_authoring
 
-      update QuickTrain.Forms.Presentation.Heading, :update_form_heading, :update_in_draft,
+      update Heading, :update_form_heading, :update_in_draft,
         args: [:organization_id, :version_id, :text],
         read_action: :read_for_authoring
 
-      update QuickTrain.Forms.Presentation.Section, :update_form_section, :update_in_draft,
+      update Section, :update_form_section, :update_in_draft,
         args: [:organization_id, :version_id, :text],
         read_action: :read_for_authoring
 
-      update QuickTrain.Forms.Presentation.BoundValue, :update_form_bound_value, :update_in_draft,
+      update BoundValue, :update_form_bound_value, :update_in_draft,
         args: [:organization_id, :version_id, :requirement_id],
         read_action: :read_for_authoring
 
-      update QuickTrain.Forms.Presentation.QuestionPlacement,
+      update QuestionPlacement,
              :update_form_question_placement,
              :update_in_draft,
              args: [:organization_id, :version_id, :question_id],

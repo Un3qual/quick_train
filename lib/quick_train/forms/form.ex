@@ -7,10 +7,17 @@ defmodule QuickTrain.Forms.Form do
     data_layer: AshPostgres.DataLayer,
     authorizers: [Ash.Policy.Authorizer]
 
+  alias QuickTrain.Authorization.Checks.OrganizationCapability
+  alias QuickTrain.Authorization.RoleAssignment
+  alias QuickTrain.Forms.FormVersion
+  alias QuickTrain.Forms.Types.PlainText
+  alias QuickTrain.Organizations.Organization
+  alias QuickTrain.Repo
+
   attributes do
     uuid_primary_key :id
 
-    attribute :key, QuickTrain.Forms.Types.PlainText,
+    attribute :key, PlainText,
       public?: true,
       allow_nil?: false,
       constraints: [
@@ -22,15 +29,15 @@ defmodule QuickTrain.Forms.Form do
   end
 
   relationships do
-    belongs_to :organization, QuickTrain.Organizations.Organization,
+    belongs_to :organization, Organization,
       allow_nil?: false,
       attribute_public?: true
 
-    has_many :versions, QuickTrain.Forms.FormVersion,
+    has_many :versions, FormVersion,
       destination_attribute: :form_id,
       public?: true
 
-    has_many :reader_role_assignments, QuickTrain.Authorization.RoleAssignment do
+    has_many :reader_role_assignments, RoleAssignment do
       source_attribute :organization_id
       destination_attribute :organization_id
 
@@ -41,7 +48,7 @@ defmodule QuickTrain.Forms.Form do
              )
     end
 
-    has_many :manager_role_assignments, QuickTrain.Authorization.RoleAssignment do
+    has_many :manager_role_assignments, RoleAssignment do
       source_attribute :organization_id
       destination_attribute :organization_id
 
@@ -105,13 +112,11 @@ defmodule QuickTrain.Forms.Form do
     end
 
     policy action([:list_scoped, :get_scoped]) do
-      authorize_if {QuickTrain.Authorization.Checks.OrganizationCapability,
-                    capability: "forms.read"}
+      authorize_if {OrganizationCapability, capability: "forms.read"}
     end
 
     policy action([:create_form]) do
-      authorize_if {QuickTrain.Authorization.Checks.OrganizationCapability,
-                    capability: "forms.manage"}
+      authorize_if {OrganizationCapability, capability: "forms.manage"}
     end
   end
 
@@ -126,7 +131,7 @@ defmodule QuickTrain.Forms.Form do
 
   postgres do
     table "forms"
-    repo QuickTrain.Repo
+    repo Repo
 
     references do
       reference :organization, on_delete: :restrict

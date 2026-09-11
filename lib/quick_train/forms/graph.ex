@@ -1,5 +1,4 @@
 defmodule QuickTrain.Forms.Graph do
-  alias Ash.Resource.Info, as: ResourceInfo
   @moduledoc false
   alias QuickTrain.Forms.Error
   alias QuickTrain.Forms.Inputs.{InputFieldRequirement, InputSlotDefinition}
@@ -360,10 +359,10 @@ defmodule QuickTrain.Forms.Graph do
   end
 
   defp copy_attributes(resource, original, destination_id, ids) do
-    names = ResourceInfo.action(resource, :create_internal).accept
+    names = Ash.Resource.Info.action(resource, :create_internal).accept
 
     references =
-      resource |> ResourceInfo.relationships() |> Enum.filter(&(&1.type == :belongs_to))
+      resource |> Ash.Resource.Info.relationships() |> Enum.filter(&(&1.type == :belongs_to))
 
     attributes = Map.take(original, names)
 

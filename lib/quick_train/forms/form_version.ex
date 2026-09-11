@@ -7,6 +7,16 @@ defmodule QuickTrain.Forms.FormVersion do
     data_layer: AshPostgres.DataLayer,
     authorizers: [Ash.Policy.Authorizer]
 
+  alias QuickTrain.Authorization.Checks.OrganizationCapability
+  alias QuickTrain.Forms.Changes.{AllocateVersion, DraftWrite}
+  alias QuickTrain.Forms.Form
+  alias QuickTrain.Forms.Inputs.{InputFieldRequirement, InputSlotDefinition}
+  alias QuickTrain.Forms.Labels.LabelSet
+  alias QuickTrain.Forms.Presentation.PresentationElement
+  alias QuickTrain.Forms.Questions.QuestionDefinition
+  alias QuickTrain.Forms.Types.{PlainText, VersionState}
+  alias QuickTrain.Repo
+
   attributes do
     uuid_primary_key :id
 
@@ -15,18 +25,18 @@ defmodule QuickTrain.Forms.FormVersion do
       allow_nil?: false,
       constraints: [min: 1, max: 2_147_483_647]
 
-    attribute :state, QuickTrain.Forms.Types.VersionState,
+    attribute :state, VersionState,
       public?: true,
       allow_nil?: false,
       default: :draft
 
-    attribute :title, QuickTrain.Forms.Types.PlainText,
+    attribute :title, PlainText,
       public?: true,
       constraints: [
         max_length: 1024
       ]
 
-    attribute :description, QuickTrain.Forms.Types.PlainText,
+    attribute :description, PlainText,
       public?: true,
       constraints: [
         max_length: 16_384
@@ -37,25 +47,25 @@ defmodule QuickTrain.Forms.FormVersion do
   end
 
   relationships do
-    belongs_to :form, QuickTrain.Forms.Form, allow_nil?: false, attribute_public?: true
+    belongs_to :form, Form, allow_nil?: false, attribute_public?: true
 
-    has_many :input_slots, QuickTrain.Forms.Inputs.InputSlotDefinition,
+    has_many :input_slots, InputSlotDefinition,
       destination_attribute: :version_id,
       public?: true
 
-    has_many :requirements, QuickTrain.Forms.Inputs.InputFieldRequirement,
+    has_many :requirements, InputFieldRequirement,
       destination_attribute: :version_id,
       public?: true
 
-    has_many :questions, QuickTrain.Forms.Questions.QuestionDefinition,
+    has_many :questions, QuestionDefinition,
       destination_attribute: :version_id,
       public?: true
 
-    has_many :elements, QuickTrain.Forms.Presentation.PresentationElement,
+    has_many :elements, PresentationElement,
       destination_attribute: :version_id,
       public?: true
 
-    has_many :label_sets, QuickTrain.Forms.Labels.LabelSet,
+    has_many :label_sets, LabelSet,
       destination_attribute: :version_id,
       public?: true
   end
@@ -104,7 +114,7 @@ defmodule QuickTrain.Forms.FormVersion do
     create :create_draft do
       accept [:title, :description, :form_id]
       argument :organization_id, :uuid, allow_nil?: false
-      change QuickTrain.Forms.Changes.AllocateVersion
+      change AllocateVersion
     end
 
     action :copy_published, :struct do
@@ -122,7 +132,7 @@ defmodule QuickTrain.Forms.FormVersion do
       atomic_upgrade_with :read_for_authoring
       accept [:title, :description]
       argument :organization_id, :uuid, allow_nil?: false
-      change QuickTrain.Forms.Changes.DraftWrite
+      change DraftWrite
     end
 
     action :publish, :struct do
@@ -162,13 +172,11 @@ defmodule QuickTrain.Forms.FormVersion do
     end
 
     policy action([:list_scoped, :get_scoped]) do
-      authorize_if {QuickTrain.Authorization.Checks.OrganizationCapability,
-                    capability: "forms.read"}
+      authorize_if {OrganizationCapability, capability: "forms.read"}
     end
 
     policy action([:create_draft, :copy_published, :update_draft, :publish]) do
-      authorize_if {QuickTrain.Authorization.Checks.OrganizationCapability,
-                    capability: "forms.manage"}
+      authorize_if {OrganizationCapability, capability: "forms.manage"}
     end
   end
 
@@ -188,7 +196,7 @@ defmodule QuickTrain.Forms.FormVersion do
 
   postgres do
     table "form_versions"
-    repo QuickTrain.Repo
+    repo Repo
 
     references do
       reference :form, on_delete: :restrict

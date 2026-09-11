@@ -7,10 +7,25 @@ defmodule QuickTrain.Forms.Presentation.PresentationElement do
     data_layer: AshPostgres.DataLayer,
     authorizers: [Ash.Policy.Authorizer]
 
+  alias QuickTrain.Authorization.Checks.OrganizationCapability
+  alias QuickTrain.Forms.Changes.DraftWrite
+  alias QuickTrain.Forms.FormVersion
+
+  alias QuickTrain.Forms.Presentation.{
+    BoundValue,
+    Heading,
+    Instruction,
+    QuestionPlacement,
+    Section
+  }
+
+  alias QuickTrain.Forms.Types.{PlainText, PresentationKind}
+  alias QuickTrain.Repo
+
   attributes do
     uuid_primary_key :id
 
-    attribute :kind, QuickTrain.Forms.Types.PresentationKind,
+    attribute :kind, PresentationKind,
       public?: true,
       allow_nil?: false
 
@@ -23,25 +38,25 @@ defmodule QuickTrain.Forms.Presentation.PresentationElement do
   end
 
   relationships do
-    belongs_to :version, QuickTrain.Forms.FormVersion, allow_nil?: false, attribute_public?: true
+    belongs_to :version, FormVersion, allow_nil?: false, attribute_public?: true
 
-    has_one :instruction, QuickTrain.Forms.Presentation.Instruction,
+    has_one :instruction, Instruction,
       destination_attribute: :element_id,
       public?: true
 
-    has_one :heading, QuickTrain.Forms.Presentation.Heading,
+    has_one :heading, Heading,
       destination_attribute: :element_id,
       public?: true
 
-    has_one :section, QuickTrain.Forms.Presentation.Section,
+    has_one :section, Section,
       destination_attribute: :element_id,
       public?: true
 
-    has_one :bound_value, QuickTrain.Forms.Presentation.BoundValue,
+    has_one :bound_value, BoundValue,
       destination_attribute: :element_id,
       public?: true
 
-    has_one :question_placement, QuickTrain.Forms.Presentation.QuestionPlacement,
+    has_one :question_placement, QuestionPlacement,
       destination_attribute: :element_id,
       public?: true
   end
@@ -82,7 +97,7 @@ defmodule QuickTrain.Forms.Presentation.PresentationElement do
     create :add_to_draft do
       accept [:kind, :position, :version_id]
       argument :organization_id, :uuid, allow_nil?: false
-      argument :text, QuickTrain.Forms.Types.PlainText, constraints: [max_length: 16_384]
+      argument :text, PlainText, constraints: [max_length: 16_384]
       argument :requirement_id, :uuid
       argument :question_id, :uuid
       argument :section_content, :map, public?: false, default: %{}
@@ -94,7 +109,7 @@ defmodule QuickTrain.Forms.Presentation.PresentationElement do
       validate absent(:requirement_id), where: [attribute_does_not_equal(:kind, :bound_value)]
       validate absent(:question_id), where: [attribute_does_not_equal(:kind, :question)]
 
-      change QuickTrain.Forms.Changes.DraftWrite
+      change DraftWrite
 
       change manage_relationship(:text, :instruction,
                type: :create,
@@ -145,7 +160,7 @@ defmodule QuickTrain.Forms.Presentation.PresentationElement do
       accept [:position]
       argument :organization_id, :uuid, allow_nil?: false
       argument :version_id, :uuid, allow_nil?: false
-      change QuickTrain.Forms.Changes.DraftWrite
+      change DraftWrite
     end
 
     destroy :remove_from_draft do
@@ -153,7 +168,7 @@ defmodule QuickTrain.Forms.Presentation.PresentationElement do
       atomic_upgrade_with :read_for_authoring
       argument :organization_id, :uuid, allow_nil?: false
       argument :version_id, :uuid, allow_nil?: false
-      change QuickTrain.Forms.Changes.DraftWrite
+      change DraftWrite
       change cascade_destroy(:instruction, action: :destroy_internal, after_action?: false)
       change cascade_destroy(:heading, action: :destroy_internal, after_action?: false)
       change cascade_destroy(:section, action: :destroy_internal, after_action?: false)
@@ -202,13 +217,11 @@ defmodule QuickTrain.Forms.Presentation.PresentationElement do
     end
 
     policy action([:list_scoped, :get_scoped]) do
-      authorize_if {QuickTrain.Authorization.Checks.OrganizationCapability,
-                    capability: "forms.read"}
+      authorize_if {OrganizationCapability, capability: "forms.read"}
     end
 
     policy action([:add_to_draft, :update_in_draft, :remove_from_draft, :reorder]) do
-      authorize_if {QuickTrain.Authorization.Checks.OrganizationCapability,
-                    capability: "forms.manage"}
+      authorize_if {OrganizationCapability, capability: "forms.manage"}
     end
   end
 
@@ -222,7 +235,7 @@ defmodule QuickTrain.Forms.Presentation.PresentationElement do
 
   postgres do
     table "form_presentation_elements"
-    repo QuickTrain.Repo
+    repo Repo
 
     custom_statements do
       statement :position_unique do

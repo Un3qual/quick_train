@@ -1,5 +1,4 @@
 defmodule QuickTrain.Forms.FormContractTest do
-  alias Ash.Resource.Info, as: ResourceInfo
   use QuickTrain.DataCase, async: true
   import QuickTrain.FormsFixture
 
@@ -92,7 +91,7 @@ defmodule QuickTrain.Forms.FormContractTest do
           refute row.id in source_ids
           assert row.version_id == copy.id
 
-          for relationship <- ResourceInfo.relationships(resource),
+          for relationship <- Ash.Resource.Info.relationships(resource),
               relationship.type == :belongs_to do
             id = Map.fetch!(row, relationship.source_attribute)
             assert is_nil(id) or id == copy.id or id in copied_ids

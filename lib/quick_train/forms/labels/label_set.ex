@@ -9,10 +9,17 @@ defmodule QuickTrain.Forms.Labels.LabelSet do
     data_layer: AshPostgres.DataLayer,
     authorizers: [Ash.Policy.Authorizer]
 
+  alias QuickTrain.Authorization.Checks.OrganizationCapability
+  alias QuickTrain.Forms.Changes.DraftWrite
+  alias QuickTrain.Forms.FormVersion
+  alias QuickTrain.Forms.Labels.Label
+  alias QuickTrain.Forms.Types.PlainText
+  alias QuickTrain.Repo
+
   attributes do
     uuid_primary_key :id
 
-    attribute :key, QuickTrain.Forms.Types.PlainText,
+    attribute :key, PlainText,
       public?: true,
       allow_nil?: false,
       constraints: [
@@ -20,7 +27,7 @@ defmodule QuickTrain.Forms.Labels.LabelSet do
         min_length: 1
       ]
 
-    attribute :name, QuickTrain.Forms.Types.PlainText,
+    attribute :name, PlainText,
       public?: true,
       constraints: [
         max_length: 1024
@@ -30,9 +37,9 @@ defmodule QuickTrain.Forms.Labels.LabelSet do
   end
 
   relationships do
-    belongs_to :version, QuickTrain.Forms.FormVersion, allow_nil?: false, attribute_public?: true
+    belongs_to :version, FormVersion, allow_nil?: false, attribute_public?: true
 
-    has_many :labels, QuickTrain.Forms.Labels.Label,
+    has_many :labels, Label,
       destination_attribute: :label_set_id,
       public?: true
   end
@@ -73,7 +80,7 @@ defmodule QuickTrain.Forms.Labels.LabelSet do
     create :add_to_draft do
       accept [:key, :name, :version_id]
       argument :organization_id, :uuid, allow_nil?: false
-      change QuickTrain.Forms.Changes.DraftWrite
+      change DraftWrite
     end
 
     update :update_in_draft do
@@ -82,7 +89,7 @@ defmodule QuickTrain.Forms.Labels.LabelSet do
       accept [:name]
       argument :organization_id, :uuid, allow_nil?: false
       argument :version_id, :uuid, allow_nil?: false
-      change QuickTrain.Forms.Changes.DraftWrite
+      change DraftWrite
     end
 
     destroy :remove_from_draft do
@@ -90,7 +97,7 @@ defmodule QuickTrain.Forms.Labels.LabelSet do
       atomic_upgrade_with :read_for_authoring
       argument :organization_id, :uuid, allow_nil?: false
       argument :version_id, :uuid, allow_nil?: false
-      change QuickTrain.Forms.Changes.DraftWrite
+      change DraftWrite
     end
 
     create :create_internal do
@@ -128,13 +135,11 @@ defmodule QuickTrain.Forms.Labels.LabelSet do
     end
 
     policy action([:list_scoped, :get_scoped]) do
-      authorize_if {QuickTrain.Authorization.Checks.OrganizationCapability,
-                    capability: "forms.read"}
+      authorize_if {OrganizationCapability, capability: "forms.read"}
     end
 
     policy action([:add_to_draft, :update_in_draft, :remove_from_draft]) do
-      authorize_if {QuickTrain.Authorization.Checks.OrganizationCapability,
-                    capability: "forms.manage"}
+      authorize_if {OrganizationCapability, capability: "forms.manage"}
     end
   end
 
@@ -149,7 +154,7 @@ defmodule QuickTrain.Forms.Labels.LabelSet do
 
   postgres do
     table "form_label_sets"
-    repo QuickTrain.Repo
+    repo Repo
 
     references do
       reference :version, on_delete: :restrict

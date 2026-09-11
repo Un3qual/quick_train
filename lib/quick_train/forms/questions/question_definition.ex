@@ -7,10 +7,26 @@ defmodule QuickTrain.Forms.Questions.QuestionDefinition do
     data_layer: AshPostgres.DataLayer,
     authorizers: [Ash.Policy.Authorizer]
 
+  alias QuickTrain.Authorization.Checks.OrganizationCapability
+  alias QuickTrain.Forms.Changes.DraftWrite
+  alias QuickTrain.Forms.FormVersion
+
+  alias QuickTrain.Forms.Questions.Constraints.{
+    AnnotationConstraints,
+    DecimalConstraints,
+    IntegerConstraints,
+    SelectionConstraints,
+    TextConstraints
+  }
+
+  alias QuickTrain.Forms.Questions.{InputSource, QuestionOption}
+  alias QuickTrain.Forms.Types.{AnswerFamily, PlainText, Renderer}
+  alias QuickTrain.Repo
+
   attributes do
     uuid_primary_key :id
 
-    attribute :key, QuickTrain.Forms.Types.PlainText,
+    attribute :key, PlainText,
       public?: true,
       allow_nil?: false,
       constraints: [
@@ -18,7 +34,7 @@ defmodule QuickTrain.Forms.Questions.QuestionDefinition do
         min_length: 1
       ]
 
-    attribute :prompt, QuickTrain.Forms.Types.PlainText,
+    attribute :prompt, PlainText,
       public?: true,
       allow_nil?: false,
       constraints: [
@@ -26,11 +42,11 @@ defmodule QuickTrain.Forms.Questions.QuestionDefinition do
         min_length: 1
       ]
 
-    attribute :family, QuickTrain.Forms.Types.AnswerFamily,
+    attribute :family, AnswerFamily,
       public?: true,
       allow_nil?: false
 
-    attribute :renderer, QuickTrain.Forms.Types.Renderer,
+    attribute :renderer, Renderer,
       public?: true,
       allow_nil?: false
 
@@ -38,33 +54,33 @@ defmodule QuickTrain.Forms.Questions.QuestionDefinition do
   end
 
   relationships do
-    belongs_to :version, QuickTrain.Forms.FormVersion, allow_nil?: false, attribute_public?: true
+    belongs_to :version, FormVersion, allow_nil?: false, attribute_public?: true
 
-    has_one :text_constraints, QuickTrain.Forms.Questions.Constraints.TextConstraints,
+    has_one :text_constraints, TextConstraints,
       destination_attribute: :question_id,
       public?: true
 
-    has_one :integer_constraints, QuickTrain.Forms.Questions.Constraints.IntegerConstraints,
+    has_one :integer_constraints, IntegerConstraints,
       destination_attribute: :question_id,
       public?: true
 
-    has_one :decimal_constraints, QuickTrain.Forms.Questions.Constraints.DecimalConstraints,
+    has_one :decimal_constraints, DecimalConstraints,
       destination_attribute: :question_id,
       public?: true
 
-    has_one :selection_constraints, QuickTrain.Forms.Questions.Constraints.SelectionConstraints,
+    has_one :selection_constraints, SelectionConstraints,
       destination_attribute: :question_id,
       public?: true
 
-    has_one :annotation_constraints, QuickTrain.Forms.Questions.Constraints.AnnotationConstraints,
+    has_one :annotation_constraints, AnnotationConstraints,
       destination_attribute: :question_id,
       public?: true
 
-    has_one :input_source, QuickTrain.Forms.Questions.InputSource,
+    has_one :input_source, InputSource,
       destination_attribute: :question_id,
       public?: true
 
-    has_many :options, QuickTrain.Forms.Questions.QuestionOption,
+    has_many :options, QuestionOption,
       destination_attribute: :question_id,
       public?: true
   end
@@ -105,7 +121,7 @@ defmodule QuickTrain.Forms.Questions.QuestionDefinition do
     create :add_to_draft do
       accept [:key, :prompt, :family, :renderer, :version_id]
       argument :organization_id, :uuid, allow_nil?: false
-      change QuickTrain.Forms.Changes.DraftWrite
+      change DraftWrite
     end
 
     update :update_in_draft do
@@ -114,7 +130,7 @@ defmodule QuickTrain.Forms.Questions.QuestionDefinition do
       accept [:prompt, :family, :renderer]
       argument :organization_id, :uuid, allow_nil?: false
       argument :version_id, :uuid, allow_nil?: false
-      change QuickTrain.Forms.Changes.DraftWrite
+      change DraftWrite
     end
 
     destroy :remove_from_draft do
@@ -122,7 +138,7 @@ defmodule QuickTrain.Forms.Questions.QuestionDefinition do
       atomic_upgrade_with :read_for_authoring
       argument :organization_id, :uuid, allow_nil?: false
       argument :version_id, :uuid, allow_nil?: false
-      change QuickTrain.Forms.Changes.DraftWrite
+      change DraftWrite
     end
 
     create :create_internal do
@@ -158,13 +174,11 @@ defmodule QuickTrain.Forms.Questions.QuestionDefinition do
     end
 
     policy action([:list_scoped, :get_scoped]) do
-      authorize_if {QuickTrain.Authorization.Checks.OrganizationCapability,
-                    capability: "forms.read"}
+      authorize_if {OrganizationCapability, capability: "forms.read"}
     end
 
     policy action([:add_to_draft, :update_in_draft, :remove_from_draft]) do
-      authorize_if {QuickTrain.Authorization.Checks.OrganizationCapability,
-                    capability: "forms.manage"}
+      authorize_if {OrganizationCapability, capability: "forms.manage"}
     end
   end
 
@@ -193,7 +207,7 @@ defmodule QuickTrain.Forms.Questions.QuestionDefinition do
 
   postgres do
     table "form_question_definitions"
-    repo QuickTrain.Repo
+    repo Repo
 
     references do
       reference :version, on_delete: :restrict

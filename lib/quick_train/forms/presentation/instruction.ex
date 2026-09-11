@@ -9,10 +9,17 @@ defmodule QuickTrain.Forms.Presentation.Instruction do
     data_layer: AshPostgres.DataLayer,
     authorizers: [Ash.Policy.Authorizer]
 
+  alias QuickTrain.Authorization.Checks.OrganizationCapability
+  alias QuickTrain.Forms.Changes.DraftWrite
+  alias QuickTrain.Forms.FormVersion
+  alias QuickTrain.Forms.Presentation.PresentationElement
+  alias QuickTrain.Forms.Types.PlainText
+  alias QuickTrain.Repo
+
   attributes do
     uuid_primary_key :id
 
-    attribute :text, QuickTrain.Forms.Types.PlainText,
+    attribute :text, PlainText,
       public?: true,
       allow_nil?: false,
       constraints: [
@@ -24,11 +31,11 @@ defmodule QuickTrain.Forms.Presentation.Instruction do
   end
 
   relationships do
-    belongs_to :element, QuickTrain.Forms.Presentation.PresentationElement,
+    belongs_to :element, PresentationElement,
       allow_nil?: false,
       attribute_public?: true
 
-    belongs_to :version, QuickTrain.Forms.FormVersion, allow_nil?: false, attribute_public?: true
+    belongs_to :version, FormVersion, allow_nil?: false, attribute_public?: true
   end
 
   actions do
@@ -70,7 +77,7 @@ defmodule QuickTrain.Forms.Presentation.Instruction do
       accept [:text]
       argument :organization_id, :uuid, allow_nil?: false
       argument :version_id, :uuid, allow_nil?: false
-      change QuickTrain.Forms.Changes.DraftWrite
+      change DraftWrite
     end
 
     create :create_internal do
@@ -123,13 +130,11 @@ defmodule QuickTrain.Forms.Presentation.Instruction do
     end
 
     policy action([:list_scoped, :get_scoped]) do
-      authorize_if {QuickTrain.Authorization.Checks.OrganizationCapability,
-                    capability: "forms.read"}
+      authorize_if {OrganizationCapability, capability: "forms.read"}
     end
 
     policy action([:update_in_draft]) do
-      authorize_if {QuickTrain.Authorization.Checks.OrganizationCapability,
-                    capability: "forms.manage"}
+      authorize_if {OrganizationCapability, capability: "forms.manage"}
     end
   end
 
@@ -147,7 +152,7 @@ defmodule QuickTrain.Forms.Presentation.Instruction do
 
   postgres do
     table "form_instructions"
-    repo QuickTrain.Repo
+    repo Repo
 
     references do
       reference :element, on_delete: :restrict, match_with: [version_id: :version_id]

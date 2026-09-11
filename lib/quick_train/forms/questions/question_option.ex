@@ -9,10 +9,17 @@ defmodule QuickTrain.Forms.Questions.QuestionOption do
     data_layer: AshPostgres.DataLayer,
     authorizers: [Ash.Policy.Authorizer]
 
+  alias QuickTrain.Authorization.Checks.OrganizationCapability
+  alias QuickTrain.Forms.Changes.DraftWrite
+  alias QuickTrain.Forms.FormVersion
+  alias QuickTrain.Forms.Questions.QuestionDefinition
+  alias QuickTrain.Forms.Types.PlainText
+  alias QuickTrain.Repo
+
   attributes do
     uuid_primary_key :id
 
-    attribute :key, QuickTrain.Forms.Types.PlainText,
+    attribute :key, PlainText,
       public?: true,
       allow_nil?: false,
       constraints: [
@@ -20,7 +27,7 @@ defmodule QuickTrain.Forms.Questions.QuestionOption do
         min_length: 1
       ]
 
-    attribute :label, QuickTrain.Forms.Types.PlainText,
+    attribute :label, PlainText,
       public?: true,
       allow_nil?: false,
       constraints: [
@@ -37,11 +44,11 @@ defmodule QuickTrain.Forms.Questions.QuestionOption do
   end
 
   relationships do
-    belongs_to :question, QuickTrain.Forms.Questions.QuestionDefinition,
+    belongs_to :question, QuestionDefinition,
       allow_nil?: false,
       attribute_public?: true
 
-    belongs_to :version, QuickTrain.Forms.FormVersion, allow_nil?: false, attribute_public?: true
+    belongs_to :version, FormVersion, allow_nil?: false, attribute_public?: true
   end
 
   actions do
@@ -80,7 +87,7 @@ defmodule QuickTrain.Forms.Questions.QuestionOption do
     create :add_to_draft do
       accept [:key, :label, :position, :question_id, :version_id]
       argument :organization_id, :uuid, allow_nil?: false
-      change QuickTrain.Forms.Changes.DraftWrite
+      change DraftWrite
     end
 
     update :update_in_draft do
@@ -89,7 +96,7 @@ defmodule QuickTrain.Forms.Questions.QuestionOption do
       accept [:label, :position]
       argument :organization_id, :uuid, allow_nil?: false
       argument :version_id, :uuid, allow_nil?: false
-      change QuickTrain.Forms.Changes.DraftWrite
+      change DraftWrite
     end
 
     destroy :remove_from_draft do
@@ -97,7 +104,7 @@ defmodule QuickTrain.Forms.Questions.QuestionOption do
       atomic_upgrade_with :read_for_authoring
       argument :organization_id, :uuid, allow_nil?: false
       argument :version_id, :uuid, allow_nil?: false
-      change QuickTrain.Forms.Changes.DraftWrite
+      change DraftWrite
     end
 
     action :reorder, :boolean do
@@ -145,13 +152,11 @@ defmodule QuickTrain.Forms.Questions.QuestionOption do
     end
 
     policy action([:list_scoped, :get_scoped]) do
-      authorize_if {QuickTrain.Authorization.Checks.OrganizationCapability,
-                    capability: "forms.read"}
+      authorize_if {OrganizationCapability, capability: "forms.read"}
     end
 
     policy action([:add_to_draft, :update_in_draft, :remove_from_draft, :reorder]) do
-      authorize_if {QuickTrain.Authorization.Checks.OrganizationCapability,
-                    capability: "forms.manage"}
+      authorize_if {OrganizationCapability, capability: "forms.manage"}
     end
   end
 
@@ -169,7 +174,7 @@ defmodule QuickTrain.Forms.Questions.QuestionOption do
 
   postgres do
     table "form_question_options"
-    repo QuickTrain.Repo
+    repo Repo
 
     custom_statements do
       statement :position_unique do
