@@ -5,7 +5,7 @@ defmodule QuickTrain.Forms.FormContractTest do
   alias QuickTrain.Forms.{FormVersion, Graph}
   alias QuickTrain.Forms.Inputs.{InputFieldRequirement, InputSlotDefinition}
   alias QuickTrain.Forms.Labels.{Label, LabelSet}
-  alias QuickTrain.Forms.Presentation.{Heading, PresentationElement, Section}
+  alias QuickTrain.Forms.Presentation.{Heading, Instruction, PresentationElement, Section}
   alias QuickTrain.Forms.Questions.{InputSource, QuestionDefinition, QuestionOption}
 
   alias QuickTrain.Forms.Questions.Constraints.{
@@ -151,12 +151,16 @@ defmodule QuickTrain.Forms.FormContractTest do
   end
 
   test "text byte limits apply on create and update including unnamed sections", ctx do
-    for {kind, resource} <- [heading: Heading, section: Section] do
+    for {kind, resource, limit} <- [
+          {:heading, Heading, 1024},
+          {:section, Section, 1024},
+          {:instruction, Instruction, 16_384}
+        ] do
       element =
         add!(PresentationElement, ctx, ctx.version, %{
           kind: kind,
           position: 100,
-          text: String.duplicate("é", 512)
+          text: String.duplicate("é", div(limit, 2))
         })
 
       child =
@@ -164,20 +168,70 @@ defmodule QuickTrain.Forms.FormContractTest do
         |> Ash.Query.filter_input(%{element_id: element.id})
         |> Ash.read_one!(authorize?: false)
 
-      assert {:error, _} = edit(resource, ctx, child, %{text: String.duplicate("é", 513)})
+      assert {:error, _} =
+               edit(resource, ctx, child, %{text: String.duplicate("é", div(limit, 2) + 1)})
+
+      changeset =
+        Ash.Changeset.for_create(
+          PresentationElement,
+          :add_to_draft,
+          %{
+            organization_id: ctx.org.id,
+            version_id: ctx.version.id,
+            kind: kind,
+            position: 101,
+            text: String.duplicate("é", div(limit, 2) + 1)
+          },
+          actor: ctx.actor
+        )
+
+      refute changeset.valid?
+      assert Enum.any?(changeset.errors, &match?(%{field: :text, path: []}, &1))
 
       assert {:error, _} =
                run(PresentationElement, :add_to_draft, ctx, %{
                  version_id: ctx.version.id,
                  kind: kind,
                  position: 101,
-                 text: String.duplicate("é", 513)
+                 text: String.duplicate("é", div(limit, 2) + 1)
                })
 
       assert run!(PresentationElement, :remove_from_draft, ctx, %{
                version_id: ctx.version.id,
                id: element.id
              })
+    end
+  end
+
+  test "question and option keys reject Unicode whitespace and preserve nonblank text", ctx do
+    question =
+      add!(QuestionDefinition, ctx, ctx.version, %{
+        key: "choice",
+        prompt: "Choose",
+        family: :static_single_choice,
+        renderer: :radio
+      })
+
+    for {resource, attrs} <- [
+          {QuestionDefinition, %{prompt: "Question", family: :boolean, renderer: :toggle}},
+          {QuestionOption, %{question_id: question.id, label: "Option", position: 0}}
+        ] do
+      for key <- ["", " \n\t", "\u00A0\u2003"] do
+        assert {:error, _} =
+                 run(
+                   resource,
+                   :add_to_draft,
+                   ctx,
+                   Map.merge(attrs, %{
+                     version_id: ctx.version.id,
+                     key: key
+                   })
+                 )
+      end
+
+      key = " 鍵 "
+      record = add!(resource, ctx, ctx.version, Map.put(attrs, :key, key))
+      assert record.key == key
     end
   end
 

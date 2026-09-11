@@ -183,6 +183,7 @@ defmodule QuickTrain.Forms.Questions.QuestionDefinition do
   end
 
   validations do
+    validate match(:key, ~r/\S/u), where: [changing(:key)]
     validate match(:prompt, ~r/\S/u), where: [changing(:prompt)]
   end
 

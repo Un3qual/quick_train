@@ -95,6 +95,10 @@
 
 - [x] 13.1 Use readable local aliases for our own modules across Forms domain/resource declarations, keep Ash references fully qualified, preserve late-bound references, and verify compilation, schema consistency, and existing behavior.
 
+## 14. Key and presentation input validation
+
+- [x] 14.1 Reject whitespace-only question/option keys with a changing-only Ash validation and validate heading/section byte limits before nested creation while retaining longer instructions; synchronize the contract and verify focused behavior and repository gates.
+
 ## Verification record
 
 - `mise run verify` passed with 211 tests, including 54 Forms tests. The gate also passed
@@ -121,3 +125,5 @@
   transaction API returned an exception for the deliberate rollback. Nonempty keys, unnamed
   sections, byte limits, and historical migration snapshots retain their approved contracts.
 - No dependency changes, external blockers, or deferred implementation tasks remain in this change.
+- The key and parent text validation follow-through passed 22 contract tests, all 212 tests in
+  `mise run verify`, and independent OpenSpec validation for all seven items.

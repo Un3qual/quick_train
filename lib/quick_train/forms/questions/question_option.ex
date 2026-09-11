@@ -161,6 +161,7 @@ defmodule QuickTrain.Forms.Questions.QuestionOption do
   end
 
   validations do
+    validate match(:key, ~r/\S/u), where: [changing(:key)]
     validate match(:label, ~r/\S/u), where: [changing(:label)]
   end
 

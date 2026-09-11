@@ -103,6 +103,7 @@ defmodule QuickTrain.Forms.Presentation.PresentationElement do
       argument :section_content, :map, public?: false, default: %{}
 
       validate present(:text), where: [attribute_in(:kind, [:instruction, :heading, :section])]
+      validate byte_size(:text, max: 1024), where: [attribute_in(:kind, [:heading, :section])]
       validate present(:requirement_id), where: [attribute_equals(:kind, :bound_value)]
       validate present(:question_id), where: [attribute_equals(:kind, :question)]
       validate absent(:text), where: [attribute_in(:kind, [:bound_value, :question])]
