@@ -17,7 +17,7 @@ defmodule QuickTrain.Forms.Questions.QuestionOption do
   alias QuickTrain.Repo
 
   attributes do
-    uuid_primary_key :id
+    uuid_primary_key :id, writable?: true
 
     attribute :key, PlainText,
       public?: true,
@@ -118,9 +118,7 @@ defmodule QuickTrain.Forms.Questions.QuestionOption do
     end
 
     create :create_internal do
-      accept [:key, :label, :position, :question_id, :version_id]
-      argument :copied_id, :uuid
-      change set_attribute(:id, arg(:copied_id), set_when_nil?: false)
+      accept [:id, :key, :label, :position, :question_id, :version_id]
     end
 
     update :update_internal do

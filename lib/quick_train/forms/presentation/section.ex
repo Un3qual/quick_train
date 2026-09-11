@@ -15,7 +15,7 @@ defmodule QuickTrain.Forms.Presentation.Section do
   alias QuickTrain.Repo
 
   attributes do
-    uuid_primary_key :id
+    uuid_primary_key :id, writable?: true
 
     attribute :text, PlainText,
       public?: true,
@@ -78,16 +78,13 @@ defmodule QuickTrain.Forms.Presentation.Section do
     end
 
     create :create_internal do
-      accept [:text, :element_id, :version_id]
-      argument :copied_id, :uuid
+      accept [:id, :text, :element_id, :version_id]
 
       change set_attribute(:text, context([:shared, :forms_section_text]), set_when_nil?: false)
 
       change set_attribute(:version_id, context([:shared, :forms_version_id]),
                set_when_nil?: false
              )
-
-      change set_attribute(:id, arg(:copied_id), set_when_nil?: false)
     end
 
     destroy :destroy_internal

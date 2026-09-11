@@ -186,10 +186,8 @@ defmodule QuickTrain.Forms.Graph do
 
     expected = @constraints[question.family]
 
-    {own, incompatible?} =
-      Enum.reduce(typed, {nil, false}, fn row, {matching, invalid?} ->
-        if is_struct(row, expected), do: {row, invalid?}, else: {matching, true}
-      end)
+    {matching, incompatible} = Enum.split_with(typed, &is_struct(&1, expected))
+    own = List.first(matching)
 
     source = Enum.find(graph[InputSource], &(&1.question_id == question.id))
     options = Enum.filter(graph[QuestionOption], &(&1.question_id == question.id))
@@ -200,7 +198,7 @@ defmodule QuickTrain.Forms.Graph do
       "incompatible renderer"
     ) ++
       issue(
-        incompatible?,
+        incompatible != [],
         question.id,
         "incompatible constraints"
       ) ++
@@ -373,6 +371,6 @@ defmodule QuickTrain.Forms.Graph do
         old -> Map.fetch!(ids, old)
       end)
     end)
-    |> Map.put(:copied_id, Map.fetch!(ids, original.id))
+    |> Map.put(:id, Map.fetch!(ids, original.id))
   end
 end

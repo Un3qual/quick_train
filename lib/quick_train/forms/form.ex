@@ -100,10 +100,6 @@ defmodule QuickTrain.Forms.Form do
     create :create_form do
       accept [:key, :organization_id]
     end
-
-    create :create_internal do
-      accept [:key, :organization_id]
-    end
   end
 
   policies do

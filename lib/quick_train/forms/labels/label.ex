@@ -17,7 +17,7 @@ defmodule QuickTrain.Forms.Labels.Label do
   alias QuickTrain.Repo
 
   attributes do
-    uuid_primary_key :id
+    uuid_primary_key :id, writable?: true
 
     attribute :key, PlainText,
       public?: true,
@@ -118,9 +118,7 @@ defmodule QuickTrain.Forms.Labels.Label do
     end
 
     create :create_internal do
-      accept [:key, :text, :position, :label_set_id, :version_id]
-      argument :copied_id, :uuid
-      change set_attribute(:id, arg(:copied_id), set_when_nil?: false)
+      accept [:id, :key, :text, :position, :label_set_id, :version_id]
     end
 
     update :update_internal do

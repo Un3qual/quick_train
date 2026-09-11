@@ -23,7 +23,7 @@ defmodule QuickTrain.Forms.Presentation.PresentationElement do
   alias QuickTrain.Repo
 
   attributes do
-    uuid_primary_key :id
+    uuid_primary_key :id, writable?: true
 
     attribute :kind, PresentationKind,
       public?: true,
@@ -187,9 +187,7 @@ defmodule QuickTrain.Forms.Presentation.PresentationElement do
     end
 
     create :create_internal do
-      accept [:kind, :position, :version_id]
-      argument :copied_id, :uuid
-      change set_attribute(:id, arg(:copied_id), set_when_nil?: false)
+      accept [:id, :kind, :position, :version_id]
     end
 
     update :update_internal do

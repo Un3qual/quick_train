@@ -118,9 +118,11 @@ Use Ash integer constraints and database bounds for every persisted integer expo
   results retain their existing shape. Mutation lookup reads require a bulk-mutation context and
   current `forms.manage` eligibility; they are not exposed as inspection queries or domain interfaces.
 - `Graph` loads all owned rows with a cumulative 10,000-row bound. Copy uses `Ash.bulk_create!`
-  per resource in dependency order, with internal creation accepting an optional copied ID and
-  assigning it through `set_attribute`. Ordinary creation retains generated UUIDs; reference
-  attributes come from Ash relationship metadata. Reorders validate the complete scoped ID set and
+  per resource in dependency order, with internal creation accepting `id` directly. Only those
+  internal actions accept caller-supplied IDs; public creation retains generated UUIDs and public
+  updates cannot change identity. Reference attributes come from Ash relationship metadata.
+  Form itself needs no internal creation action because copy only creates a new version and its
+  descendants. Reorders validate the complete scoped ID set and
   use `Ash.update_many!` to assign distinct consecutive positions. Presentation destruction uses
   `cascade_destroy` before deleting its parent, retaining restrictive foreign keys; the enclosing draft action validates the final graph.
 - Presentation creation uses conditional `manage_relationship` changes with `present`/`absent`

@@ -61,11 +61,12 @@ defmodule QuickTrain.Forms.FormIntegrityTest do
     assert Ash.get!(FormVersion, published.id, authorize?: false) == stored_version
   end
 
-  test "authoring cannot change ownership, keys, or lifecycle fields", ctx do
+  test "authoring cannot change identity, ownership, keys, or lifecycle fields", ctx do
     other = run!(FormVersion, :create_draft, ctx, %{form_id: ctx.form.id})
     stored_version = Ash.get!(FormVersion, ctx.version.id, authorize?: false)
 
     for {record, attributes} <- [
+          {ctx.slot, %{id: Ash.UUID.generate()}},
           {ctx.slot, %{key: "changed"}},
           {ctx.slot, %{version_id: other.id}},
           {ctx.field, %{input_slot_id: Ash.UUID.generate()}},
@@ -107,6 +108,21 @@ defmodule QuickTrain.Forms.FormIntegrityTest do
 
     assert Ash.get!(FormVersion, ctx.version.id, authorize?: false) == stored_version
     assert Ash.count!(FormVersion, authorize?: false) == 2
+
+    assert {:error, _} =
+             Forms.add_form_input_slot_definition(
+               ctx.org.id,
+               %{
+                 id: Ash.UUID.generate(),
+                 version_id: ctx.version.id,
+                 key: "caller_supplied_id",
+                 minimum: 1,
+                 maximum: 1
+               },
+               actor: ctx.actor
+             )
+
+    assert Ash.count!(InputSlotDefinition, authorize?: false) == 1
   end
 
   test "invalid presentation content and wrong-family children roll back in Ash", ctx do

@@ -16,7 +16,7 @@ defmodule QuickTrain.Forms.Questions.Constraints.DecimalConstraints do
   alias QuickTrain.Repo
 
   attributes do
-    uuid_primary_key :id
+    uuid_primary_key :id, writable?: true
     attribute :minimum, :decimal, public?: true
     attribute :maximum, :decimal, public?: true
     timestamps()
@@ -87,9 +87,7 @@ defmodule QuickTrain.Forms.Questions.Constraints.DecimalConstraints do
     end
 
     create :create_internal do
-      accept [:minimum, :maximum, :question_id, :version_id]
-      argument :copied_id, :uuid
-      change set_attribute(:id, arg(:copied_id), set_when_nil?: false)
+      accept [:id, :minimum, :maximum, :question_id, :version_id]
     end
   end
 

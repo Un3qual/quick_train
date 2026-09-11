@@ -66,7 +66,7 @@
 ## 9. Approved Ponytail simplifications
 
 - [x] 9.1 Remove 29 uncalled internal write actions and the test-only version creation action; use Ash seeding for the version-exhaustion fixture, retaining the updates used by reorder and the destroys used by presentation cascades.
-- [x] 9.2 Fold the 18 copy actions into internal creation with an optional copied ID and the built-in attribute change.
+- [x] 9.2 Fold the 18 copy actions into internal creation; accept copied identities directly as `id` without forwarding arguments.
 - [x] 9.3 Derive the constraint-resource list from the existing family-to-constraint mapping.
 - [x] 9.4 Verify copy, ordinary creation, reorder, cascades, and concurrency with the existing tests; synchronize the design and run both verification gates.
 
@@ -99,6 +99,11 @@
 
 - [x] 14.1 Reject whitespace-only question/option keys with a changing-only Ash validation and validate heading/section byte limits before nested creation while retaining longer instructions; synchronize the contract and verify focused behavior and repository gates.
 
+## 15. Reduce Forms implementation plumbing
+
+- [x] 15.1 Replace copied-ID forwarding in 18 resources with native internal ID inputs, remove unused internal Form creation, simplify constraint partitioning with `Enum.split_with`, and preserve the public identity boundary and complete graph behavior.
+- [x] 15.2 Verify existing copy, rollback, limits, authorization, and concurrency coverage; run the full gate and independent OpenSpec validation.
+
 ## Verification record
 
 - `mise run verify` passed with 211 tests, including 54 Forms tests. The gate also passed
@@ -127,3 +132,7 @@
 - No dependency changes, external blockers, or deferred implementation tasks remain in this change.
 - The key and parent text validation follow-through passed 22 contract tests, all 212 tests in
   `mise run verify`, and independent OpenSpec validation for all seven items.
+- The implementation simplification removed 47 production lines. Existing copy, rollback,
+  limits, and concurrency coverage passed, along with explicit public identity rejection and
+  internal-write authorization checks. The final `mise run verify` passed all 212 tests;
+  independent OpenSpec validation passed all seven items.

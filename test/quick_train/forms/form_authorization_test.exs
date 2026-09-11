@@ -2,7 +2,7 @@ defmodule QuickTrain.Forms.FormAuthorizationTest do
   use QuickTrain.DataCase, async: true
   import QuickTrain.FormsFixture
   alias QuickTrain.{Accounts, Authorization, Forms, Organizations}
-  alias QuickTrain.Forms.{Form, FormVersion}
+  alias QuickTrain.Forms.FormVersion
   alias QuickTrain.Forms.Questions.QuestionDefinition
 
   setup do
@@ -17,7 +17,15 @@ defmodule QuickTrain.Forms.FormAuthorizationTest do
              Ash.read(FormVersion, action: :read_for_authoring, actor: ctx.actor)
 
     assert {:error, %Ash.Error.Forbidden{}} =
-             Ash.create(Form, %{organization_id: ctx.org.id, key: "internal"},
+             Ash.create(
+               QuestionDefinition,
+               %{
+                 version_id: ctx.version.id,
+                 key: "internal",
+                 prompt: "Internal question",
+                 family: :boolean,
+                 renderer: :checkbox
+               },
                action: :create_internal,
                actor: ctx.actor
              )

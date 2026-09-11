@@ -16,7 +16,7 @@ defmodule QuickTrain.Forms.Questions.Constraints.TextConstraints do
   alias QuickTrain.Repo
 
   attributes do
-    uuid_primary_key :id
+    uuid_primary_key :id, writable?: true
     attribute :minimum, :integer, public?: true, constraints: [min: 0, max: 2_147_483_647]
     attribute :maximum, :integer, public?: true, constraints: [min: 0, max: 2_147_483_647]
     timestamps()
@@ -87,9 +87,7 @@ defmodule QuickTrain.Forms.Questions.Constraints.TextConstraints do
     end
 
     create :create_internal do
-      accept [:minimum, :maximum, :question_id, :version_id]
-      argument :copied_id, :uuid
-      change set_attribute(:id, arg(:copied_id), set_when_nil?: false)
+      accept [:id, :minimum, :maximum, :question_id, :version_id]
     end
   end
 

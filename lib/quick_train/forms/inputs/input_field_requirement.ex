@@ -15,7 +15,7 @@ defmodule QuickTrain.Forms.Inputs.InputFieldRequirement do
   alias QuickTrain.Repo
 
   attributes do
-    uuid_primary_key :id
+    uuid_primary_key :id, writable?: true
 
     attribute :key, PlainText,
       public?: true,
@@ -114,6 +114,7 @@ defmodule QuickTrain.Forms.Inputs.InputFieldRequirement do
 
     create :create_internal do
       accept [
+        :id,
         :key,
         :value_family,
         :cardinality,
@@ -122,9 +123,6 @@ defmodule QuickTrain.Forms.Inputs.InputFieldRequirement do
         :input_slot_id,
         :version_id
       ]
-
-      argument :copied_id, :uuid
-      change set_attribute(:id, arg(:copied_id), set_when_nil?: false)
     end
   end
 

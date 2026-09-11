@@ -15,7 +15,7 @@ defmodule QuickTrain.Forms.Questions.InputSource do
   alias QuickTrain.Repo
 
   attributes do
-    uuid_primary_key :id
+    uuid_primary_key :id, writable?: true
     timestamps()
   end
 
@@ -94,9 +94,7 @@ defmodule QuickTrain.Forms.Questions.InputSource do
     end
 
     create :create_internal do
-      accept [:question_id, :input_slot_id, :source_requirement_id, :version_id]
-      argument :copied_id, :uuid
-      change set_attribute(:id, arg(:copied_id), set_when_nil?: false)
+      accept [:id, :question_id, :input_slot_id, :source_requirement_id, :version_id]
     end
   end
 
