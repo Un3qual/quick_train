@@ -120,6 +120,12 @@
 - [x] 17.4 Expose existing scoped Form, QuestionDefinition, and LabelSet reads through GraphQL, preserving authorization and nested pagination.
 - [x] 17.5 Verify stale writes, direct reads, copy/reorder behavior, and validation query cost; run the full verification gate and independent OpenSpec validation.
 
+## 18. Optional scalar bounds
+
+- [x] 18.1 Allow text, ordinary integer, and decimal questions to publish without constraint records; retain mandatory stars/Likert, selection, and annotation configuration and reject incompatible children.
+- [x] 18.2 Document absent scalar constraints as equivalent to empty bounds, preserving typed defaults, existing records, and published meaning without a migration.
+- [x] 18.3 Verify absent, empty, and populated scalar constraints, copy behavior, and required configuration; run the full verification gate and independent OpenSpec validation.
+
 ## Verification record
 
 - Initial implementation verification passed with 211 tests, including 54 Forms tests. The `mise run verify` gate also passed
@@ -174,3 +180,8 @@
   five local runs fell from 320 ms to 153 ms; adding one option fell from 254 ms to 102 ms.
   Reorders explicitly set `return_records?: false` because omitting the option crashes the
   pinned Ash 3.33.0 `update_many!` path.
+- Optional scalar bounds passed 62 focused tests and the full `mise run verify` gate with
+  219 tests. The three new scalar publication/copy cases failed under the prior mandatory-row
+  rule and passed after the change. Existing empty and populated records are preserved;
+  stars/Likert, selection, and annotation questions still reject missing configuration.
+  Independent OpenSpec validation passed all seven items; no migration was needed.

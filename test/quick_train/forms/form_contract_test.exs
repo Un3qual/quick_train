@@ -46,6 +46,11 @@ defmodule QuickTrain.Forms.FormContractTest do
           renderer: unquote(renderer)
         })
 
+      unless family in [:text, :decimal, :boolean, :task_input_ranking] do
+        assert {:error, error} = run(FormVersion, :publish, ctx, %{version_id: ctx.version.id})
+        assert Exception.message(error) =~ "#{question.id}: constraints are required"
+      end
+
       build_constraints!(family, question, ctx)
 
       add!(PresentationElement, ctx, ctx.version, %{
@@ -109,6 +114,63 @@ defmodule QuickTrain.Forms.FormContractTest do
       end
 
       assert Graph.load!(published.id) == original
+    end
+  end
+
+  for {family, renderer, resource} <- [
+        {:text, :text_input, TextConstraints},
+        {:integer, :integer_input, IntegerConstraints},
+        {:decimal, :decimal_input, DecimalConstraints}
+      ] do
+    test "publishes and copies absent, empty, and populated #{family} bounds", ctx do
+      resource = unquote(resource)
+
+      expected =
+        for {{key, attributes}, position} <-
+              Enum.with_index(
+                [{"absent", nil}, {"empty", %{}}, {"bounded", %{minimum: 1, maximum: 5}}],
+                20
+              ) do
+          question =
+            add!(QuestionDefinition, ctx, ctx.version, %{
+              key: key,
+              prompt: "Question",
+              family: unquote(family),
+              renderer: unquote(renderer)
+            })
+
+          bounds =
+            if attributes,
+              do: add!(resource, ctx, ctx.version, Map.put(attributes, :question_id, question.id))
+
+          add!(PresentationElement, ctx, ctx.version, %{
+            kind: :question,
+            position: position,
+            question_id: question.id
+          })
+
+          {key, bounds && Map.take(bounds, [:minimum, :maximum])}
+        end
+
+      published = run!(FormVersion, :publish, ctx, %{version_id: ctx.version.id})
+
+      copy =
+        run!(FormVersion, :copy_published, ctx, %{
+          form_id: ctx.form.id,
+          source_version_id: published.id
+        })
+
+      assert run!(FormVersion, :publish, ctx, %{version_id: copy.id}).state == :published
+
+      for version <- [published, copy] do
+        graph = Graph.load!(version.id)
+
+        for {key, expected_bounds} <- expected do
+          question = Enum.find(graph[QuestionDefinition], &(&1.key == key))
+          bounds = Enum.find(graph[resource], &(&1.question_id == question.id))
+          assert (bounds && Map.take(bounds, [:minimum, :maximum])) == expected_bounds
+        end
+      end
     end
   end
 
@@ -299,6 +361,23 @@ defmodule QuickTrain.Forms.FormContractTest do
       assert {:error, _} = edit(IntegerConstraints, ctx, bounds, %{minimum: 0, maximum: 200})
       assert {:ok, _} = edit(IntegerConstraints, ctx, bounds, %{minimum: 1, maximum: 200})
     end
+
+    run!(IntegerConstraints, :remove_from_draft, ctx, %{
+      version_id: ctx.version.id,
+      id: ctx.bounds.id
+    })
+
+    for renderer <- [:stars, :likert] do
+      assert {:ok, _} = edit(QuestionDefinition, ctx, ctx.question, %{renderer: renderer})
+      assert {:error, error} = run(FormVersion, :publish, ctx, %{version_id: ctx.version.id})
+      assert Exception.message(error) =~ "#{ctx.question.id}: constraints are required"
+    end
+
+    add!(IntegerConstraints, ctx, ctx.version, %{
+      question_id: ctx.question.id,
+      minimum: 1,
+      maximum: 200
+    })
 
     assert run!(FormVersion, :publish, ctx, %{version_id: ctx.version.id}).state == :published
   end

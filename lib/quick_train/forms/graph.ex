@@ -152,6 +152,10 @@ defmodule QuickTrain.Forms.Graph do
 
     expected = @constraints[question.family]
 
+    required? =
+      expected in [SelectionConstraints, AnnotationConstraints] or
+        question.renderer in [:stars, :likert]
+
     {matching, incompatible} = Enum.split_with(typed, &is_struct(&1, expected))
     own = List.first(matching)
 
@@ -168,7 +172,7 @@ defmodule QuickTrain.Forms.Graph do
         "incompatible constraints"
       ) ++
       issue(
-        published? and not is_nil(expected) and is_nil(own),
+        published? and required? and is_nil(own),
         question.id,
         "constraints are required"
       ) ++
