@@ -61,12 +61,20 @@ For an unsatisfied question, cumulative submitted skips plus currently rejected 
 - **THEN** future ordinary attempts omit the escalated question and can still offer the other question
 
 ### Requirement: Follow-up work creates linked new evidence
-An active organization member with `tasks.assign` SHALL be able to deliberately issue a new attempt linked to a previous terminal attempt of that task for that prior worker. It SHALL bypass ordinary same-task exclusion and escalation only for unmet questions. It SHALL still enforce current worker eligibility, active project, one-live-attempt limit, capacity, and a fresh fixed lease. It SHALL not reset historical failures or mutate the old response. No fulfilled question SHALL be reopened merely to collect extra answers.
+An active organization member with `tasks.assign` SHALL be able to deliberately issue a new attempt linked to a previous terminal attempt of that task for an explicitly selected eligible worker, who MAY be the predecessor's worker or another worker. The predecessor SHALL belong to the same task/project and SHALL provide evidence lineage, not constrain worker identity. The operation SHALL bypass ordinary same-task exclusion and escalation only for unmet questions. It SHALL still enforce the selected worker's current eligibility, active project, one-live-attempt limit, capacity, and a fresh fixed lease. Both predecessor and selected worker SHALL participate in the existing allocation request identity. It SHALL not reset historical failures or mutate the old response. No fulfilled question SHALL be reopened merely to collect extra answers.
 
 #### Scenario: A skipped question is deliberately reassigned
 - **WHEN** a manager assigns a follow-up to the worker of a terminal skipped attempt and the question still has capacity
 - **THEN** a new linked attempt/response is created while the prior skip stays queryable
 
 #### Scenario: A follow-up targets a blocked worker
-- **WHEN** the worker no longer meets the project's audience rules
+- **WHEN** the selected worker no longer meets the project's audience rules
 - **THEN** assignment fails despite the deliberate follow-up request
+
+#### Scenario: Prior workers cannot resolve an escalated question
+- **WHEN** an unmet question is escalated and every worker on its prior terminal attempts is now ineligible
+- **THEN** a manager can link a follow-up to a prior terminal attempt and assign another currently eligible worker, retaining the old evidence and failure history without reopening ordinary circulation
+
+#### Scenario: A follow-up retry changes its worker
+- **WHEN** a manager reuses an allocation request key and predecessor with a different selected worker
+- **THEN** the request conflicts rather than silently retargeting the recorded follow-up or creating another attempt

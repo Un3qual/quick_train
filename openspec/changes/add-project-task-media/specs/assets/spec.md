@@ -5,6 +5,8 @@ A live eligible attempt owner SHALL be able to register/finalize an organization
 
 New registrations SHALL be limited over the entire attempt lifetime to 1,000 per question, 10,000 across all questions, and 256 MiB of aggregate declared bytes, alongside the existing per-file byte cap. Pending, ready, failed, expired, deduplicated, and replaced registrations SHALL all consume these limits; detaching a draft mask SHALL not refund allowance. Admission SHALL serialize under the existing Response lock and durably reserve the key, registration identity, count, and byte allowance before any storage operation. Limit failures SHALL return `mask_registration_limit` without allocating an asset or writable staging object. Storage I/O SHALL remain outside the database transaction and retry the reserved identity/destination. These are local attempt limits; no generic quota service or automatic staging-deletion prerequisite SHALL be introduced.
 
+After current owner/eligibility/lease authorization and under the Response lock, registration SHALL look up the attempt/question request key before checking remaining allowance. An existing key SHALL resolve its matching registration without consuming additional count or bytes even when a limit is reached; changed arguments SHALL return `idempotency_conflict` rather than a limit error. Existing failed or expired registrations SHALL retain their state and original expiry. Only an absent key SHALL be checked against the limits and reserve new allowance; retry convergence SHALL not bypass current authorization or renew expired storage access.
+
 The workflow SHALL not require membership or expose general asset creation/listing/reuse operations. A duplicate canonical asset SHALL remain usable only through an authorized attachment relationship; failed/foreign/mismatched uploads SHALL not create usable response attachment authority. Verification of raster encoding and dimensions SHALL belong to the separate media prerequisite, not opaque asset finalization.
 
 #### Scenario: Canonical mask content is reused safely
@@ -18,6 +20,10 @@ The workflow SHALL not require membership or expose general asset creation/listi
 #### Scenario: Concurrent retries register one mask
 - **WHEN** two requests supply the same attempt/question/key and identical content identity
 - **THEN** they converge on one registration and staging destination, consume allowance once, and conflicting content under that key is rejected
+
+#### Scenario: A matching retry arrives at the limit
+- **WHEN** an authorized live attempt is at a registration count or byte limit and retries an existing key with identical arguments
+- **THEN** it resolves the existing registration without consuming allowance or extending expiry, while changed arguments under that key conflict and a new key fails with `mask_registration_limit`
 
 #### Scenario: Completed or abandoned uploads cannot evade the limit
 - **WHEN** a worker registers more masks after earlier uploads are finalized, failed, expired, deduplicated, or detached

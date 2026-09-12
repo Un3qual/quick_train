@@ -33,8 +33,12 @@ The system SHALL allow an eligible owner of an unexpired live task attempt in an
 - **THEN** the request fails without exposing its definitions
 
 ### Requirement: Result-scoped published-definition inspection
-An active member authorized for `tasks.results.read` in an active organization and explicit project scope SHALL be able to inspect the immutable published question/option/label definitions referenced by that project's eligible result evidence through Tasks without `forms.read`. Reads and exports SHALL preserve original definition identities and human-readable question/option/label content. They SHALL expose only referenced definitions through bounded typed result relationships, not general form listing, drafts, unrelated questions/versions, or reverse organization traversal. Existing general form authorization SHALL remain unchanged.
+An active member authorized for `tasks.results.read` in an active organization and explicit project scope SHALL be able to inspect the immutable published presentation and question/option/label definitions referenced by that project's eligible result evidence through Tasks without `forms.read`. Reads and exports SHALL preserve original definition identities and human-readable content, including the complete pinned PresentationElement sequence with each element's kind, position, text, and question/requirement references. Question/option/label definitions referenced by those placements SHALL be available as context even for questions not offered by a particular attempt; offered-question status SHALL come from that attempt's recorded set. They SHALL expose only this referenced contract through bounded typed result relationships, not general form listing, drafts, unrelated questions/versions, or reverse organization traversal. Existing general form authorization SHALL remain unchanged.
 
 #### Scenario: A result reader resolves an option label
 - **WHEN** an authorized result-only reader follows a static-option answer to its pinned option
 - **THEN** Tasks returns the original option key/label and question context, while arbitrary form-definition access remains denied
+
+#### Scenario: A result reader inspects a pinned presentation
+- **WHEN** a result-only reader follows an eligible attempt to its presentation
+- **THEN** Tasks returns its original published element sequence and referenced contract with bounded pagination, while other versions and unreferenced definitions remain denied
