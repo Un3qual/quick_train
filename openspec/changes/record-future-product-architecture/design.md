@@ -6,6 +6,8 @@ The initial dataset/assets design accumulated approved decisions for four later 
 
 This change has `skip_specs: true`. Everything below is a durable, non-normative starting point. A future change must select the relevant sections, resolve any then-current questions, and establish its own behavioral specs and tasks before implementation. A later explicit product decision may revise this record.
 
+On 2026-09-12, the Projects and Tasks scope was promoted into [add-project-task-collection](../add-project-task-collection/proposal.md), with its own design, eight capability deltas, and implementation tasks. That proposal selects a new project for later enrollment, records offered question sets per attempt, and specifies immutable export snapshots. Verified media support remains a separate prerequisite, as confirmed by the user. The dedicated proposal governs this proposed scope; this historical record does not claim it is implemented.
+
 ## Goals / Non-Goals
 
 **Goals:**
@@ -101,7 +103,7 @@ A planned project pins:
 - coverage settings; and
 - when Finance is implemented, a rate and funding configuration.
 
-Project lifecycle permits `draft -> active`, `active <-> paused`, either `active -> completed` or `paused -> completed`, and `completed -> archived`. Completion does not require an otherwise unnecessary pause. Activation validates and freezes configuration. New dataset imports never silently enter an active project. Whether later enrollment creates another immutable project-configuration snapshot or a separately configured batch is intentionally unresolved for the future Projects change; that change must choose one model and ensure every existing task and attempt remains bound to its original cohort and frozen configuration.
+Project lifecycle permits `draft -> active`, `active <-> paused`, either `active -> completed` or `paused -> completed`, and `completed -> archived`. Completion does not require an otherwise unnecessary pause. Activation validates and freezes configuration. New dataset imports never silently enter an active project. The original record left later enrollment unresolved; `add-project-task-collection` now selects a new project with its own cohort and configuration, preserving every existing task and attempt's original contract without adding configuration snapshots or enrollment batches.
 
 ### E. Both worker audiences and allocation modes are first-class
 

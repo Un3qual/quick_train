@@ -1,0 +1,78 @@
+## Purpose
+
+Let an organization turn an explicit cohort of immutable dataset revisions and a published form into a frozen, attributable collection run.
+
+## ADDED Requirements
+
+### Requirement: Explicit organization-scoped project management
+Project operations SHALL resolve targets within an explicit organization and require an active authenticated account, active organization, active membership, and `projects.read` for inspection or `projects.manage` for authoring and lifecycle changes. Choosing source datasets and forms SHALL additionally require their existing read capabilities. Management SHALL authorize its mutation result without implying general read access. New permissions SHALL require explicit role grants. Every project SHALL have an immutable organization and organization-unique nonblank key; foreign and nonexistent references SHALL fail without distinguishable disclosure.
+
+#### Scenario: A manager creates a project
+- **WHEN** an authorized manager selects readable dataset and form definitions in their organization
+- **THEN** a draft project is created with that organization and its own stable identity
+
+#### Scenario: Missing or foreign authority fails closed
+- **WHEN** an inactive account, inactive organization/member, non-member, or actor lacking the operation's capability requests project data or supplies a foreign child
+- **THEN** no unauthorized record is disclosed or changed
+
+### Requirement: One explicit immutable cohort and contract
+A project SHALL pin one dataset, one published schema version of that dataset, one published form version of the same organization, and an explicit nonempty cohort containing at most one revision per stable dataset item. All revisions SHALL use the pinned schema version. Every slot SHALL have an exact positive group size within its published bounds, and every requirement SHALL bind to one root field of the pinned schema with identical family/cardinality. Required requirements SHALL bind required fields. Each cohort revision SHALL be compatible with every slot's bindings; present assets SHALL be ready. Task groups SHALL contain distinct items across all slots. No form/question copy per item SHALL be created.
+
+#### Scenario: A pairwise project uses reusable definitions
+- **WHEN** a project binds a two-item candidate slot to compatible text fields and enrolls explicit revisions
+- **THEN** its tasks can compare pairs while retaining one published form and the same question identities
+
+#### Scenario: Invalid bindings leave the project editable
+- **WHEN** activation finds a draft form, mixed-schema cohort, missing binding, wrong-family field, required-to-optional binding, unready asset, or insufficient distinct items
+- **THEN** activation fails atomically with scoped issues and leaves the project draft
+
+### Requirement: Activation freezes collection configuration
+Activation SHALL atomically validate and freeze the cohort, dataset/schema/form references, bindings, slot counts/order policy, selection mode, audience/external-access mode, review mode, per-question policies, coverage target, and lease duration. Each form question SHALL have a positive accepted-answer target, skip permission, reason-required setting, and positive failure threshold. Selection SHALL be `balanced` or `explicit`; review SHALL be `automatic` or `manual`; lease duration SHALL be 1–120 minutes with a 30-minute default. Child edits and activation SHALL serialize so an edit is either included in validation or rejected after freezing. Authorized activation retries SHALL return the existing active project. After activation only title, lifecycle, and explicit per-user allow/block overrides SHALL be editable.
+
+#### Scenario: A draft edit races activation
+- **WHEN** enrollment or policy editing competes with activation
+- **THEN** either the complete edit commits first and is validated, or activation commits first and the edit fails without modifying the frozen contract
+
+#### Scenario: New imports do not enter active work
+- **WHEN** another revision or dataset item is imported after activation
+- **THEN** the active project's cohort and every issued input remain unchanged; enrollment requires a new project
+
+### Requirement: Explicit groups are validated before use
+An explicit-selection project SHALL define a finite ordered collection of groups whose inputs use its cohort and exact slot counts. Group identity SHALL ignore display shuffling but preserve slot membership. Duplicate canonical groups SHALL be rejected. Before activation every cohort item SHALL appear in at least the configured positive coverage target number of distinct groups. Unissued explicit groups SHALL remain configuration, not allocated tasks or worker evidence.
+
+#### Scenario: Equivalent authored groups are rejected
+- **WHEN** two explicit groups contain the same items in the same slots but reverse display order
+- **THEN** the project rejects the duplicate rather than creating duplicate work
+
+#### Scenario: Explicit coverage is impossible
+- **WHEN** the authored groups do not cover an enrolled item to the configured target
+- **THEN** activation fails with a scoped configuration error
+
+### Requirement: Deliberate project lifecycle and retention
+Projects SHALL allow `draft -> active`, `active <-> paused`, `active|paused -> completed`, and `completed -> archived`, rejecting other transitions. Pause SHALL stop new allocations while allowing otherwise authorized unexpired attempts to finish. Completion SHALL immediately and atomically make all live attempts and unsatisfied tasks cancelled, preserve submitted and satisfied evidence, and prevent later allocation/submission. Completion SHALL be permitted before coverage satisfaction and without pausing first. Completed/archived projects SHALL retain authorized result inspection, review corrections, and exports. No project deletion or implicit completion on empty fetch SHALL be exposed.
+
+#### Scenario: Pausing preserves work already issued
+- **WHEN** a manager pauses an active project while a worker has an unexpired eligible attempt
+- **THEN** fetch/assignment stop, but that worker can save and submit before lease expiry
+
+#### Scenario: Completion races submission
+- **WHEN** completion and a submission compete
+- **THEN** either submission commits before completion and its evidence is preserved, or completion commits first and submission fails without a partial response
+
+### Requirement: Media execution has a separate prerequisite
+Image-intended requirements SHALL require separately implemented verified-image facts and supported serving capability before activation. Source facts SHALL identify the exact immutable asset/hash and verified dimensions. Declared media types or client dimensions SHALL NOT satisfy this condition. An absent prerequisite SHALL produce `media_prerequisite_unavailable` and leave the project draft. This change SHALL NOT introduce decoders, inline delivery, or a provider implementation. Scalar/text and opaque-download projects SHALL not require image support; download access still requires the existing adapter contract.
+
+#### Scenario: A published image form is not automatically executable
+- **WHEN** a manager activates a project using an image-choice or image-annotation form while verified media support is absent
+- **THEN** activation fails explicitly without treating a ready opaque asset as a verified image
+
+### Requirement: Bounded project authoring and inspection
+Project, cohort, binding, policy, worker-access, and explicit-group collections SHALL use stable Relay keyset pagination with default 50 and maximum 100 entries, including nested collections. Enrollment writes SHALL accept at most 100 revision IDs, projects at most 10,000 cohort items and 10,000 explicit groups, and groups at most 100 total inputs. Published form requirements that cannot fit execution minimums SHALL fail activation. Public integer values SHALL fit signed 32-bit GraphQL Int and never wrap. Oversized and invalid writes SHALL fail atomically under documented request/field limits.
+
+#### Scenario: A cohort spans multiple pages
+- **WHEN** a manager traverses a frozen cohort larger than one page
+- **THEN** every enrolled revision is reachable in stable order without an unbounded nested list
+
+#### Scenario: A batch exceeds its bound
+- **WHEN** an enrollment request contains 101 revisions
+- **THEN** no revision from that batch is enrolled
