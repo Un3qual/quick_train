@@ -9,7 +9,7 @@ Image tasks need verified source facts and compliant media delivery, while ordin
 - Extend project activation to accept image input requirements, image presentation elements, image-choice renderers, and spatial questions only when the exact source assets have verified media facts and supported delivery.
 - Add attempt-scoped verified image presentation and keep canonical TaskInput identity separate from display order. Image choice continues using existing typed task-input selections.
 - Add normalized bounding-box, polygon-region, and raster-mask responses with exact TaskInput/source-value/label provenance; retain the core draft, lease, submission, review, and export boundaries.
-- Add scoped worker mask registration/finalization and attachment, verified source/mask compatibility, and result-authorized image/mask access.
+- Add scoped worker mask registration/finalization and attachment with retry convergence and fixed lifetime count/byte limits, verified source/mask compatibility, and result-authorized image/mask access.
 - Verify integration against the real detailed-media capability and compliant reachable storage, including immutable image evidence in results and exports.
 
 Explicit non-goals:

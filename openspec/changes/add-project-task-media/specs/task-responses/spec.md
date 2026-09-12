@@ -42,6 +42,10 @@ A raster mask SHALL reference a ready immutable mask asset and exact source asse
 - **WHEN** a worker references a ready mask without authorized attachment provenance for the offered question
 - **THEN** the answer fails even if the asset belongs to the same organization
 
+#### Scenario: A worker replaces a draft mask
+- **WHEN** an authorized worker uploads new mask content to replace a draft attachment
+- **THEN** registration uses a new request key within the attempt's lifetime count/byte limits, and removing the old attachment does not restore its consumed allowance
+
 ### Requirement: Spatial responses have bounded execution limits
 Spatial writes SHALL accept at most 1,000 regions per question and 1,000 points per polygon within the combined per-response annotation budget defined by `Response writes are bounded and explicitly exposed`, subject to tighter published bounds and the existing request-body limit. All coordinates, counts, and typed children SHALL be validated before immutable submission. Published minimums that exceed these execution limits SHALL reject activation. Spatial child reads SHALL use stable Relay keyset pagination with default 50/max 100.
 

@@ -1,7 +1,11 @@
 ## ADDED Requirements
 
 ### Requirement: Attempt-scoped mask registration and attachment
-A live eligible attempt owner SHALL be able to register/finalize an organization-owned mask asset only through a response workflow identifying an offered raster-mask question. The workflow SHALL preserve the existing enforced upload cap, exact hash/size/media identity, immutable sealing, and canonical deduplication rules and record explicit attempt/question attachment authority. It SHALL not require membership or expose general asset creation/listing/reuse operations. A duplicate canonical asset SHALL remain usable only through an authorized attachment relationship; failed/foreign/mismatched uploads SHALL not create response attachment authority. Verification of raster encoding and dimensions SHALL belong to the separate media prerequisite, not opaque asset finalization.
+A live eligible attempt owner SHALL be able to register/finalize an organization-owned mask asset only through a response workflow identifying an offered raster-mask question. The workflow SHALL preserve the existing enforced upload cap, exact hash/size/media identity, immutable sealing, and canonical deduplication rules and record explicit attempt/question attachment authority. Registration SHALL require a 1–128 byte request key unique within attempt/question: identical retries SHALL resolve to the same registration, asset, and staging destination, while changed hash/size/media arguments SHALL return `idempotency_conflict`. Retries SHALL not create additional writable objects or extend access beyond the original staging expiry or attempt lease.
+
+New registrations SHALL be limited over the entire attempt lifetime to 1,000 per question, 10,000 across all questions, and 256 MiB of aggregate declared bytes, alongside the existing per-file byte cap. Pending, ready, failed, expired, deduplicated, and replaced registrations SHALL all consume these limits; detaching a draft mask SHALL not refund allowance. Admission SHALL serialize under the existing Response lock and durably reserve the key, registration identity, count, and byte allowance before any storage operation. Limit failures SHALL return `mask_registration_limit` without allocating an asset or writable staging object. Storage I/O SHALL remain outside the database transaction and retry the reserved identity/destination. These are local attempt limits; no generic quota service or automatic staging-deletion prerequisite SHALL be introduced.
+
+The workflow SHALL not require membership or expose general asset creation/listing/reuse operations. A duplicate canonical asset SHALL remain usable only through an authorized attachment relationship; failed/foreign/mismatched uploads SHALL not create usable response attachment authority. Verification of raster encoding and dimensions SHALL belong to the separate media prerequisite, not opaque asset finalization.
 
 #### Scenario: Canonical mask content is reused safely
 - **WHEN** a worker's correctly finalized mask deduplicates to identical canonical bytes
@@ -10,6 +14,18 @@ A live eligible attempt owner SHALL be able to register/finalize an organization
 #### Scenario: A lease expires during upload
 - **WHEN** the worker requests finalization or attachment after its lease has ended
 - **THEN** the response workflow denies the operation and does not revive the attempt or create a submitted answer
+
+#### Scenario: Concurrent retries register one mask
+- **WHEN** two requests supply the same attempt/question/key and identical content identity
+- **THEN** they converge on one registration and staging destination, consume allowance once, and conflicting content under that key is rejected
+
+#### Scenario: Completed or abandoned uploads cannot evade the limit
+- **WHEN** a worker registers more masks after earlier uploads are finalized, failed, expired, deduplicated, or detached
+- **THEN** all previous registrations still count toward the lifetime count/byte limits, and a request exceeding either limit creates no additional asset or staging object
+
+#### Scenario: Distinct requests race for the remaining allowance
+- **WHEN** concurrent new keys would together exceed the remaining registration count or declared-byte allowance
+- **THEN** admission commits only requests that fit the shared limits before storage access is issued, and retries after interrupted storage work reuse the reserved identities
 
 ## MODIFIED Requirements
 

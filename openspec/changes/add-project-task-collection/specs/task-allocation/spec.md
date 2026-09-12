@@ -61,7 +61,7 @@ Each task question SHALL track its accepted target separately. Available capacit
 - **THEN** another attempt is not issued for that reserved target until review or correction opens capacity
 
 ### Requirement: Coverage measures issued groups independently of answers
-Coverage SHALL count an item's appearances across distinct issued tasks, including tasks later cancelled, independently of per-question answer counts. Existing-task replication and follow-ups SHALL not increase item coverage. Balanced selection SHALL prioritize under-covered items and least-exposed compatible companions; coverage targets SHALL be lower goals rather than hard upper bounds. Once every item's coverage goal is met, balanced mode SHALL create no further groups but SHALL continue eligible existing-task work. Explicit mode SHALL issue authored groups by position with atomic consumption. Only `balanced` and `explicit` SHALL be accepted.
+Coverage SHALL count an item's appearances across distinct issued tasks, including tasks later cancelled, independently of per-question answer counts. Existing-task replication and follow-ups SHALL not increase item coverage. Balanced selection SHALL prioritize under-covered items and least-exposed compatible companions; coverage targets SHALL be lower goals rather than hard upper bounds because companions may exceed their own goals while another item remains under-covered. Once every item's coverage goal is met, balanced mode SHALL create no further groups but SHALL continue eligible existing-task work. Answer targets SHALL belong to an exact task/question; answers to a new group SHALL not fulfill another group's demand. Explicit mode SHALL issue authored groups by position with atomic consumption. Only `balanced` and `explicit` SHALL be accepted.
 
 #### Scenario: Replication does not invent coverage
 - **WHEN** three workers answer the same issued pair
@@ -70,6 +70,10 @@ Coverage SHALL count an item's appearances across distinct issued tasks, includi
 #### Scenario: A straggling item needs a companion
 - **WHEN** an under-covered item can only form a valid group with an item already at its coverage target
 - **THEN** balanced selection can issue the group and count the companion's additional exposure
+
+#### Scenario: Covered items still need answers on existing tasks
+- **WHEN** every item meets its coverage goal and a worker has attempted all remaining unsatisfied tasks
+- **THEN** ordinary allocation returns `no_work_for_worker` without creating different groups or closing the project; other eligible workers or deliberate linked follow-ups can fill the existing task targets
 
 ### Requirement: No-work outcomes distinguish contention from exhaustion
 Allocation SHALL return typed outcomes for `retry_later`, `waiting_for_answers`, `no_work_for_worker`, and `needs_attention`. A bounded search or locked candidate SHALL not prove global exhaustion. Per-request group search SHALL be bounded to 200 candidates; when the bound prevents a definitive conclusion the result SHALL be retryable. A worker exhausting their own eligible tasks SHALL not close or escalate otherwise usable project work. No-work outcomes SHALL disclose no unallocated input content.

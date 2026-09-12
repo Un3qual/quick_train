@@ -31,3 +31,10 @@ The system SHALL allow an eligible owner of an unexpired live task attempt in an
 #### Scenario: A worker changes the version identifier
 - **WHEN** the same worker asks for an unallocated draft or different published version
 - **THEN** the request fails without exposing its definitions
+
+### Requirement: Result-scoped published-definition inspection
+An active member authorized for `tasks.results.read` in an active organization and explicit project scope SHALL be able to inspect the immutable published question/option/label definitions referenced by that project's eligible result evidence through Tasks without `forms.read`. Reads and exports SHALL preserve original definition identities and human-readable question/option/label content. They SHALL expose only referenced definitions through bounded typed result relationships, not general form listing, drafts, unrelated questions/versions, or reverse organization traversal. Existing general form authorization SHALL remain unchanged.
+
+#### Scenario: A result reader resolves an option label
+- **WHEN** an authorized result-only reader follows a static-option answer to its pinned option
+- **THEN** Tasks returns the original option key/label and question context, while arbitrary form-definition access remains denied

@@ -14,3 +14,10 @@ The system SHALL allow an eligible owner of an unexpired live task attempt in an
 #### Scenario: A direct typed-child read is attempted
 - **WHEN** a worker uses an exposed value identifier to request an unrestricted typed-value resource or reverse relationship
 - **THEN** access fails without bypassing the attempt-owned field restriction
+
+### Requirement: Result-scoped bound-value inspection
+An active member authorized for `tasks.results.read` in an active organization and explicit project scope SHALL be able to inspect the frozen bindings and exact bound values of TaskInputs referenced by eligible result evidence through Tasks without `datasets.read`. Reads and exports SHALL preserve revision, field, value, requirement, and slot identities, exact typed values, and explicit optional absence. Only bound values from those issued inputs SHALL be eligible; no unbound fields, unissued cohort items, later revisions, or general dataset traversal SHALL be exposed. Result relationships SHALL use bounded typed pagination and SHALL not grant direct access to unrestricted typed-value resources.
+
+#### Scenario: A result reader resolves ranked inputs
+- **WHEN** an authorized result-only reader inspects a ranking whose source revisions also contain private unbound fields
+- **THEN** the original bound input content and binding meanings are available in ranked order, while unbound content remains inaccessible

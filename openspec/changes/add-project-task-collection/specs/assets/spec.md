@@ -11,6 +11,13 @@ An eligible owner of an unexpired live attempt in an active or paused project SH
 - **WHEN** the worker requests an asset absent from its allocated bound values
 - **THEN** access is denied without revealing its metadata or location
 
+### Requirement: Result-scoped source-asset access
+An active member authorized for `tasks.results.read` in an active organization and explicit project scope SHALL be able to inspect immutable source-asset metadata and request opaque access only for ready assets bound to TaskInputs referenced by eligible result evidence. This Tasks operation SHALL not require `assets.read`, grant general asset browsing, or authorize unbound/unissued source access. It SHALL recheck result authority at issuance, cap descriptor lifetime at five minutes, and preserve the existing encrypted-transport, no-store/no-referrer, and opaque-download restrictions. Historical exports SHALL contain immutable asset references rather than credentials, bytes, or temporary access URLs.
+
+#### Scenario: A result-only reader downloads a referenced input
+- **WHEN** an authorized result reader requests an asset from an issued result's bound input without general asset permission
+- **THEN** Tasks issues scoped opaque access for that source, while an unrelated same-organization asset remains denied
+
 ### Requirement: Backend export publication uses immutable asset storage
 The storage boundary SHALL support bounded server-side staging writes for generated task exports or explicitly return `export_storage_unavailable`. Export publication SHALL preserve provider-enforced byte caps and existing hash/size verification and immutable canonical sealing. It SHALL associate one ready artifact with its export only after successful completion, with no partial-content download. A missing server-write capability SHALL not break existing client upload operations. Provider-neutral contract tests SHALL not claim that an in-memory adapter supplies reachable HTTP endpoints.
 

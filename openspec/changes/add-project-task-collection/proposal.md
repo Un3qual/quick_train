@@ -11,7 +11,7 @@ QuickTrain can publish reusable forms and immutable dataset revisions, but organ
 - Complete collection independently of detailed media support. Reject image-dependent forms with `unsupported_task_contract`; retain opaque-download inputs and keep existing published image-form definitions intact. Move image presentation, image choice, bounding boxes, polygons, raster masks, and mask uploads to [add-project-task-media](../add-project-task-media/proposal.md), which follows the separate verified-media change.
 - Add append-only per-question automatic/manual review, linked follow-up attempts, bounded escalation, and rebuildable task progress and item coverage.
 - Expose deliberate GraphQL actions, bounded result inspection, and asynchronous immutable accepted-answer and audit exports, with record limits covering all child/history evidence and optional type/ID ranges to partition even a single task.
-- Extend Forms, Datasets, and Assets with explicit attempt-owned access without granting general browsing or authoring rights to workers.
+- Extend Forms, Datasets, and Assets with explicit attempt-owned and result-scoped access to referenced immutable definitions and bound source content, without granting general browsing or authoring rights.
 
 Explicit non-goals:
 
@@ -32,9 +32,9 @@ Explicit non-goals:
 
 ### Modified Capabilities
 
-- `versioned-forms`: allow an authorized attempt owner to inspect only its pinned published contract through Tasks, preserving management policy and published identities.
-- `datasets`: allow an authorized attempt owner to read only bound values from its allocated immutable revisions through Tasks.
-- `assets`: allow attempt-scoped opaque source downloads and result-export downloads without general asset-management rights or weakening opaque-file delivery.
+- `versioned-forms`: allow attempt-owned contract inspection and result-scoped inspection of referenced published question/option/label definitions through Tasks, preserving management policy and published identities.
+- `datasets`: allow attempt owners and authorized result readers to inspect only the exact bound values and bindings from relevant issued immutable revisions through Tasks.
+- `assets`: allow attempt-scoped and result-scoped opaque source downloads plus result-export downloads without general asset-management rights or weakening opaque-file delivery.
 
 ## Impact
 

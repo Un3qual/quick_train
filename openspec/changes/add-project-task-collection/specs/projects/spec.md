@@ -49,7 +49,7 @@ An explicit-selection project SHALL define a finite ordered collection of groups
 - **THEN** activation fails with a scoped configuration error
 
 ### Requirement: Deliberate project lifecycle and retention
-Projects SHALL allow `draft -> active`, `active <-> paused`, `active|paused -> completed`, and `completed -> archived`, rejecting other transitions. Pause SHALL stop new allocations while allowing otherwise authorized unexpired attempts to finish. Completion SHALL immediately and atomically make all live attempts and unsatisfied tasks cancelled, preserve submitted and satisfied evidence, and prevent later allocation/submission. Completion SHALL be permitted before coverage satisfaction and without pausing first. Completed/archived projects SHALL retain authorized result inspection, review corrections, and exports. No project deletion or implicit completion on empty fetch SHALL be exposed.
+Projects SHALL allow `draft -> active`, `active <-> paused`, `active|paused -> completed`, and `completed -> archived`, rejecting other transitions. Pause SHALL stop new allocations while allowing otherwise authorized unexpired attempts to finish. Completion SHALL take one database wall-clock cutoff after acquiring the exclusive project lock. In the same transaction it SHALL first mark physically live attempts whose deadlines are at or before that cutoff expired, then cancel remaining unexpired live attempts and unsatisfied tasks, updating reservations/progress consistently. It SHALL preserve submitted and satisfied evidence and prevent later allocation/submission. Overdue attempts SHALL retain expiry provenance and failure contribution rather than becoming deliberate cancellations. Completion SHALL be permitted before coverage satisfaction and without pausing first. Completed/archived projects SHALL retain authorized result inspection, review corrections, and exports. No project deletion or implicit completion on empty fetch SHALL be exposed.
 
 #### Scenario: Pausing preserves work already issued
 - **WHEN** a manager pauses an active project while a worker has an unexpired eligible attempt
@@ -61,7 +61,11 @@ Projects SHALL allow `draft -> active`, `active <-> paused`, `active|paused -> c
 
 #### Scenario: Completion fails during cancellation
 - **WHEN** cancellation or its progress update fails within project completion
-- **THEN** the project transition and all cancellation writes roll back together; successful completion leaves previously live attempts and unsatisfied tasks canonically cancelled and their reservations released in direct reads as well as GraphQL
+- **THEN** the project transition, expirations, and cancellations roll back together; successful completion leaves overdue attempts expired, remaining live attempts and unsatisfied tasks cancelled, and reservations released in direct reads as well as GraphQL
+
+#### Scenario: Completion precedes delayed expiry cleanup
+- **WHEN** completion obtains the project lock after one live row's lease deadline while another live row remains unexpired
+- **THEN** it records the first as expired with its failure contribution and the second as deliberately cancelled at the completion cutoff; both release reservations and later expiry jobs cannot change either terminal outcome
 
 ### Requirement: Activation accepts only implemented task contracts
 Activation SHALL support scalar answers, non-image static/task-input choices, rankings, text spans, and asset requirements intended for opaque download. It SHALL reject any form containing an `image` input requirement, a bound-value presentation referencing an image requirement, an `image_choice` renderer, or a bounding-box, polygon-region, or raster-mask question with `unsupported_task_contract`, leaving the project draft. It SHALL validate the whole pinned form rather than silently dropping unsupported elements/questions. Published image-form definitions SHALL remain valid for authoring and inspection. No media service, decoder, verified dimensions, spatial-response tables, or mask-upload operation SHALL be required to implement or complete this release. Adding a media provider alone SHALL not enable the deferred contracts; the later task-media change SHALL explicitly extend execution support.

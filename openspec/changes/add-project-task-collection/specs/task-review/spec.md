@@ -35,7 +35,7 @@ Each QuestionResponse's review history SHALL be immutable and ordered. A decisio
 - **THEN** a successor decision changes current results and progress while the previous decision/submission remain intact and no new work is issued
 
 ### Requirement: Progress is rebuildable from authoritative evidence
-Question progress SHALL expose accepted, pending, skipped, rejected, and live-reservation counts and attention state. Effective decisions, submitted outcomes, and attempts SHALL be authoritative; projections SHALL be rebuildable without changing them. Submission, review/correction, release, expiry, cancellation, and allocation SHALL update affected progress consistently with their committed evidence. Reconciliation concurrent with an evidence change SHALL not overwrite newer state using a stale read. A task SHALL be satisfied only when all question targets are met, open when ordinary question demand remains, needs_attention when all remaining unmet questions are escalated, or cancelled on deliberate closure. Satisfied state SHALL take precedence over attention.
+Question progress SHALL expose accepted, pending, skipped, rejected, and live-reservation counts and attention state. Effective decisions, submitted outcomes, and attempts SHALL be authoritative; projections SHALL be rebuildable without changing them. Submission, review/correction, release, expiry, cancellation, and allocation SHALL update affected progress consistently with their committed evidence. Reconciliation concurrent with an evidence change SHALL not overwrite newer state using a stale read. Task state SHALL be derived in this precedence order after every evidence change: satisfied when all question targets are met; otherwise cancelled when its project is completed or archived; otherwise needs_attention when all remaining unmet questions are escalated; otherwise open. Corrections in closed projects SHALL therefore move task projections between satisfied and cancelled as their targets change, never to open or needs_attention. They SHALL not revive terminal attempts or authorize collection, regardless of the new task state.
 
 #### Scenario: A rejected answer opens demand
 - **WHEN** the current effective decision changes an answer from accepted/pending to rejected on an active project
@@ -44,6 +44,14 @@ Question progress SHALL expose accepted, pending, skipped, rejected, and live-re
 #### Scenario: Reconciliation overlaps submission
 - **WHEN** progress rebuilding races a successful submission
 - **THEN** final progress includes that committed evidence exactly once
+
+#### Scenario: A closed task loses satisfaction
+- **WHEN** a correction in a completed or archived project rejects an acceptance needed to satisfy a previously satisfied task
+- **THEN** its progress becomes unmet and its state becomes cancelled without reopening collection or changing terminal attempt states
+
+#### Scenario: A cancelled task becomes satisfied after correction
+- **WHEN** a correction in a completed or archived project makes every target of a cancelled task satisfied
+- **THEN** its state becomes satisfied and the corrected evidence remains visible, while the project stays closed and no attempt revives
 
 ### Requirement: Repeated failures stop automatic circulation
 For an unsatisfied question, cumulative submitted skips plus currently rejected outcomes plus expired/released attempts that offered it SHALL count toward its positive frozen failure threshold, default 5. Deliberate cancellation SHALL not count as a worker failure. At the threshold the question SHALL require attention and stop receiving ordinary new reservations; already-issued valid attempts SHALL remain submittable. Other unblocked questions SHALL remain eligible. A later accepted result meeting the target SHALL satisfy the question without erasing its skip/rejection history.
