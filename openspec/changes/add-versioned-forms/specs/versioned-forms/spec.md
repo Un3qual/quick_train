@@ -124,6 +124,14 @@ Static-choice questions SHALL own ordered options with question-unique nonblank 
 - **WHEN** an author publishes a pairwise question targeting a two-item candidate slot
 - **THEN** the contract records the slot reference rather than static options named A and B or dataset item IDs
 
+#### Scenario: A draft can omit its input source
+- **WHEN** an author creates an otherwise valid input-choice or ranking question in a draft without an input-slot or source-requirement reference
+- **THEN** the draft write succeeds, but publication fails until the question has a valid input source
+
+#### Scenario: Clearing a draft input source preserves question identity
+- **WHEN** an author clears both the input-slot and source-requirement references on a draft input-choice or ranking question that has an input source
+- **THEN** the input source is removed, the question keeps its identity, and publication fails until a valid input source is restored
+
 #### Scenario: Impossible choice fails publication
 - **WHEN** a version has a static choice with fewer than two options, a pairwise slot allowing three items, or selection bounds exceeding the guaranteed available choices
 - **THEN** publication fails and the version remains an editable draft

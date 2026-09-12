@@ -114,7 +114,7 @@
 
 ## Verification record
 
-- `mise run verify` passed with 211 tests, including 54 Forms tests. The gate also passed
+- Initial implementation verification passed with 211 tests, including 54 Forms tests. The `mise run verify` gate also passed
   compilation, formatting, Ash code-generation consistency, boundary/cycle checks, static
   analysis, Dialyzer, the dependency audit, and production compilation.
 - `mise run openspec.validate` passed independently for all seven current changes/specifications.
@@ -142,7 +142,7 @@
   `mise run verify`, and independent OpenSpec validation for all seven items.
 - The implementation simplification removed 47 production lines. Existing copy, rollback,
   limits, and concurrency coverage passed, along with explicit public identity rejection and
-  internal-write authorization checks. The final `mise run verify` passed all 212 tests;
+  internal-write authorization checks. The `mise run verify` gate at this stage passed all 212 tests;
   independent OpenSpec validation passed all seven items.
 
 - The ownership simplification removed six resources and their wrapper mutations, moved content
@@ -153,7 +153,7 @@
   disposable database preserved published version metadata, all five presentation kinds, empty
   section text, and dynamic sources with and without an image requirement across up/down/reapply.
   The four new composite foreign keys were verified and no Forms business triggers were installed.
-- The full `mise run verify` gate passed with 214 tests, including compilation, formatting,
+- The full `mise run verify` gate after ownership simplification passed with 214 tests, including compilation, formatting,
   generated-schema consistency, dependency-cycle checks, Credo, ExDNA, Reach, Dialyzer,
   dependency auditing, and production compilation. Independent OpenSpec validation passed
   all seven current changes/specifications.
