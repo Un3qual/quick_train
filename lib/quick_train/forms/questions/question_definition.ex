@@ -199,7 +199,11 @@ defmodule QuickTrain.Forms.Questions.QuestionDefinition do
   end
 
   validations do
-    validate present(:input_slot_id), where: [present(:source_requirement_id)]
+    validate present(:input_slot_id),
+      where: [present(:source_requirement_id)],
+      before_action?: true,
+      only_when_valid?: true
+
     validate match(:key, ~r/\S/u), where: [changing(:key)]
     validate match(:prompt, ~r/\S/u), where: [changing(:prompt)]
   end

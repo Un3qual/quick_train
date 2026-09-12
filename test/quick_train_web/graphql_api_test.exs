@@ -336,6 +336,7 @@ defmodule QuickTrainWeb.GraphqlApiTest do
 
   defp form_queries do
     %{
+      "form" => MapSet.new(~w(id organizationId)),
       "formInputFieldRequirements" => MapSet.new(~w(after before first last organizationId)),
       "formInputSlotDefinitions" => MapSet.new(~w(after before first last organizationId)),
       "formLabelSets" => MapSet.new(~w(after before first last organizationId)),
@@ -345,7 +346,9 @@ defmodule QuickTrainWeb.GraphqlApiTest do
       "formQuestionOptions" => MapSet.new(~w(after before first last organizationId)),
       "formVersions" => MapSet.new(~w(after before first last organizationId)),
       "forms" => MapSet.new(~w(after before first last organizationId)),
-      "formVersion" => MapSet.new(~w(id organizationId))
+      "formVersion" => MapSet.new(~w(id organizationId)),
+      "formQuestionDefinition" => MapSet.new(~w(id organizationId)),
+      "formLabelSet" => MapSet.new(~w(id organizationId))
     }
   end
 

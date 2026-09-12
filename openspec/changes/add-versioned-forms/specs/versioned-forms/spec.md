@@ -189,6 +189,10 @@ The system SHALL expose form creation, empty or published-copy draft creation, d
 - **WHEN** an authorized reader follows cursors through a published version with more than one page of options or elements
 - **THEN** every definition is available in stable order without an unbounded nested expansion
 
+#### Scenario: A known owner can be inspected directly
+- **WHEN** an authorized reader supplies an explicit organization and the ID of a form, version, question, or label set
+- **THEN** GraphQL returns that owner and permits paginated traversal of its children without searching a parent collection, applying the same organization and capability checks as collection inspection
+
 #### Scenario: Oversized mutation is rejected
 - **WHEN** a mutation exceeds a documented definition or payload limit
 - **THEN** the system rejects it atomically with a sanitized validation error

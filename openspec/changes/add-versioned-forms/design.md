@@ -69,7 +69,7 @@ For a reorder, require the complete current child ID set under the version lock,
 
 Provision `forms.read` and `forms.manage` using the existing `QuickTrain.Authorization.create_capability` primitive and extend the test-only composition in `test/support/data_case.ex`. Document explicit operator use of the existing capability and role-grant primitives for deployments; there is no production bootstrap convenience action to extend, and restoring one remains deferred to `restore-operator-bootstrap-and-maintenance`. Do not grant them to arbitrary existing roles or conflate them with dataset privileges. Apply the existing organization capability policy to public actions; nested resource reads must also be anchored to an authorized parent and its owning organization. Mutation-result access is limited to the returned authorized graph; it cannot become a general read bypass for managers lacking `forms.read`.
 
-Integrate Forms into the existing GraphQL schema. Expose typed lifecycle actions and typed resource relationships; disable automatic unrestricted filters, sorting, and writes as in Datasets. Lists and nested collections use cursor pagination, default 50 and maximum 100. Query-complexity accounting uses the same 50-row default when no page size is supplied. Ordered collections sort by position then ID; other collections use stable creation time and ID, with versions ordered by number. A multi-request traversal of an actively edited draft is not a snapshot; published traversals are stable.
+Integrate Forms into the existing GraphQL schema. Expose typed lifecycle actions and typed resource relationships; disable automatic unrestricted filters, sorting, and writes as in Datasets. Direct Form, FormVersion, QuestionDefinition, and LabelSet lookups reuse their existing organization-scoped read actions, allowing callers to open known owners and paginate their children without searching parent collections. Lists and nested collections use cursor pagination, default 50 and maximum 100. Query-complexity accounting uses the same 50-row default when no page size is supplied. Ordered collections sort by position then ID; other collections use stable creation time and ID, with versions ordered by number. A multi-request traversal of an actively edited draft is not a snapshot; published traversals are stable.
 
 Use Ash integer constraints and database bounds for every persisted integer exposed through GraphQL, including length/count metadata, positions, and version numbers; all must fit signed 32-bit Int even for internal authoring actions. Keep tighter domain limits, and fail generated-value exhaustion atomically without wrapping or adding a custom scalar. Keep synchronous authoring and publication bounded. Initial named application limits are 32 slots, 64 requirements per slot, 200 questions, 1,000 presentation elements, 200 options per question, 100 label sets, 200 labels per set, 100 items per slot, and 10,000 owned rows total per version, including typed constraint rows. Keys have a 512-byte maximum; names, titles, headings, section-marker text, and option/label text 1,024 bytes; prompts, instructions, and descriptions 16 KiB each. Presentation creation and editing validate the text limit for the selected kind on the element itself. Apply finite application/request body limits before decoding large payloads, then graph limits inside the locked transaction. Copy uses the same destination limits and fails atomically if an older source exceeds current limits. Publication issues are sanitized and capped at 100 entries with a truncation indicator. These defaults are documented implementation choices; changing them must preserve bounded behavior and the validity of already-published reads.
 
@@ -117,11 +117,14 @@ Use Ash integer constraints and database bounds for every persisted integer expo
   descendant mutations retain both `id` and `versionId`. Generic publication, copy, and reorder
   results retain their existing shape. Mutation lookup reads require a bulk-mutation context and
   current `forms.manage` eligibility; they are not exposed as inspection queries or domain interfaces.
-- `Graph` loads the 12 descendant resources with a cumulative 10,000-row bound. Copy uses
+- `Graph` loads the 12 descendant resources with a cumulative 10,000-row bound. Structural
+  validation omits descendant keys, display text, and timestamps using Ash field selection;
+  copy loads complete records so all authored content is preserved. Copy uses
   `Ash.bulk_create!` per resource in dependency order. Internal creation accepts `id` directly;
   public creation generates UUIDs and public updates cannot change identity. Reference attributes
   come from Ash relationship metadata. Reorders validate the complete scoped ID set and use
-  `Ash.update_many!` to assign consecutive positions. Presentation creation, editing, and deletion
+  `Ash.update_many!` to assign consecutive positions without requesting unused returned records.
+  Presentation creation, editing, and deletion
   each write a single element row, retaining the version lock and same-version foreign keys.
 - Kind-specific presentation fields use built-in `present`, `absent`, `match`, and `byte_size`
   validations. No managed child creation, cascade destruction, or shared context is needed.
@@ -155,9 +158,10 @@ Use Ash integer constraints and database bounds for every persisted integer expo
   replaced 13 unnecessary composite indexes and added 14 version-reference indexes. The ownership
   migration also removes the now-unused PresentationElement composite index and six wrapper tables.
 - Paired bounds use Ash's `compare` validation when both endpoints are present; asset intent uses
-  conditional `present` and `absent` validations. These resource validations run before persistence,
-  after the draft lock and record refresh, including for stale partial updates. PostgreSQL constraints
-  continue to enforce the same invariants for direct persistence.
+  conditional `present` and `absent` validations, and question input-source pairs use `present`.
+  These cross-field resource validations run before persistence,
+  after the draft lock and record refresh, including for stale partial updates. PostgreSQL retains
+  the scalar bounds and asset-intent constraints for direct persistence.
 - Publication validates each question once with publication completeness enabled, preserving the
   100-issue cap without duplicate local errors. Native validation and unexpected database errors
   retain their diagnostics; AshGraphql supplies its existing sanitized response and server logging.
@@ -241,6 +245,7 @@ both optional and present image-source references. No triggers or stored busines
 are introduced. The 10,000-row cap continues to count the actual owned records in the model.
 
 
-The MVP scope remains limited to these three ownership/read-surface simplifications. Combined
+The subsequent architecture review adds scoped owner lookups and reduces unnecessary validation
+and reorder payloads while preserving the same ownership and publication contract. Combined
 question/constraint/option mutations, a worker rendering payload, and draft revision checks are
 deferred until their editor or Tasks consumers establish concrete requirements.

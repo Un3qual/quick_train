@@ -1,7 +1,8 @@
 defmodule QuickTrainWeb.FormGraphqlTest do
   use QuickTrain.ConnCase, async: false
   import QuickTrain.FormsFixture
-  alias QuickTrain.Accounts
+  alias QuickTrain.{Accounts, Organizations}
+  alias QuickTrain.Forms.Labels.LabelSet
   alias QuickTrain.Forms.Presentation.PresentationElement
   alias QuickTrain.Forms.Questions.Constraints.SelectionConstraints
   alias QuickTrain.Forms.Questions.{QuestionDefinition, QuestionOption}
@@ -67,6 +68,7 @@ defmodule QuickTrainWeb.FormGraphqlTest do
   } do
     ctx = context!(~w(forms.manage))
     graph = rating!(ctx)
+    set = add!(LabelSet, ctx, graph.version, %{key: "labels"})
     conn = bearer(conn, ctx.actor)
 
     data =
@@ -88,13 +90,21 @@ defmodule QuickTrainWeb.FormGraphqlTest do
     response =
       conn
       |> post("/graphql", %{
-        query:
-          "{ formVersion(organizationId: \"#{ctx.org.id}\", id: \"#{graph.version.id}\") { id } }"
+        query: """
+        {
+          form(organizationId: "#{ctx.org.id}", id: "#{graph.form.id}") { id }
+          formVersion(organizationId: "#{ctx.org.id}", id: "#{graph.version.id}") { id }
+          formQuestionDefinition(organizationId: "#{ctx.org.id}", id: "#{graph.question.id}") { id }
+          formLabelSet(organizationId: "#{ctx.org.id}", id: "#{set.id}") { id }
+        }
+        """
       })
       |> json_response(200)
 
     assert response["errors"] != []
-    refute get_in(response, ["data", "formVersion"])
+
+    for field <- ~w(form formVersion formQuestionDefinition formLabelSet),
+        do: refute(get_in(response, ["data", field]))
   end
 
   test "authenticated typed authoring and cursor pagination preserve all options", %{conn: conn} do
@@ -125,14 +135,14 @@ defmodule QuickTrainWeb.FormGraphqlTest do
             position: n * 2
           })
 
-    first = options_page(conn, ctx, graph.version.id, question.id, nil)
+    first = options_page(conn, ctx, question.id, nil)
     assert Enum.count(first["edges"]) == 50
     assert first["pageInfo"]["hasNextPage"]
 
     second =
-      options_page(conn, ctx, graph.version.id, question.id, first["pageInfo"]["endCursor"])
+      options_page(conn, ctx, question.id, first["pageInfo"]["endCursor"])
 
-    last = options_page(conn, ctx, graph.version.id, question.id, second["pageInfo"]["endCursor"])
+    last = options_page(conn, ctx, question.id, second["pageInfo"]["endCursor"])
     assert Enum.count(second["edges"]) == 50
     assert Enum.count(last["edges"]) == 1
     refute last["pageInfo"]["hasNextPage"]
@@ -146,6 +156,72 @@ defmodule QuickTrainWeb.FormGraphqlTest do
       """)
 
     assert updated["updateFormQuestionDefinition"]["result"]["prompt"] == "Choose one"
+  end
+
+  test "known owners can be read directly with organization and read capability checks", %{
+    conn: conn
+  } do
+    ctx = context!()
+    graph = rating!(ctx)
+    set = add!(LabelSet, ctx, graph.version, %{key: "labels"})
+
+    query = fn organization_id ->
+      """
+      {
+        form(organizationId: "#{organization_id}", id: "#{graph.form.id}") {
+          id versions(first: 1) { edges { node { id } } }
+        }
+        formQuestionDefinition(organizationId: "#{organization_id}", id: "#{graph.question.id}") {
+          id integerConstraints { minimum maximum }
+        }
+        formLabelSet(organizationId: "#{organization_id}", id: "#{set.id}") {
+          id labels(first: 1) { edges { node { id } } }
+        }
+      }
+      """
+    end
+
+    data = graphql!(bearer(conn, ctx.actor), query.(ctx.org.id))
+    assert data["form"]["id"] == graph.form.id
+    assert data["form"]["versions"]["edges"] == [%{"node" => %{"id" => graph.version.id}}]
+    assert data["formQuestionDefinition"]["id"] == graph.question.id
+
+    assert data["formQuestionDefinition"]["integerConstraints"] == %{
+             "minimum" => 1,
+             "maximum" => 5
+           }
+
+    assert data["formLabelSet"] == %{"id" => set.id, "labels" => %{"edges" => []}}
+
+    other = context!(~w(forms.read), "other-forms")
+
+    for {actor, organization_id} <- [
+          {ctx.actor, other.org.id},
+          {other.actor, ctx.org.id},
+          {other.actor, other.org.id}
+        ] do
+      response =
+        conn
+        |> bearer(actor)
+        |> post("/graphql", %{query: query.(organization_id)})
+        |> json_response(200)
+
+      for field <- ~w(form formQuestionDefinition formLabelSet),
+          do: refute(get_in(response, ["data", field]))
+    end
+
+    Organizations.deactivate_membership!(ctx.membership)
+
+    response =
+      conn
+      |> bearer(ctx.actor)
+      |> post("/graphql", %{query: query.(ctx.org.id)})
+      |> json_response(200)
+
+    assert response["errors"] != []
+
+    for field <- ~w(form formQuestionDefinition formLabelSet),
+        do: refute(get_in(response, ["data", field]))
   end
 
   test "manage-only authors can inspect direct question sources and bound references", %{
@@ -305,22 +381,19 @@ defmodule QuickTrainWeb.FormGraphqlTest do
     end
   end
 
-  defp options_page(conn, ctx, version_id, question_id, cursor) do
+  defp options_page(conn, ctx, question_id, cursor) do
     after_arg = if cursor, do: ", after: \"#{cursor}\"", else: ""
 
     data =
       graphql!(conn, """
-        { formVersion(organizationId: "#{ctx.org.id}", id: "#{version_id}") {
-          questions(first: 2) { edges { node { id options(#{if cursor, do: "first: 50" <> after_arg, else: "first: 50"}) {
+        { formQuestionDefinition(organizationId: "#{ctx.org.id}", id: "#{question_id}") {
+          options(first: 50#{after_arg}) {
             edges { node { id position } } pageInfo { hasNextPage endCursor }
-          } } } }
+          }
         } }
       """)
 
-    node =
-      Enum.find(data["formVersion"]["questions"]["edges"], &(&1["node"]["id"] == question_id))
-
-    node["node"]["options"]
+    data["formQuestionDefinition"]["options"]
   end
 
   defp bearer(conn, actor) do

@@ -90,7 +90,7 @@ defmodule QuickTrain.Forms.Authoring do
     |> Ash.update_many!(resource, :update_internal,
       authorize?: false,
       strategy: [:atomic],
-      return_records?: true
+      return_records?: false
     )
 
     true

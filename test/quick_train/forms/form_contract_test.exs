@@ -81,6 +81,15 @@ defmodule QuickTrain.Forms.FormContractTest do
       assert run!(FormVersion, :publish, ctx, %{version_id: copy.id}).state == :published
       original = Graph.load!(published.id)
       copied = Graph.load!(copy.id)
+
+      for {resource, fields} <- [
+            {PresentationElement, [:kind, :position, :text]},
+            {QuestionDefinition, [:key, :prompt]}
+          ] do
+        assert Enum.sort(Enum.map(copied[resource], &Map.take(&1, fields))) ==
+                 Enum.sort(Enum.map(original[resource], &Map.take(&1, fields)))
+      end
+
       source_ids = original |> Map.values() |> List.flatten() |> MapSet.new(& &1.id)
       copied_ids = copied |> Map.values() |> List.flatten() |> MapSet.new(& &1.id)
 

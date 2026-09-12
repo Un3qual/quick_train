@@ -112,6 +112,14 @@
 - [x] 16.4 Generate and verify a data-preserving migration, including rollback and reapply on a published contract; retire only wrapper identities and preserve surviving IDs and content.
 - [x] 16.5 Update behavioral, GraphQL, copy, limit, and concurrency coverage; run the full verification gate and independent OpenSpec validation.
 
+## 17. Architecture review follow-through
+
+- [x] 17.1 Validate question input-source pairs after the locked stale-record refresh, preserving partial-update semantics.
+- [x] 17.2 Stop returning unused records from reorder operations while preserving atomic failure behavior.
+- [x] 17.3 Omit unused authored content from structural graph validation reads while retaining complete copying.
+- [x] 17.4 Expose existing scoped Form, QuestionDefinition, and LabelSet reads through GraphQL, preserving authorization and nested pagination.
+- [x] 17.5 Verify stale writes, direct reads, copy/reorder behavior, and validation query cost; run the full verification gate and independent OpenSpec validation.
+
 ## Verification record
 
 - Initial implementation verification passed with 211 tests, including 54 Forms tests. The `mise run verify` gate also passed
@@ -157,3 +165,12 @@
   generated-schema consistency, dependency-cycle checks, Credo, ExDNA, Reach, Dialyzer,
   dependency auditing, and production compilation. Independent OpenSpec validation passed
   all seven current changes/specifications.
+- Architecture review follow-through passed 59 focused tests and the full `mise run verify`
+  gate with 216 tests. Coverage includes stale source updates, scoped owner lookups, option
+  pagination, copied presentation/question content, and existing reorder and concurrency cases.
+  Independent OpenSpec validation passed all seven items.
+- A rollback-only probe of a valid 9,802-row form containing 24,985,600 bytes of authored text
+  loaded none of that display text during structural validation. Median validation time over
+  five local runs fell from 320 ms to 153 ms; adding one option fell from 254 ms to 102 ms.
+  Reorders explicitly set `return_records?: false` because omitting the option crashes the
+  pinned Ash 3.33.0 `update_many!` path.

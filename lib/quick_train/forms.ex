@@ -275,7 +275,10 @@ defmodule QuickTrain.Forms do
            paginate_with: :keyset,
            complexity: {__MODULE__, :connection_complexity}
 
+      read_one Form, :form, :get_scoped
       read_one FormVersion, :form_version, :get_scoped
+      read_one QuestionDefinition, :form_question_definition, :get_scoped
+      read_one LabelSet, :form_label_set, :get_scoped
     end
 
     mutations do

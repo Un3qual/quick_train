@@ -74,11 +74,14 @@ defmodule QuickTrain.Forms.Graph do
 
   def resources, do: @resources
 
-  def load!(version_id) do
+  def load!(version_id), do: load!(version_id, [])
+
+  defp load!(version_id, omitted_attributes) do
     {graph, _count} =
       Enum.reduce(@resources, {%{}, 0}, fn resource, {graph, count} ->
         records =
           resource
+          |> Ash.Query.deselect(omitted_attributes)
           |> Ash.Query.filter(version_id == ^version_id)
           |> Ash.Query.limit(10_001 - count)
           |> Ash.read!(authorize?: false, page: false)
@@ -92,7 +95,8 @@ defmodule QuickTrain.Forms.Graph do
   end
 
   def validate!(version, state) do
-    graph = load!(version.id)
+    # Local resource validations own display content; copying still loads every attribute.
+    graph = load!(version.id, [:key, :prompt, :text, :label, :name, :inserted_at, :updated_at])
 
     issues =
       limit_issues(graph) ++

@@ -129,6 +129,53 @@ defmodule QuickTrain.Forms.FormLifecycleTest do
              "Current title"
   end
 
+  test "question source validation uses current references after refreshing stale records",
+       context do
+    graph = rating!(context)
+
+    source =
+      add!(InputFieldRequirement, context, graph.version, %{
+        input_slot_id: graph.slot.id,
+        key: "image",
+        value_family: :asset,
+        intended_use: :image,
+        required: true
+      })
+
+    question =
+      add!(QuestionDefinition, context, graph.version, %{
+        key: "choose",
+        prompt: "Choose an image",
+        family: :task_input_single_choice,
+        renderer: :image_choice,
+        input_slot_id: graph.slot.id,
+        source_requirement_id: source.id
+      })
+
+    Forms.update_form_question_definition!(
+      question,
+      context.org.id,
+      %{version_id: graph.version.id, input_slot_id: nil, source_requirement_id: nil},
+      actor: context.actor
+    )
+
+    assert %{input_slot_id: nil, source_requirement_id: nil} =
+             Forms.update_form_question_definition!(
+               question,
+               context.org.id,
+               %{version_id: graph.version.id, input_slot_id: nil},
+               actor: context.actor
+             )
+
+    assert {:error, _} =
+             Forms.update_form_question_definition(
+               question,
+               context.org.id,
+               %{version_id: graph.version.id, source_requirement_id: source.id},
+               actor: context.actor
+             )
+  end
+
   test "local validations use current bounds and asset intent after refreshing stale records",
        context do
     graph = rating!(context)
