@@ -1,0 +1,31 @@
+## 1. Verify Prerequisites and Generate Spatial Resources
+
+- [ ] 1.1 Confirm `add-project-task-collection` is implemented and archived, read its main specs plus this proposal/design/deltas, and record the implemented detailed-media/storage change and spec paths. Verify the design's exact source/hash/dimension, mask-compatibility, serving-policy, and real-transfer contract; keep this follow-up blocked if it is absent, without reopening core collection.
+- [ ] 1.2 Rebase these dependent deltas on the actual archived Projects, Tasks, and Assets contracts. Check installed generators with `mise exec -- mix help ash.gen.resource`, then generate BoundingBox, PolygonRegion/PolygonPoint, MaskRegion, and attempt/question mask-attachment resources within `lib/quick_train/tasks/`.
+- [ ] 1.3 Add same-task/form/source/label references, ordered polygon points, finite coordinates/count checks, and immutable verification provenance. Generate/review AshPostgres migrations and snapshots, preserving every existing core identity and introducing no JSONB answer content.
+
+## 2. Activate Image Contracts and Present Verified Inputs
+
+- [ ] 2.1 Extend `Projects.ProjectActivation` to validate image requirements, bound-value image presentation, image-choice renderers, and spatial questions against the whole frozen cohort under the existing Project lock. Preserve atomic rejection, unknown-contract errors, and non-image activation without media calls.
+- [ ] 2.2 Extend attempt allocation/work bundles with exact verified source facts and approved image access while retaining the existing audience/ownership/lease policies, TaskInputs, offered questions, and stored display order. Use existing TaskInputAnswer selection types for image choice.
+- [ ] 2.3 Verify successful real image activation/presentation, incomplete or wrong-asset facts, mixed-form failure, media loss at fetch, both member/external routes, and access expiry in `test/quick_train/task_media_test.exs`; run the focused suite and commit image execution.
+
+## 3. Collect Spatial Answers and Scoped Masks
+
+- [ ] 3.1 Implement box and polygon validation: finite normalized coordinates, positive box area, simple nonzero-area polygon rings, implicit closure, distinct points, no crossing edges, and all published/execution bounds. Validate exact TaskInput/source-value/label provenance under the existing draft revision and Response lock.
+- [ ] 3.2 Add worker mask registration/finalization/attachment through an offered raster question and live eligible owning attempt. Preserve provider-enforced byte caps, hash/size sealing, scoped canonical deduplication, and attachment authority from registration onward.
+- [ ] 3.3 Consume the real media capability's exact mask/source encoding and pixel-dimension result; persist immutable verified facts and reject client dimensions, wrong sources, foreign attachments, or missing capability. Extend generic asset-read/register/reuse protection to task-owned mask results.
+- [ ] 3.4 Verify invalid geometry, zero-count rules, combined text/spatial limits, foreign labels/inputs, mask dimension mismatches, hash-only reuse bypass, expired uploads, and save/submit races on independent connections. Run media/response tests and commit spatial responses.
+
+## 4. Extend Results, Exports, and GraphQL
+
+- [ ] 4.1 Expose bounded typed region/point/mask/provenance relationships through the existing Tasks GraphQL allowlist with default 50/max 100 keyset pagination. Keep submitted writes private and preserve existing skip/review/follow-up behavior.
+- [ ] 4.2 Extend accepted/audit results and immutable snapshot export serialization to image evidence. Increment the format version for new image exports, preserve exact dimensions/coordinates/asset hashes and review/presentation provenance, and retain original sealed non-image bytes unchanged.
+- [ ] 4.3 Verify real image/mask rendering access uses the foundation's approved serving policy and exact task/result authority. Verify ordinary opaque downloads retain their existing headers; the provider change owns reachable opaque export transport rather than reopening core acceptance.
+- [ ] 4.4 Verify partial spatial review/corrections, replayable export snapshots, multiple pages of polygon points, lost rendering with historical evidence still readable/exportable, and successful non-image collection with media disabled; run the media/GraphQL/results suites and commit integration.
+
+## 5. Verify and Close the Follow-up
+
+- [ ] 5.1 Verify migration up/down/reapply in a disposable database containing completed core collection evidence and new spatial answers. Confirm existing published IDs, frozen projects, review histories, and export bytes survive additive migration; document preserving real spatial evidence during deployment rollback.
+- [ ] 5.2 Run real source/mask compatibility and serving integration checks plus independent-connection response races; contract doubles alone cannot complete this follow-up. Reconcile proposal/design/specs/tasks with verified behavior and retain the one-way dependency on core collection.
+- [ ] 5.3 Run `mise run openspec.validate`, then `mise run verify`; commit and archive only when all tasks and detailed-media integration pass. Do not change the completed status of the preceding core collection change.

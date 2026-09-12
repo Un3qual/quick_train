@@ -18,7 +18,7 @@ Result and export operations SHALL require an active account, active owning orga
 ### Requirement: Evidence traversal is bounded and typed
 Tasks, attempts, offered questions, presentations, outcomes, typed answer children, reviews, and exports SHALL be exposed through explicit typed relationships and stable Relay keyset connections with default 50/max 100. Ordering SHALL use stable identity tie-breakers; authored/presentation order and review order SHALL remain meaningful. Direct scoped lookups SHALL resolve known evidence owners without searching all project records. Interactive result pagination SHALL reflect current effective decisions and SHALL not claim a multi-request snapshot; exports provide that guarantee.
 
-#### Scenario: A result has many polygon points
+#### Scenario: A result has many text spans
 - **WHEN** a reader inspects an outcome with more than one page of child evidence
 - **THEN** all children are reachable through bounded ordered connections without an unbounded expansion
 
@@ -54,3 +54,10 @@ Repeated requests with the same organization/project/requesting-actor key and id
 #### Scenario: The requester's permission is revoked
 - **WHEN** a ready export's requester or another reader lacks the current results capability
 - **THEN** new export inspection/download access is denied even though the artifact already exists
+
+### Requirement: Export processing is independent of media interpretation
+Export snapshotting, serialization, byte publication, and access authorization for supported collection outcomes SHALL operate without image decoding, verified image dimensions, or an image-serving component. Publication SHALL use the existing opaque asset integrity contract and a storage adapter supporting the required operations. An unavailable adapter SHALL fail explicitly without a partial download, while scoped result inspection and export status remain accessible. Only actual file transfer SHALL require reachable compliant endpoints; the system SHALL not treat an in-memory contract descriptor as a reachable service.
+
+#### Scenario: Ordinary answers are exported without media support
+- **WHEN** an authorized caller exports supported scalar, choice, ranking, or text-span outcomes with compliant storage operations but no image capability
+- **THEN** the system creates the immutable artifact without calling a media service or requiring verified image facts

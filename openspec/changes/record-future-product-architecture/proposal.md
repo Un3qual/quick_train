@@ -10,7 +10,7 @@ QuickTrain has approved cross-domain decisions for Forms, Projects, Tasks, Finan
 - Mark every recorded decision as deferred architecture rather than a current behavioral requirement or implementation task.
 - Require each future product change to restate and validate the relevant decisions in its own proposal, specs, design, and tasks before implementation.
 
-The Projects and Tasks scope is now restated in [add-project-task-collection](../add-project-task-collection/proposal.md). That change owns its proposed behavioral requirements and implementation plan; this record remains historical context. Finance, Reputation, and the separate verified-media/storage work remain deferred.
+The Projects and Tasks scope is restated in [add-project-task-collection](../add-project-task-collection/proposal.md) for independently completable core collection and [add-project-task-media](../add-project-task-media/proposal.md) for image-dependent execution after detailed media support. Those changes own their behavioral requirements and plans; this record remains historical context. Finance, Reputation, and the detailed-media/storage foundation remain separate.
 
 Explicit non-goals:
 

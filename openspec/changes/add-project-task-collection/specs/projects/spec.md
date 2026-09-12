@@ -59,12 +59,20 @@ Projects SHALL allow `draft -> active`, `active <-> paused`, `active|paused -> c
 - **WHEN** completion and a submission compete
 - **THEN** either submission commits before completion and its evidence is preserved, or completion commits first and submission fails without a partial response
 
-### Requirement: Media execution has a separate prerequisite
-Image-intended requirements SHALL require separately implemented verified-image facts and supported serving capability before activation. Source facts SHALL identify the exact immutable asset/hash and verified dimensions. Declared media types or client dimensions SHALL NOT satisfy this condition. An absent prerequisite SHALL produce `media_prerequisite_unavailable` and leave the project draft. This change SHALL NOT introduce decoders, inline delivery, or a provider implementation. Scalar/text and opaque-download projects SHALL not require image support; download access still requires the existing adapter contract.
+### Requirement: Activation accepts only implemented task contracts
+Activation SHALL support scalar answers, non-image static/task-input choices, rankings, text spans, and asset requirements intended for opaque download. It SHALL reject any form containing an `image` input requirement, a bound-value presentation referencing an image requirement, an `image_choice` renderer, or a bounding-box, polygon-region, or raster-mask question with `unsupported_task_contract`, leaving the project draft. It SHALL validate the whole pinned form rather than silently dropping unsupported elements/questions. Published image-form definitions SHALL remain valid for authoring and inspection. No media service, decoder, verified dimensions, spatial-response tables, or mask-upload operation SHALL be required to implement or complete this release. Adding a media provider alone SHALL not enable the deferred contracts; the later task-media change SHALL explicitly extend execution support.
 
-#### Scenario: A published image form is not automatically executable
-- **WHEN** a manager activates a project using an image-choice or image-annotation form while verified media support is absent
-- **THEN** activation fails explicitly without treating a ready opaque asset as a verified image
+#### Scenario: Image execution is outside the installed task contract
+- **WHEN** a manager activates a published image-choice or image-annotation form, even if an image provider has been configured separately
+- **THEN** activation returns `unsupported_task_contract` without changing the draft or the published form
+
+#### Scenario: A mixed form is rejected as a whole
+- **WHEN** a pinned form contains supported text questions alongside an image presentation or spatial question
+- **THEN** activation fails rather than issuing a partial version of the form contract
+
+#### Scenario: Text collection works with no media support
+- **WHEN** a valid scalar, non-image choice/ranking, or text-span project is activated with no detailed-media component installed
+- **THEN** it can proceed through allocation, submission, review, and results without a media lookup
 
 ### Requirement: Bounded project authoring and inspection
 Project, cohort, binding, policy, worker-access, and explicit-group collections SHALL use stable Relay keyset pagination with default 50 and maximum 100 entries, including nested collections. Enrollment writes SHALL accept at most 100 revision IDs, projects at most 10,000 cohort items and 10,000 explicit groups, and groups at most 100 total inputs. Published form requirements that cannot fit execution minimums SHALL fail activation. Public integer values SHALL fit signed 32-bit GraphQL Int and never wrap. Oversized and invalid writes SHALL fail atomically under documented request/field limits.

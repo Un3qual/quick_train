@@ -9,9 +9,9 @@
 ## 2. Activate and Freeze Projects
 
 - [ ] 2.1 Implement `Projects.ProjectActivation` to load the entire bounded graph/cohort, validate a published form/schema, complete compatible bindings, requiredness, ready source assets, fixed slot counts, distinct-item feasibility, and all question policies under the Project lock.
-- [ ] 2.2 Validate explicit-group uniqueness/order/coverage, execution ceilings against form minimums, positive targets/thresholds, audience modes, and 1–120 minute leases. Reject image-intended requirements with `media_prerequisite_unavailable` until the separate verified-media capability is implemented.
+- [ ] 2.2 Validate explicit-group uniqueness/order/coverage, execution ceilings against form minimums, positive targets/thresholds, audience modes, and 1–120 minute leases. Reject the entire form with `unsupported_task_contract` for image requirements/presentation, image-choice renderers, and spatial families. This is a supported-contract check and must not call a media service.
 - [ ] 2.3 Implement idempotent activation, pause/resume, completion/archive, and permitted post-activation title/access-override edits. Make frozen configuration and enrollment immutable; use a new project for later enrollment. Integrate completion cancellation in step 4.5 when Tasks exists.
-- [ ] 2.4 Verify edit/activation races on independent connections, retries, pause transitions, no-import-enrollment drift, invalid configuration rollback, and unavailable media; rerun the focused project tests and commit activation/lifecycle behavior.
+- [ ] 2.4 Verify edit/activation races on independent connections, retries, pause transitions, no-import-enrollment drift, invalid configuration rollback, mixed-form rejection, and successful non-image activation with no media component; rerun the focused project tests and commit activation/lifecycle behavior.
 
 ## 3. Generate Task Evidence and Worker Admission
 
@@ -39,14 +39,12 @@
 - [ ] 5.5 Implement explicit skip policies, server timestamps, required nonblank reasons, explanation bounds, zero target contribution, and all-skipped submission. Preserve terminal unsubmitted drafts without exposing them as accepted results.
 - [ ] 5.6 Verify local-versus-submit validation, wrong-family/foreign choices, missing/extra questions, stale revisions, save/submit and submit/expiry/completion races, all-skipped behavior, and internal child immutability in `test/quick_train/task_responses_test.exs`; run focused Tasks tests and commit responses.
 
-## 6. Add Annotations and Integrate Separate Media Prerequisites
+## 6. Add Text Spans and Opaque Source Downloads
 
-- [ ] 6.1 Generate BoundingBox, PolygonRegion/PolygonPoint, MaskRegion, TextSpan, and attempt/question mask-attachment resources with scoped TaskInput/source-value/label references; generate and review normalized migrations and annotation limits.
-- [ ] 6.2 Implement text-span code-point/exclusive-end validation against immutable bound text, overlapping-span support and exact-duplicate rejection; verify emoji, combining characters, empty/out-of-range spans, and foreign source/label references independently of media support.
-- [ ] 6.3 Implement bounded normalized box and simple polygon validation: positive box area, at least three distinct polygon points, implicit closure, finite in-range coordinates, nonzero area, no crossing edges/duplicate closure, and per-question/response aggregate count limits.
-- [ ] 6.4 Add attempt-owned source-asset access and mask register/finalize/attach actions preserving byte caps, immutable sealing, duplicate canonical identity, lease-limited access, and exact attachment authority. Protect task-only assets from generic asset-capability bypass and verify canonical reuse does not expose result associations.
-- [ ] 6.5 Verify the separately scoped media change supplies immutable verified source/hash/dimension facts, supported serving capability, and source/mask compatibility evidence. Integrate only that contract into activation/fetch/submission; keep this item incomplete until the prerequisite exists and real integration passes. Do not add a decoder, renderer, or provider here.
-- [ ] 6.6 Verify image-choice and all spatial families against the real prerequisite, including invalid masks/dimensions, lost media capability, client-dimension spoofing, foreign mask attachments, upload expiry, and response freezing. Keep gate-failure tests runnable while the prerequisite is absent; commit annotation integration only with accurate completion status.
+- [ ] 6.1 Generate TextSpan with scoped TaskInput/source-value/label references; generate and review its normalized migration and the 1,000-per-question/10,000-per-response limits. Do not generate spatial or mask resources.
+- [ ] 6.2 Implement text-span code-point/exclusive-end validation against immutable bound text, overlapping-span support and exact-duplicate rejection; verify emoji, combining characters, empty/out-of-range spans, count ceilings, and foreign source/label references with no media service installed.
+- [ ] 6.3 Add attempt-owned opaque source-download access preserving exact bound-asset authority, five-minute/lease expiry, existing attachment/octet-stream/nosniff requirements, and current eligibility checks. Cover successful in-memory descriptor access and explicit unsupported-adapter failures.
+- [ ] 6.4 Verify text-span save/submit freezing, paginated span results, unauthorized source access, and lease revocation. Confirm image contracts fail without creating media work, retain published Forms definitions, and commit this complete core slice.
 
 ## 7. Review, Escalate, and Rebuild Progress
 
@@ -65,19 +63,19 @@
 - [ ] 8.4 Implement deterministic format-versioned JSONL streaming over sealed membership, exact decimal/hash encoding, frozen provenance only, 256 MiB/configured-asset bounds, and bounded temporary-file cleanup. Exclude mutable titles/current verdicts outside the pinned snapshot.
 - [ ] 8.5 Extend `lib/quick_train/assets/storage.ex` with the minimal bounded server-side staging-write capability and explicit unavailable behavior; implement the in-memory contract double without pretending to provide HTTP. Publish through existing hash/size sealing and atomically associate one ready export artifact.
 - [ ] 8.6 Implement authorized export state/download access and idempotent worker retry/recovery; verify byte-publication-before-state crashes, unavailable adapters, revoked result permissions, no partial downloads, and generic asset-read bypass denial.
-- [ ] 8.7 Verify snapshot/correction and uncommitted-submission races, stable retry bytes, accepted/audit differences, more-than-one-page traversal, exact JSONL provenance, selection/output ceilings, and source/mask/export authorization in `test/quick_train/task_results_test.exs`; run the focused suite and commit results/exports.
+- [ ] 8.7 Verify snapshot/correction and uncommitted-submission races, stable retry bytes, accepted/audit differences, more-than-one-page traversal, exact JSONL provenance, selection/output ceilings, and source/export authorization in `test/quick_train/task_results_test.exs`; run the focused suite and commit results/exports.
 
 ## 9. Complete the GraphQL Contract and Operational Integration
 
 - [ ] 9.1 Add Projects/Tasks to `lib/quick_train_web/graphql/schema.ex` and expose deliberate typed project lifecycle/configuration, fetch/assign/follow-up/start/release/cancel, bundle/receipt, save/submit, review/correct, results, and export actions. Keep private persistence and unrestricted derivations off the allowlist.
 - [ ] 9.2 Apply Relay keyset pagination default 50/max 100 to every public collection including typed answer children; retain stable authored/display/review order, current signed 32-bit Int semantics, HTTP body limits, sanitized errors, and documented retry/no-work outcomes without adding aggregate query complexity machinery.
-- [ ] 9.3 Wire worker queues, log only sanitized operational IDs/errors, and document capability provisioning and prerequisite-dependent image/storage behavior in this change's design. Verify no production role acquires implicit grants and the separate operator-bootstrap change is not required.
+- [ ] 9.3 Wire worker queues, log only sanitized operational IDs/errors, and document capability provisioning, unsupported image contracts, and adapter deployment requirements in this change's design. Verify no production role acquires implicit grants and the separate operator-bootstrap change is not required.
 - [ ] 9.4 Cover complete organization-member and external-user collection flows, direct assignment, partial question sets/review, blocked/revoked access, closed-project behavior, nested cross-scope attempts, and export denial/success in `test/quick_train_web/graphql/project_task_collection_test.exs`.
-- [ ] 9.5 With the separately selected real storage/media prerequisites available, verify compliant reachable upload/download descriptors, mask/source compatibility, and export delivery. Keep this integration item unchecked while only in-memory contract tests pass; do not implement the provider or media renderer in this change.
+- [ ] 9.5 Verify complete supported collection and successful export-byte generation/sealing/access contracts with the in-memory adapter and no media component. Verify storage-unavailable failures without claiming reachable HTTP delivery. Live provider/media checks are owned by their separate changes and do not block this item.
 
 ## 10. Verify, Reconcile Artifacts, and Commit
 
 - [ ] 10.1 Verify generated migration up/down/reapply on a disposable database containing representative existing published forms/datasets plus project/attempt/submission/review/export records. Check original identities/content survive additive up migrations, and document preservation of real evidence during deployment rollback.
 - [ ] 10.2 Run the focused Projects/Tasks/GraphQL suites and meaningful independent-connection concurrency cases; fix confirmed failures without adding implementation-text tests or unrelated refactors. Ensure all eight capability deltas have implemented and verified acceptance coverage.
-- [ ] 10.3 Reconcile proposal/design/specs/tasks and the source architecture cross-links with the final implementation. Leave media/storage-dependent items incomplete until actual integration succeeds and keep Finance/Reputation outside scope.
-- [ ] 10.4 Run `mise run openspec.validate`, then `mise run verify`; record actual results, commit the finished implementation, and archive only after every task and accepted integration prerequisite is complete.
+- [ ] 10.3 Reconcile proposal/design/specs/tasks and the source architecture cross-links with the final implementation. Confirm every media-dependent implementation/acceptance item is tracked only in `add-project-task-media`, so this change has no media completion gate. Keep Finance/Reputation outside scope.
+- [ ] 10.4 Run `mise run openspec.validate`, then `mise run verify`; record actual results, commit the finished implementation, and archive when every task here is complete and verification passes, independently of the later media change or live provider deployment.

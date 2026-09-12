@@ -49,34 +49,12 @@ Answered outcomes SHALL use exactly their published answer family and matching n
 - **WHEN** a valid answer contains a high-precision decimal or text with significant whitespace
 - **THEN** reads and exports preserve its numeric precision or exact text while applying the published bounds
 
-### Requirement: Annotation provenance is exact
-Each spatial region or text span SHALL identify the exact TaskInput, its bound source DatasetValue, and a label from the question's published label set. The source SHALL match the question's required source requirement and the TaskInput's immutable revision. Annotation count bounds SHALL apply across all regions/spans for that question outcome; zero entries SHALL count as answered only when the minimum is zero. Foreign labels, wrong source values, and unallocated inputs SHALL fail. Dataset values and answer values SHALL remain separate ownership/lifecycle models.
+### Requirement: Text-span provenance is exact
+Each text span SHALL identify the exact TaskInput, its bound source DatasetValue, and a label from the question's published label set. The source SHALL match the question's required source requirement and the TaskInput's immutable revision. Annotation count bounds SHALL apply across all spans for that question outcome; zero entries SHALL count as answered only when the minimum is zero. Foreign labels, wrong source values, and unallocated inputs SHALL fail. Dataset values and answer values SHALL remain separate ownership/lifecycle models.
 
 #### Scenario: An annotation points at another source field
 - **WHEN** a worker supplies an existing value from the same revision that is not the question's bound source
 - **THEN** the annotation is rejected rather than accepted merely because the revision matches
-
-### Requirement: Bounding boxes and polygons use normalized valid geometry
-Bounding boxes SHALL use finite normalized coordinates with `0 <= x_min < x_max <= 1` and `0 <= y_min < y_max <= 1`. Polygon regions SHALL contain at least three distinct ordered points within `[0,1]`, have nonzero area, and form a simple non-self-intersecting ring with implicit closure. Repeated closing points, holes within one region, and non-finite coordinates SHALL be rejected. Multiple independent regions SHALL be permitted within count limits. Image execution SHALL require the separately implemented verified-media and serving prerequisites; opaque readiness alone SHALL not validate image sources.
-
-#### Scenario: Invalid geometry is submitted
-- **WHEN** a box has negative width or a polygon crosses itself or contains an out-of-range coordinate
-- **THEN** submission fails without persisting an immutable invalid annotation
-
-#### Scenario: Media capability is unavailable
-- **WHEN** an image attempt cannot resolve the required verified source facts or supported image-serving capability
-- **THEN** fetch/submission fails closed rather than trusting client image metadata
-
-### Requirement: Raster masks reference compatible immutable assets
-A raster mask SHALL reference a ready immutable mask asset and exact source asset/value with verified positive source dimensions. A separately implemented media capability SHALL verify compatible encoding and source/mask pixel dimensions and bind that result to both immutable asset identities; client dimensions and declared media types SHALL not satisfy it. Mask registration/finalization SHALL require a live eligible owning attempt and an offered raster-mask question, use the project's organization and existing upload-cap/hash/sealing rules, and create an explicit attempt/question attachment authority. Canonical deduplication SHALL preserve that authority without granting general asset reuse/browsing rights. Tasks SHALL not decode files or select a provider in this change.
-
-#### Scenario: The source and mask have different dimensions
-- **WHEN** the media capability reports incompatible dimensions for the exact source and mask
-- **THEN** submission rejects the mask
-
-#### Scenario: A worker borrows another attempt's asset
-- **WHEN** a worker references a ready mask without authorized attachment provenance for the offered question
-- **THEN** the answer fails even if the asset belongs to the same organization
 
 ### Requirement: Text spans use code-point offsets
 Text spans SHALL use zero-based Unicode code-point offsets with an exclusive end against exact immutable source text, satisfying `0 <= start < end <= code_point_length`. No normalization SHALL alter that source. Overlapping spans SHALL be allowed; exact duplicates of input/value/label/start/end SHALL be rejected. This capability SHALL not require image support.
@@ -86,8 +64,8 @@ Text spans SHALL use zero-based Unicode code-point offsets with an exclusive end
 - **THEN** offsets count Unicode code points, not UTF-8 bytes or displayed grapheme clusters, and out-of-range offsets fail
 
 ### Requirement: Response writes are bounded and explicitly exposed
-GraphQL SHALL expose deliberate typed save/submit operations and bounded typed outcome inspection; generic submitted-outcome/child update and delete mutations SHALL not exist. Apply at most 200 offered questions, 64 KiB text per answer, 1 KiB reason, 16 KiB explanation, 1,000 regions per question, 1,000 points per polygon, and 10,000 annotation child rows per response, alongside published form bounds and the existing HTTP body limit. Impossible published minimums SHALL reject project activation; tighter execution ceilings SHALL be disclosed. Oversized operations SHALL fail atomically and all collections SHALL use Relay keyset pagination, default 50/max 100.
+GraphQL SHALL expose deliberate typed save/submit operations and bounded typed outcome inspection; generic submitted-outcome/child update and delete mutations SHALL not exist. Apply at most 200 offered questions, 64 KiB text per answer, 1 KiB reason, 16 KiB explanation, 1,000 spans per question and 10,000 total spans per response, alongside published form bounds and the existing HTTP body limit. Impossible published minimums SHALL reject project activation; tighter execution ceilings SHALL be disclosed. Oversized operations SHALL fail atomically and all collections SHALL use Relay keyset pagination, default 50/max 100.
 
-#### Scenario: A polygon exceeds its execution limit
-- **WHEN** a draft write supplies 1,001 polygon points
+#### Scenario: A span answer exceeds its execution limit
+- **WHEN** a draft write supplies 1,001 text spans
 - **THEN** the whole question write fails without replacing the previous draft answer

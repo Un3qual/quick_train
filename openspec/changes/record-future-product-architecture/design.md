@@ -6,7 +6,7 @@ The initial dataset/assets design accumulated approved decisions for four later 
 
 This change has `skip_specs: true`. Everything below is a durable, non-normative starting point. A future change must select the relevant sections, resolve any then-current questions, and establish its own behavioral specs and tasks before implementation. A later explicit product decision may revise this record.
 
-On 2026-09-12, the Projects and Tasks scope was promoted into [add-project-task-collection](../add-project-task-collection/proposal.md), with its own design, eight capability deltas, and implementation tasks. That proposal selects a new project for later enrollment, records offered question sets per attempt, and specifies immutable export snapshots. Verified media support remains a separate prerequisite, as confirmed by the user. The dedicated proposal governs this proposed scope; this historical record does not claim it is implemented.
+On 2026-09-12, the Projects and Tasks scope was promoted into [add-project-task-collection](../add-project-task-collection/proposal.md), with its own design, eight capability deltas, and implementation tasks. That proposal selects a new project for later enrollment, records offered question sets per attempt, and specifies immutable export snapshots. The user then selected core collection before detailed media: image presentation/choice, spatial answers, and mask uploads now belong to [add-project-task-media](../add-project-task-media/proposal.md). Only that follow-up depends on verified media support; core collection can be implemented and archived first. The dedicated proposals govern their respective scope; this historical record does not claim either is implemented.
 
 ## Goals / Non-Goals
 
@@ -180,7 +180,7 @@ Initial scalar and choice families:
 - task-input single and multiple choice; and
 - ordered task-input ranking.
 
-The first task-response release also includes bounding boxes, polygon and raster-mask segmentation, and text spans. Audio and video time ranges are explicitly out of scope.
+The original plan grouped bounding boxes, polygon/raster-mask segmentation, and text spans in the first task-response release. The revised release order keeps text spans in `add-project-task-collection` and moves image-dependent execution and spatial answers to `add-project-task-media` after detailed media support. The combined eventual model below is preserved; it is not an acceptance gate for core collection. Audio and video time ranges remain explicitly out of scope.
 
 ```text
 QuestionResponse
