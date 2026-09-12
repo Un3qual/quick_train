@@ -162,7 +162,6 @@ defmodule QuickTrain.Forms.Presentation.PresentationElement do
     type :form_presentation_element
     derive_filter? false
     derive_sort? false
-    complexity {Module.concat(["QuickTrain.Forms"]), :connection_complexity}
     relationships [:requirement, :question]
   end
 
@@ -170,9 +169,11 @@ defmodule QuickTrain.Forms.Presentation.PresentationElement do
     table "form_presentation_elements"
     repo Repo
 
+    unique_index_names [{[:position], "form_presentation_elements_position_unique"}]
+
     custom_statements do
       statement :position_unique do
-        up "ALTER TABLE form_presentation_elements ADD CONSTRAINT form_presentation_elements_position_unique UNIQUE (version_id, position) DEFERRABLE INITIALLY DEFERRED;"
+        up "ALTER TABLE form_presentation_elements ADD CONSTRAINT form_presentation_elements_position_unique UNIQUE (version_id, position) DEFERRABLE INITIALLY IMMEDIATE;"
 
         down "ALTER TABLE form_presentation_elements DROP CONSTRAINT form_presentation_elements_position_unique;"
       end

@@ -152,7 +152,6 @@ defmodule QuickTrain.Forms.Inputs.InputSlotDefinition do
     type :form_input_slot_definition
     derive_filter? false
     derive_sort? false
-    complexity {Module.concat(["QuickTrain.Forms"]), :connection_complexity}
     relationships [:requirements]
     paginate_relationship_with requirements: :relay
   end

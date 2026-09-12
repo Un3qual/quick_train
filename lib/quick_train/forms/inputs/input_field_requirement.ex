@@ -193,7 +193,6 @@ defmodule QuickTrain.Forms.Inputs.InputFieldRequirement do
     type :form_input_field_requirement
     derive_filter? false
     derive_sort? false
-    complexity {Module.concat(["QuickTrain.Forms"]), :connection_complexity}
     relationships []
   end
 

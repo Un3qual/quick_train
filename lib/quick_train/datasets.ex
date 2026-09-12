@@ -19,42 +19,35 @@ defmodule QuickTrain.Datasets do
     queries do
       list Dataset, :datasets, :list_scoped,
         relay?: true,
-        paginate_with: :keyset,
-        complexity: {__MODULE__, :connection_complexity}
+        paginate_with: :keyset
 
       read_one DatasetSchemaVersion, :dataset_schema_version, :get_scoped
 
       list DatasetRecordType, :dataset_record_types, :list_scoped,
         relay?: true,
-        paginate_with: :keyset,
-        complexity: {__MODULE__, :connection_complexity}
+        paginate_with: :keyset
 
       list DatasetFieldDefinition, :dataset_field_definitions, :list_scoped,
         relay?: true,
-        paginate_with: :keyset,
-        complexity: {__MODULE__, :connection_complexity}
+        paginate_with: :keyset
 
       list DatasetItem, :dataset_items, :list_scoped,
         relay?: true,
-        paginate_with: :keyset,
-        complexity: {__MODULE__, :connection_complexity}
+        paginate_with: :keyset
 
       list DatasetItemRevision, :dataset_item_revisions, :list_scoped,
         relay?: true,
-        paginate_with: :keyset,
-        complexity: {__MODULE__, :connection_complexity}
+        paginate_with: :keyset
 
       list DatasetValue, :dataset_values, :list_scoped,
         relay?: true,
-        paginate_with: :keyset,
-        complexity: {__MODULE__, :connection_complexity}
+        paginate_with: :keyset
 
       read_one DatasetImport, :dataset_import, :inspect
 
       list DatasetImportRow, :dataset_import_rows, :list_scoped,
         relay?: true,
-        paginate_with: :keyset,
-        complexity: {__MODULE__, :connection_complexity}
+        paginate_with: :keyset
     end
 
     mutations do
@@ -116,12 +109,6 @@ defmodule QuickTrain.Datasets do
       action DatasetImport, :finalize_dataset_import, :finalize,
         args: [:organization_id, :import_id]
     end
-  end
-
-  # Omitted page arguments are charged at the maximum exposed page size (100).
-  def connection_complexity(arguments, child_complexity, _info) do
-    page_size = arguments[:first] || arguments[:last] || 100
-    1 + Kernel.max(page_size, 0) * Kernel.max(child_complexity, 1)
   end
 
   resources do

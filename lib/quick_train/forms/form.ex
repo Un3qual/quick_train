@@ -120,7 +120,6 @@ defmodule QuickTrain.Forms.Form do
     type :form
     derive_filter? false
     derive_sort? false
-    complexity {Module.concat(["QuickTrain.Forms"]), :connection_complexity}
     relationships [:versions]
     paginate_relationship_with versions: :relay
   end

@@ -119,7 +119,6 @@ defmodule QuickTrain.Forms.Questions.Constraints.IntegerConstraints do
     type :form_integer_constraints
     derive_filter? false
     derive_sort? false
-    complexity {Module.concat(["QuickTrain.Forms"]), :connection_complexity}
     relationships []
   end
 

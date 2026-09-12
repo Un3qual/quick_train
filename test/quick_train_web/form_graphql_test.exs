@@ -262,7 +262,7 @@ defmodule QuickTrainWeb.FormGraphqlTest do
     assert element["result"]["requirement"]["id"] == graph.field.id
   end
 
-  test "query complexity and request byte limits apply to Forms", %{conn: conn} do
+  test "nested form reads remain paginated and request byte limits apply", %{conn: conn} do
     ctx = context!()
     %{version: version} = draft!(ctx)
     conn = bearer(conn, ctx.actor)
@@ -287,7 +287,8 @@ defmodule QuickTrainWeb.FormGraphqlTest do
       })
       |> json_response(200)
 
-    assert Enum.any?(response["errors"], &String.contains?(&1["message"], "too complex"))
+    refute response["errors"]
+    assert [%{"node" => %{"versions" => %{"edges" => [_]}}}] = response["data"]["forms"]["edges"]
     body = Jason.encode!(%{query: String.duplicate(" ", 512 * 1024)})
 
     assert_raise Plug.Parsers.RequestTooLargeError, fn ->

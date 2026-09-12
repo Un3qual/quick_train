@@ -26,7 +26,7 @@
 ## 4. Expose deliberate GraphQL operations
 
 - [x] 4.1 Integrate Forms into the existing AshGraphql schema with scoped create, draft-edit, reorder, copy, publish, and inspection operations; keep unrestricted internal actions and future worker/response operations private.
-- [x] 4.2 Expose typed constraints and references plus version identity/state/timestamp; paginate every top-level and nested collection with the specified limits and stable order, including query-complexity accounting.
+- [x] 4.2 Expose typed constraints and references plus version identity/state/timestamp; paginate every top-level and nested collection with the specified limits and stable order.
 - [x] 4.3 Preserve authorization on mutation results and nested reads, including managers without general read capability; return sanitized scoped validation errors and no dataset content or asset descriptors.
 
 ## 5. Verify meaningful behavior and concurrency
@@ -126,6 +126,12 @@
 - [x] 18.2 Document absent scalar constraints as equivalent to empty bounds, preserving typed defaults, existing records, and published meaning without a migration.
 - [x] 18.3 Verify absent, empty, and populated scalar constraints, copy behavior, and required configuration; run the full verification gate and independent OpenSpec validation.
 
+## 19. Position errors and removal of GraphQL complexity controls
+
+- [x] 19.1 Map the three position constraints to native field-validation errors, generate their statement-end-check migration, and preserve atomic mixed-kind and option/label reorders.
+- [x] 19.2 Remove Forms and Datasets complexity callbacks and HTTP enforcement; reconcile documentation and the Dataset capability delta while retaining pagination, payload, and graph-size limits.
+- [x] 19.3 Verify collision errors, unchanged persistence, GraphQL error fields, reorder swaps, and migration rollback/reapply; run the full verification gate and independent OpenSpec validation.
+
 ## Verification record
 
 - Initial implementation verification passed with 211 tests, including 54 Forms tests. The `mise run verify` gate also passed
@@ -185,3 +191,14 @@
   rule and passed after the change. Existing empty and populated records are preserved;
   stars/Likert, selection, and annotation questions still reject missing configuration.
   Independent OpenSpec validation passed all seven items; no migration was needed.
+
+- Position-conflict handling and complexity removal passed 64 focused tests and the full
+  `mise run verify` gate with 219 tests. The two new collision checks failed before the fix;
+  native creates/updates now return position errors, GraphQL exposes the affected field,
+  and actual mixed-kind, option, and label swaps succeed with statement-end uniqueness.
+- A fresh disposable database preserved published metadata and every graph attribute across
+  the position migration up/down/reapply. All three constraints remained deferrable and
+  switched their initial checking mode as intended. The disposable database was removed.
+- GraphQL complexity callbacks and route enforcement are removed from Forms and Datasets;
+  nested reads, authorization, pagination, request-body limits, and graph-size limits remain
+  covered. Independent OpenSpec validation passed all seven current items.

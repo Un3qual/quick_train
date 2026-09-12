@@ -212,7 +212,6 @@ defmodule QuickTrain.Forms.Questions.QuestionDefinition do
     type :form_question_definition
     derive_filter? false
     derive_sort? false
-    complexity {Module.concat(["QuickTrain.Forms"]), :connection_complexity}
 
     relationships [
       :text_constraints,

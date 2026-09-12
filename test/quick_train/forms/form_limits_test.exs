@@ -57,16 +57,41 @@ defmodule QuickTrain.Forms.FormLimitsTest do
         assert {:error, _} = edit(resource, ctx, record, %{field => " "})
       end
 
+      assert {:error, %Ash.Error.Invalid{errors: errors}} =
+               run(
+                 resource,
+                 :add_to_draft,
+                 ctx,
+                 Map.merge(parent, %{
+                   field => "Collision",
+                   key: "collision",
+                   position: 10,
+                   version_id: ctx.version.id
+                 })
+               )
+
+      assert Enum.any?(errors, &match?(%Ash.Error.Changes.InvalidAttribute{field: :position}, &1))
+
+      [_, second] = records
+
+      assert {:error, %Ash.Error.Invalid{errors: errors}} =
+               edit(resource, ctx, second, %{position: 10})
+
+      assert Enum.any?(errors, &match?(%Ash.Error.Changes.InvalidAttribute{field: :position}, &1))
+      assert Ash.get!(resource, second.id, authorize?: false).position == 100
+
       ids = Enum.map(Enum.reverse(records), & &1.id)
 
-      assert run!(
-               resource,
-               :reorder,
-               ctx,
-               Map.merge(parent, %{version_id: ctx.version.id, ids: ids})
-             )
+      for order <- [ids, Enum.reverse(ids)] do
+        assert run!(
+                 resource,
+                 :reorder,
+                 ctx,
+                 Map.merge(parent, %{version_id: ctx.version.id, ids: order})
+               )
 
-      assert Enum.map(ids, &Ash.get!(resource, &1, authorize?: false).position) == [0, 1]
+        assert Enum.map(order, &Ash.get!(resource, &1, authorize?: false).position) == [0, 1]
+      end
     end
 
     assert {:error, _} =

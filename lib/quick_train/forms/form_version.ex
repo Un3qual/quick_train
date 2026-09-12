@@ -184,7 +184,6 @@ defmodule QuickTrain.Forms.FormVersion do
     type :form_version
     derive_filter? false
     derive_sort? false
-    complexity {Module.concat(["QuickTrain.Forms"]), :connection_complexity}
     relationships [:input_slots, :requirements, :questions, :elements, :label_sets]
 
     paginate_relationship_with input_slots: :relay,

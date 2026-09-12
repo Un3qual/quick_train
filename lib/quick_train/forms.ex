@@ -224,56 +224,47 @@ defmodule QuickTrain.Forms do
     queries do
       list Form, :forms, :list_scoped,
         relay?: true,
-        paginate_with: :keyset,
-        complexity: {__MODULE__, :connection_complexity}
+        paginate_with: :keyset
 
       list FormVersion, :form_versions, :list_scoped,
         relay?: true,
-        paginate_with: :keyset,
-        complexity: {__MODULE__, :connection_complexity}
+        paginate_with: :keyset
 
       list InputSlotDefinition,
            :form_input_slot_definitions,
            :list_scoped,
            relay?: true,
-           paginate_with: :keyset,
-           complexity: {__MODULE__, :connection_complexity}
+           paginate_with: :keyset
 
       list InputFieldRequirement,
            :form_input_field_requirements,
            :list_scoped,
            relay?: true,
-           paginate_with: :keyset,
-           complexity: {__MODULE__, :connection_complexity}
+           paginate_with: :keyset
 
       list QuestionDefinition,
            :form_question_definitions,
            :list_scoped,
            relay?: true,
-           paginate_with: :keyset,
-           complexity: {__MODULE__, :connection_complexity}
+           paginate_with: :keyset
 
       list QuestionOption, :form_question_options, :list_scoped,
         relay?: true,
-        paginate_with: :keyset,
-        complexity: {__MODULE__, :connection_complexity}
+        paginate_with: :keyset
 
       list LabelSet, :form_label_sets, :list_scoped,
         relay?: true,
-        paginate_with: :keyset,
-        complexity: {__MODULE__, :connection_complexity}
+        paginate_with: :keyset
 
       list Label, :form_labels, :list_scoped,
         relay?: true,
-        paginate_with: :keyset,
-        complexity: {__MODULE__, :connection_complexity}
+        paginate_with: :keyset
 
       list PresentationElement,
            :form_presentation_elements,
            :list_scoped,
            relay?: true,
-           paginate_with: :keyset,
-           complexity: {__MODULE__, :connection_complexity}
+           paginate_with: :keyset
 
       read_one Form, :form, :get_scoped
       read_one FormVersion, :form_version, :get_scoped
@@ -558,10 +549,5 @@ defmodule QuickTrain.Forms do
              :reorder_form_presentation_element,
              :reorder, args: [:organization_id, :version_id, :ids]
     end
-  end
-
-  def connection_complexity(arguments, child_complexity, _info) do
-    page_size = arguments[:first] || arguments[:last] || 50
-    1 + Kernel.max(page_size, 0) * Kernel.max(child_complexity, 1)
   end
 end

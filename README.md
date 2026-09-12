@@ -34,7 +34,7 @@ datasets, assets, and versioned form definitions. It has no frontend.
   publication, and copying to new numbered drafts. See the versioned-forms OpenSpec change for
   capability provisioning and authoring limits. Forms do not access dataset content or storage.
 - `QuickTrainWeb.GraphQL.Schema`: an explicit allowlist of authentication, dataset, asset, and
-  form operations with scoped authorization, paginated collections, and query-complexity limits.
+  form operations with scoped authorization and paginated collections.
 
 ## Toolchain
 

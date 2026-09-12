@@ -167,7 +167,6 @@ defmodule QuickTrain.Forms.Questions.QuestionOption do
     type :form_question_option
     derive_filter? false
     derive_sort? false
-    complexity {Module.concat(["QuickTrain.Forms"]), :connection_complexity}
     relationships []
   end
 
@@ -175,9 +174,11 @@ defmodule QuickTrain.Forms.Questions.QuestionOption do
     table "form_question_options"
     repo Repo
 
+    unique_index_names [{[:position], "form_question_options_position_unique"}]
+
     custom_statements do
       statement :position_unique do
-        up "ALTER TABLE form_question_options ADD CONSTRAINT form_question_options_position_unique UNIQUE (question_id, position) DEFERRABLE INITIALLY DEFERRED;"
+        up "ALTER TABLE form_question_options ADD CONSTRAINT form_question_options_position_unique UNIQUE (question_id, position) DEFERRABLE INITIALLY IMMEDIATE;"
 
         down "ALTER TABLE form_question_options DROP CONSTRAINT form_question_options_position_unique;"
       end

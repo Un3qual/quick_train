@@ -15,6 +15,75 @@ defmodule QuickTrain.Forms.FormIntegrityTest do
     Map.merge(ctx, rating!(ctx))
   end
 
+  test "position conflicts return field errors and mixed-kind swaps remain atomic", ctx do
+    attrs = %{version_id: ctx.version.id, kind: :heading, text: "Heading", position: 10}
+
+    assert {:error, %Ash.Error.Invalid{errors: errors}} =
+             Forms.add_form_presentation_element(ctx.org.id, attrs, actor: ctx.actor)
+
+    assert Enum.any?(errors, &match?(%Ash.Error.Changes.InvalidAttribute{field: :position}, &1))
+
+    elements =
+      for {kind, position, content} <- [
+            {:heading, 20, %{text: "Heading"}},
+            {:instruction, 30, %{text: "Instructions"}},
+            {:section, 40, %{text: ""}},
+            {:bound_value, 50, %{requirement_id: ctx.field.id}}
+          ] do
+        add!(
+          PresentationElement,
+          ctx,
+          ctx.version,
+          Map.merge(content, %{kind: kind, position: position})
+        )
+      end
+
+    assert {:error, %Ash.Error.Invalid{errors: errors}} =
+             Forms.update_form_presentation_element(
+               hd(elements),
+               ctx.org.id,
+               %{version_id: ctx.version.id, position: 10},
+               actor: ctx.actor
+             )
+
+    assert Enum.any?(errors, &match?(%Ash.Error.Changes.InvalidAttribute{field: :position}, &1))
+    assert Ash.get!(PresentationElement, hd(elements).id, authorize?: false).position == 20
+
+    assert {:ok, %{data: %{"addFormPresentationElement" => result}}} =
+             Absinthe.run(
+               """
+               mutation {
+                 addFormPresentationElement(organizationId: "#{ctx.org.id}",
+                   versionId: "#{ctx.version.id}", kind: HEADING, text: "Collision", position: 10) {
+                   result { id }
+                   errors { code fields }
+                 }
+               }
+               """,
+               QuickTrainWeb.GraphQL.Schema,
+               context: %{actor: ctx.actor}
+             )
+
+    assert result["result"] == nil
+
+    assert [%{"code" => "invalid_attribute", "fields" => ["position"]}] = result["errors"]
+
+    ids = Enum.map([ctx.element | elements], & &1.id)
+
+    for order <- [ids, Enum.reverse(ids)] do
+      assert Forms.reorder_form_presentation_element!(
+               ctx.org.id,
+               %{version_id: ctx.version.id, ids: order},
+               actor: ctx.actor
+             )
+
+      assert Enum.map(order, &Ash.get!(PresentationElement, &1, authorize?: false).position) ==
+               Enum.to_list(0..4)
+    end
+
+    assert Ash.count!(PresentationElement, authorize?: false) == 5
+  end
+
   test "published graphs reject authoring actions even with stale draft records", ctx do
     published = run!(FormVersion, :publish, ctx, %{version_id: ctx.version.id})
     graph = Graph.load!(published.id)

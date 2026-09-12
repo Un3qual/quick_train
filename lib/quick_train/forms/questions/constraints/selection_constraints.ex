@@ -121,7 +121,6 @@ defmodule QuickTrain.Forms.Questions.Constraints.SelectionConstraints do
     type :form_selection_constraints
     derive_filter? false
     derive_sort? false
-    complexity {Module.concat(["QuickTrain.Forms"]), :connection_complexity}
     relationships []
   end
 

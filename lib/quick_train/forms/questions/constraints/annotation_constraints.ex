@@ -165,7 +165,6 @@ defmodule QuickTrain.Forms.Questions.Constraints.AnnotationConstraints do
     type :form_annotation_constraints
     derive_filter? false
     derive_sort? false
-    complexity {Module.concat(["QuickTrain.Forms"]), :connection_complexity}
     relationships [:source_requirement, :label_set]
   end
 

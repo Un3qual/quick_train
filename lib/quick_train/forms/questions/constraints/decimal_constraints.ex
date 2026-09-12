@@ -112,7 +112,6 @@ defmodule QuickTrain.Forms.Questions.Constraints.DecimalConstraints do
     type :form_decimal_constraints
     derive_filter? false
     derive_sort? false
-    complexity {Module.concat(["QuickTrain.Forms"]), :connection_complexity}
     relationships []
   end
 

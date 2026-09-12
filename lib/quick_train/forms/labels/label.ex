@@ -163,7 +163,6 @@ defmodule QuickTrain.Forms.Labels.Label do
     type :form_label
     derive_filter? false
     derive_sort? false
-    complexity {Module.concat(["QuickTrain.Forms"]), :connection_complexity}
     relationships []
   end
 
@@ -171,9 +170,11 @@ defmodule QuickTrain.Forms.Labels.Label do
     table "form_labels"
     repo Repo
 
+    unique_index_names [{[:position], "form_labels_position_unique"}]
+
     custom_statements do
       statement :position_unique do
-        up "ALTER TABLE form_labels ADD CONSTRAINT form_labels_position_unique UNIQUE (label_set_id, position) DEFERRABLE INITIALLY DEFERRED;"
+        up "ALTER TABLE form_labels ADD CONSTRAINT form_labels_position_unique UNIQUE (label_set_id, position) DEFERRABLE INITIALLY IMMEDIATE;"
         down "ALTER TABLE form_labels DROP CONSTRAINT form_labels_position_unique;"
       end
     end

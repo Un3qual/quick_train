@@ -145,7 +145,6 @@ defmodule QuickTrain.Forms.Labels.LabelSet do
     type :form_label_set
     derive_filter? false
     derive_sort? false
-    complexity {Module.concat(["QuickTrain.Forms"]), :connection_complexity}
     relationships [:labels]
     paginate_relationship_with labels: :relay
   end
