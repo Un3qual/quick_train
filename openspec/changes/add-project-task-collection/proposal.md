@@ -10,7 +10,7 @@ QuickTrain can publish reusable forms and immutable dataset revisions, but organ
 - Collect one mutable draft response per attempt, then atomically freeze explicit answered or skipped question outcomes. Persist scalar, non-image choice, ranking, and text-span answers relationally.
 - Complete collection independently of detailed media support. Reject image-dependent forms with `unsupported_task_contract`; retain opaque-download inputs and keep existing published image-form definitions intact. Move image presentation, image choice, bounding boxes, polygons, raster masks, and mask uploads to [add-project-task-media](../add-project-task-media/proposal.md), which follows the separate verified-media change.
 - Add append-only per-question automatic/manual review, linked follow-up attempts, bounded escalation, and rebuildable task progress and item coverage.
-- Expose deliberate GraphQL actions, bounded result inspection, and asynchronous immutable accepted-answer and audit exports.
+- Expose deliberate GraphQL actions, bounded result inspection, and asynchronous immutable accepted-answer and audit exports, with record limits covering all child/history evidence and optional type/ID ranges to partition even a single task.
 - Extend Forms, Datasets, and Assets with explicit attempt-owned access without granting general browsing or authoring rights to workers.
 
 Explicit non-goals:

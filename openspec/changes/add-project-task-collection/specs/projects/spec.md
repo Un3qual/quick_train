@@ -59,6 +59,10 @@ Projects SHALL allow `draft -> active`, `active <-> paused`, `active|paused -> c
 - **WHEN** completion and a submission compete
 - **THEN** either submission commits before completion and its evidence is preserved, or completion commits first and submission fails without a partial response
 
+#### Scenario: Completion fails during cancellation
+- **WHEN** cancellation or its progress update fails within project completion
+- **THEN** the project transition and all cancellation writes roll back together; successful completion leaves previously live attempts and unsatisfied tasks canonically cancelled and their reservations released in direct reads as well as GraphQL
+
 ### Requirement: Activation accepts only implemented task contracts
 Activation SHALL support scalar answers, non-image static/task-input choices, rankings, text spans, and asset requirements intended for opaque download. It SHALL reject any form containing an `image` input requirement, a bound-value presentation referencing an image requirement, an `image_choice` renderer, or a bounding-box, polygon-region, or raster-mask question with `unsupported_task_contract`, leaving the project draft. It SHALL validate the whole pinned form rather than silently dropping unsupported elements/questions. Published image-form definitions SHALL remain valid for authoring and inspection. No media service, decoder, verified dimensions, spatial-response tables, or mask-upload operation SHALL be required to implement or complete this release. Adding a media provider alone SHALL not enable the deferred contracts; the later task-media change SHALL explicitly extend execution support.
 

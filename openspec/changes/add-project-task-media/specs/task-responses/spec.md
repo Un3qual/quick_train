@@ -1,3 +1,16 @@
+## MODIFIED Requirements
+
+### Requirement: Response writes are bounded and explicitly exposed
+GraphQL SHALL expose deliberate typed save/submit operations and bounded typed outcome inspection; generic submitted-outcome/child update and delete mutations SHALL not exist. Apply at most 200 offered questions, 64 KiB text per answer, 1 KiB reason, 16 KiB explanation, and 1,000 spans per question, alongside published form bounds and the existing HTTP body limit. The per-response annotation ceiling SHALL be 10,000 combined child rows, counting each TextSpan, BoundingBox, PolygonRegion, PolygonPoint, and MaskRegion once; this replaces the core text-only total rather than granting a separate budget to each family. Whole-question replacement SHALL check the resulting response total under its existing lock. Impossible published minimums SHALL reject project activation; tighter execution ceilings SHALL be disclosed. Oversized operations SHALL fail atomically and all collections SHALL use Relay keyset pagination, default 50/max 100.
+
+#### Scenario: A span answer exceeds its execution limit
+- **WHEN** a draft write supplies 1,001 text spans
+- **THEN** the whole question write fails without replacing the previous draft answer
+
+#### Scenario: Text and spatial annotations share one budget
+- **WHEN** a response contains 9,000 text spans across questions and a draft replacement would leave another 1,001 spatial child rows
+- **THEN** the write fails atomically even if every per-question and per-polygon bound is met; polygon regions and their points both count toward the combined total
+
 ## ADDED Requirements
 
 ### Requirement: Spatial annotation provenance is exact
@@ -30,7 +43,7 @@ A raster mask SHALL reference a ready immutable mask asset and exact source asse
 - **THEN** the answer fails even if the asset belongs to the same organization
 
 ### Requirement: Spatial responses have bounded execution limits
-Spatial writes SHALL accept at most 1,000 regions per question, 1,000 points per polygon, and 10,000 total annotation child rows per response including text spans, subject to tighter published bounds and the existing request-body limit. All coordinates, counts, and typed children SHALL be validated before immutable submission. Published minimums that exceed these execution limits SHALL reject activation. Spatial child reads SHALL use stable Relay keyset pagination with default 50/max 100.
+Spatial writes SHALL accept at most 1,000 regions per question and 1,000 points per polygon within the combined per-response annotation budget defined by `Response writes are bounded and explicitly exposed`, subject to tighter published bounds and the existing request-body limit. All coordinates, counts, and typed children SHALL be validated before immutable submission. Published minimums that exceed these execution limits SHALL reject activation. Spatial child reads SHALL use stable Relay keyset pagination with default 50/max 100.
 
 #### Scenario: A polygon exceeds its execution limit
 - **WHEN** a draft write supplies 1,001 points

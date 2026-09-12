@@ -5,7 +5,11 @@ Review individual submitted question outcomes without rewriting worker evidence,
 ## ADDED Requirements
 
 ### Requirement: Automatic and manual per-question review
-Automatic review SHALL atomically append a system-origin acceptance for each answered outcome on successful submission. Manual review SHALL leave answered outcomes pending until an active account with active organization membership and `tasks.review` appends an accept/reject decision under explicit organization/project scope. Skips SHALL not receive accepted verdicts. Reviewers SHALL not edit worker answers or manually review their own responses. Rejections SHALL require a nonblank reason. Whole-response review SHALL persist per-question decisions and SHALL be bounded to 100 selected outcomes with atomic all-or-nothing validation.
+For a project frozen in `automatic` review mode, successful submission SHALL atomically append a system-origin acceptance for each answered outcome. For a project frozen in `manual` review mode, submission SHALL append no review decision and SHALL leave answered outcomes pending until an active account with active organization membership and `tasks.review` appends an accept/reject decision under explicit organization/project scope. Skips SHALL not receive accepted verdicts. Reviewers SHALL not edit worker answers or manually review their own responses. Rejections SHALL require a nonblank reason. Whole-response review SHALL persist per-question decisions and SHALL be bounded to 100 selected outcomes with atomic all-or-nothing validation.
+
+#### Scenario: An answered outcome is submitted in manual mode
+- **WHEN** a worker successfully submits an answered outcome to a manual-review project
+- **THEN** it remains pending with no system acceptance and reserves capacity until a reviewer decides
 
 #### Scenario: A response receives mixed decisions
 - **WHEN** a reviewer accepts one submitted answer and rejects another
@@ -16,7 +20,11 @@ Automatic review SHALL atomically append a system-origin acceptance for each ans
 - **THEN** the manual decision is denied
 
 ### Requirement: Corrections are append-only and conflict-aware
-Each question's review history SHALL be immutable and ordered. A decision SHALL identify its actor/system origin, verdict, creation time, and predecessor. The latest decision SHALL determine the effective verdict. A correction SHALL require a nonblank reason and expected current decision identity; a stale expectation SHALL conflict without changing history. A decision request key scoped to question and requesting actor SHALL converge identical retries and reject different content under the same key. Corrections SHALL remain permitted in completed/archived projects but SHALL not reopen collection there. Accepted evidence above the configured target SHALL remain visible.
+Each QuestionResponse's review history SHALL be immutable and ordered. A decision SHALL identify its actor/system origin, verdict, creation time, and predecessor. The latest decision SHALL determine the effective verdict. A correction SHALL require a nonblank reason and expected current decision identity; a stale expectation SHALL conflict without changing history. A decision request key scoped to QuestionResponse and requesting actor SHALL converge identical retries and reject different content under the same key for that outcome. Another QuestionResponse SHALL have an independent key scope even when it answers the same form question. Corrections SHALL remain permitted in completed/archived projects but SHALL not reopen collection there. Accepted evidence above the configured target SHALL remain visible.
+
+#### Scenario: One reviewer reuses a key across responses
+- **WHEN** a reviewer uses the same request key for two different QuestionResponses answering the same form question
+- **THEN** each authorized decision is recorded independently, an identical retry for either outcome returns its own decision, and different content under that outcome's existing key conflicts
 
 #### Scenario: Two reviewers race
 - **WHEN** two decisions name the same current predecessor
