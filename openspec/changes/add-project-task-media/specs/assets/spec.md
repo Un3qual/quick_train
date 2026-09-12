@@ -3,9 +3,11 @@
 ### Requirement: Attempt-scoped mask registration and attachment
 A live eligible attempt owner SHALL be able to register/finalize an organization-owned mask asset only through a response workflow identifying an offered raster-mask question. The workflow SHALL preserve the existing enforced upload cap, exact hash/size/media identity, immutable sealing, and canonical deduplication rules and record explicit attempt/question attachment authority. Registration SHALL require a 1–128 byte request key unique within attempt/question: identical retries SHALL resolve to the same registration, asset, and staging destination, while changed hash/size/media arguments SHALL return `idempotency_conflict`. Retries SHALL not create additional writable objects or extend access beyond the original staging expiry or attempt lease.
 
-New registrations SHALL be limited over the entire attempt lifetime to 1,000 per question, 10,000 across all questions, and 256 MiB of aggregate declared bytes, alongside the existing per-file byte cap. Pending, ready, failed, expired, deduplicated, and replaced registrations SHALL all consume these limits; detaching a draft mask SHALL not refund allowance. Admission SHALL serialize under the existing Response lock and durably reserve the key, registration identity, count, and byte allowance before any storage operation. Limit failures SHALL return `mask_registration_limit` without allocating an asset or writable staging object. Storage I/O SHALL remain outside the database transaction and retry the reserved identity/destination. These are local attempt limits; no generic quota service or automatic staging-deletion prerequisite SHALL be introduced.
+New registrations SHALL be limited over the entire attempt lifetime to 1,000 per question, 10,000 across all questions, and 256 MiB of aggregate declared bytes, alongside the existing per-file byte cap. Pending, ready, failed, expired, deduplicated, and replaced registrations SHALL all consume these limits; detaching a draft mask SHALL not refund allowance. Admission SHALL serialize under the existing Response lock and durably reserve the key, registration identity, count, and byte allowance before any storage operation. Limit violations SHALL return `mask_registration_limit`. Rejected admission SHALL create no registration or key reservation, consume no allowance, and allocate no asset or writable staging object. Storage I/O SHALL remain outside the database transaction. These are local attempt limits; no generic quota service or automatic staging-deletion prerequisite SHALL be introduced.
 
-After current owner/eligibility/lease authorization and under the Response lock, registration SHALL look up the attempt/question request key before checking remaining allowance. An existing key SHALL resolve its matching registration without consuming additional count or bytes even when a limit is reached; changed arguments SHALL return `idempotency_conflict` rather than a limit error. Existing failed or expired registrations SHALL retain their state and original expiry. Only an absent key SHALL be checked against the limits and reserve new allowance; retry convergence SHALL not bypass current authorization or renew expired storage access.
+After current owner/eligibility/lease authorization and under the Response lock, registration SHALL look up the attempt/question request key before checking remaining allowance. An existing key SHALL resolve its matching registration without consuming additional count or bytes even when a limit is reached; changed arguments SHALL return `idempotency_conflict` rather than a limit error. Only an absent key SHALL be checked against the limits and reserve new allowance; retry convergence SHALL not bypass current authorization or renew expired storage access.
+
+An identical retry of a pending registration SHALL resume interrupted storage work against its reserved identity/destination under the existing sealing rules while its original staging access remains valid, without additional allowance even at a limit. An existing terminal failed or expired registration SHALL return its recorded terminal outcome without new upload access or revival. Retrying the upload after terminal failure/expiry SHALL require a fresh key, current attempt authorization, and remaining count/byte allowance; the old registration SHALL not be refunded. If insufficient allowance remains, the replacement SHALL fail with `mask_registration_limit`. Ready registrations SHALL retain their existing canonical-asset resolution.
 
 The workflow SHALL not require membership or expose general asset creation/listing/reuse operations. A duplicate canonical asset SHALL remain usable only through an authorized attachment relationship; failed/foreign/mismatched uploads SHALL not create usable response attachment authority. Verification of raster encoding and dimensions SHALL belong to the separate media prerequisite, not opaque asset finalization.
 
@@ -31,7 +33,19 @@ The workflow SHALL not require membership or expose general asset creation/listi
 
 #### Scenario: Distinct requests race for the remaining allowance
 - **WHEN** concurrent new keys would together exceed the remaining registration count or declared-byte allowance
-- **THEN** admission commits only requests that fit the shared limits before storage access is issued, and retries after interrupted storage work reuse the reserved identities
+- **THEN** admission commits only requests that fit the shared limits before storage access is issued, and retries of still-pending registrations after interrupted storage work reuse the reserved identities
+
+#### Scenario: A pending upload resumes at the allowance limit
+- **WHEN** storage work is interrupted after a registration has reserved the last available allowance and its live eligible owner retries the same key and arguments while the registration is pending and staging access remains valid
+- **THEN** storage work resumes against the reserved identity/destination under the existing sealing rules without another allowance debit or expiry extension
+
+#### Scenario: A terminal upload failure requires a new key
+- **WHEN** a live eligible owner retries a failed or expired registration with identical arguments
+- **THEN** the original terminal outcome is returned without upload access, and a replacement upload requires a fresh key and sufficient remaining allowance without refunding the old registration; a new key at exhausted allowance fails with `mask_registration_limit`
+
+#### Scenario: A rejected admission consumes no registration allowance
+- **WHEN** a new request exceeds remaining allowance
+- **THEN** it fails with `mask_registration_limit` without reserving its key, creating a registration or asset, consuming allowance, or allocating writable staging
 
 ## MODIFIED Requirements
 

@@ -40,5 +40,5 @@ An active member authorized for `tasks.results.read` in an active organization a
 - **THEN** Tasks returns the original option key/label and question context, while arbitrary form-definition access remains denied
 
 #### Scenario: A result reader inspects a pinned presentation
-- **WHEN** a result-only reader follows an eligible attempt to its presentation
+- **WHEN** a result-only reader follows an included attempt to its presentation
 - **THEN** Tasks returns its original published element sequence and referenced contract with bounded pagination, while other versions and unreferenced definitions remain denied
