@@ -59,7 +59,7 @@ Publication locks the version, loads its bounded full graph through internal sco
 
 Ash owns lifecycle transitions, immutable ownership, draft-only writes, and subtype compatibility. Explicit action accept lists prevent changes to identity, ownership, keys, and presentation kind. `DraftWrite` checks current draft state under the version lock and validates structural changes before commit; `Graph` checks question-family children and cross-record compatibility. Presentation content is validated on its owning resource. `Authoring` applies the same lock to publication and reorder, and validates copy destinations before commit. This single application boundary serializes concurrent requests without database triggers.
 
-Low-level internal actions are implementation steps for copy, reorder, and publication inside these transactions. They are not independently supported authoring entry points and remain unauthorized by default and unexposed to GraphQL. Code running with `authorize?: false`, `Ash.Seed`, or direct SQL is trusted infrastructure and can bypass the authoring contract. Such callers must use the scoped domain actions for ordinary writes. PostgreSQL keeps foreign keys, uniqueness, nullability, and scalar checks; it contains no Forms lifecycle or cross-table subtype functions or triggers. Historical migrations retain the former definitions only to support upgrades and rollback. The trigger-removal migration leaves the unchanged deferred position constraints and their indexes in place in both directions.
+Low-level internal actions are implementation steps for copy, reorder, and publication inside these transactions. They are not independently supported authoring entry points and remain unauthorized by default and unexposed to GraphQL. Code running with `authorize?: false`, `Ash.Seed`, or direct SQL is trusted infrastructure and can bypass the authoring contract. Such callers must use the scoped domain actions for ordinary writes. PostgreSQL keeps foreign keys, uniqueness, nullability, and scalar checks; it contains no Forms lifecycle or cross-table subtype functions or triggers. Historical migrations retain the former definitions only to support upgrades and rollback. The trigger-removal migration preserves the deferrable position-uniqueness constraints and their indexes in both directions; the later position-conflict migration changes their initial checking mode as described below.
 
 For a reorder, require the complete current child ID set under the version lock, then atomically assign consecutive positions starting at zero in the supplied ID order, canonicalizing any old gaps while preserving record identities. Keep position uniqueness deferrable but initially immediate: checks run at statement end, so single-statement swaps succeed and ordinary collisions reach AshPostgres error translation before commit. Map each named constraint to `position` through `unique_index_names`. Generate a reversible migration for the three position constraints; no business-rule trigger or custom validation is needed. Do not expose transient positions or persist fractional-order schemes. Option and label ordering use the same operation contract on their respective parents.
 
@@ -139,8 +139,8 @@ Use Ash integer constraints and database bounds for every persisted integer expo
   or from a definition to a version, so mutation results cannot expand into other versions.
 - The endpoint's existing 512 KiB body limit bounds Forms requests before decoding. The item,
   row, count, and text-size limits in decision 5 apply to ordinary authoring and copy destinations.
-  `PlainText` centralizes shared trimming, empty-string, and byte-count
-  constraints through `Ash.Type.NewType`; field-specific limits remain on attributes. Nonblank content uses Ash's
+  Text attributes use Ash's built-in `:string` type with explicit whitespace-preserving,
+  empty-string, and byte-count constraints alongside their field-specific limits. Nonblank content uses Ash's
   built-in match validation only when the field changes. Read paths do not apply authoring limits
   to published historical graphs.
 - Annotation inspection exposes `sourceConvention`: `normalized_image_coordinates` for boxes
@@ -169,8 +169,8 @@ Use Ash integer constraints and database bounds for every persisted integer expo
 ### Follow-up built-in review
 
 The review removed the custom presentation change and nested-read policy implementations. Text
-encoding guards and their dedicated tests were removed at the user's request; the shared text
-type now contains only ordinary Ash string constraints. The remaining custom modules have
+encoding guards and their dedicated tests were removed at the user's request; text attributes
+use ordinary Ash string constraints without a shared wrapper type. The remaining custom modules have
 responsibilities beyond a built-in change, validation, or policy:
 
 | Implementation | Reason retained |

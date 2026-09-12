@@ -11,16 +11,19 @@ defmodule QuickTrain.Forms.Inputs.InputFieldRequirement do
   alias QuickTrain.Forms.Changes.DraftWrite
   alias QuickTrain.Forms.FormVersion
   alias QuickTrain.Forms.Inputs.InputSlotDefinition
-  alias QuickTrain.Forms.Types.{AssetIntendedUse, FieldCardinality, InputValueFamily, PlainText}
+  alias QuickTrain.Forms.Types.{AssetIntendedUse, FieldCardinality, InputValueFamily}
   alias QuickTrain.Repo
 
   attributes do
     uuid_primary_key :id, writable?: true
 
-    attribute :key, PlainText,
+    attribute :key, :string,
       public?: true,
       allow_nil?: false,
       constraints: [
+        trim?: false,
+        allow_empty?: true,
+        length_count: :bytes,
         max_length: 512,
         min_length: 1
       ]

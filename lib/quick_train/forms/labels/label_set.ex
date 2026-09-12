@@ -13,25 +13,25 @@ defmodule QuickTrain.Forms.Labels.LabelSet do
   alias QuickTrain.Forms.Changes.DraftWrite
   alias QuickTrain.Forms.FormVersion
   alias QuickTrain.Forms.Labels.Label
-  alias QuickTrain.Forms.Types.PlainText
   alias QuickTrain.Repo
 
   attributes do
     uuid_primary_key :id, writable?: true
 
-    attribute :key, PlainText,
+    attribute :key, :string,
       public?: true,
       allow_nil?: false,
       constraints: [
+        trim?: false,
+        allow_empty?: true,
+        length_count: :bytes,
         max_length: 512,
         min_length: 1
       ]
 
-    attribute :name, PlainText,
+    attribute :name, :string,
       public?: true,
-      constraints: [
-        max_length: 1024
-      ]
+      constraints: [trim?: false, allow_empty?: true, length_count: :bytes, max_length: 1024]
 
     timestamps()
   end

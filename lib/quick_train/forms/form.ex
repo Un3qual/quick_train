@@ -10,17 +10,19 @@ defmodule QuickTrain.Forms.Form do
   alias QuickTrain.Authorization.Checks.OrganizationCapability
   alias QuickTrain.Authorization.RoleAssignment
   alias QuickTrain.Forms.FormVersion
-  alias QuickTrain.Forms.Types.PlainText
   alias QuickTrain.Organizations.Organization
   alias QuickTrain.Repo
 
   attributes do
     uuid_primary_key :id
 
-    attribute :key, PlainText,
+    attribute :key, :string,
       public?: true,
       allow_nil?: false,
       constraints: [
+        trim?: false,
+        allow_empty?: true,
+        length_count: :bytes,
         max_length: 512,
         min_length: 1
       ]

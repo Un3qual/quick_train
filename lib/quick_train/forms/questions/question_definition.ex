@@ -21,24 +21,30 @@ defmodule QuickTrain.Forms.Questions.QuestionDefinition do
   }
 
   alias QuickTrain.Forms.Questions.QuestionOption
-  alias QuickTrain.Forms.Types.{AnswerFamily, PlainText, Renderer}
+  alias QuickTrain.Forms.Types.{AnswerFamily, Renderer}
   alias QuickTrain.Repo
 
   attributes do
     uuid_primary_key :id, writable?: true
 
-    attribute :key, PlainText,
+    attribute :key, :string,
       public?: true,
       allow_nil?: false,
       constraints: [
+        trim?: false,
+        allow_empty?: true,
+        length_count: :bytes,
         max_length: 512,
         min_length: 1
       ]
 
-    attribute :prompt, PlainText,
+    attribute :prompt, :string,
       public?: true,
       allow_nil?: false,
       constraints: [
+        trim?: false,
+        allow_empty?: true,
+        length_count: :bytes,
         max_length: 16_384,
         min_length: 1
       ]

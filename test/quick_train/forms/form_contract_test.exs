@@ -113,7 +113,9 @@ defmodule QuickTrain.Forms.FormContractTest do
         end
       end
 
-      assert Graph.load!(published.id) == original
+      for {resource, records} <- Graph.load!(published.id) do
+        assert Enum.sort_by(records, & &1.id) == Enum.sort_by(original[resource], & &1.id)
+      end
     end
   end
 

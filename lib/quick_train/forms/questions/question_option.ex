@@ -13,24 +13,29 @@ defmodule QuickTrain.Forms.Questions.QuestionOption do
   alias QuickTrain.Forms.Changes.DraftWrite
   alias QuickTrain.Forms.FormVersion
   alias QuickTrain.Forms.Questions.QuestionDefinition
-  alias QuickTrain.Forms.Types.PlainText
   alias QuickTrain.Repo
 
   attributes do
     uuid_primary_key :id, writable?: true
 
-    attribute :key, PlainText,
+    attribute :key, :string,
       public?: true,
       allow_nil?: false,
       constraints: [
+        trim?: false,
+        allow_empty?: true,
+        length_count: :bytes,
         max_length: 512,
         min_length: 1
       ]
 
-    attribute :label, PlainText,
+    attribute :label, :string,
       public?: true,
       allow_nil?: false,
       constraints: [
+        trim?: false,
+        allow_empty?: true,
+        length_count: :bytes,
         max_length: 1024,
         min_length: 1
       ]

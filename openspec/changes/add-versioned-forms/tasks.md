@@ -50,7 +50,7 @@
 - [x] 7.1 Replace ordinary generic mutations with named create/update/destroy actions and shared transaction hooks, preserving scoped locking, partial updates, and publication semantics.
 - [x] 7.2 Expose Forms domain code interfaces and use them in callers and fixtures.
 - [x] 7.3 Use bulk Ash operations for reorder and copy while retaining graph bounds, dependency order, and rollback.
-- [x] 7.4 Centralize common PlainText constraints in its existing Ash NewType.
+- [x] 7.4 Use native Ash string constraints for authored text; the initial shared NewType is superseded by section 20.
 - [x] 7.5 Use relationship metadata for copy remapping and ordinary element destruction for owned presentation content.
 - [x] 7.6 Replace membership enumeration in nested authorization with a relational eligibility filter.
 - [x] 7.7 Reconcile the GraphQL contract and design, then rerun focused behavior/concurrency tests and the full verification gate.
@@ -132,6 +132,12 @@
 - [x] 19.2 Remove Forms and Datasets complexity callbacks and HTTP enforcement; reconcile documentation and the Dataset capability delta while retaining pagination, payload, and graph-size limits.
 - [x] 19.3 Verify collision errors, unchanged persistence, GraphQL error fields, reorder swaps, and migration rollback/reapply; run the full verification gate and independent OpenSpec validation.
 
+## 20. PR review follow-through and native strings
+
+- [x] 20.1 Replace the shared text NewType with built-in string attributes while preserving whitespace, empty sections, byte limits, and the GraphQL/storage contract.
+- [x] 20.2 Verify current review findings, clarify position-constraint migration wording, and correct the PR description to reflect the intentional complexity removal.
+- [x] 20.3 Compare published-graph snapshots by identity without assuming internal query order; run focused behavior tests, the full verification gate, and independent OpenSpec validation.
+
 ## Verification record
 
 - Initial implementation verification passed with 211 tests, including 54 Forms tests. The `mise run verify` gate also passed
@@ -202,3 +208,12 @@
 - GraphQL complexity callbacks and route enforcement are removed from Forms and Datasets;
   nested reads, authorization, pagination, request-body limits, and graph-size limits remain
   covered. Independent OpenSpec validation passed all seven current items.
+- Native string replacement passed 64 focused tests. The full gate exposed an existing
+  order-dependent copy assertion: all 14 records matched exactly, but two input-slot rows
+  arrived in a different order. Comparing complete records by ID preserves the immutability
+  check; all 26 contract tests and the full 219-test gate then passed. Code-generation
+  consistency required no migration. Independent OpenSpec validation passed all seven items.
+- The captured reorder finding was not reproducible: all 12 integrity/limit tests passed
+  before edits, including occupied-position option/label swaps and committed mixed-kind
+  presentation swaps. The atomic reorder and statement-end uniqueness remain unchanged.
+  Review follow-through clarified migration wording and the intentional complexity deferral.

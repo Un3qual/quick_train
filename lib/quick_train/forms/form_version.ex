@@ -14,7 +14,7 @@ defmodule QuickTrain.Forms.FormVersion do
   alias QuickTrain.Forms.Labels.LabelSet
   alias QuickTrain.Forms.Presentation.PresentationElement
   alias QuickTrain.Forms.Questions.QuestionDefinition
-  alias QuickTrain.Forms.Types.{PlainText, VersionState}
+  alias QuickTrain.Forms.Types.VersionState
   alias QuickTrain.Repo
 
   attributes do
@@ -30,17 +30,13 @@ defmodule QuickTrain.Forms.FormVersion do
       allow_nil?: false,
       default: :draft
 
-    attribute :title, PlainText,
+    attribute :title, :string,
       public?: true,
-      constraints: [
-        max_length: 1024
-      ]
+      constraints: [trim?: false, allow_empty?: true, length_count: :bytes, max_length: 1024]
 
-    attribute :description, PlainText,
+    attribute :description, :string,
       public?: true,
-      constraints: [
-        max_length: 16_384
-      ]
+      constraints: [trim?: false, allow_empty?: true, length_count: :bytes, max_length: 16_384]
 
     attribute :published_at, :utc_datetime_usec, public?: true
     timestamps()

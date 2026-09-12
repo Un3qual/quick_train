@@ -12,7 +12,7 @@ defmodule QuickTrain.Forms.Presentation.PresentationElement do
   alias QuickTrain.Forms.FormVersion
   alias QuickTrain.Forms.Inputs.InputFieldRequirement
   alias QuickTrain.Forms.Questions.QuestionDefinition
-  alias QuickTrain.Forms.Types.{PlainText, PresentationKind}
+  alias QuickTrain.Forms.Types.PresentationKind
   alias QuickTrain.Repo
 
   attributes do
@@ -27,7 +27,9 @@ defmodule QuickTrain.Forms.Presentation.PresentationElement do
       allow_nil?: false,
       constraints: [min: 0, max: 2_147_483_647]
 
-    attribute :text, PlainText, public?: true, constraints: [max_length: 16_384]
+    attribute :text, :string,
+      public?: true,
+      constraints: [trim?: false, allow_empty?: true, length_count: :bytes, max_length: 16_384]
 
     timestamps()
   end
