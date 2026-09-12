@@ -8,6 +8,7 @@ defmodule QuickTrain do
       Assets.Storage,
       Authorization,
       Datasets,
+      Forms,
       EnterpriseIdentity,
       EnterpriseIdentity.Adapter,
       Organizations

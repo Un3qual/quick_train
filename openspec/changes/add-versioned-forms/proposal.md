@@ -6,10 +6,12 @@ Organizations can now ingest immutable dataset content, but cannot define the re
 
 - Add organization-owned Forms and numbered FormVersions with editable drafts and an irreversible, atomic publication boundary.
 - Define reusable input slots and typed field requirements independently of concrete datasets, item revisions, and dataset field IDs.
-- Store one ordered presentation sequence with typed instruction, heading, section, bound-value, and question-placement elements.
-- Define typed scalar, static-choice, task-input-choice, ranking, and annotation question contracts, separating renderer type from answer family. Keep static options, input-slot references, label sets, labels, and family-specific constraints relational.
+- Store one ordered presentation sequence with typed instruction, heading, section, bound-value, and question-placement elements; content and references live on the element itself.
+- Define typed scalar, static-choice, task-input-choice, ranking, and annotation question contracts, separating renderer type from answer family. Keep static options, question-owned input-slot references, label sets, labels, and family-specific constraints relational. Scalar bound records are optional when no author-defined bounds are needed.
 - Expose scoped authoring and paginated inspection through deliberate AshGraphql actions protected by `forms.read` and `forms.manage`.
-- Preserve published child identities and content, including under concurrent authoring and publication. Support creating an empty draft or copying a published version of the same form into a new draft.
+- Keep lifecycle, ownership, subtype compatibility, and publication rules in Ash/Elixir; PostgreSQL provides relational constraints and transactional locks. Position conflicts return ordinary field-validation errors while complete reorders remain atomic.
+- Remove GraphQL complexity accounting and enforcement for now, including existing Dataset callbacks and both HTTP routes. Retain pagination, request-body, and per-version definition limits.
+- Preserve published child identities and content through authoring actions, including under concurrent authoring and publication. Support creating an empty draft or copying a published version of the same form into a new draft.
 
 Explicit non-goals:
 
@@ -26,11 +28,11 @@ Explicit non-goals:
 
 ### Modified Capabilities
 
-None. Existing authentication, dataset, and opaque asset-delivery contracts remain authoritative.
+- `datasets`: Remove the GraphQL complexity-budget requirement. Dataset authorization, typed reads, pagination, and immutable content remain unchanged.
 
 ## Impact
 
 - Adds `QuickTrain.Forms`, Ash/AshPostgres resources, generated migrations and snapshots, capability registration, GraphQL schema integration, and focused tests.
 - Intentionally extends the reusable backend foundations with the Forms product domain already recorded in `record-future-product-architecture` sections A–C, I, M, and N. Accounts remain one global User with optional organization membership; managing forms requires membership and capability in the owning organization.
 - Depends on existing account authentication and organization authorization. Forms declare requirements without reading or owning dataset content or storage access.
-- Uses the existing stable, pinned toolchain and dependencies. No new dependency, job system, generic service layer, or runtime changes are part of this planning commit.
+- Uses the existing stable, pinned toolchain and dependencies. No new dependency, job system, or generic service layer is introduced.

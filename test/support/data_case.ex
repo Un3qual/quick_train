@@ -45,7 +45,8 @@ defmodule QuickTrain.DataCase do
     role = Authorization.create_role!(organization.id, "manager", "Manager")
     Authorization.assign_role!(organization.id, user_id, role.id)
 
-    for key <- ~w(assets.read assets.manage datasets.read datasets.manage dataset_imports.manage) do
+    for key <-
+          ~w(forms.read forms.manage assets.read assets.manage datasets.read datasets.manage dataset_imports.manage) do
       capability =
         Authorization.create_capability!(key, key,
           upsert?: true,

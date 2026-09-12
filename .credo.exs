@@ -14,7 +14,11 @@ checks =
     %{
       name: "default",
       checks: %{
-        extra: checks
+        extra: [
+          {Credo.Check.Design.AliasUsage,
+           priority: :low, if_nested_deeper_than: 2, only: ~r/^QuickTrain\./}
+          | checks
+        ]
       }
     }
   ]
