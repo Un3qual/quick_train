@@ -558,7 +558,7 @@ defmodule QuickTrain.Forms do
   end
 
   def connection_complexity(arguments, child_complexity, _info) do
-    page_size = arguments[:first] || arguments[:last] || 100
+    page_size = arguments[:first] || arguments[:last] || 50
     1 + Kernel.max(page_size, 0) * Kernel.max(child_complexity, 1)
   end
 end

@@ -188,7 +188,19 @@ defmodule QuickTrainWeb.FormGraphqlTest do
 
   test "query complexity and request byte limits apply to Forms", %{conn: conn} do
     ctx = context!()
+    %{version: version} = draft!(ctx)
     conn = bearer(conn, ctx.actor)
+
+    data =
+      graphql!(conn, """
+      { forms(organizationId: "#{ctx.org.id}") {
+        edges { node { versions { edges { node { id } } } } }
+      } }
+      """)
+
+    assert data["forms"]["edges"] == [
+             %{"node" => %{"versions" => %{"edges" => [%{"node" => %{"id" => version.id}}]}}}
+           ]
 
     response =
       conn
