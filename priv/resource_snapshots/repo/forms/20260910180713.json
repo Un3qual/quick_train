@@ -1,0 +1,150 @@
+{
+  "attributes": [
+    {
+      "allow_nil?": false,
+      "default": "fragment(\"gen_random_uuid()\")",
+      "generated?": false,
+      "precision": null,
+      "primary_key?": true,
+      "references": null,
+      "scale": null,
+      "size": null,
+      "source": "id",
+      "type": "uuid"
+    },
+    {
+      "allow_nil?": false,
+      "default": "nil",
+      "generated?": false,
+      "precision": null,
+      "primary_key?": false,
+      "references": null,
+      "scale": null,
+      "size": null,
+      "source": "key",
+      "type": "text"
+    },
+    {
+      "allow_nil?": false,
+      "default": "fragment(\"(now() AT TIME ZONE 'utc')\")",
+      "generated?": false,
+      "precision": null,
+      "primary_key?": false,
+      "references": null,
+      "scale": null,
+      "size": null,
+      "source": "inserted_at",
+      "type": "utc_datetime_usec"
+    },
+    {
+      "allow_nil?": false,
+      "default": "fragment(\"(now() AT TIME ZONE 'utc')\")",
+      "generated?": false,
+      "precision": null,
+      "primary_key?": false,
+      "references": null,
+      "scale": null,
+      "size": null,
+      "source": "updated_at",
+      "type": "utc_datetime_usec"
+    },
+    {
+      "allow_nil?": false,
+      "default": "nil",
+      "generated?": false,
+      "precision": null,
+      "primary_key?": false,
+      "references": {
+        "deferrable": false,
+        "destination_attribute": "id",
+        "destination_attribute_default": null,
+        "destination_attribute_generated": null,
+        "index?": false,
+        "index_where": null,
+        "match_tenant?": false,
+        "match_type": null,
+        "match_with": null,
+        "multitenancy": {
+          "attribute": null,
+          "global": null,
+          "strategy": null
+        },
+        "name": "forms_organization_id_fkey",
+        "on_delete": "restrict",
+        "on_update": null,
+        "primary_key?": true,
+        "schema": "public",
+        "table": "organizations"
+      },
+      "scale": null,
+      "size": null,
+      "source": "organization_id",
+      "type": "uuid"
+    }
+  ],
+  "base_filter": null,
+  "check_constraints": [],
+  "create_table_options": null,
+  "custom_indexes": [],
+  "custom_statements": [
+    {
+      "after_tables": [
+        "forms",
+        "form_versions",
+        "form_input_slot_definitions",
+        "form_input_field_requirements",
+        "form_question_definitions",
+        "form_text_constraints",
+        "form_integer_constraints",
+        "form_decimal_constraints",
+        "form_selection_constraints",
+        "form_annotation_constraints",
+        "form_input_sources",
+        "form_question_options",
+        "form_label_sets",
+        "form_labels",
+        "form_presentation_elements",
+        "form_instructions",
+        "form_headings",
+        "form_sections",
+        "form_bound_values",
+        "form_question_placements"
+      ],
+      "code?": false,
+      "down": "DO $forms_migration$ BEGIN\nEXECUTE $forms_ddl$DROP TRIGGER forms_owner_guard ON forms;$forms_ddl$;\nEXECUTE $forms_ddl$DROP TRIGGER form_versions_owner_guard ON form_versions;$forms_ddl$;\nEXECUTE $forms_ddl$DROP TRIGGER form_input_slot_definitions_draft_guard ON form_input_slot_definitions;$forms_ddl$;\nEXECUTE $forms_ddl$DROP TRIGGER form_input_field_requirements_draft_guard ON form_input_field_requirements;$forms_ddl$;\nEXECUTE $forms_ddl$DROP TRIGGER form_question_definitions_draft_guard ON form_question_definitions;$forms_ddl$;\nEXECUTE $forms_ddl$DROP TRIGGER form_text_constraints_draft_guard ON form_text_constraints;$forms_ddl$;\nEXECUTE $forms_ddl$DROP TRIGGER form_integer_constraints_draft_guard ON form_integer_constraints;$forms_ddl$;\nEXECUTE $forms_ddl$DROP TRIGGER form_decimal_constraints_draft_guard ON form_decimal_constraints;$forms_ddl$;\nEXECUTE $forms_ddl$DROP TRIGGER form_selection_constraints_draft_guard ON form_selection_constraints;$forms_ddl$;\nEXECUTE $forms_ddl$DROP TRIGGER form_annotation_constraints_draft_guard ON form_annotation_constraints;$forms_ddl$;\nEXECUTE $forms_ddl$DROP TRIGGER form_input_sources_draft_guard ON form_input_sources;$forms_ddl$;\nEXECUTE $forms_ddl$DROP TRIGGER form_question_options_draft_guard ON form_question_options;$forms_ddl$;\nEXECUTE $forms_ddl$DROP TRIGGER form_label_sets_draft_guard ON form_label_sets;$forms_ddl$;\nEXECUTE $forms_ddl$DROP TRIGGER form_labels_draft_guard ON form_labels;$forms_ddl$;\nEXECUTE $forms_ddl$DROP TRIGGER form_presentation_elements_draft_guard ON form_presentation_elements;$forms_ddl$;\nEXECUTE $forms_ddl$DROP TRIGGER form_instructions_draft_guard ON form_instructions;$forms_ddl$;\nEXECUTE $forms_ddl$DROP TRIGGER form_headings_draft_guard ON form_headings;$forms_ddl$;\nEXECUTE $forms_ddl$DROP TRIGGER form_sections_draft_guard ON form_sections;$forms_ddl$;\nEXECUTE $forms_ddl$DROP TRIGGER form_bound_values_draft_guard ON form_bound_values;$forms_ddl$;\nEXECUTE $forms_ddl$DROP TRIGGER form_question_placements_draft_guard ON form_question_placements;$forms_ddl$;\nEXECUTE $forms_ddl$DROP TRIGGER form_presentation_elements_typed_guard ON form_presentation_elements;$forms_ddl$;\nEXECUTE $forms_ddl$DROP TRIGGER form_instructions_typed_guard ON form_instructions;$forms_ddl$;\nEXECUTE $forms_ddl$DROP TRIGGER form_headings_typed_guard ON form_headings;$forms_ddl$;\nEXECUTE $forms_ddl$DROP TRIGGER form_sections_typed_guard ON form_sections;$forms_ddl$;\nEXECUTE $forms_ddl$DROP TRIGGER form_bound_values_typed_guard ON form_bound_values;$forms_ddl$;\nEXECUTE $forms_ddl$DROP TRIGGER form_question_placements_typed_guard ON form_question_placements;$forms_ddl$;\nEXECUTE $forms_ddl$DROP TRIGGER form_question_definitions_typed_guard ON form_question_definitions;$forms_ddl$;\nEXECUTE $forms_ddl$DROP TRIGGER form_text_constraints_typed_guard ON form_text_constraints;$forms_ddl$;\nEXECUTE $forms_ddl$DROP TRIGGER form_integer_constraints_typed_guard ON form_integer_constraints;$forms_ddl$;\nEXECUTE $forms_ddl$DROP TRIGGER form_decimal_constraints_typed_guard ON form_decimal_constraints;$forms_ddl$;\nEXECUTE $forms_ddl$DROP TRIGGER form_selection_constraints_typed_guard ON form_selection_constraints;$forms_ddl$;\nEXECUTE $forms_ddl$DROP TRIGGER form_annotation_constraints_typed_guard ON form_annotation_constraints;$forms_ddl$;\nEXECUTE $forms_ddl$DROP TRIGGER form_input_sources_typed_guard ON form_input_sources;$forms_ddl$;\nEXECUTE $forms_ddl$DROP TRIGGER form_question_options_typed_guard ON form_question_options;$forms_ddl$;\nEXECUTE $forms_ddl$ALTER TABLE form_presentation_elements DROP CONSTRAINT form_presentation_elements_position_unique;$forms_ddl$;\nEXECUTE $forms_ddl$ALTER TABLE form_question_options DROP CONSTRAINT form_question_options_position_unique;$forms_ddl$;\nEXECUTE $forms_ddl$ALTER TABLE form_labels DROP CONSTRAINT form_labels_position_unique;$forms_ddl$;\nEXECUTE $forms_ddl$DROP FUNCTION quick_train_form_typed_trigger();$forms_ddl$;\nEXECUTE $forms_ddl$DROP FUNCTION quick_train_check_form_question(uuid);$forms_ddl$;\nEXECUTE $forms_ddl$DROP FUNCTION quick_train_check_form_presentation(uuid);$forms_ddl$;\nEXECUTE $forms_ddl$DROP FUNCTION quick_train_form_child_guard();$forms_ddl$;\nEXECUTE $forms_ddl$DROP FUNCTION quick_train_form_owner_guard();$forms_ddl$;\nEND $forms_migration$;",
+      "global?": false,
+      "name": "forms_graph_integrity",
+      "up": "DO $forms_migration$ BEGIN\nEXECUTE $forms_ddl$CREATE FUNCTION quick_train_form_owner_guard() RETURNS trigger LANGUAGE plpgsql AS $$\nBEGIN\n  IF TG_TABLE_NAME = 'forms' THEN\n    IF TG_OP = 'UPDATE' AND (NEW.id, NEW.organization_id, NEW.key) IS DISTINCT FROM (OLD.id, OLD.organization_id, OLD.key) THEN\n      RAISE EXCEPTION 'immutable form identity' USING ERRCODE = '23514';\n    END IF;\n  ELSE\n    IF TG_OP = 'INSERT' THEN\n      IF NEW.state <> 'draft' OR NEW.published_at IS NOT NULL THEN\n        RAISE EXCEPTION 'new form versions must be drafts' USING ERRCODE = '23514';\n      END IF;\n    ELSE\n      IF OLD.state = 'published' THEN\n        RAISE EXCEPTION 'published form version is immutable' USING ERRCODE = '23514';\n      END IF;\n      IF TG_OP = 'UPDATE' AND (NEW.id, NEW.form_id, NEW.version) IS DISTINCT FROM (OLD.id, OLD.form_id, OLD.version) THEN\n        RAISE EXCEPTION 'immutable form version identity' USING ERRCODE = '23514';\n      END IF;\n    END IF;\n  END IF;\n  IF TG_OP = 'DELETE' THEN RETURN OLD; END IF;\n  RETURN NEW;\nEND; $$;\n$forms_ddl$;\nEXECUTE $forms_ddl$CREATE FUNCTION quick_train_form_child_guard() RETURNS trigger LANGUAGE plpgsql AS $$\nDECLARE owner_id uuid; owner_state text;\nBEGIN\n  IF TG_OP = 'INSERT' THEN owner_id := NEW.version_id; ELSE owner_id := OLD.version_id; END IF;\n  SELECT state INTO owner_state FROM form_versions WHERE id = owner_id FOR UPDATE;\n  IF owner_state IS DISTINCT FROM 'draft' THEN\n    RAISE EXCEPTION 'form version must be a draft' USING ERRCODE = '23514';\n  END IF;\n  IF TG_OP = 'UPDATE' THEN\n    IF (OLD.id, OLD.version_id) IS DISTINCT FROM (NEW.id, NEW.version_id) THEN\n      RAISE EXCEPTION 'immutable definition ownership' USING ERRCODE = '23514';\n    END IF;\n    IF TG_TABLE_NAME IN ('form_input_slot_definitions','form_input_field_requirements','form_question_definitions','form_question_options','form_label_sets','form_labels') THEN\n      IF OLD.key IS DISTINCT FROM NEW.key THEN RAISE EXCEPTION 'immutable definition key' USING ERRCODE = '23514'; END IF;\n    END IF;\n    IF TG_TABLE_NAME = 'form_input_field_requirements' THEN\n      IF OLD.input_slot_id IS DISTINCT FROM NEW.input_slot_id THEN RAISE EXCEPTION 'immutable input slot ownership' USING ERRCODE = '23514'; END IF;\n    ELSIF TG_TABLE_NAME = 'form_labels' THEN\n      IF OLD.label_set_id IS DISTINCT FROM NEW.label_set_id THEN RAISE EXCEPTION 'immutable label ownership' USING ERRCODE = '23514'; END IF;\n    ELSIF TG_TABLE_NAME IN ('form_text_constraints','form_integer_constraints','form_decimal_constraints','form_selection_constraints','form_annotation_constraints','form_input_sources','form_question_options') THEN\n      IF OLD.question_id IS DISTINCT FROM NEW.question_id THEN RAISE EXCEPTION 'immutable question ownership' USING ERRCODE = '23514'; END IF;\n    ELSIF TG_TABLE_NAME IN ('form_instructions','form_headings','form_sections','form_bound_values','form_question_placements') THEN\n      IF OLD.element_id IS DISTINCT FROM NEW.element_id THEN RAISE EXCEPTION 'immutable element ownership' USING ERRCODE = '23514'; END IF;\n    ELSIF TG_TABLE_NAME = 'form_presentation_elements' THEN\n      IF OLD.kind IS DISTINCT FROM NEW.kind THEN RAISE EXCEPTION 'immutable element kind' USING ERRCODE = '23514'; END IF;\n    END IF;\n  END IF;\n  IF TG_OP = 'DELETE' THEN RETURN OLD; END IF;\n  RETURN NEW;\nEND; $$;\n$forms_ddl$;\nEXECUTE $forms_ddl$CREATE FUNCTION quick_train_check_form_presentation(element_uuid uuid) RETURNS void LANGUAGE plpgsql AS $$\nDECLARE element_kind text; matching bigint; total bigint;\nBEGIN\n  SELECT kind INTO element_kind FROM form_presentation_elements WHERE id = element_uuid;\n  IF NOT FOUND THEN RETURN; END IF;\n  SELECT count(*), count(*) FILTER (WHERE kind = element_kind) INTO total, matching FROM (\n    SELECT 'instruction' AS kind FROM form_instructions WHERE element_id = element_uuid\n    UNION ALL SELECT 'heading' FROM form_headings WHERE element_id = element_uuid\n    UNION ALL SELECT 'section' FROM form_sections WHERE element_id = element_uuid\n    UNION ALL SELECT 'bound_value' FROM form_bound_values WHERE element_id = element_uuid\n    UNION ALL SELECT 'question' FROM form_question_placements WHERE element_id = element_uuid\n  ) children;\n  IF total <> 1 OR matching <> 1 THEN\n    RAISE EXCEPTION 'presentation requires one matching subtype' USING ERRCODE = '23514';\n  END IF;\nEND; $$;\n$forms_ddl$;\nEXECUTE $forms_ddl$CREATE FUNCTION quick_train_check_form_question(question_uuid uuid) RETURNS void LANGUAGE plpgsql AS $$\nDECLARE answer_family text; invalid boolean;\nBEGIN\n  SELECT family INTO answer_family FROM form_question_definitions WHERE id = question_uuid;\n  IF NOT FOUND THEN RETURN; END IF;\n  SELECT EXISTS (\n    SELECT 1 FROM form_text_constraints WHERE question_id = question_uuid AND answer_family <> 'text'\n    UNION ALL SELECT 1 FROM form_integer_constraints WHERE question_id = question_uuid AND answer_family <> 'integer'\n    UNION ALL SELECT 1 FROM form_decimal_constraints WHERE question_id = question_uuid AND answer_family <> 'decimal'\n    UNION ALL SELECT 1 FROM form_selection_constraints WHERE question_id = question_uuid AND answer_family NOT IN ('static_single_choice','static_multiple_choice','task_input_single_choice','task_input_multiple_choice')\n    UNION ALL SELECT 1 FROM form_annotation_constraints WHERE question_id = question_uuid AND answer_family NOT IN ('bounding_boxes','polygon_regions','raster_masks','text_spans')\n    UNION ALL SELECT 1 FROM form_input_sources WHERE question_id = question_uuid AND answer_family NOT IN ('task_input_single_choice','task_input_multiple_choice','task_input_ranking')\n    UNION ALL SELECT 1 FROM form_question_options WHERE question_id = question_uuid AND answer_family NOT IN ('static_single_choice','static_multiple_choice')\n  ) INTO invalid;\n  IF invalid THEN RAISE EXCEPTION 'incompatible question subtype' USING ERRCODE = '23514'; END IF;\nEND; $$;\n$forms_ddl$;\nEXECUTE $forms_ddl$CREATE FUNCTION quick_train_form_typed_trigger() RETURNS trigger LANGUAGE plpgsql AS $$\nDECLARE owner_uuid uuid;\nBEGIN\n  IF TG_ARGV[0] = 'presentation' THEN\n    IF TG_TABLE_NAME = 'form_presentation_elements' THEN\n      IF TG_OP = 'DELETE' THEN owner_uuid := OLD.id; ELSE owner_uuid := NEW.id; END IF;\n    ELSE\n      IF TG_OP = 'DELETE' THEN owner_uuid := OLD.element_id; ELSE owner_uuid := NEW.element_id; END IF;\n    END IF;\n    PERFORM quick_train_check_form_presentation(owner_uuid);\n  ELSE\n    IF TG_TABLE_NAME = 'form_question_definitions' THEN\n      IF TG_OP = 'DELETE' THEN owner_uuid := OLD.id; ELSE owner_uuid := NEW.id; END IF;\n    ELSE\n      IF TG_OP = 'DELETE' THEN owner_uuid := OLD.question_id; ELSE owner_uuid := NEW.question_id; END IF;\n    END IF;\n    PERFORM quick_train_check_form_question(owner_uuid);\n  END IF;\n  RETURN NULL;\nEND; $$;\n$forms_ddl$;\nEXECUTE $forms_ddl$CREATE TRIGGER forms_owner_guard BEFORE UPDATE OR DELETE ON forms FOR EACH ROW EXECUTE FUNCTION quick_train_form_owner_guard();$forms_ddl$;\nEXECUTE $forms_ddl$CREATE TRIGGER form_versions_owner_guard BEFORE INSERT OR UPDATE OR DELETE ON form_versions FOR EACH ROW EXECUTE FUNCTION quick_train_form_owner_guard();$forms_ddl$;\nEXECUTE $forms_ddl$CREATE TRIGGER form_input_slot_definitions_draft_guard BEFORE INSERT OR UPDATE OR DELETE ON form_input_slot_definitions FOR EACH ROW EXECUTE FUNCTION quick_train_form_child_guard();$forms_ddl$;\nEXECUTE $forms_ddl$CREATE TRIGGER form_input_field_requirements_draft_guard BEFORE INSERT OR UPDATE OR DELETE ON form_input_field_requirements FOR EACH ROW EXECUTE FUNCTION quick_train_form_child_guard();$forms_ddl$;\nEXECUTE $forms_ddl$CREATE TRIGGER form_question_definitions_draft_guard BEFORE INSERT OR UPDATE OR DELETE ON form_question_definitions FOR EACH ROW EXECUTE FUNCTION quick_train_form_child_guard();$forms_ddl$;\nEXECUTE $forms_ddl$CREATE TRIGGER form_text_constraints_draft_guard BEFORE INSERT OR UPDATE OR DELETE ON form_text_constraints FOR EACH ROW EXECUTE FUNCTION quick_train_form_child_guard();$forms_ddl$;\nEXECUTE $forms_ddl$CREATE TRIGGER form_integer_constraints_draft_guard BEFORE INSERT OR UPDATE OR DELETE ON form_integer_constraints FOR EACH ROW EXECUTE FUNCTION quick_train_form_child_guard();$forms_ddl$;\nEXECUTE $forms_ddl$CREATE TRIGGER form_decimal_constraints_draft_guard BEFORE INSERT OR UPDATE OR DELETE ON form_decimal_constraints FOR EACH ROW EXECUTE FUNCTION quick_train_form_child_guard();$forms_ddl$;\nEXECUTE $forms_ddl$CREATE TRIGGER form_selection_constraints_draft_guard BEFORE INSERT OR UPDATE OR DELETE ON form_selection_constraints FOR EACH ROW EXECUTE FUNCTION quick_train_form_child_guard();$forms_ddl$;\nEXECUTE $forms_ddl$CREATE TRIGGER form_annotation_constraints_draft_guard BEFORE INSERT OR UPDATE OR DELETE ON form_annotation_constraints FOR EACH ROW EXECUTE FUNCTION quick_train_form_child_guard();$forms_ddl$;\nEXECUTE $forms_ddl$CREATE TRIGGER form_input_sources_draft_guard BEFORE INSERT OR UPDATE OR DELETE ON form_input_sources FOR EACH ROW EXECUTE FUNCTION quick_train_form_child_guard();$forms_ddl$;\nEXECUTE $forms_ddl$CREATE TRIGGER form_question_options_draft_guard BEFORE INSERT OR UPDATE OR DELETE ON form_question_options FOR EACH ROW EXECUTE FUNCTION quick_train_form_child_guard();$forms_ddl$;\nEXECUTE $forms_ddl$CREATE TRIGGER form_label_sets_draft_guard BEFORE INSERT OR UPDATE OR DELETE ON form_label_sets FOR EACH ROW EXECUTE FUNCTION quick_train_form_child_guard();$forms_ddl$;\nEXECUTE $forms_ddl$CREATE TRIGGER form_labels_draft_guard BEFORE INSERT OR UPDATE OR DELETE ON form_labels FOR EACH ROW EXECUTE FUNCTION quick_train_form_child_guard();$forms_ddl$;\nEXECUTE $forms_ddl$CREATE TRIGGER form_presentation_elements_draft_guard BEFORE INSERT OR UPDATE OR DELETE ON form_presentation_elements FOR EACH ROW EXECUTE FUNCTION quick_train_form_child_guard();$forms_ddl$;\nEXECUTE $forms_ddl$CREATE TRIGGER form_instructions_draft_guard BEFORE INSERT OR UPDATE OR DELETE ON form_instructions FOR EACH ROW EXECUTE FUNCTION quick_train_form_child_guard();$forms_ddl$;\nEXECUTE $forms_ddl$CREATE TRIGGER form_headings_draft_guard BEFORE INSERT OR UPDATE OR DELETE ON form_headings FOR EACH ROW EXECUTE FUNCTION quick_train_form_child_guard();$forms_ddl$;\nEXECUTE $forms_ddl$CREATE TRIGGER form_sections_draft_guard BEFORE INSERT OR UPDATE OR DELETE ON form_sections FOR EACH ROW EXECUTE FUNCTION quick_train_form_child_guard();$forms_ddl$;\nEXECUTE $forms_ddl$CREATE TRIGGER form_bound_values_draft_guard BEFORE INSERT OR UPDATE OR DELETE ON form_bound_values FOR EACH ROW EXECUTE FUNCTION quick_train_form_child_guard();$forms_ddl$;\nEXECUTE $forms_ddl$CREATE TRIGGER form_question_placements_draft_guard BEFORE INSERT OR UPDATE OR DELETE ON form_question_placements FOR EACH ROW EXECUTE FUNCTION quick_train_form_child_guard();$forms_ddl$;\nEXECUTE $forms_ddl$CREATE CONSTRAINT TRIGGER form_presentation_elements_typed_guard AFTER INSERT OR UPDATE OR DELETE ON form_presentation_elements DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION quick_train_form_typed_trigger('presentation');$forms_ddl$;\nEXECUTE $forms_ddl$CREATE CONSTRAINT TRIGGER form_instructions_typed_guard AFTER INSERT OR UPDATE OR DELETE ON form_instructions DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION quick_train_form_typed_trigger('presentation');$forms_ddl$;\nEXECUTE $forms_ddl$CREATE CONSTRAINT TRIGGER form_headings_typed_guard AFTER INSERT OR UPDATE OR DELETE ON form_headings DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION quick_train_form_typed_trigger('presentation');$forms_ddl$;\nEXECUTE $forms_ddl$CREATE CONSTRAINT TRIGGER form_sections_typed_guard AFTER INSERT OR UPDATE OR DELETE ON form_sections DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION quick_train_form_typed_trigger('presentation');$forms_ddl$;\nEXECUTE $forms_ddl$CREATE CONSTRAINT TRIGGER form_bound_values_typed_guard AFTER INSERT OR UPDATE OR DELETE ON form_bound_values DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION quick_train_form_typed_trigger('presentation');$forms_ddl$;\nEXECUTE $forms_ddl$CREATE CONSTRAINT TRIGGER form_question_placements_typed_guard AFTER INSERT OR UPDATE OR DELETE ON form_question_placements DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION quick_train_form_typed_trigger('presentation');$forms_ddl$;\nEXECUTE $forms_ddl$CREATE CONSTRAINT TRIGGER form_question_definitions_typed_guard AFTER INSERT OR UPDATE OR DELETE ON form_question_definitions DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION quick_train_form_typed_trigger('question');$forms_ddl$;\nEXECUTE $forms_ddl$CREATE CONSTRAINT TRIGGER form_text_constraints_typed_guard AFTER INSERT OR UPDATE OR DELETE ON form_text_constraints DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION quick_train_form_typed_trigger('question');$forms_ddl$;\nEXECUTE $forms_ddl$CREATE CONSTRAINT TRIGGER form_integer_constraints_typed_guard AFTER INSERT OR UPDATE OR DELETE ON form_integer_constraints DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION quick_train_form_typed_trigger('question');$forms_ddl$;\nEXECUTE $forms_ddl$CREATE CONSTRAINT TRIGGER form_decimal_constraints_typed_guard AFTER INSERT OR UPDATE OR DELETE ON form_decimal_constraints DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION quick_train_form_typed_trigger('question');$forms_ddl$;\nEXECUTE $forms_ddl$CREATE CONSTRAINT TRIGGER form_selection_constraints_typed_guard AFTER INSERT OR UPDATE OR DELETE ON form_selection_constraints DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION quick_train_form_typed_trigger('question');$forms_ddl$;\nEXECUTE $forms_ddl$CREATE CONSTRAINT TRIGGER form_annotation_constraints_typed_guard AFTER INSERT OR UPDATE OR DELETE ON form_annotation_constraints DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION quick_train_form_typed_trigger('question');$forms_ddl$;\nEXECUTE $forms_ddl$CREATE CONSTRAINT TRIGGER form_input_sources_typed_guard AFTER INSERT OR UPDATE OR DELETE ON form_input_sources DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION quick_train_form_typed_trigger('question');$forms_ddl$;\nEXECUTE $forms_ddl$CREATE CONSTRAINT TRIGGER form_question_options_typed_guard AFTER INSERT OR UPDATE OR DELETE ON form_question_options DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION quick_train_form_typed_trigger('question');$forms_ddl$;\nEXECUTE $forms_ddl$ALTER TABLE form_presentation_elements ADD CONSTRAINT form_presentation_elements_position_unique UNIQUE (version_id, position) DEFERRABLE INITIALLY DEFERRED;$forms_ddl$;\nEXECUTE $forms_ddl$ALTER TABLE form_question_options ADD CONSTRAINT form_question_options_position_unique UNIQUE (question_id, position) DEFERRABLE INITIALLY DEFERRED;$forms_ddl$;\nEXECUTE $forms_ddl$ALTER TABLE form_labels ADD CONSTRAINT form_labels_position_unique UNIQUE (label_set_id, position) DEFERRABLE INITIALLY DEFERRED;$forms_ddl$;\nEND $forms_migration$;"
+    }
+  ],
+  "has_create_action": true,
+  "hash": "67B00856D18BB0BEE7D82CC4399C755A142616F0D3A3339902A80CA57DA849D8",
+  "identities": [
+    {
+      "all_tenants?": false,
+      "base_filter": null,
+      "index_name": "forms_parent_key_index",
+      "keys": [
+        {
+          "type": "atom",
+          "value": "organization_id"
+        },
+        {
+          "type": "atom",
+          "value": "key"
+        }
+      ],
+      "name": "parent_key",
+      "nils_distinct?": true,
+      "where": null
+    }
+  ],
+  "multitenancy": {
+    "attribute": null,
+    "global": null,
+    "strategy": null
+  },
+  "repo": "Elixir.QuickTrain.Repo",
+  "schema": null,
+  "table": "forms"
+}

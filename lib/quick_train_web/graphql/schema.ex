@@ -4,7 +4,12 @@ defmodule QuickTrainWeb.GraphQL.Schema do
   use Absinthe.Schema, use_spec_compliant_int_scalar: true
 
   use AshGraphql,
-    domains: [QuickTrain.Authentication, QuickTrain.Assets, QuickTrain.Datasets],
+    domains: [
+      QuickTrain.Authentication,
+      QuickTrain.Assets,
+      QuickTrain.Datasets,
+      QuickTrain.Forms
+    ],
     define_relay_types?: true,
     relay_ids?: false
 

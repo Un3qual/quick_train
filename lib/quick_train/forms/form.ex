@@ -1,0 +1,140 @@
+defmodule QuickTrain.Forms.Form do
+  @moduledoc "Organization-scoped form definition."
+  use Ash.Resource,
+    otp_app: :quick_train,
+    domain: QuickTrain.Forms,
+    extensions: [AshGraphql.Resource],
+    data_layer: AshPostgres.DataLayer,
+    authorizers: [Ash.Policy.Authorizer]
+
+  alias QuickTrain.Authorization.Checks.OrganizationCapability
+  alias QuickTrain.Authorization.RoleAssignment
+  alias QuickTrain.Forms.FormVersion
+  alias QuickTrain.Forms.Types.PlainText
+  alias QuickTrain.Organizations.Organization
+  alias QuickTrain.Repo
+
+  attributes do
+    uuid_primary_key :id
+
+    attribute :key, PlainText,
+      public?: true,
+      allow_nil?: false,
+      constraints: [
+        max_length: 512,
+        min_length: 1
+      ]
+
+    timestamps()
+  end
+
+  relationships do
+    belongs_to :organization, Organization,
+      allow_nil?: false,
+      attribute_public?: true
+
+    has_many :versions, FormVersion,
+      destination_attribute: :form_id,
+      public?: true
+
+    has_many :reader_role_assignments, RoleAssignment do
+      source_attribute :organization_id
+      destination_attribute :organization_id
+
+      filter expr(
+               user.status == "active" and organization.status == "active" and
+                 exists(role.role_capabilities, capability.key in ["forms.read", "forms.manage"]) and
+                 exists(organization.memberships, user_id == ^actor(:id) and status == "active")
+             )
+    end
+
+    has_many :manager_role_assignments, RoleAssignment do
+      source_attribute :organization_id
+      destination_attribute :organization_id
+
+      filter expr(
+               user.status == "active" and organization.status == "active" and
+                 exists(role.role_capabilities, capability.key == "forms.manage") and
+                 exists(organization.memberships, user_id == ^actor(:id) and status == "active")
+             )
+    end
+  end
+
+  actions do
+    read :lock_for_allocation do
+      get? true
+      argument :id, :uuid, allow_nil?: false
+      argument :organization_id, :uuid, allow_nil?: false
+      filter expr(id == ^arg(:id) and organization_id == ^arg(:organization_id))
+      prepare build(lock: :for_update)
+    end
+
+    read :read do
+      primary? true
+
+      pagination keyset?: true,
+                 required?: false,
+                 default_limit: 50,
+                 max_page_size: 100,
+                 stable_sort: [inserted_at: :asc, id: :asc]
+    end
+
+    read :list_scoped do
+      argument :organization_id, :uuid, allow_nil?: false
+      filter expr(organization_id == ^arg(:organization_id))
+
+      pagination keyset?: true,
+                 required?: true,
+                 default_limit: 50,
+                 max_page_size: 100,
+                 stable_sort: [inserted_at: :asc, id: :asc]
+    end
+
+    read :get_scoped do
+      get? true
+      argument :organization_id, :uuid, allow_nil?: false
+      argument :id, :uuid, allow_nil?: false
+      filter expr(id == ^arg(:id) and organization_id == ^arg(:organization_id))
+    end
+
+    create :create_form do
+      accept [:key, :organization_id]
+    end
+  end
+
+  policies do
+    policy action(:read) do
+      forbid_if always()
+    end
+
+    policy action([:list_scoped, :get_scoped]) do
+      authorize_if {OrganizationCapability, capability: "forms.read"}
+    end
+
+    policy action([:create_form]) do
+      authorize_if {OrganizationCapability, capability: "forms.manage"}
+    end
+  end
+
+  graphql do
+    type :form
+    derive_filter? false
+    derive_sort? false
+    complexity {Module.concat(["QuickTrain.Forms"]), :connection_complexity}
+    relationships [:versions]
+    paginate_relationship_with versions: :relay
+  end
+
+  postgres do
+    table "forms"
+    repo Repo
+
+    references do
+      reference :organization, on_delete: :restrict
+    end
+  end
+
+  identities do
+    identity :parent_key, [:organization_id, :key]
+  end
+end
