@@ -169,14 +169,3 @@ The system SHALL expose authenticated GraphQL actions for dataset and schema lif
 #### Scenario: Typed relationships are traversed
 - **WHEN** an authorized caller traverses from a dataset through its schema structure or from an item through a revision and normalized record
 - **THEN** each singular relationship returns its typed resource and each to-many relationship returns a bounded keyset Relay connection without opening an unscoped root read
-
-### Requirement: Bounded GraphQL query work
-The HTTP GraphQL API SHALL enforce an Absinthe query complexity budget of 10,000 across the entire operation, including nested connections. Collection complexity SHALL multiply child cost by the requested page size, or conservatively by the maximum exposed page size of 100 when page arguments are absent or null. Both GraphQL and development GraphiQL execution SHALL enforce the same budget.
-
-#### Scenario: Excessive nested collections are rejected
-- **WHEN** an operation exceeds the complexity budget through repeated nested connections
-- **THEN** the API rejects it before resolution, including when page sizes use first, last, omitted arguments, or null arguments
-
-#### Scenario: Bounded typed reads remain available
-- **WHEN** an authorized operation selects typed relationships within the budget
-- **THEN** the API resolves its requested bounded pages normally
