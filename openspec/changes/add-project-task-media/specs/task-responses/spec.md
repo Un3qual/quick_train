@@ -1,27 +1,14 @@
-## MODIFIED Requirements
-
-### Requirement: Response writes are bounded and explicitly exposed
-GraphQL SHALL expose deliberate typed save/submit operations and bounded typed outcome inspection; generic submitted-outcome/child update and delete mutations SHALL not exist. Apply at most 200 offered questions, 64 KiB text per answer, 1 KiB reason, 16 KiB explanation, and 1,000 spans per question, alongside published form bounds and the existing HTTP body limit. The per-response annotation ceiling SHALL be 10,000 combined child rows, counting each TextSpan, BoundingBox, PolygonRegion, PolygonPoint, and MaskRegion once; this replaces the core text-only total rather than granting a separate budget to each family. Whole-question replacement SHALL check the resulting response total under its existing lock. Impossible published minimums SHALL reject project activation; tighter execution ceilings SHALL be disclosed. Oversized operations SHALL fail atomically and all collections SHALL use Relay keyset pagination, default 50/max 100.
-
-#### Scenario: A span answer exceeds its execution limit
-- **WHEN** a draft write supplies 1,001 text spans
-- **THEN** the whole question write fails without replacing the previous draft answer
-
-#### Scenario: Text and spatial annotations share one budget
-- **WHEN** a response contains 9,000 text spans across questions and a draft replacement would leave another 1,001 spatial child rows
-- **THEN** the write fails atomically even if every per-question and per-polygon bound is met; polygon regions and their points both count toward the combined total
-
 ## ADDED Requirements
 
 ### Requirement: Spatial annotation provenance is exact
-Each spatial region SHALL identify the exact TaskInput, its bound source DatasetValue, and a label from the question's published label set. The source SHALL match the question's required image source and exact allocated immutable revision. Region counts SHALL satisfy the published question bounds; zero regions SHALL be an answered outcome only when its minimum is zero. Foreign labels, wrong source values, and unallocated inputs SHALL fail. Every spatial write SHALL use the existing Response lock, current owner/eligibility/lease checks, draft revision check, and immutable submission boundary. No spatial payload SHALL be persisted as JSONB.
+Each spatial region SHALL identify the exact TaskInput, its bound source DatasetValue, and a label from the question's published label set. The source SHALL match the question's required image source and exact allocated immutable revision. Region counts SHALL satisfy the published question bounds; zero regions SHALL be an answered outcome only when its minimum is zero. Foreign labels, wrong source values, and unallocated inputs SHALL fail. Every spatial write SHALL use the core Project/Task/Attempt/Response lock order, post-lock owner/eligibility/lease/state checks, draft revision check, and immutable submission boundary. No spatial payload SHALL be persisted as JSONB.
 
 #### Scenario: An annotation targets an unbound field
 - **WHEN** a worker supplies a valid value from the allocated revision that is not the question's bound source
 - **THEN** the write fails without attaching the region to that value
 
 ### Requirement: Bounding boxes and polygons use normalized valid geometry
-Bounding boxes SHALL use finite normalized coordinates with `0 <= x_min < x_max <= 1` and `0 <= y_min < y_max <= 1`. Polygon regions SHALL contain at least three distinct ordered points within `[0,1]`, have nonzero area, and form a simple non-self-intersecting ring with implicit closure. Repeated closing points, holes within one region, and non-finite coordinates SHALL be rejected. Multiple independent regions SHALL be permitted within count limits. Image execution SHALL require the separately implemented verified-media and serving prerequisites; opaque readiness alone SHALL not validate image sources.
+Bounding boxes SHALL use finite normalized coordinates with `0 <= x_min < x_max <= 1` and `0 <= y_min < y_max <= 1`. Polygon regions SHALL contain at least three distinct ordered points within `[0,1]`, have nonzero area, and form a simple non-self-intersecting ring with implicit closure. Repeated closing points, holes within one region, and non-finite coordinates SHALL be rejected. Multiple independent regions SHALL be permitted within the published question constraints. Image execution SHALL require the separately implemented verified-media and serving prerequisites; opaque readiness alone SHALL not validate image sources.
 
 #### Scenario: Invalid geometry is submitted
 - **WHEN** a box has negative width or a polygon crosses itself or contains an out-of-range coordinate
@@ -44,11 +31,11 @@ A raster mask SHALL reference a ready immutable mask asset and exact source asse
 
 #### Scenario: A worker replaces a draft mask
 - **WHEN** an authorized worker uploads new mask content to replace a draft attachment
-- **THEN** registration uses a new request key within the attempt's lifetime count/byte limits, and removing the old attachment does not restore its consumed allowance
+- **THEN** registration uses a new request key and verifies the replacement upload while preserving the previous registration as history
 
-### Requirement: Spatial responses have bounded execution limits
-Spatial writes SHALL accept at most 1,000 regions per question and 1,000 points per polygon within the combined per-response annotation budget defined by `Response writes are bounded and explicitly exposed`, subject to tighter published bounds and the existing request-body limit. All coordinates, counts, and typed children SHALL be validated before immutable submission. Published minimums that exceed these execution limits SHALL reject activation. Spatial child reads SHALL use stable Relay keyset pagination with default 50/max 100.
+### Requirement: Spatial response inspection is typed and paginated
+Spatial answers SHALL follow published annotation constraints and the existing request handling, with no additional region/point ceiling or combined annotation budget. All coordinates and typed children SHALL be validated before immutable submission. Spatial child reads SHALL follow the existing stable Relay keyset pagination conventions.
 
-#### Scenario: A polygon exceeds its execution limit
-- **WHEN** a draft write supplies 1,001 points
-- **THEN** the complete question write fails without replacing the previous draft outcome
+#### Scenario: A polygon spans multiple result pages
+- **WHEN** a submitted polygon has more points than fit on one result page
+- **THEN** all of its original points remain reachable in stable order without truncation

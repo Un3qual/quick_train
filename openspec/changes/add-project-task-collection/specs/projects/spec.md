@@ -5,19 +5,11 @@ Let an organization turn an explicit cohort of immutable dataset revisions and a
 ## ADDED Requirements
 
 ### Requirement: Explicit organization-scoped project management
-Project operations SHALL resolve targets within an explicit organization and require an active authenticated account, active organization, active membership, and `projects.read` for inspection or `projects.manage` for authoring and lifecycle changes. Choosing source datasets and forms SHALL additionally require their existing read capabilities. Management SHALL authorize its mutation result without implying general read access. New permissions SHALL require explicit role grants. Every project SHALL have an immutable organization and organization-unique nonblank key of at most 512 UTF-8 bytes. Oversized keys SHALL fail normal input validation before persistence; foreign and nonexistent references SHALL fail without distinguishable disclosure.
+Project operations SHALL resolve targets within an explicit organization and require an active authenticated account, active organization, active membership, and `projects.read` for inspection or `projects.manage` for authoring and lifecycle changes. Choosing source datasets and forms SHALL additionally require their existing read capabilities. Management SHALL authorize its mutation result without implying general read access. New permissions SHALL require explicit role grants. Every project SHALL have an immutable organization and stable UUID identity; the MVP SHALL use that ID and its editable title without a separate textual project key. Foreign and nonexistent references SHALL fail without distinguishable disclosure.
 
 #### Scenario: A manager creates a project
 - **WHEN** an authorized manager selects readable dataset and form definitions in their organization
 - **THEN** a draft project is created with that organization and its own stable identity
-
-#### Scenario: A project key exceeds the byte limit
-- **WHEN** an authorized caller supplies a nonblank key exceeding 512 UTF-8 bytes, including one with fewer than 512 multibyte characters
-- **THEN** ordinary validation rejects it before persistence without reaching the unique index
-
-#### Scenario: A project key reaches the byte limit
-- **WHEN** an authorized caller supplies an otherwise valid nonblank key exactly 512 UTF-8 bytes long
-- **THEN** the key passes the length check
 
 #### Scenario: Missing or foreign authority fails closed
 - **WHEN** an inactive account, inactive organization/member, non-member, or actor lacking the operation's capability requests project data or supplies a foreign child
@@ -94,13 +86,13 @@ Activation SHALL support scalar answers, non-image static/task-input choices, ra
 - **WHEN** a valid scalar, non-image choice/ranking, or text-span project is activated with no detailed-media component installed
 - **THEN** it can proceed through allocation, submission, review, and results without a media lookup
 
-### Requirement: Bounded project authoring and inspection
-Project, cohort, binding, policy, worker-access, and explicit-group collections SHALL use stable Relay keyset pagination with default 50 and maximum 100 entries, including nested collections. Enrollment writes SHALL accept at most 100 revision IDs, projects at most 10,000 cohort items and 10,000 explicit groups, and groups at most 100 total inputs. Published form requirements that cannot fit execution minimums SHALL fail activation. Configured answer/coverage targets, failure thresholds, answer integers, and counts bounded by these per-operation limits SHALL fit signed 32-bit GraphQL Int and never wrap. Accumulated evidence counts, including question progress, failures, and item coverage, SHALL instead use GraphQL String containing the exact canonical nonnegative base-10 integer, without sign, leading zeros, fraction, or exponent; zero SHALL be `"0"`. Their storage and arithmetic SHALL support values beyond signed 32-bit range without clamping to configured targets. Oversized and invalid writes SHALL fail atomically under documented request/field limits.
+### Requirement: Project authoring and paginated inspection
+Project, cohort, binding, policy, worker-access, and explicit-group collections SHALL use stable Relay keyset pagination following the existing API conventions, including nested collections. This change SHALL add no application-level cohort, explicit-group, input-group, or enrollment-batch size ceiling. Published form compatibility and existing foundation request validation SHALL still apply, and invalid writes SHALL fail atomically. Configured answer/coverage targets, failure thresholds, and answer integers SHALL retain signed 32-bit GraphQL Int semantics. Evidence-derived counts, including progress, failures, item coverage, and export record totals, SHALL use GraphQL String containing the exact canonical nonnegative base-10 integer, without sign, leading zeros, fraction, or exponent; zero SHALL be `"0"`. Their storage and arithmetic SHALL support values beyond signed 32-bit range without clamping to targets.
 
 #### Scenario: A cohort spans multiple pages
 - **WHEN** a manager traverses a frozen cohort larger than one page
 - **THEN** every enrolled revision is reachable in stable order without an unbounded nested list
 
-#### Scenario: A batch exceeds its bound
-- **WHEN** an enrollment request contains 101 revisions
-- **THEN** no revision from that batch is enrolled
+#### Scenario: An enrollment batch contains an invalid reference
+- **WHEN** an enrollment request mixes valid revisions with a foreign or incompatible revision
+- **THEN** none of that batch is enrolled

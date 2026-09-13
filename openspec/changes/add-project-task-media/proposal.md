@@ -9,8 +9,10 @@ Image tasks need verified source facts and compliant media delivery, while ordin
 - Extend project activation to accept image input requirements, image presentation elements, image-choice renderers, and spatial questions only when the exact source assets have verified media facts and supported delivery.
 - Add attempt-scoped verified image presentation and keep canonical TaskInput identity separate from display order. Image choice continues using existing typed task-input selections.
 - Add normalized bounding-box, polygon-region, and raster-mask responses with exact TaskInput/source-value/label provenance; retain the core draft, lease, submission, review, and export boundaries.
-- Add scoped worker mask registration/finalization and attachment with retry convergence and fixed lifetime count/byte limits, verified source/mask compatibility, and result-authorized image/mask access.
+- Add scoped worker mask registration/finalization and attachment with retry convergence, verified source/mask compatibility, and result-authorized image/mask access.
 - Verify integration against the real detailed-media capability and compliant reachable storage, including immutable image evidence in results and exports.
+
+MVP sizing policy: add no task-specific region/point limits, combined annotation budgets, mask-registration count/byte allowances, or export-volume ceilings. Reuse existing published form, request, and asset-provider behavior; decide additional limits later from actual usage.
 
 Explicit non-goals:
 
@@ -27,8 +29,8 @@ Explicit non-goals:
 ### Modified Capabilities
 
 - `projects`: extend the core supported-contract requirement to image execution with verified prerequisites.
-- `task-responses`: add exact spatial annotation provenance, bounding boxes, polygons, and masks under existing atomic response semantics, and extend the core annotation budget to count text and spatial child rows together.
-- `task-results`: extend the existing export record kinds to spatial evidence under the same partition, snapshot, and count limits.
+- `task-responses`: add exact spatial annotation provenance, bounding boxes, polygons, and masks under existing atomic response semantics, without adding region/point ceilings or registration quotas.
+- `task-results`: extend the existing export record kinds to spatial evidence under the same selection and snapshot semantics.
 - `assets`: add attempt-scoped mask registration and protected mask-result access while preserving core source/download/export authority.
 
 ## Impact

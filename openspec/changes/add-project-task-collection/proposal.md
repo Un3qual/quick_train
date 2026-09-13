@@ -5,13 +5,16 @@ QuickTrain can publish reusable forms and immutable dataset revisions, but organ
 ## What Changes
 
 - Add `QuickTrain.Projects`: one organization, dataset schema, explicit revision cohort, published form version, typed bindings, and frozen collection policy per project. Later enrollment uses a new project.
+- Use the existing UUID project identity and caller-generated UUID retry keys, without a separate textual project key, key-length settings, or custom hashing.
 - Add `QuickTrain.Tasks`: fetch-time balanced or explicit selection, pool claims and direct assignments, leased attempts, recorded input presentation, and narrowly authorized worker access.
 - Support organization members, external authenticated users, or both through a project-worker eligibility path. Keep one global User and keep organization-management authorization unchanged.
 - Collect one mutable draft response per attempt, then atomically freeze explicit answered or skipped question outcomes. Persist scalar, non-image choice, ranking, and text-span answers relationally.
 - Complete collection independently of detailed media support. Reject image-dependent forms with `unsupported_task_contract`; retain opaque-download inputs and keep existing published image-form definitions intact. Move image presentation, image choice, bounding boxes, polygons, raster masks, and mask uploads to [add-project-task-media](../add-project-task-media/proposal.md), which follows the separate verified-media change.
 - Add append-only per-question automatic/manual review, linked follow-up attempts to a manager-selected eligible worker, bounded escalation, and rebuildable task progress and item coverage.
-- Expose deliberate GraphQL actions, bounded result inspection, and asynchronous immutable accepted-answer and audit exports, including pinned form presentation, question renderers and typed constraints, and shared record limits covering all child/history/context evidence and optional type/ID ranges to partition even a single task.
+- Expose deliberate GraphQL actions, bounded result inspection, and asynchronous immutable accepted-answer and audit exports, including pinned form presentation, question renderers and typed constraints, all child/history/context evidence, and optional type/ID ranges for selecting part of a task.
 - Extend Forms, Datasets, and Assets with explicit attempt-owned and result-scoped access to referenced immutable definitions and bound source content, without granting general browsing or authoring rights.
+
+MVP sizing policy: defer new application-level count and byte limits until actual usage informs them. This proposal adds no cohort/group, batch, answer/reason/explanation, annotation, or export-volume ceilings. Existing foundation request/upload behavior, published form constraints, paging, authorization, and data-integrity rules remain in force.
 
 Explicit non-goals:
 

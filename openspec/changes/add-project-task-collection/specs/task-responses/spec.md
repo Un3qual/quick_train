@@ -39,7 +39,7 @@ Every offered question SHALL have exactly one explicit answered or skipped outco
 - **THEN** submission rejects that skip without freezing the response
 
 ### Requirement: Typed answers retain published form semantics
-Answered outcomes SHALL use exactly their published answer family and matching normalized typed representation, never JSONB answer content. The system SHALL support text, integer, decimal, boolean, static single/multiple choice, task-input single/multiple choice, and complete task-input ranking. Constraints SHALL come from the pinned published question, including the published meanings of absent scalar constraint records. Integers SHALL fit signed 32-bit Int; decimals SHALL preserve precision and reject non-finite values; text SHALL preserve exact valid Unicode content/whitespace and reject NUL. Single choice SHALL select exactly one valid option/input, multiple choice SHALL contain unique selections within bounds, and ranking SHALL be a complete unique ordered permutation of the question's slot inputs. Options SHALL belong to the exact question and TaskInputs to the exact task and referenced slot. Drafts can be incomplete but SHALL enforce local types, ownership, and finite limits before submission.
+Answered outcomes SHALL use exactly their published answer family and matching normalized typed representation, never JSONB answer content. The system SHALL support text, integer, decimal, boolean, static single/multiple choice, task-input single/multiple choice, and complete task-input ranking. Constraints SHALL come from the pinned published question, including the published meanings of absent scalar constraint records. Integers SHALL fit signed 32-bit Int; decimals SHALL preserve precision and reject non-finite values; text SHALL preserve exact valid Unicode content/whitespace and reject NUL. Single choice SHALL select exactly one valid option/input, multiple choice SHALL contain unique selections within bounds, and ranking SHALL be a complete unique ordered permutation of the question's slot inputs. Options SHALL belong to the exact question and TaskInputs to the exact task and referenced slot. Drafts can be incomplete but SHALL enforce local types, ownership, and the applicable published constraints before submission.
 
 #### Scenario: A foreign option is supplied
 - **WHEN** an answer references an option from a different question or published version
@@ -67,9 +67,9 @@ Text spans SHALL use zero-based Unicode code-point offsets with an exclusive end
 - **WHEN** a worker annotates a source containing emoji or combining characters
 - **THEN** offsets count Unicode code points, not UTF-8 bytes or displayed grapheme clusters, and out-of-range offsets fail
 
-### Requirement: Response writes are bounded and explicitly exposed
-GraphQL SHALL expose deliberate typed save/submit operations and bounded typed outcome inspection; generic submitted-outcome/child update and delete mutations SHALL not exist. Apply at most 200 offered questions, 64 KiB text per answer, 1 KiB reason, 16 KiB explanation, 1,000 spans per question and 10,000 total spans per response, alongside published form bounds and the existing HTTP body limit. Impossible published minimums SHALL reject project activation; tighter execution ceilings SHALL be disclosed. Oversized operations SHALL fail atomically and all collections SHALL use Relay keyset pagination, default 50/max 100.
+### Requirement: Response writes are explicitly exposed
+GraphQL SHALL expose deliberate typed save/submit operations and paginated typed outcome inspection; generic submitted-outcome/child update and delete mutations SHALL not exist. Responses SHALL satisfy the pinned published form constraints and existing HTTP request behavior. This change SHALL add no separate answer/reason/explanation byte limit, offered-question cap, span-count ceiling, or combined annotation budget. Invalid operations SHALL fail atomically and all collections SHALL follow existing Relay keyset pagination conventions.
 
-#### Scenario: A span answer exceeds its execution limit
-- **WHEN** a draft write supplies 1,001 text spans
+#### Scenario: A span answer violates its published contract
+- **WHEN** a draft replacement violates the pinned question's published annotation constraint
 - **THEN** the whole question write fails without replacing the previous draft answer

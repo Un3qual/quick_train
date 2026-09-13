@@ -19,7 +19,7 @@ An active member authorized for `tasks.results.read` in an active organization a
 - **THEN** Tasks issues scoped opaque access for that source, while an unrelated same-organization asset remains denied
 
 ### Requirement: Backend export publication uses immutable asset storage
-The storage boundary SHALL support bounded server-side staging writes for generated task exports or explicitly return `export_storage_unavailable`. Export publication SHALL preserve provider-enforced byte caps and existing hash/size verification and immutable canonical sealing. It SHALL associate one ready artifact with its export only after successful completion, with no partial-content download. A missing server-write capability SHALL not break existing client upload operations. Provider-neutral contract tests SHALL not claim that an in-memory adapter supplies reachable HTTP endpoints.
+The storage boundary SHALL support server-side streaming staging writes for generated task exports or explicitly return `export_storage_unavailable`. Export publication SHALL preserve provider-enforced byte caps and existing hash/size verification and immutable canonical sealing. It SHALL associate one ready artifact with its export only after successful completion, with no partial-content download. A missing server-write capability SHALL not break existing client upload operations. Provider-neutral contract tests SHALL not claim that an in-memory adapter supplies reachable HTTP endpoints.
 
 #### Scenario: The configured adapter cannot write export staging
 - **WHEN** an export needs server-side staging and that capability is unavailable
