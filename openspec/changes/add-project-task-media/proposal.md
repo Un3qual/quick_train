@@ -10,7 +10,7 @@ Image tasks need verified source facts and compliant media delivery, while ordin
 - Use the core PostgreSQL UUID-generation contract for spatial rows, registrations, and internal operation identities; caller-supplied retry tokens remain distinct request inputs.
 - Add attempt-scoped verified image presentation and keep canonical TaskInput identity separate from display order. Image choice continues using existing typed task-input selections.
 - Add normalized bounding-box, polygon-region, and raster-mask responses with exact TaskInput/source-value/label provenance; retain the core draft, lease, submission, review, and export boundaries.
-- Add scoped worker mask registration/finalization and attachment with retry convergence, verified source/mask compatibility, and result-authorized image/mask access.
+- Add scoped worker mask registration/finalization and attachment with retry convergence, verified source/mask compatibility, and result-authorized image/mask access. Admission reveals no canonical asset existence; canonical matches/conflicts are resolved only after verifying the worker's own upload.
 - Verify integration against the real detailed-media capability and compliant reachable storage, including immutable image evidence in results and exports.
 
 MVP sizing policy: add no task-specific region/point limits, combined annotation budgets, mask-registration count/byte allowances, or export-volume ceilings. Reuse existing published form, request, and asset-provider behavior; decide additional limits later from actual usage.
