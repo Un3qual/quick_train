@@ -80,7 +80,7 @@ Coverage SHALL count an item's appearances across distinct issued tasks, includi
 - **THEN** ordinary allocation returns `no_work_for_worker` without creating different groups or closing the project; other eligible workers or deliberate linked follow-ups can fill the existing task targets
 
 ### Requirement: No-work outcomes distinguish contention from exhaustion
-Allocation SHALL return typed outcomes for `retry_later`, `waiting_for_answers`, `no_work_for_worker`, and `needs_attention`. An interrupted search or locked candidate SHALL not prove global exhaustion. Contention or an existing operation timeout that prevents a definitive conclusion SHALL return a retryable outcome; this change SHALL prescribe no fixed candidate-count ceiling. A worker exhausting their own eligible tasks SHALL not close or escalate otherwise usable project work. No-work outcomes SHALL disclose no unallocated input content.
+Allocation SHALL return typed outcomes for `retry_later`, `waiting_for_answers`, `no_work_for_worker`, and `needs_attention`. An interrupted search or locked candidate SHALL not prove global exhaustion. Contention or an existing operation timeout that prevents a definitive conclusion SHALL return a retryable outcome; allocation SHALL impose no fixed candidate-count ceiling on per-request group search. A worker exhausting their own eligible tasks SHALL not close or escalate otherwise usable project work. No-work outcomes SHALL disclose no unallocated input content.
 
 #### Scenario: A candidate is temporarily locked
 - **WHEN** another transaction prevents a selector from inspecting otherwise possible work

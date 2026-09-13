@@ -37,6 +37,10 @@ Activation SHALL atomically validate and freeze the cohort, dataset/schema/form 
 - **WHEN** another revision or dataset item is imported after activation
 - **THEN** the active project's cohort and every issued input remain unchanged; enrollment requires a new project
 
+#### Scenario: A manager changes worker access after activation
+- **WHEN** an authorized manager adds, changes, or removes a per-user allow/block override on an active project
+- **THEN** the edit takes the Project lock and rechecks current `projects.manage` authority without requiring draft state; frozen configuration edits still fail
+
 ### Requirement: Explicit groups are validated before use
 An explicit-selection project SHALL define a finite ordered collection of groups whose inputs use its cohort and exact slot counts. Group identity SHALL ignore display shuffling but preserve slot membership. Duplicate canonical groups SHALL be rejected. Before activation every cohort item SHALL appear in at least the configured positive coverage target number of distinct groups. Unissued explicit groups SHALL remain configuration, not allocated tasks or worker evidence.
 

@@ -19,7 +19,7 @@ Bounding boxes SHALL use finite normalized coordinates with `0 <= x_min < x_max 
 - **THEN** fetch/submission fails closed rather than trusting client image metadata
 
 ### Requirement: Raster masks reference compatible immutable assets
-A raster mask SHALL reference a ready immutable mask asset and exact source asset/value with verified positive source dimensions. A separately implemented media capability SHALL verify compatible encoding and source/mask pixel dimensions and bind that result to both immutable asset identities; client dimensions and declared media types SHALL not satisfy it. Mask registration/finalization SHALL require a live eligible owning attempt and an offered raster-mask question, use the project's organization and existing upload-cap/hash/sealing rules, and create an explicit attempt/question attachment authority. Canonical deduplication SHALL preserve that authority without granting general asset reuse/browsing rights. Tasks SHALL not decode files or select a provider in this change.
+A raster mask SHALL reference a ready immutable mask asset and exact source asset/value with verified positive source dimensions. A separately implemented media capability SHALL verify compatible encoding and source/mask pixel dimensions and bind that result to both immutable asset identities; client dimensions and declared media types SHALL not satisfy it. Mask registration/finalization SHALL require a live eligible owning attempt and an offered raster-mask question, use the project's organization and existing upload-cap/hash/sealing rules, and create an explicit attempt/question attachment authority. Canonical deduplication SHALL preserve that authority without granting general asset reuse/browsing rights. Finalization SHALL authorize attachment without modifying the draft. Only the core whole-question save with `expected_revision` SHALL select or replace the current MaskRegion children; submission and answer rendering SHALL use those children, never infer an answer from the latest registration. Removing a mask from the draft SHALL not delete its registration history or mutate canonical bytes. Multiple masks SHALL remain valid where the published question permits them. Tasks SHALL not decode files or select a provider in this change.
 
 #### Scenario: The source and mask have different dimensions
 - **WHEN** the media capability reports incompatible dimensions for the exact source and mask
@@ -31,11 +31,11 @@ A raster mask SHALL reference a ready immutable mask asset and exact source asse
 
 #### Scenario: A worker replaces a draft mask
 - **WHEN** an authorized worker uploads new mask content to replace a draft attachment
-- **THEN** registration uses a new request key and verifies the replacement upload while preserving the previous registration as history
+- **THEN** registration uses a new request key and verifies the replacement upload without changing the draft; a subsequent whole-question save with the current `expected_revision` atomically replaces the selected MaskRegion children while preserving registration history
 
 ### Requirement: Spatial response inspection is typed and paginated
-Spatial answers SHALL follow published annotation constraints and the existing request handling, with no additional region/point ceiling or combined annotation budget. All coordinates and typed children SHALL be validated before immutable submission. Spatial child reads SHALL follow the existing stable Relay keyset pagination conventions.
+Spatial answers SHALL follow published annotation constraints and the existing request handling, with no additional region/point ceiling or combined annotation budget. All coordinates and typed children SHALL be validated before immutable submission. Spatial child reads SHALL follow the existing stable Relay keyset pagination conventions. Within each polygon, point connections SHALL sort by authored position then immutable point ID and use that same composite key in cursors to preserve ring order across pages.
 
 #### Scenario: A polygon spans multiple result pages
 - **WHEN** a submitted polygon has more points than fit on one result page
-- **THEN** all of its original points remain reachable in stable order without truncation
+- **THEN** all original points are reachable exactly once in authored ring order using position/ID cursors, even when UUID order differs from point order
