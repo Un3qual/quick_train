@@ -6,6 +6,8 @@ The initial dataset/assets design accumulated approved decisions for four later 
 
 This change has `skip_specs: true`. Everything below is a durable, non-normative starting point. A future change must select the relevant sections, resolve any then-current questions, and establish its own behavioral specs and tasks before implementation. A later explicit product decision may revise this record.
 
+On 2026-09-12, the Projects and Tasks scope was promoted into [add-project-task-collection](../add-project-task-collection/proposal.md), with its own design, capability deltas, and implementation tasks. That proposal selects a new project for later enrollment, records offered question sets per attempt, and specifies immutable export snapshots. The user then selected core collection before detailed media: image presentation/choice, spatial answers, and mask uploads now belong to [add-project-task-media](../add-project-task-media/proposal.md). Only that follow-up depends on verified media support; core collection can be implemented and archived first. For the MVP, the user subsequently deferred proposal-added count/byte ceilings and mask quota accounting until actual usage informs them. The dedicated proposals retain existing foundation behavior and published form constraints, make PostgreSQL generate backend record/internal UUIDs while retaining separate caller-supplied retry tokens, and govern their respective scope; this historical record does not claim either is implemented.
+
 ## Goals / Non-Goals
 
 **Goals:**
@@ -101,7 +103,7 @@ A planned project pins:
 - coverage settings; and
 - when Finance is implemented, a rate and funding configuration.
 
-Project lifecycle permits `draft -> active`, `active <-> paused`, either `active -> completed` or `paused -> completed`, and `completed -> archived`. Completion does not require an otherwise unnecessary pause. Activation validates and freezes configuration. New dataset imports never silently enter an active project. Whether later enrollment creates another immutable project-configuration snapshot or a separately configured batch is intentionally unresolved for the future Projects change; that change must choose one model and ensure every existing task and attempt remains bound to its original cohort and frozen configuration.
+Project lifecycle permits `draft -> active`, `active <-> paused`, either `active -> completed` or `paused -> completed`, and `completed -> archived`. Completion does not require an otherwise unnecessary pause. Activation validates and freezes configuration. New dataset imports never silently enter an active project. The original record left later enrollment unresolved; `add-project-task-collection` now selects a new project with its own cohort and configuration, preserving every existing task and attempt's original contract without adding configuration snapshots or enrollment batches.
 
 ### E. Both worker audiences and allocation modes are first-class
 
@@ -178,7 +180,7 @@ Initial scalar and choice families:
 - task-input single and multiple choice; and
 - ordered task-input ranking.
 
-The first task-response release also includes bounding boxes, polygon and raster-mask segmentation, and text spans. Audio and video time ranges are explicitly out of scope.
+The original plan grouped bounding boxes, polygon/raster-mask segmentation, and text spans in the first task-response release. The revised release order keeps text spans in `add-project-task-collection` and moves image-dependent execution and spatial answers to `add-project-task-media` after detailed media support. The combined eventual model below is preserved; it is not an acceptance gate for core collection. Audio and video time ranges remain explicitly out of scope.
 
 ```text
 QuestionResponse
