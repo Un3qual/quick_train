@@ -87,7 +87,15 @@ Allocation SHALL return typed outcomes for `retry_later`, `waiting_for_answers`,
 - **THEN** it returns a retryable result rather than completing the project or marking coverage satisfied
 
 ### Requirement: Leases and allocation retries are durable
-Attempts SHALL transition from claimed/assigned to in-progress on start or first save, and from a live state to submitted, expired, released, or cancelled. Terminal attempts SHALL never revive. Lease deadlines SHALL use server time, remain fixed after issuance, and be enforced after lock waits whether cleanup has run or not. A successful allocation SHALL durably associate a 1–128 byte request key with project, requesting actor, operation, worker, and follow-up target when present. An identical retry SHALL return the same attempt's current authorized result without a new lease; changed arguments with the same key SHALL conflict. A no-allocation result SHALL not be required to consume a key.
+Attempts SHALL transition from claimed/assigned to in-progress on start or first save, and from a live state to submitted, expired, released, or cancelled. Terminal attempts SHALL never revive. Lease deadlines SHALL use server time, remain fixed after issuance, and be enforced after lock waits whether cleanup has run or not. Every fetch, assignment, and follow-up allocation request key SHALL contain 1–128 UTF-8 bytes, validated before selecting work or persisting collection changes. Empty or oversized keys SHALL fail without creating a Task or Attempt or changing coverage/reservations. A successful allocation SHALL durably associate the validated request key with project, requesting actor, operation, worker, and follow-up target when present. An identical retry SHALL return the same attempt's current authorized result without a new lease; changed arguments with the same key SHALL conflict. A no-allocation result SHALL not be required to consume a key.
+
+#### Scenario: An allocation request key is empty or oversized
+- **WHEN** an otherwise eligible fetch, assignment, or follow-up request supplies an empty key or a key longer than 128 UTF-8 bytes, including 33 four-byte Unicode characters
+- **THEN** validation rejects the request before work selection, with no Task or Attempt created and no coverage or reservation changes
+
+#### Scenario: An allocation request key reaches its byte limit
+- **WHEN** an otherwise valid authorized allocation request with available work uses a key of exactly 128 UTF-8 bytes
+- **THEN** one attempt is issued and an identical retry returns that attempt without another issuance or a lease extension
 
 #### Scenario: A response is lost after allocation commits
 - **WHEN** the caller retries the same allocation key and arguments
