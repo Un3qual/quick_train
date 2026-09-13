@@ -5,11 +5,15 @@ Let an organization turn an explicit cohort of immutable dataset revisions and a
 ## ADDED Requirements
 
 ### Requirement: Explicit organization-scoped project management
-Project operations SHALL resolve targets within an explicit organization and require an active authenticated account, active organization, active membership, and `projects.read` for inspection or `projects.manage` for authoring and lifecycle changes. Choosing source datasets and forms SHALL additionally require their existing read capabilities. Management SHALL authorize its mutation result without implying general read access. New permissions SHALL require explicit role grants. Every project SHALL have an immutable organization and organization-unique nonblank key; foreign and nonexistent references SHALL fail without distinguishable disclosure.
+Project operations SHALL resolve targets within an explicit organization and require an active authenticated account, active organization, active membership, and `projects.read` for inspection or `projects.manage` for authoring and lifecycle changes. Choosing source datasets and forms SHALL additionally require their existing read capabilities. Management SHALL authorize its mutation result without implying general read access. New permissions SHALL require explicit role grants. Every project SHALL have an immutable organization and organization-unique nonblank key of at most 512 UTF-8 bytes. Oversized keys SHALL fail normal input validation before persistence; foreign and nonexistent references SHALL fail without distinguishable disclosure.
 
 #### Scenario: A manager creates a project
 - **WHEN** an authorized manager selects readable dataset and form definitions in their organization
 - **THEN** a draft project is created with that organization and its own stable identity
+
+#### Scenario: A project key exceeds the byte limit
+- **WHEN** an authorized caller supplies a nonblank key exceeding 512 UTF-8 bytes, including one with fewer than 512 multibyte characters
+- **THEN** ordinary validation rejects it before persistence without reaching the unique index; an otherwise valid key exactly 512 bytes long passes the length check
 
 #### Scenario: Missing or foreign authority fails closed
 - **WHEN** an inactive account, inactive organization/member, non-member, or actor lacking the operation's capability requests project data or supplies a foreign child
