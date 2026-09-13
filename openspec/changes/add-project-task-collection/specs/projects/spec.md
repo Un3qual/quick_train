@@ -13,7 +13,11 @@ Project operations SHALL resolve targets within an explicit organization and req
 
 #### Scenario: A project key exceeds the byte limit
 - **WHEN** an authorized caller supplies a nonblank key exceeding 512 UTF-8 bytes, including one with fewer than 512 multibyte characters
-- **THEN** ordinary validation rejects it before persistence without reaching the unique index; an otherwise valid key exactly 512 bytes long passes the length check
+- **THEN** ordinary validation rejects it before persistence without reaching the unique index
+
+#### Scenario: A project key reaches the byte limit
+- **WHEN** an authorized caller supplies an otherwise valid nonblank key exactly 512 UTF-8 bytes long
+- **THEN** the key passes the length check
 
 #### Scenario: Missing or foreign authority fails closed
 - **WHEN** an inactive account, inactive organization/member, non-member, or actor lacking the operation's capability requests project data or supplies a foreign child
