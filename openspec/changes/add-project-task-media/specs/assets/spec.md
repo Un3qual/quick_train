@@ -49,6 +49,10 @@ The workflow SHALL not require membership or expose general asset creation/listi
 - **WHEN** storage work is interrupted after registration and its live eligible owner retries the same UUID key and arguments while staging access remains valid
 - **THEN** storage work resumes against the reserved identity/destination without another registration or expiry extension
 
+#### Scenario: An invalid descriptor preserves mask admission for retry
+- **WHEN** upload-access issuance returns a malformed or insecure descriptor after mask admission commits, and the eligible owner retries the same UUID key after adapter repair while the original staging expiry and attempt lease remain valid
+- **THEN** the failed call returns no descriptor or credentials and retains the pending registration/Asset without attachment authority; the retry resumes that same registration and staging destination without replacement records or expiry extension
+
 #### Scenario: A transient storage error leaves an upload pending
 - **WHEN** a timeout or missing staging interrupts an admitted upload and no terminal Assets outcome has committed
 - **THEN** it remains pending, and a same-key retry can resume subject to the existing finalizer claim and staging expiry without creating another registration
