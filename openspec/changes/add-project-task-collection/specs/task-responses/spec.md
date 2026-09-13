@@ -5,7 +5,7 @@ Collect attributable typed answers and explicit skips against the exact question
 ## ADDED Requirements
 
 ### Requirement: One draft becomes one immutable submission
-Each attempt SHALL own at most one Response that transitions from mutable draft to immutable submitted. Save SHALL require the current eligible owner and unexpired live attempt in an active or paused project. Every question outcome/child write or delete SHALL serialize with submission on the same draft and recheck its state. Saves SHALL replace one complete question outcome atomically, require the current `expected_revision`, and increment that revision; stale revisions SHALL fail without overwriting newer work. Submission SHALL atomically validate all and only offered questions, freeze the response and descendants, transition the attempt, and update capacity/review evidence. An authorized submit retry SHALL return the existing submission without duplicating outcomes or automatic reviews. Released/expired/cancelled drafts SHALL never become submitted.
+Each attempt SHALL own at most one Response that transitions from mutable draft to immutable submitted. Save SHALL require the current eligible owner and unexpired live attempt in an active or paused project. Every question outcome/child write or delete SHALL acquire the shared Project lock, then Task, Attempt, and Response locks in that order and retain them through commit. After acquiring those locks it SHALL recheck current eligibility, project state, attempt ownership/live state, database wall-clock lease deadline, and draft state, serializing with release, expiry, cancellation, project completion, and submission. Saves SHALL replace one complete question outcome atomically, require the current `expected_revision`, and increment that revision; stale revisions SHALL fail without overwriting newer work. Submission SHALL atomically validate all and only offered questions, freeze the response and descendants, transition the attempt, and update capacity/review evidence. An authorized submit retry SHALL return the existing submission without duplicating outcomes or automatic reviews. Released/expired/cancelled drafts SHALL never become submitted.
 
 #### Scenario: A save races submission
 - **WHEN** a question save and submit run concurrently
@@ -18,6 +18,10 @@ Each attempt SHALL own at most one Response that transitions from mutable draft 
 #### Scenario: Submission fails on one question
 - **WHEN** one offered outcome is missing or invalid
 - **THEN** no response, attempt, reservation, or review transition commits and the valid draft remains editable while the lease permits
+
+#### Scenario: A draft save races attempt terminalization
+- **WHEN** a draft replacement or child edit/delete races release, expiry, cancellation, or project completion
+- **THEN** the save either commits first while its attempt remains eligible and live, or observes terminalization after acquiring the required locks and fails without changing the draft
 
 ### Requirement: Missing answered and skipped are distinct
 Every offered question SHALL have exactly one explicit answered or skipped outcome before submission. Questions absent from the offered set SHALL be rejected even when they belong to the same form. A skip SHALL be allowed only by its frozen project-question policy and SHALL contain no answer value, a server timestamp, a nonblank reason when required, and an optional explanation. An all-skipped response SHALL be valid if every offered policy allows it. Skips SHALL satisfy no accepted-answer target and SHALL remain immutable queryable evidence even after a later follow-up answers the question.
