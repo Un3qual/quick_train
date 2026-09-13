@@ -38,7 +38,7 @@ Explicit non-goals:
 
 - `versioned-forms`: allow attempt-owned contract inspection and result-scoped inspection of the pinned published presentation and referenced question/option/label definitions through Tasks, preserving management policy and published identities.
 - `datasets`: allow attempt owners and authorized result readers to inspect only the exact bound values and bindings from relevant issued immutable revisions through Tasks.
-- `assets`: allow attempt-scoped and result-scoped opaque source downloads plus result-export downloads without general asset-management rights or weakening opaque-file delivery.
+- `assets`: allow attempt-scoped and result-scoped opaque source downloads plus result-export downloads without general asset-management rights or weakening opaque-file delivery. Preserve ordinary registration's validation-before-persistence failure behavior and define failed access to an already-committed task-owned Asset without deleting or replacing that record.
 
 ## Impact
 

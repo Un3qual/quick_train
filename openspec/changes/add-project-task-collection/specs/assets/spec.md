@@ -39,3 +39,32 @@ Access to an export's artifact through task results SHALL require the existing a
 #### Scenario: Hash-only registration cannot unlock protected results
 - **WHEN** an actor without result authority supplies the known hash of an export-only asset to a generic registration or reuse operation
 - **THEN** that operation does not return the protected canonical asset or establish read access merely from the supplied hash
+
+## MODIFIED Requirements
+
+### Requirement: Provider-neutral authorized access
+The system SHALL keep storage locations private and SHALL obtain upload or download access through a configurable asset-storage adapter. Returned access SHALL expire after the current time and no later than the requested expiry, SHALL be short-lived, scoped to the authorized asset operation, delivered only through authenticated encrypted transport such as HTTPS, and marked to prevent caching and referrer propagation. Access handling SHALL reject insecure or adapter-unapproved destinations and SHALL prevent storage credentials from being disclosed to them, including through redirects. Ordinary Assets registration SHALL validate upload access before creating a pending Asset. Access to an already-committed task-owned Asset SHALL apply the same descriptor validation; failure SHALL return no descriptor or credentials and preserve the existing record, ownership, and lifecycle state. The owning task workflow SHALL retain its existing retry rules and original staging expiry, without deleting/replacing the Asset or extending access merely because descriptor issuance failed.
+
+#### Scenario: Authorized access is short-lived
+- **WHEN** an authorized actor requests access to a ready asset
+- **THEN** the system returns a time-limited encrypted-transport access descriptor without exposing persistent storage credentials and with no-store/no-referrer handling
+
+#### Scenario: Insecure access descriptor is rejected
+- **WHEN** an adapter returns a credential-bearing descriptor that uses cleartext transport or an unapproved destination
+- **THEN** the system rejects the descriptor without returning credentials or changing asset state
+
+#### Scenario: Direct endpoints prevent redirect credential leakage
+- **WHEN** a storage adapter is configured
+- **THEN** its provider configuration guarantees that descriptor endpoints cannot redirect; a provider unable to guarantee direct endpoints is unsupported
+
+#### Scenario: Malformed descriptor headers are rejected
+- **WHEN** ordinary Assets registration receives adapter headers other than pairs of nonempty UTF-8 string names and UTF-8 string values
+- **THEN** access fails before a pending registration is persisted
+
+#### Scenario: Storage adapter failure is contained
+- **WHEN** the configured storage adapter cannot produce authorized access
+- **THEN** the action fails without changing asset ownership, readiness, or content identity
+
+#### Scenario: Invalid access preserves an existing task-owned registration
+- **WHEN** access issuance for an already-committed task-owned pending Asset receives malformed or insecure descriptor data
+- **THEN** the descriptor and credentials are not returned, the same Asset and task ownership remain pending, and the owning workflow may retry under its existing authorization and expiry rules without a replacement Asset or an expiry extension
