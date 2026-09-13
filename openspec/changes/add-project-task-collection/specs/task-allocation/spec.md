@@ -46,7 +46,11 @@ Allocation SHALL first prefer an existing non-escalated task with available ques
 - **THEN** each order is persisted, while both answers still identify the same stable TaskInputs
 
 ### Requirement: Question capacity is reserved atomically
-Each task question SHALL track its accepted target separately. Available capacity SHALL exclude effectively accepted answers, pending submitted answers, and unexpired live reservations. Allocation SHALL atomically reserve one unit for each currently available non-escalated question and persist exactly that offered question set on the attempt. At least one question SHALL be offered. Skips, rejections, expiration, release, and cancellation SHALL release capacity as applicable; submitted answered outcomes SHALL replace live reservations with pending/accepted evidence. Concurrent operations SHALL never exceed capacity when issuing attempts. Later review corrections SHALL preserve all accepted evidence even when it exceeds the target.
+Each task question SHALL track its accepted target separately. Available capacity SHALL exclude effectively accepted answers, pending submitted answers, and unexpired live reservations. Before checking capacity and escalation on an existing candidate task, allocation SHALL expire all physically live attempts on that task whose deadlines are at or before a database wall-clock cutoff taken after locking its task/progress rows, regardless of worker. In the same transaction it SHALL update their offered-question reservations, expiry failure contributions, derived attention, and task state exactly once. These updates SHALL remain committed on a successful no-work result, and later cleanup SHALL not count the failures again. Allocation SHALL atomically reserve one unit for each currently available non-escalated question and persist exactly that offered question set on the attempt. At least one question SHALL be offered. Skips, rejections, expiration, release, and cancellation SHALL release capacity as applicable; submitted answered outcomes SHALL replace live reservations with pending/accepted evidence. Concurrent operations SHALL never exceed capacity when issuing attempts. Later review corrections SHALL preserve all accepted evidence even when it exceeds the target.
+
+#### Scenario: Another worker's overdue attempt reaches the failure threshold
+- **WHEN** worker B fetches a task with an unmet question at four failures and threshold five while worker A's offered attempt is overdue but its cleanup job has not run
+- **THEN** allocation expires A's attempt and records the fifth failure before selecting questions, omits that escalated question from B's ordinary reservation, and preserves the expiry update even if no work is issued; later cleanup leaves the count at five
 
 #### Scenario: Two workers compete for the last answer
 - **WHEN** two fetches compete for one remaining unit on a question
@@ -91,7 +95,7 @@ Attempts SHALL transition from claimed/assigned to in-progress on start or first
 
 #### Scenario: Expiration cleanup is delayed
 - **WHEN** an attempt deadline has passed but its expiration job has not run
-- **THEN** work reads/saves/submission are denied and its reservation is treated as expired before another allocation is committed
+- **THEN** work reads/saves/submission are denied and candidate-task allocation records its expiry, released reservation, and failure/attention effect before deciding whether to issue another attempt
 
 ### Requirement: Attempt ownership bounds worker presentation
 A work bundle SHALL require current ownership, an unexpired live attempt, an active account/organization, a matching audience route without a block, and an active or paused project. It SHALL expose only the pinned published form contract, offered questions, actual input ordering, and values bound from allocated revisions. Missing optional values SHALL be explicit. Workers SHALL have no arbitrary task/cohort discovery or reverse traversal into organization data. After terminal state, only an owner's receipt of attempt state/timestamps/review status SHALL remain available through worker APIs, requiring active account/organization, ownership, and current unblocked audience eligibility but not a live lease or active project. All work-bundle collections SHALL use bounded Relay keyset pagination, default 50/max 100.
