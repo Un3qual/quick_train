@@ -86,7 +86,15 @@ Exports SHALL produce format-versioned JSONL with one bounded header and one lin
 - **THEN** JSONL represents it as an exact string rather than an imprecise binary floating-point number
 
 ### Requirement: Export retries and downloads preserve authority
-Repeated requests with the same organization/project/requesting-actor key and identical mode and all selection filters SHALL resolve to one export; conflicting arguments SHALL fail, including a changed evidence kind or ID range. Job retries SHALL reuse its sealed membership and converge on one ready immutable artifact, never regenerate a newer snapshot under that identity. Reads and download issuance SHALL recheck current results capability and organization activity. Downloads SHALL use existing short-lived opaque-asset access without disclosing storage credentials. Storage incapable of backend staging writes or compliant access SHALL fail explicitly with no ready download; the in-memory adapter SHALL not be represented as a reachable HTTP service. Failure SHALL expose a sanitized reason without draft values, credentials, or partially published artifacts.
+Export request keys SHALL contain 1–128 UTF-8 bytes. Empty or oversized keys SHALL fail validation before persistence or job enqueue, without creating an export. Repeated requests with the same organization/project/requesting-actor key and identical mode and all selection filters SHALL resolve to one export; conflicting arguments SHALL fail, including a changed evidence kind or ID range. Job retries SHALL reuse its sealed membership and converge on one ready immutable artifact, never regenerate a newer snapshot under that identity. Reads and download issuance SHALL recheck current results capability and organization activity. Downloads SHALL use existing short-lived opaque-asset access without disclosing storage credentials. Storage incapable of backend staging writes or compliant access SHALL fail explicitly with no ready download; the in-memory adapter SHALL not be represented as a reachable HTTP service. Failure SHALL expose a sanitized reason without draft values, credentials, or partially published artifacts.
+
+#### Scenario: An export request key is empty or oversized
+- **WHEN** an authorized export request supplies an empty key or a key longer than 128 UTF-8 bytes
+- **THEN** validation rejects the request without creating an export or enqueuing a job
+
+#### Scenario: An export request key reaches its byte limit
+- **WHEN** an otherwise valid authorized export request uses a key of exactly 128 UTF-8 bytes
+- **THEN** one export is created and an identical retry returns the same export without enqueuing another job
 
 #### Scenario: A job retries after publishing bytes
 - **WHEN** the export worker crashes after sealing content but before recording completion
