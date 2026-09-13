@@ -5,7 +5,7 @@ Review individual submitted question outcomes without rewriting worker evidence,
 ## ADDED Requirements
 
 ### Requirement: Automatic and manual per-question review
-For a project frozen in `automatic` review mode, successful submission SHALL atomically append a system-origin acceptance for each answered outcome. For a project frozen in `manual` review mode, submission SHALL append no review decision and SHALL leave answered outcomes pending until an active account with active organization membership and `tasks.review` appends an accept/reject decision under explicit organization/project scope. Skips SHALL not receive accepted verdicts. Reviewers SHALL not edit worker answers or manually review their own responses. Rejections SHALL require a nonblank reason. Whole-response review SHALL persist per-question decisions and SHALL be bounded to 100 selected outcomes with atomic all-or-nothing validation.
+For a project frozen in `automatic` review mode, successful submission SHALL atomically append a system-origin acceptance for each answered outcome. For a project frozen in `manual` review mode, submission SHALL append no review decision and SHALL leave answered outcomes pending until an active account with active organization membership and `tasks.review` appends an accept/reject decision under explicit organization/project scope. Submitted skips SHALL be non-reviewable: accept, reject, and correction actions SHALL reject them without appending a decision. A whole-response batch containing a skip SHALL fail atomically without appending any decisions. Reviewers SHALL not edit worker answers or manually review their own responses. Rejections SHALL require a nonblank reason. Whole-response review SHALL persist per-question decisions and SHALL be bounded to 100 selected outcomes with atomic all-or-nothing validation.
 
 #### Scenario: An answered outcome is submitted in manual mode
 - **WHEN** a worker successfully submits an answered outcome to a manual-review project
@@ -19,12 +19,24 @@ For a project frozen in `automatic` review mode, successful submission SHALL ato
 - **WHEN** a user with review permission targets their own submitted response
 - **THEN** the manual decision is denied
 
+#### Scenario: A review request targets a submitted skip
+- **WHEN** an authorized reviewer targets a submitted skip with an individual decision, correction, or whole-response batch that also selects an answered outcome
+- **THEN** the request fails without appending any decision, the submitted evidence remains unchanged, and the skip still contributes exactly one failure
+
 ### Requirement: Corrections are append-only and conflict-aware
-Each QuestionResponse's review history SHALL be immutable and ordered. A decision SHALL identify its actor/system origin, verdict, creation time, and predecessor. The latest decision SHALL determine the effective verdict. A correction SHALL require a nonblank reason and expected current decision identity; a stale expectation SHALL conflict without changing history. A decision request key scoped to QuestionResponse and requesting actor SHALL converge identical retries and reject different content under the same key for that outcome. Another QuestionResponse SHALL have an independent key scope even when it answers the same form question. Corrections SHALL remain permitted in completed/archived projects but SHALL not reopen collection there. Accepted evidence above the configured target SHALL remain visible.
+Each QuestionResponse's review history SHALL be immutable and ordered. A decision SHALL identify its actor/system origin, verdict, creation time, and predecessor. The latest decision SHALL determine the effective verdict. A correction SHALL require a nonblank reason and expected current decision identity; a stale expectation SHALL conflict without changing history. Each manual decision or correction request key SHALL contain 1–128 UTF-8 bytes, validated before persistence; any invalid key in a whole-response batch SHALL reject the entire batch without appending decisions. A decision request key scoped to QuestionResponse and requesting actor SHALL converge identical retries and reject different content under the same key for that outcome. Another QuestionResponse SHALL have an independent key scope even when it answers the same form question. Corrections SHALL remain permitted in completed/archived projects but SHALL not reopen collection there. Accepted evidence above the configured target SHALL remain visible.
 
 #### Scenario: One reviewer reuses a key across responses
 - **WHEN** a reviewer uses the same request key for two different QuestionResponses answering the same form question
 - **THEN** each authorized decision is recorded independently, an identical retry for either outcome returns its own decision, and different content under that outcome's existing key conflicts
+
+#### Scenario: A review request key exceeds its bound
+- **WHEN** a decision or correction request contains an empty key or a key longer than 128 UTF-8 bytes, including as part of a whole-response batch
+- **THEN** validation rejects the request before persistence without appending any decisions
+
+#### Scenario: A review request key reaches its byte limit
+- **WHEN** an otherwise valid authorized decision or correction uses a key of exactly 128 UTF-8 bytes
+- **THEN** the decision succeeds and an identical retry converges on that same decision
 
 #### Scenario: Two reviewers race
 - **WHEN** two decisions name the same current predecessor
@@ -35,11 +47,15 @@ Each QuestionResponse's review history SHALL be immutable and ordered. A decisio
 - **THEN** a successor decision changes current results and progress while the previous decision/submission remain intact and no new work is issued
 
 ### Requirement: Progress is rebuildable from authoritative evidence
-Question progress SHALL expose accepted, pending, skipped, rejected, and live-reservation counts and attention state. Effective decisions, submitted outcomes, and attempts SHALL be authoritative; projections SHALL be rebuildable without changing them. Submission, review/correction, release, expiry, cancellation, and allocation SHALL update affected progress consistently with their committed evidence. Reconciliation concurrent with an evidence change SHALL not overwrite newer state using a stale read. Task state SHALL be derived in this precedence order after every evidence change: satisfied when all question targets are met; otherwise cancelled when its project is completed or archived; otherwise needs_attention when all remaining unmet questions are escalated; otherwise open. Corrections in closed projects SHALL therefore move task projections between satisfied and cancelled as their targets change, never to open or needs_attention. They SHALL not revive terminal attempts or authorize collection, regardless of the new task state.
+Question progress SHALL expose accepted, pending, skipped, rejected, and live-reservation counts and attention state. Accumulated progress and failure counts SHALL use integer storage and arithmetic that support values beyond signed 32-bit range, and SHALL serialize through GraphQL String as canonical nonnegative base-10 integers (zero as `"0"`, no sign, leading zeros, fraction, or exponent). Counts SHALL remain exact without clamping to a target or narrowing to GraphQL Int; configured targets and thresholds SHALL retain signed 32-bit Int bounds. Effective decisions, submitted outcomes, and attempts SHALL be authoritative; projections SHALL be rebuildable without changing them. Submission, review/correction, release, expiry, cancellation, and allocation SHALL update affected progress consistently with their committed evidence. Reconciliation concurrent with an evidence change SHALL not overwrite newer state using a stale read. Task state SHALL be derived in this precedence order after every evidence change: satisfied when all question targets are met; otherwise cancelled when its project is completed or archived; otherwise needs_attention when all remaining unmet questions are escalated; otherwise open. Corrections in closed projects SHALL therefore move task projections between satisfied and cancelled as their targets change, never to open or needs_attention. They SHALL not revive terminal attempts or authorize collection, regardless of the new task state.
 
 #### Scenario: A rejected answer opens demand
 - **WHEN** the current effective decision changes an answer from accepted/pending to rejected on an active project
 - **THEN** its question capacity is recalculated and additional eligible work can be offered unless escalation prevents it
+
+#### Scenario: A correction raises accepted progress beyond GraphQL Int
+- **WHEN** a question has an accepted target and accepted count of 2,147,483,647 and an earlier rejected answer is corrected to accepted
+- **THEN** its accepted count becomes 2,147,483,648 and GraphQL returns `"2147483648"`, preserving every accepted answer and satisfied state without reopening capacity
 
 #### Scenario: Reconciliation overlaps submission
 - **WHEN** progress rebuilding races a successful submission
@@ -54,7 +70,7 @@ Question progress SHALL expose accepted, pending, skipped, rejected, and live-re
 - **THEN** its state becomes satisfied and the corrected evidence remains visible, while the project stays closed and no attempt revives
 
 ### Requirement: Repeated failures stop automatic circulation
-For an unsatisfied question, cumulative submitted skips plus currently rejected outcomes plus expired/released attempts that offered it SHALL count toward its positive frozen failure threshold, default 5. Deliberate cancellation SHALL not count as a worker failure. Attention SHALL be derived after every evidence change and during reconciliation: it SHALL apply exactly when the accepted target is unmet and the current failure count is at or above the threshold. A question requiring attention SHALL stop receiving ordinary new reservations; already-issued valid attempts SHALL remain submittable. A correction that reduces failures below the threshold SHALL clear attention even if the target remains unmet, permitting ordinary allocation only subject to the existing active-project, worker-eligibility, same-task exclusion, and capacity rules. Other unblocked questions SHALL remain eligible. Meeting the accepted target SHALL satisfy the question and clear attention without erasing its skip/rejection history.
+For an unsatisfied question, cumulative submitted skips plus currently rejected answered outcomes plus expired/released attempts that offered it SHALL count toward its positive frozen failure threshold, default 5. Deliberate cancellation SHALL not count as a worker failure. Attention SHALL be derived after every evidence change and during reconciliation: it SHALL apply exactly when the accepted target is unmet and the current failure count is at or above the threshold. A question requiring attention SHALL stop receiving ordinary new reservations; already-issued valid attempts SHALL remain submittable. A correction that reduces failures below the threshold SHALL clear attention even if the target remains unmet, permitting ordinary allocation only subject to the existing active-project, worker-eligibility, same-task exclusion, and capacity rules. Other unblocked questions SHALL remain eligible. Meeting the accepted target SHALL satisfy the question and clear attention without erasing its skip/rejection history.
 
 #### Scenario: Repeated skips escalate one question
 - **WHEN** a question reaches its failure threshold through submitted skips while another question remains answerable
