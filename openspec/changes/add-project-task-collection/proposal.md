@@ -5,7 +5,7 @@ QuickTrain can publish reusable forms and immutable dataset revisions, but organ
 ## What Changes
 
 - Add `QuickTrain.Projects`: one organization, dataset schema, explicit revision cohort, published form version, typed bindings, and frozen collection policy per project. Later enrollment uses a new project.
-- Use the existing UUID project identity and caller-generated UUID retry keys, without a separate textual project key, key-length settings, or custom hashing.
+- Make PostgreSQL generate persisted record UUIDs and internal operation UUIDs across existing foundations and new collection resources. Use database defaults and returned records; keep caller-supplied retry tokens separate from database-generated record IDs. The project uses its UUID and editable title without a separate textual key, key-length settings, or custom hashing.
 - Add `QuickTrain.Tasks`: fetch-time balanced or explicit selection, pool claims and direct assignments, leased attempts, recorded input presentation, and narrowly authorized worker access.
 - Support organization members, external authenticated users, or both through a project-worker eligibility path. Keep one global User and keep organization-management authorization unchanged.
 - Collect one mutable draft response per attempt, then atomically freeze explicit answered or skipped question outcomes. Persist scalar, non-image choice, ranking, and text-span answers relationally.
@@ -27,6 +27,7 @@ Explicit non-goals:
 
 ### New Capabilities
 
+- `database-identities`: PostgreSQL-generated backend UUIDs, returned-ID relationships and form copying, database-issued asset/finalizer identities, and separate caller-supplied retry tokens.
 - `projects`: frozen project cohorts, compatible bindings, collection policy, lifecycle, and organization management.
 - `task-allocation`: audience eligibility, fetch-time selection, coverage, direct assignment, leases, and attempt-owned presentation.
 - `task-responses`: atomic drafts/submission, explicit skips, scalar/choice/ranking answers, text spans, and source provenance.
@@ -44,5 +45,6 @@ Explicit non-goals:
 - Adds product domains above the existing Accounts, Organizations, Authorization, Assets, Datasets, and Forms foundations; those foundations remain reusable and the application remains backend-only. This is an intentional product extension, not a new generic service layer.
 - Adds Ash resources, generated PostgreSQL migrations and snapshots, named transactional workflows, GraphQL allowlisted actions, and responsibility-specific Oban workers using the existing dependencies. No spatial resources, media service hooks, or deferred implementation checkboxes are required in this change.
 - Depends only on the already archived authentication, datasets/assets, and versioned-forms capabilities. It can be implemented, verified, and archived before `add-project-task-media`, detailed media support, or a production HTTP storage adapter. Adapter contract tests cover opaque downloads and export publication; a compliant reachable adapter remains a deployment requirement for actual file transfer, not a completion gate for this change. Finance and Reputation remain independent.
-- Requires focused authorization, lifecycle, typed-value, selection-invariant, concurrency, export, and GraphQL checks, followed by `mise run openspec.validate` and `mise run verify` during implementation.
+- Aligns existing Ash UUID declarations and creation paths, including form graph copying and Assets staging/finalizer claims, with PostgreSQL generation while preserving all existing IDs. This is a generation-policy update within the existing resources, with no new domain, UUID service, registry, or dependency.
+- Requires focused database identity, authorization, lifecycle, typed-value, selection-invariant, concurrency, export, and GraphQL checks, followed by `mise run openspec.validate` and `mise run verify` during implementation.
 - Keeps the source architecture record as historical context and links it to this dedicated change. No runtime changes are made by this proposal.

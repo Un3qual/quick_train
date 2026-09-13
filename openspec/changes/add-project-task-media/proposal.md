@@ -7,6 +7,7 @@ Image tasks need verified source facts and compliant media delivery, while ordin
 ## What Changes
 
 - Extend project activation to accept image input requirements, image presentation elements, image-choice renderers, and spatial questions only when the exact source assets have verified media facts and supported delivery.
+- Use the core PostgreSQL UUID-generation contract for spatial rows, registrations, and internal operation identities; caller-supplied retry tokens remain distinct request inputs.
 - Add attempt-scoped verified image presentation and keep canonical TaskInput identity separate from display order. Image choice continues using existing typed task-input selections.
 - Add normalized bounding-box, polygon-region, and raster-mask responses with exact TaskInput/source-value/label provenance; retain the core draft, lease, submission, review, and export boundaries.
 - Add scoped worker mask registration/finalization and attachment with retry convergence, verified source/mask compatibility, and result-authorized image/mask access.
