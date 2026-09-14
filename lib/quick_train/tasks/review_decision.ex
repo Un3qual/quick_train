@@ -1,6 +1,7 @@
 defmodule QuickTrain.Tasks.ReviewDecision do
   @moduledoc "Scoped collection review decision evidence."
   use Ash.Resource,
+    primary_read_warning?: false,
     otp_app: :quick_train,
     domain: QuickTrain.Tasks,
     extensions: [AshGraphql.Resource],
@@ -94,6 +95,7 @@ defmodule QuickTrain.Tasks.ReviewDecision do
 
     read :read do
       primary? true
+      prepare build(sort: [number: :asc, id: :asc])
 
       pagination keyset?: true,
                  required?: false,
