@@ -1,6 +1,7 @@
 defmodule QuickTrain.Forms.FormVersion do
   @moduledoc "Organization-scoped form version definition."
   use Ash.Resource,
+    primary_read_warning?: false,
     otp_app: :quick_train,
     domain: QuickTrain.Forms,
     extensions: [AshGraphql.Resource],
@@ -72,6 +73,16 @@ defmodule QuickTrain.Forms.FormVersion do
   end
 
   actions do
+    read :get_task_definition do
+      get? true
+      argument :organization_id, :uuid, allow_nil?: false
+      argument :project_id, :uuid, allow_nil?: false
+      argument :id, :uuid, allow_nil?: false
+      argument :attempt_id, :uuid
+      filter expr(id == ^arg(:id))
+      prepare QuickTrain.Tasks.ContractAccess.DefinitionRead
+    end
+
     read :lock_for_authoring do
       get? true
       argument :id, :uuid, allow_nil?: false
@@ -87,6 +98,8 @@ defmodule QuickTrain.Forms.FormVersion do
     read :read do
       primary? true
 
+      prepare build(sort: [version: :asc, id: :asc])
+
       pagination keyset?: true,
                  required?: false,
                  default_limit: 50,
@@ -97,6 +110,8 @@ defmodule QuickTrain.Forms.FormVersion do
     read :list_scoped do
       argument :organization_id, :uuid, allow_nil?: false
       filter expr(form.organization_id == ^arg(:organization_id))
+
+      prepare build(sort: [version: :asc, id: :asc])
 
       pagination keyset?: true,
                  required?: true,
@@ -153,6 +168,14 @@ defmodule QuickTrain.Forms.FormVersion do
   end
 
   policies do
+    bypass action(:read) do
+      authorize_if QuickTrain.Tasks.ContractAccess
+    end
+
+    policy action(:get_task_definition) do
+      authorize_if QuickTrain.Tasks.ContractAccess
+    end
+
     policy action(:read_for_authoring) do
       authorize_if context_equals(:query_for, :bulk_update)
       authorize_if context_equals(:query_for, :bulk_destroy)

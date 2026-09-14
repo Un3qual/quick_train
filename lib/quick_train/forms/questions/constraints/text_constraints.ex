@@ -3,6 +3,7 @@
 defmodule QuickTrain.Forms.Questions.Constraints.TextConstraints do
   @moduledoc "Organization-scoped text constraints definition."
   use Ash.Resource,
+    primary_read_warning?: false,
     otp_app: :quick_train,
     domain: QuickTrain.Forms,
     extensions: [AshGraphql.Resource],
@@ -37,12 +38,24 @@ defmodule QuickTrain.Forms.Questions.Constraints.TextConstraints do
   end
 
   actions do
+    read :get_task_definition do
+      get? true
+      argument :organization_id, :uuid, allow_nil?: false
+      argument :project_id, :uuid, allow_nil?: false
+      argument :id, :uuid, allow_nil?: false
+      argument :attempt_id, :uuid
+      filter expr(id == ^arg(:id))
+      prepare QuickTrain.Tasks.ContractAccess.DefinitionRead
+    end
+
     read :read_for_authoring do
       pagination keyset?: true, required?: false
     end
 
     read :read do
       primary? true
+
+      prepare build(sort: [inserted_at: :asc, id: :asc])
 
       pagination keyset?: true,
                  required?: false,
@@ -80,6 +93,14 @@ defmodule QuickTrain.Forms.Questions.Constraints.TextConstraints do
   end
 
   policies do
+    bypass action(:read) do
+      authorize_if QuickTrain.Tasks.ContractAccess
+    end
+
+    policy action(:get_task_definition) do
+      authorize_if QuickTrain.Tasks.ContractAccess
+    end
+
     policy action(:read_for_authoring) do
       authorize_if context_equals(:query_for, :bulk_update)
       authorize_if context_equals(:query_for, :bulk_destroy)

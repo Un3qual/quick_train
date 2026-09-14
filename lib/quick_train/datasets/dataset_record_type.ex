@@ -177,6 +177,10 @@ defmodule QuickTrain.Datasets.DatasetRecordType do
 
   policies do
     policy action(:read) do
+      authorize_if QuickTrain.Tasks.ContractAccess.DatasetSchemaRead
+    end
+
+    policy action(:read) do
       authorize_if accessing_from(
                      Module.concat(["QuickTrain.Datasets.DatasetSchemaVersion"]),
                      :root_record_type

@@ -37,6 +37,14 @@ defmodule QuickTrain.Datasets.DatasetValue.Boolean do
   end
 
   policies do
+    bypass action(:read) do
+      authorize_if QuickTrain.Tasks.ContractAccess
+    end
+
+    policy action(:read) do
+      authorize_if QuickTrain.Tasks.ContractAccess.DatasetAuthority
+    end
+
     policy action(:read) do
       authorize_if accessing_from(
                      Module.concat(["QuickTrain.Datasets.DatasetValue"]),
