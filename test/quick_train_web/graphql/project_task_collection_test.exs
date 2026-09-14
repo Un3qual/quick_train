@@ -2,7 +2,9 @@ defmodule QuickTrainWeb.ProjectTaskCollectionTest do
   use QuickTrain.ConnCase, async: false
   alias QuickTrain.{Accounts, Authorization, Organizations, ProjectsFixture, Tasks}
   alias QuickTrain.Assets.Storage.InMemory
-  alias QuickTrain.Tasks.{Attempt, ResultExporting, TaskQuestionProgress}
+  alias QuickTrain.Tasks.Attempts.Attempt
+  alias QuickTrain.Tasks.Exports.ResultExporting
+  alias QuickTrain.Tasks.Progress.TaskQuestionProgress
   require Ash.Query
 
   setup do

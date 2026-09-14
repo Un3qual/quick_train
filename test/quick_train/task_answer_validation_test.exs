@@ -1,8 +1,8 @@
 defmodule QuickTrain.Tasks.AnswerInputTest do
   use ExUnit.Case, async: true
 
-  alias QuickTrain.Tasks.AnswerValidation
-  alias QuickTrain.Tasks.Inputs.AnswerInput
+  alias QuickTrain.Tasks.Responses.AnswerValidation
+  alias QuickTrain.Tasks.Responses.Inputs.AnswerInput
 
   test "validation rejects a task outside the pinned project before reading its contract" do
     project = %{id: "project", organization_id: "organization", form_version_id: "version"}
@@ -66,7 +66,8 @@ defmodule QuickTrain.Tasks.AnswerValidationTest do
     TextConstraints
   }
 
-  alias QuickTrain.Tasks.{AnswerValidation, Task, TaskInput}
+  alias QuickTrain.Tasks.Responses.AnswerValidation
+  alias QuickTrain.Tasks.{Task, TaskInput}
   require Ash.Query
 
   setup do

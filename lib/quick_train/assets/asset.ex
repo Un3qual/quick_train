@@ -64,7 +64,7 @@ defmodule QuickTrain.Assets.Asset do
       allow_nil?: false,
       attribute_public?: true
 
-    belongs_to :result_export, QuickTrain.Tasks.ResultExport
+    belongs_to :result_export, QuickTrain.Tasks.Exports.ResultExport
 
     belongs_to :canonical_asset, __MODULE__, public?: true
 

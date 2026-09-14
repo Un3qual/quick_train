@@ -4,7 +4,9 @@ defmodule QuickTrain.Tasks.TaskReadsTest do
   alias QuickTrain.Datasets.DatasetValue
   alias QuickTrain.Forms.FormVersion
   alias QuickTrain.Projects.Management
-  alias QuickTrain.Tasks.{Access, Attempt, QuestionResponse, Response, TaskInput}
+  alias QuickTrain.Tasks.{Access, TaskInput}
+  alias QuickTrain.Tasks.Attempts.Attempt
+  alias QuickTrain.Tasks.Responses.{QuestionResponse, Response}
   require Ash.Query
 
   setup tags do
@@ -263,8 +265,8 @@ defmodule QuickTrain.Tasks.TaskReadsTest do
     assert task.outcomes == []
     assert task.attempts == []
     assert [_] = task.progress
-    assert [_] = rows(QuickTrain.Tasks.TaskItemCoverage, :list_audit, ctx, reader)
-    assert rows(QuickTrain.Tasks.TaskItemCoverage, :list_accepted, ctx, reader) == []
+    assert [_] = rows(QuickTrain.Tasks.Progress.TaskItemCoverage, :list_audit, ctx, reader)
+    assert rows(QuickTrain.Tasks.Progress.TaskItemCoverage, :list_accepted, ctx, reader) == []
 
     bundle =
       action!(Attempt, :work_bundle, scope(ctx), reader)
@@ -276,7 +278,7 @@ defmodule QuickTrain.Tasks.TaskReadsTest do
     [task] = Ash.read!(query).results
     assert [_] = task.outcomes
     assert [_] = task.attempts
-    assert [_] = rows(QuickTrain.Tasks.TaskItemCoverage, :list_accepted, ctx, reader)
+    assert [_] = rows(QuickTrain.Tasks.Progress.TaskItemCoverage, :list_accepted, ctx, reader)
 
     accepted =
       QuickTrain.Tasks.Task
@@ -289,7 +291,7 @@ defmodule QuickTrain.Tasks.TaskReadsTest do
     [decision] = outcome.review_decisions
 
     Ash.create!(
-      QuickTrain.Tasks.ReviewDecision,
+      QuickTrain.Tasks.Reviews.ReviewDecision,
       %{
         organization_id: outcome.organization_id,
         project_id: outcome.project_id,
@@ -311,8 +313,8 @@ defmodule QuickTrain.Tasks.TaskReadsTest do
     assert Ash.read!(accepted).results == []
     [task] = Ash.read!(query).results
     assert [_] = task.outcomes
-    assert rows(QuickTrain.Tasks.ReviewDecision, :list_accepted, ctx, reader) == []
-    assert [_, _] = rows(QuickTrain.Tasks.ReviewDecision, :list_audit, ctx, reader)
+    assert rows(QuickTrain.Tasks.Reviews.ReviewDecision, :list_accepted, ctx, reader) == []
+    assert [_, _] = rows(QuickTrain.Tasks.Reviews.ReviewDecision, :list_audit, ctx, reader)
   end
 
   @tag :rich_source

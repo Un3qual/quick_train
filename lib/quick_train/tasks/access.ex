@@ -1,7 +1,10 @@
 defmodule QuickTrain.Tasks.Access do
   @moduledoc false
   alias QuickTrain.Projects.Project
-  alias QuickTrain.Tasks.{Attempt, Error, Leases, Response, Task, WorkerEligibility}
+  alias QuickTrain.Tasks.Access.WorkerEligibility
+  alias QuickTrain.Tasks.Attempts.{Attempt, Leases}
+  alias QuickTrain.Tasks.{Error, Task}
+  alias QuickTrain.Tasks.Responses.Response
   require Ash.Query
 
   def project!(organization_id, project_id, lock \\ "FOR SHARE") do

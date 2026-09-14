@@ -42,11 +42,11 @@ defmodule QuickTrain.Datasets.DatasetValue.Text do
 
   policies do
     bypass action(:read) do
-      authorize_if Module.concat(["QuickTrain.Tasks.ContractAccess"])
+      authorize_if Module.concat(["QuickTrain.Tasks.Access.ContractAccess"])
     end
 
     policy action(:read) do
-      authorize_if Module.concat(["QuickTrain.Tasks.ContractAccess.DatasetAuthority"])
+      authorize_if Module.concat(["QuickTrain.Tasks.Access.ContractAccess.DatasetAuthority"])
     end
 
     policy action(:read) do

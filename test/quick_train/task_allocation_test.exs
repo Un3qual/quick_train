@@ -3,14 +3,9 @@ defmodule QuickTrain.Tasks.TaskAllocationTest do
   alias QuickTrain.{Accounts, ProjectsFixture}
   alias QuickTrain.Projects.{ExplicitGroup, Project}
 
-  alias QuickTrain.Tasks.{
-    Attempt,
-    AttemptInputPresentation,
-    Task,
-    TaskInput,
-    TaskQuestionProgress
-  }
-
+  alias QuickTrain.Tasks.Attempts.{Attempt, AttemptInputPresentation}
+  alias QuickTrain.Tasks.Progress.TaskQuestionProgress
+  alias QuickTrain.Tasks.{Task, TaskInput}
   alias QuickTrain.Tasks.Workers.ExpireAttempt
   require Ash.Query
 

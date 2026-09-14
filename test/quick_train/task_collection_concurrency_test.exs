@@ -5,8 +5,11 @@ defmodule QuickTrain.Tasks.CollectionConcurrencyTest do
   alias Elixir.Task, as: AsyncTask
   alias QuickTrain.{Accounts, ProjectsFixture}
   alias QuickTrain.Projects.Project
-  alias QuickTrain.Tasks.{Access, Attempt, Progress, QuestionResponse, Response, ReviewDecision}
-  alias QuickTrain.Tasks.{Task, TaskInput, TaskItemCoverage, TaskQuestionProgress}
+  alias QuickTrain.Tasks.{Access, Progress, Task, TaskInput}
+  alias QuickTrain.Tasks.Attempts.Attempt
+  alias QuickTrain.Tasks.Progress.{TaskItemCoverage, TaskQuestionProgress}
+  alias QuickTrain.Tasks.Responses.{QuestionResponse, Response}
+  alias QuickTrain.Tasks.Reviews.ReviewDecision
   alias QuickTrain.Tasks.Workers.ExpireAttempt
 
   @moduletag :committed_db

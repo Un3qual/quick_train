@@ -39,6 +39,13 @@ datasets, assets, versioned form definitions, and project-based task collection.
 - `QuickTrainWeb.GraphQL.Schema`: an explicit allowlist of authentication, dataset, asset,
   form, project, and task operations with scoped authorization and paginated collections.
 
+Within `QuickTrain.Tasks`, files follow their module namespaces: `Attempts` holds allocation
+and leases, `Responses` holds typed answers and submission, `Reviews` holds review decisions,
+and `Exports` holds snapshots and JSONL generation. `Progress` contains counters and completion;
+`Access` contains scoped reads and authorization. The domain API remains in `tasks.ex`, with
+`Task`, `TaskInput`, and shared `Access`, `Progress`, and `Error` modules at the folder root.
+Background jobs remain under `Workers` so persisted Oban worker names stay stable.
+
 Collection requires explicit `projects.read`, `projects.manage`, `tasks.assign`, `tasks.review`,
 and `tasks.results.read` grants for the relevant organizational roles. No production role gains
 these capabilities automatically. Project workers use the configured member/external admission

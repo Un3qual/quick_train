@@ -8,22 +8,19 @@ defmodule QuickTrain.Tasks.Exports.Snapshot do
   alias QuickTrain.Forms.Questions.QuestionOption
   alias QuickTrain.Projects.ProjectInputBinding
   alias QuickTrain.Repo
-  alias QuickTrain.Tasks.Access
-  alias QuickTrain.Tasks.Attempt
-  alias QuickTrain.Tasks.AttemptInputPresentation
-  alias QuickTrain.Tasks.AttemptQuestion
-  alias QuickTrain.Tasks.Error
-  alias QuickTrain.Tasks.ExportSelection
-  alias QuickTrain.Tasks.Leases
-  alias QuickTrain.Tasks.QuestionResponse
-  alias QuickTrain.Tasks.ReadAccess
-  alias QuickTrain.Tasks.ResultExport
-  alias QuickTrain.Tasks.ReviewDecision
-  alias QuickTrain.Tasks.StaticOptionAnswer
-  alias QuickTrain.Tasks.Task
-  alias QuickTrain.Tasks.TaskInput
-  alias QuickTrain.Tasks.TaskInputAnswer
-  alias QuickTrain.Tasks.TextSpan
+  alias QuickTrain.Tasks.{Access, Error, Task, TaskInput}
+  alias QuickTrain.Tasks.Access.ReadAccess
+  alias QuickTrain.Tasks.Attempts.{Attempt, AttemptInputPresentation, AttemptQuestion, Leases}
+  alias QuickTrain.Tasks.Exports.{ExportSelection, ResultExport}
+
+  alias QuickTrain.Tasks.Responses.{
+    QuestionResponse,
+    StaticOptionAnswer,
+    TaskInputAnswer,
+    TextSpan
+  }
+
+  alias QuickTrain.Tasks.Reviews.ReviewDecision
   @moduledoc false
   require Ash.Query
   import Ash.Expr

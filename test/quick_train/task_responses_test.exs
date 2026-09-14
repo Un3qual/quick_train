@@ -1,7 +1,9 @@
 defmodule QuickTrain.Tasks.TaskResponsesTest do
   use QuickTrain.DataCase, async: false
   alias QuickTrain.{Accounts, ProjectsFixture}
-  alias QuickTrain.Tasks.{Attempt, QuestionResponse, Response, TaskQuestionProgress}
+  alias QuickTrain.Tasks.Attempts.Attempt
+  alias QuickTrain.Tasks.Progress.TaskQuestionProgress
+  alias QuickTrain.Tasks.Responses.{QuestionResponse, Response}
 
   setup do
     context = ProjectsFixture.context!()

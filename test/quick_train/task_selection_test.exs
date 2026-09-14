@@ -1,7 +1,7 @@
 defmodule QuickTrain.Tasks.TaskSelectionTest do
   use ExUnit.Case, async: true
 
-  alias QuickTrain.Tasks.TaskSelection
+  alias QuickTrain.Tasks.Attempts.TaskSelection
 
   test "canonical identity preserves slot membership but ignores input presentation" do
     first = [

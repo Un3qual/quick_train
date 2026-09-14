@@ -2,9 +2,11 @@ defmodule QuickTrain.Tasks.TaskReviewTest do
   use QuickTrain.DataCase, async: false
 
   alias QuickTrain.{Accounts, ProjectsFixture}
-  alias QuickTrain.Tasks.{Attempt, AttemptQuestion, Progress, QuestionResponse, QuestionReview}
-  alias QuickTrain.Tasks.{Response, ReviewDecision, Task, TaskQuestionProgress}
-  alias QuickTrain.Tasks.{TaskInput, TaskItemCoverage}
+  alias QuickTrain.Tasks.Attempts.{Attempt, AttemptQuestion}
+  alias QuickTrain.Tasks.{Progress, Task, TaskInput}
+  alias QuickTrain.Tasks.Progress.{TaskItemCoverage, TaskQuestionProgress}
+  alias QuickTrain.Tasks.Responses.{QuestionResponse, Response}
+  alias QuickTrain.Tasks.Reviews.{QuestionReview, ReviewDecision}
   alias QuickTrain.Tasks.Workers.{ReconcileCoverage, ReconcileProgress}
 
   require Ash.Query

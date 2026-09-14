@@ -19,7 +19,8 @@ defmodule QuickTrain.Projects.Management do
 
   alias QuickTrain.Datasets.{DatasetItemRevision, DatasetSchemaVersion}
   alias QuickTrain.Forms.FormVersion
-  alias QuickTrain.Tasks.{Leases, ProjectCompletion}
+  alias QuickTrain.Tasks.Attempts.Leases
+  alias QuickTrain.Tasks.Progress.ProjectCompletion
   require Ash.Query
 
   @configuration [

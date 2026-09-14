@@ -17,7 +17,10 @@ defmodule QuickTrain.Tasks.TextSpansTest do
   alias QuickTrain.Forms.Presentation.PresentationElement
   alias QuickTrain.Forms.Questions.Constraints.AnnotationConstraints
   alias QuickTrain.Forms.Questions.QuestionDefinition
-  alias QuickTrain.Tasks.{Attempt, Response, TaskInput, TaskQuestionProgress, TextSpan}
+  alias QuickTrain.Tasks.Attempts.Attempt
+  alias QuickTrain.Tasks.Progress.TaskQuestionProgress
+  alias QuickTrain.Tasks.Responses.{Response, TextSpan}
+  alias QuickTrain.Tasks.TaskInput
   alias QuickTrainWeb.GraphQL.Schema
 
   require Ash.Query

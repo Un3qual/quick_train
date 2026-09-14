@@ -10,7 +10,7 @@ defmodule QuickTrain.Tasks do
       define :source_download, action: :source_download, args: [:organization_id, :project_id]
     end
 
-    resource QuickTrain.Tasks.Attempt do
+    resource QuickTrain.Tasks.Attempts.Attempt do
       define :fetch_work, action: :fetch, args: [:organization_id, :project_id, :request_key]
 
       define :assign_work,
@@ -38,10 +38,10 @@ defmodule QuickTrain.Tasks do
         args: [:organization_id, :project_id, :attempt_id]
     end
 
-    resource QuickTrain.Tasks.AttemptQuestion
-    resource QuickTrain.Tasks.AttemptInputPresentation
+    resource QuickTrain.Tasks.Attempts.AttemptQuestion
+    resource QuickTrain.Tasks.Attempts.AttemptInputPresentation
 
-    resource QuickTrain.Tasks.Response do
+    resource QuickTrain.Tasks.Responses.Response do
       define :save_question,
         action: :save_question,
         args: [:organization_id, :project_id, :attempt_id]
@@ -49,14 +49,14 @@ defmodule QuickTrain.Tasks do
       define :submit_response, action: :submit, args: [:organization_id, :project_id, :attempt_id]
     end
 
-    resource QuickTrain.Tasks.TaskQuestionProgress
-    resource QuickTrain.Tasks.TaskItemCoverage
-    resource QuickTrain.Tasks.QuestionResponse
-    resource QuickTrain.Tasks.StaticOptionAnswer
-    resource QuickTrain.Tasks.TaskInputAnswer
-    resource QuickTrain.Tasks.TextSpan
+    resource QuickTrain.Tasks.Progress.TaskQuestionProgress
+    resource QuickTrain.Tasks.Progress.TaskItemCoverage
+    resource QuickTrain.Tasks.Responses.QuestionResponse
+    resource QuickTrain.Tasks.Responses.StaticOptionAnswer
+    resource QuickTrain.Tasks.Responses.TaskInputAnswer
+    resource QuickTrain.Tasks.Responses.TextSpan
 
-    resource QuickTrain.Tasks.ReviewDecision do
+    resource QuickTrain.Tasks.Reviews.ReviewDecision do
       define :decide_question, action: :decide, args: [:organization_id, :project_id]
 
       define :review_questions,
@@ -64,7 +64,7 @@ defmodule QuickTrain.Tasks do
         args: [:organization_id, :project_id, :decisions]
     end
 
-    resource QuickTrain.Tasks.ResultExport do
+    resource QuickTrain.Tasks.Exports.ResultExport do
       define :request_result_export,
         action: :request_export,
         args: [:organization_id, :project_id, :request_key, :mode]
@@ -80,26 +80,29 @@ defmodule QuickTrain.Tasks do
         args: [:organization_id, :project_id, :export_id]
     end
 
-    resource QuickTrain.Tasks.ExportSelection
+    resource QuickTrain.Tasks.Exports.ExportSelection
   end
 
   graphql do
     queries do
       for {resource, singular, plural} <- [
             {QuickTrain.Tasks.Task, :task, :tasks},
-            {QuickTrain.Tasks.TaskQuestionProgress, :task_progress, :task_progress_rows},
-            {QuickTrain.Tasks.TaskItemCoverage, :task_item_coverage, :task_item_coverage_rows},
+            {QuickTrain.Tasks.Progress.TaskQuestionProgress, :task_progress, :task_progress_rows},
+            {QuickTrain.Tasks.Progress.TaskItemCoverage, :task_item_coverage,
+             :task_item_coverage_rows},
             {QuickTrain.Tasks.TaskInput, :task_input, :task_inputs},
-            {QuickTrain.Tasks.Attempt, :attempt, :attempts},
-            {QuickTrain.Tasks.AttemptQuestion, :attempt_question, :attempt_questions},
-            {QuickTrain.Tasks.AttemptInputPresentation, :attempt_input_presentation,
+            {QuickTrain.Tasks.Attempts.Attempt, :attempt, :attempts},
+            {QuickTrain.Tasks.Attempts.AttemptQuestion, :attempt_question, :attempt_questions},
+            {QuickTrain.Tasks.Attempts.AttemptInputPresentation, :attempt_input_presentation,
              :attempt_input_presentations},
-            {QuickTrain.Tasks.Response, :task_response, :task_responses},
-            {QuickTrain.Tasks.QuestionResponse, :question_response, :question_responses},
-            {QuickTrain.Tasks.StaticOptionAnswer, :static_option_answer, :static_option_answers},
-            {QuickTrain.Tasks.TaskInputAnswer, :task_input_answer, :task_input_answers},
-            {QuickTrain.Tasks.TextSpan, :text_span, :text_spans},
-            {QuickTrain.Tasks.ReviewDecision, :review_decision, :review_decisions}
+            {QuickTrain.Tasks.Responses.Response, :task_response, :task_responses},
+            {QuickTrain.Tasks.Responses.QuestionResponse, :question_response,
+             :question_responses},
+            {QuickTrain.Tasks.Responses.StaticOptionAnswer, :static_option_answer,
+             :static_option_answers},
+            {QuickTrain.Tasks.Responses.TaskInputAnswer, :task_input_answer, :task_input_answers},
+            {QuickTrain.Tasks.Responses.TextSpan, :text_span, :text_spans},
+            {QuickTrain.Tasks.Reviews.ReviewDecision, :review_decision, :review_decisions}
           ] do
         list resource, :"audit_#{plural}", :list_audit, relay?: true, paginate_with: :keyset
         read_one resource, :"audit_#{singular}", :get_audit
@@ -107,43 +110,43 @@ defmodule QuickTrain.Tasks do
         read_one resource, :"accepted_#{singular}", :get_accepted
       end
 
-      action QuickTrain.Tasks.Attempt, :work_bundle, :work_bundle
+      action QuickTrain.Tasks.Attempts.Attempt, :work_bundle, :work_bundle
 
-      action QuickTrain.Tasks.Attempt, :attempt_receipt, :receipt
+      action QuickTrain.Tasks.Attempts.Attempt, :attempt_receipt, :receipt
 
       action QuickTrain.Tasks.TaskInput, :task_bound_value, :bound_value
 
       action QuickTrain.Tasks.TaskInput, :task_source_download, :source_download
 
-      list QuickTrain.Tasks.ResultExport, :result_exports, :list_scoped,
+      list QuickTrain.Tasks.Exports.ResultExport, :result_exports, :list_scoped,
         relay?: true,
         paginate_with: :keyset
 
-      read_one QuickTrain.Tasks.ResultExport, :result_export, :get_scoped
+      read_one QuickTrain.Tasks.Exports.ResultExport, :result_export, :get_scoped
 
-      action QuickTrain.Tasks.ResultExport, :result_export_download, :download_export
+      action QuickTrain.Tasks.Exports.ResultExport, :result_export_download, :download_export
     end
 
     mutations do
-      action QuickTrain.Tasks.Attempt, :fetch_work, :fetch,
+      action QuickTrain.Tasks.Attempts.Attempt, :fetch_work, :fetch,
         args: [:organization_id, :project_id, :request_key]
 
-      action QuickTrain.Tasks.Attempt, :assign_work, :assign,
+      action QuickTrain.Tasks.Attempts.Attempt, :assign_work, :assign,
         args: [:organization_id, :project_id, :worker_id, :request_key]
 
-      action QuickTrain.Tasks.Attempt, :assign_follow_up, :follow_up,
+      action QuickTrain.Tasks.Attempts.Attempt, :assign_follow_up, :follow_up,
         args: [:organization_id, :project_id, :worker_id, :predecessor_id, :request_key]
 
-      action QuickTrain.Tasks.Attempt, :start_attempt, :start,
+      action QuickTrain.Tasks.Attempts.Attempt, :start_attempt, :start,
         args: [:organization_id, :project_id, :attempt_id]
 
-      action QuickTrain.Tasks.Attempt, :release_attempt, :release,
+      action QuickTrain.Tasks.Attempts.Attempt, :release_attempt, :release,
         args: [:organization_id, :project_id, :attempt_id]
 
-      action QuickTrain.Tasks.Attempt, :cancel_attempt, :cancel,
+      action QuickTrain.Tasks.Attempts.Attempt, :cancel_attempt, :cancel,
         args: [:organization_id, :project_id, :attempt_id]
 
-      action QuickTrain.Tasks.Response, :save_task_question, :save_question,
+      action QuickTrain.Tasks.Responses.Response, :save_task_question, :save_question,
         args: [
           :organization_id,
           :project_id,
@@ -153,10 +156,10 @@ defmodule QuickTrain.Tasks do
           :answer
         ]
 
-      action QuickTrain.Tasks.Response, :submit_task_response, :submit,
+      action QuickTrain.Tasks.Responses.Response, :submit_task_response, :submit,
         args: [:organization_id, :project_id, :attempt_id]
 
-      action QuickTrain.Tasks.ReviewDecision, :decide_task_question, :decide,
+      action QuickTrain.Tasks.Reviews.ReviewDecision, :decide_task_question, :decide,
         args: [
           :organization_id,
           :project_id,
@@ -167,10 +170,10 @@ defmodule QuickTrain.Tasks do
           :reason
         ]
 
-      action QuickTrain.Tasks.ReviewDecision, :review_task_questions, :review_batch,
+      action QuickTrain.Tasks.Reviews.ReviewDecision, :review_task_questions, :review_batch,
         args: [:organization_id, :project_id, :decisions]
 
-      action QuickTrain.Tasks.ResultExport, :request_result_export, :request_export,
+      action QuickTrain.Tasks.Exports.ResultExport, :request_result_export, :request_export,
         args: [
           :organization_id,
           :project_id,

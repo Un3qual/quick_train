@@ -29,14 +29,17 @@ defmodule QuickTrain.Tasks.Task do
   end
 
   relationships do
-    has_many :progress, QuickTrain.Tasks.TaskQuestionProgress,
+    has_many :progress, QuickTrain.Tasks.Progress.TaskQuestionProgress,
       destination_attribute: :task_id,
       public?: true
 
     has_many :inputs, QuickTrain.Tasks.TaskInput, destination_attribute: :task_id, public?: true
-    has_many :attempts, QuickTrain.Tasks.Attempt, destination_attribute: :task_id, public?: true
 
-    has_many :outcomes, QuickTrain.Tasks.QuestionResponse,
+    has_many :attempts, QuickTrain.Tasks.Attempts.Attempt,
+      destination_attribute: :task_id,
+      public?: true
+
+    has_many :outcomes, QuickTrain.Tasks.Responses.QuestionResponse,
       destination_attribute: :task_id,
       public?: true
 
@@ -65,7 +68,7 @@ defmodule QuickTrain.Tasks.Task do
         argument :organization_id, :uuid, allow_nil?: false
         argument :project_id, :uuid, allow_nil?: false
         filter expr(organization_id == ^arg(:organization_id) and project_id == ^arg(:project_id))
-        prepare {Module.concat(["QuickTrain.Tasks.ReadAccess.Prepare"]), mode: mode}
+        prepare {Module.concat(["QuickTrain.Tasks.Access.ReadAccess.Prepare"]), mode: mode}
 
         pagination keyset?: true,
                    required?: true,
@@ -81,7 +84,7 @@ defmodule QuickTrain.Tasks.Task do
         argument :organization_id, :uuid, allow_nil?: false
         argument :project_id, :uuid, allow_nil?: false
         filter expr(organization_id == ^arg(:organization_id) and project_id == ^arg(:project_id))
-        prepare {Module.concat(["QuickTrain.Tasks.ReadAccess.Prepare"]), mode: mode}
+        prepare {Module.concat(["QuickTrain.Tasks.Access.ReadAccess.Prepare"]), mode: mode}
       end
     end
 
@@ -116,7 +119,7 @@ defmodule QuickTrain.Tasks.Task do
 
   policies do
     policy action(:read) do
-      authorize_if Module.concat(["QuickTrain.Tasks.ReadAccess"])
+      authorize_if Module.concat(["QuickTrain.Tasks.Access.ReadAccess"])
     end
 
     policy action([:list_audit, :get_audit, :list_accepted, :get_accepted]) do

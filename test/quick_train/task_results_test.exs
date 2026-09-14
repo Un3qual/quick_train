@@ -25,14 +25,11 @@ defmodule QuickTrain.Tasks.ResultExportTest do
   alias QuickTrain.ProjectsFixture
   alias QuickTrain.Repo
   alias QuickTrain.Tasks
-  alias QuickTrain.Tasks.Attempt
-  alias QuickTrain.Tasks.QuestionResponse
-  alias QuickTrain.Tasks.Response
-  alias QuickTrain.Tasks.ResultExport
-  alias QuickTrain.Tasks.ResultExporting
-  alias QuickTrain.Tasks.ReviewDecision
+  alias QuickTrain.Tasks.Attempts.Attempt
+  alias QuickTrain.Tasks.Exports.{ResultExport, ResultExporting}
+  alias QuickTrain.Tasks.Responses.{QuestionResponse, Response, TextSpan}
+  alias QuickTrain.Tasks.Reviews.ReviewDecision
   alias QuickTrain.Tasks.TaskInput
-  alias QuickTrain.Tasks.TextSpan
 
   require Ash.Query
 

@@ -2,7 +2,8 @@ defmodule QuickTrain.Tasks.Workers.ExpireAttempt do
   @moduledoc false
   use Oban.Worker, queue: :task_maintenance, max_attempts: 10
   alias QuickTrain.Projects.Project
-  alias QuickTrain.Tasks.{Access, Attempt, Leases}
+  alias QuickTrain.Tasks.Access
+  alias QuickTrain.Tasks.Attempts.{Attempt, Leases}
 
   @impl Oban.Worker
   def perform(%Oban.Job{

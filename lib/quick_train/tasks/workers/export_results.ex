@@ -1,5 +1,5 @@
 defmodule QuickTrain.Tasks.Workers.ExportResults do
-  alias QuickTrain.Tasks.ResultExporting
+  alias QuickTrain.Tasks.Exports.ResultExporting
   @moduledoc false
   use Oban.Worker,
     queue: :task_exports,

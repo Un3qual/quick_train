@@ -1,8 +1,11 @@
 defmodule QuickTrain.Tasks.Progress do
   @moduledoc false
   alias QuickTrain.Projects.ProjectItem
-  alias QuickTrain.Tasks.{Access, AttemptQuestion, Leases, QuestionResponse, QuestionReview}
-  alias QuickTrain.Tasks.{Task, TaskInput, TaskItemCoverage, TaskQuestionProgress}
+  alias QuickTrain.Tasks.{Access, Task, TaskInput}
+  alias QuickTrain.Tasks.Attempts.{AttemptQuestion, Leases}
+  alias QuickTrain.Tasks.Progress.{TaskItemCoverage, TaskQuestionProgress}
+  alias QuickTrain.Tasks.Responses.QuestionResponse
+  alias QuickTrain.Tasks.Reviews.QuestionReview
   require Ash.Query
 
   @counts [:accepted, :pending, :skipped, :rejected, :live, :failures]

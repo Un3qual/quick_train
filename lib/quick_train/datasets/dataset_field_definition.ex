@@ -71,7 +71,7 @@ defmodule QuickTrain.Datasets.DatasetFieldDefinition do
       argument :id, :uuid, allow_nil?: false
       argument :attempt_id, :uuid
       filter expr(id == ^arg(:id))
-      prepare Module.concat(["QuickTrain.Tasks.ContractAccess.DefinitionRead"])
+      prepare Module.concat(["QuickTrain.Tasks.Access.ContractAccess.DefinitionRead"])
     end
 
     read :read do
@@ -207,15 +207,15 @@ defmodule QuickTrain.Datasets.DatasetFieldDefinition do
 
   policies do
     bypass action(:read) do
-      authorize_if Module.concat(["QuickTrain.Tasks.ContractAccess"])
+      authorize_if Module.concat(["QuickTrain.Tasks.Access.ContractAccess"])
     end
 
     policy action(:read) do
-      authorize_if Module.concat(["QuickTrain.Tasks.ContractAccess.DatasetAuthority"])
+      authorize_if Module.concat(["QuickTrain.Tasks.Access.ContractAccess.DatasetAuthority"])
     end
 
     policy action(:get_task_definition) do
-      authorize_if Module.concat(["QuickTrain.Tasks.ContractAccess"])
+      authorize_if Module.concat(["QuickTrain.Tasks.Access.ContractAccess"])
     end
 
     policy action(:read) do

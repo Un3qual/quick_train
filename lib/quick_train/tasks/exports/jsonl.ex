@@ -2,8 +2,7 @@ defmodule QuickTrain.Tasks.Exports.Jsonl do
   alias QuickTrain.Assets.Asset
   alias QuickTrain.Projects.Project
   alias QuickTrain.Tasks.Error
-  alias QuickTrain.Tasks.Exports.Snapshot
-  alias QuickTrain.Tasks.ExportSelection
+  alias QuickTrain.Tasks.Exports.{ExportSelection, Snapshot}
   @moduledoc false
   require Ash.Query
 
