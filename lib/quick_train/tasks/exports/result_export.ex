@@ -74,6 +74,19 @@ defmodule QuickTrain.Tasks.Exports.ResultExport do
       argument :evidence_kind, :string, constraints: [trim?: false]
       argument :evidence_id_from, :uuid
       argument :evidence_id_to, :uuid
+
+      validate present(:evidence_kind),
+        where: [present([:evidence_id_from, :evidence_id_to], at_least: 1)],
+        message: "invalid_export_filter"
+
+      validate compare(:task_id_from, less_than_or_equal_to: :task_id_to),
+        where: [present([:task_id_from, :task_id_to])],
+        message: "invalid_export_filter"
+
+      validate compare(:evidence_id_from, less_than_or_equal_to: :evidence_id_to),
+        where: [present([:evidence_id_from, :evidence_id_to])],
+        message: "invalid_export_filter"
+
       run Module.concat(["QuickTrain.Tasks.Exports.ResultExporting"])
     end
 
@@ -141,7 +154,6 @@ defmodule QuickTrain.Tasks.Exports.ResultExport do
     end
 
     update :update_internal do
-      require_atomic? false
       accept [:state, :snapshot_at, :record_count, :error_code, :asset_id, :pending_asset_id]
     end
   end

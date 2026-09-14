@@ -244,7 +244,7 @@ defmodule QuickTrain.Projects.Project do
       constraints instance_of: __MODULE__
       argument :organization_id, :uuid, allow_nil?: false
       argument :project_id, :uuid, allow_nil?: false
-      argument :revision_ids, {:array, :uuid}, allow_nil?: false
+      argument :revision_ids, {:array, :uuid}, allow_nil?: false, constraints: [min_length: 1]
       run Module.concat(["QuickTrain.Projects.Management"])
     end
 
@@ -254,7 +254,7 @@ defmodule QuickTrain.Projects.Project do
       constraints instance_of: __MODULE__
       argument :organization_id, :uuid, allow_nil?: false
       argument :project_id, :uuid, allow_nil?: false
-      argument :project_item_ids, {:array, :uuid}, allow_nil?: false
+      argument :project_item_ids, {:array, :uuid}, allow_nil?: false, constraints: [min_length: 1]
       run Module.concat(["QuickTrain.Projects.Management"])
     end
 
@@ -477,6 +477,7 @@ defmodule QuickTrain.Projects.Project do
         accept []
         require_atomic? false
         change get_and_lock(:for_update)
+        change set_attribute(:state, target)
 
         change {Module.concat(["QuickTrain.Projects.Project.Changes.Transition"]),
                 from: source, to: target}

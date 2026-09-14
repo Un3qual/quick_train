@@ -18,9 +18,7 @@ defmodule QuickTrain.Projects.Project.Changes.Transition do
     else
       unless project.state in opts[:from], do: Error.reject!(:invalid_project_transition)
 
-      changeset
-      |> prepare_transition!()
-      |> Ash.Changeset.force_change_attribute(:state, opts[:to])
+      prepare_transition!(changeset)
     end
   end
 

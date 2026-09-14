@@ -2,26 +2,24 @@ defmodule QuickTrain.Tasks.Responses.ResponseDraft do
   @moduledoc false
   use Ash.Resource.Actions.Implementation
   alias QuickTrain.Forms.Questions.QuestionDefinition
-  alias QuickTrain.Projects.{Project, ProjectQuestionPolicy}
+  alias QuickTrain.Projects.ProjectQuestionPolicy
 
   alias QuickTrain.Tasks.{Access, Error}
-  alias QuickTrain.Tasks.Attempts.{Attempt, AttemptQuestion}
+  alias QuickTrain.Tasks.Attempts.AttemptQuestion
 
   alias QuickTrain.Tasks.Responses.{
     AnswerValidation,
     QuestionResponse,
-    Response,
     StaticOptionAnswer,
     TaskInputAnswer,
     TextSpan
   }
 
   require Ash.Query
-  @children [StaticOptionAnswer, TaskInputAnswer, TextSpan]
 
   @impl true
   def run(input, _opts, context) do
-    Ash.transact([Project, Attempt, Response], fn -> save!(input.arguments, context.actor) end)
+    {:ok, save!(input.arguments, context.actor)}
   rescue
     error in Ash.Error.Invalid -> {:error, error}
   end
@@ -100,20 +98,7 @@ defmodule QuickTrain.Tasks.Responses.ResponseDraft do
       |> Ash.Query.lock(:for_update)
       |> Ash.read_one!(authorize?: false)
 
-    if prior do
-      for child <- @children do
-        child
-        |> Ash.Query.filter(question_response_id == ^prior.id)
-        |> Ash.bulk_destroy!(:destroy_internal, %{},
-          strategy: [:stream],
-          authorize?: false,
-          transaction: :all,
-          stop_on_error?: true
-        )
-      end
-
-      Ash.destroy!(prior, action: :destroy_internal, authorize?: false)
-    end
+    if prior, do: Ash.destroy!(prior, action: :destroy_internal, authorize?: false)
   end
 
   def stored_answer(outcome) do

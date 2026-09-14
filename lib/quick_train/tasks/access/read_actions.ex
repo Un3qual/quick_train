@@ -21,7 +21,7 @@ defmodule QuickTrain.Tasks.Access.ReadActions do
     if input.action.name == :source_download do
       source_download(input.arguments, context.actor)
     else
-      Ash.transact(Attempt, fn -> execute(input, context.actor) end)
+      {:ok, execute(input, context.actor)}
     end
   rescue
     error in [Ash.Error.Invalid, Ash.Error.Forbidden, Ash.Error.Unknown, Postgrex.Error] ->

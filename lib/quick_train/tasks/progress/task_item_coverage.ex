@@ -42,6 +42,7 @@ defmodule QuickTrain.Tasks.Progress.TaskItemCoverage do
 
   actions do
     action :reconcile do
+      transaction? true
       public? false
       argument :organization_id, :uuid, allow_nil?: false
       argument :project_id, :uuid, allow_nil?: false

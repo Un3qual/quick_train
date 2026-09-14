@@ -13,6 +13,10 @@ defmodule QuickTrain.Tasks.Responses.Inputs.TextSpanInput do
     attribute :end, :integer, allow_nil?: false, public?: true, constraints: [min: 1]
   end
 
+  validations do
+    validate compare(:end, greater_than: :start)
+  end
+
   graphql do
     type :task_text_span_input
   end

@@ -38,7 +38,7 @@ defmodule QuickTrain.Tasks.Reviews.QuestionReview do
   defp decide_all!(project, requests, actor) do
     ids = Enum.map(requests, & &1.question_response_id)
 
-    if ids == [] or length(Enum.uniq(ids)) != length(ids),
+    if length(Enum.uniq(ids)) != length(ids),
       do: Error.reject!(:invalid_review_batch)
 
     initial =

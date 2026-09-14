@@ -134,7 +134,7 @@ defmodule QuickTrain.Projects.Management do
   end
 
   defp edit!(project, :enroll_revisions, args) do
-    if args.revision_ids == [] or Enum.uniq(args.revision_ids) != args.revision_ids,
+    if Enum.uniq(args.revision_ids) != args.revision_ids,
       do: Error.reject!(:invalid_project_configuration)
 
     for id <- args.revision_ids do
@@ -161,8 +161,6 @@ defmodule QuickTrain.Projects.Management do
   end
 
   defp edit!(project, :remove_project_items, args) do
-    if args.project_item_ids == [], do: Error.reject!(:invalid_project_configuration)
-
     for id <- Enum.uniq(args.project_item_ids) do
       row = scoped!(ProjectItem, project, id)
       Ash.destroy!(row, action: :destroy_internal, authorize?: false)
@@ -267,9 +265,6 @@ defmodule QuickTrain.Projects.Management do
 
   defp edit!(project, :remove_explicit_group, args) do
     group = scoped!(ExplicitGroup, project, args.group_id)
-
-    ProjectActivation.rows(ExplicitGroupInput, project_id: project.id, group_id: group.id)
-    |> Enum.each(&Ash.destroy!(&1, action: :destroy_internal, authorize?: false))
 
     Ash.destroy!(group, action: :destroy_internal, authorize?: false)
     project

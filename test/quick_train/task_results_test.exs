@@ -383,6 +383,8 @@ defmodule QuickTrain.Tasks.ResultExportTest do
 
     assert QuickTrain.Tasks.seal_export_snapshot!(missing.id, authorize?: false).record_count == 0
     assert {:error, _} = request(scope, %{evidence_id_from: low})
+    assert {:error, _} = request(scope, %{evidence_id_to: high})
+    assert {:error, _} = request(scope, %{task_id_from: high, task_id_to: low})
 
     assert {:error, _} =
              request(scope, %{

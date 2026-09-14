@@ -241,10 +241,7 @@ defmodule QuickTrain.Tasks.Responses.AnswerValidation do
 
     require!(not is_nil(source) and source.record_id == Map.get(input_roots, span.task_input_id))
 
-    require!(
-      is_integer(span.start) and is_integer(span.end) and span.start >= 0 and
-        span.start < span.end and span.end <= source.length
-    )
+    require!(span.end <= source.length)
   end
 
   defp slot_inputs!(project, task, slot_id) do

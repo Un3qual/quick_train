@@ -167,8 +167,11 @@ defmodule QuickTrain.Tasks.Responses.QuestionResponse do
     end
 
     destroy :destroy_internal do
-      change Module.concat(["QuickTrain.Tasks.Responses.Changes.DraftEvidence"])
       require_atomic? false
+      change Module.concat(["QuickTrain.Tasks.Responses.Changes.DraftEvidence"])
+      change cascade_destroy(:static_options, action: :destroy_internal, after_action?: false)
+      change cascade_destroy(:input_answers, action: :destroy_internal, after_action?: false)
+      change cascade_destroy(:text_spans, action: :destroy_internal, after_action?: false)
     end
   end
 

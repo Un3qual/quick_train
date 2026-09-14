@@ -80,6 +80,7 @@ defmodule QuickTrain.Tasks.Responses.Response do
     end
 
     action :submit, :struct do
+      transaction? true
       constraints instance_of: QuickTrain.Tasks.Attempts.Attempt
       argument :organization_id, :uuid, allow_nil?: false
       argument :project_id, :uuid, allow_nil?: false
@@ -88,6 +89,7 @@ defmodule QuickTrain.Tasks.Responses.Response do
     end
 
     action :save_question, :struct do
+      transaction? true
       constraints instance_of: __MODULE__
       argument :organization_id, :uuid, allow_nil?: false
       argument :project_id, :uuid, allow_nil?: false

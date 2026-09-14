@@ -413,6 +413,20 @@ defmodule QuickTrain.ProjectsTest do
     [first, second] = ProjectsFixture.items(project)
     input = %{input_slot_id: context.source.form.slot.id, project_item_id: first.id, position: 0}
 
+    project =
+      Projects.create_explicit_group!(context.org.id, project.id, %{position: 0, inputs: [input]},
+        actor: context.actor
+      )
+
+    [group] = Ash.load!(project, :explicit_groups, authorize?: false).explicit_groups
+
+    Projects.remove_explicit_group!(context.org.id, project.id, %{group_id: group.id},
+      actor: context.actor
+    )
+
+    refute Ash.exists?(ExplicitGroup, authorize?: false)
+    refute Ash.exists?(QuickTrain.Projects.ExplicitGroupInput, authorize?: false)
+
     Projects.create_explicit_group!(context.org.id, project.id, %{position: 0, inputs: [input]},
       actor: context.actor
     )

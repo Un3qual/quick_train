@@ -107,23 +107,6 @@ defmodule QuickTrain.Tasks.Exports.ResultExporting do
     if args.evidence_kind &&
          args.evidence_kind not in Enum.map(Snapshot.kinds(), &Atom.to_string/1),
        do: Error.reject!(:invalid_export_filter)
-
-    if (args.evidence_id_from || args.evidence_id_to) && is_nil(args.evidence_kind),
-      do: Error.reject!(:invalid_export_filter)
-
-    for {lower, upper} <- [
-          {args.task_id_from, args.task_id_to},
-          {args.evidence_id_from, args.evidence_id_to}
-        ] do
-      validate_range!(lower, upper)
-    end
-  end
-
-  defp validate_range!(nil, _upper), do: :ok
-  defp validate_range!(_lower, nil), do: :ok
-
-  defp validate_range!(lower, upper) do
-    if lower > upper, do: Error.reject!(:invalid_export_filter)
   end
 
   defp process(id) do

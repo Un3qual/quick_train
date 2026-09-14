@@ -57,6 +57,7 @@ defmodule QuickTrain.Tasks.TaskInput do
     end
 
     action :bound_value, QuickTrain.Tasks.Access.BoundValue do
+      transaction? true
       argument :organization_id, :uuid, allow_nil?: false
       argument :project_id, :uuid, allow_nil?: false
       argument :task_input_id, :uuid, allow_nil?: false

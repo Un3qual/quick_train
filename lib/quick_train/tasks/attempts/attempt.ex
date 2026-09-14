@@ -85,6 +85,7 @@ defmodule QuickTrain.Tasks.Attempts.Attempt do
     end
 
     action :receipt, QuickTrain.Tasks.Attempts.Receipt do
+      transaction? true
       argument :organization_id, :uuid, allow_nil?: false
       argument :project_id, :uuid, allow_nil?: false
       argument :attempt_id, :uuid, allow_nil?: false

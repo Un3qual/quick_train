@@ -16,12 +16,9 @@ defmodule QuickTrain.Tasks.Progress do
     args = input.arguments
 
     if opts[:coverage?] do
-      case reconcile_coverage!(args.organization_id, args.project_id) do
-        {:ok, :ok} -> :ok
-        error -> error
-      end
+      reconcile_coverage!(args.organization_id, args.project_id)
     else
-      reconcile!(args.organization_id, args.project_id, args.task_id)
+      {:ok, reconcile!(args.organization_id, args.project_id, args.task_id)}
     end
   end
 
@@ -33,35 +30,31 @@ defmodule QuickTrain.Tasks.Progress do
   end
 
   defp reconcile!(organization_id, project_id, task_id) do
-    Ash.transact(Task, fn ->
-      project = Access.project!(organization_id, project_id)
+    project = Access.project!(organization_id, project_id)
 
-      task =
-        Task
-        |> Ash.Query.filter(id == ^task_id and project_id == ^project.id)
-        |> Ash.Query.lock(:for_update)
-        |> Ash.read_one!(authorize?: false)
-        |> Access.found!()
+    task =
+      Task
+      |> Ash.Query.filter(id == ^task_id and project_id == ^project.id)
+      |> Ash.Query.lock(:for_update)
+      |> Ash.read_one!(authorize?: false)
+      |> Access.found!()
 
-      rows = rows(task.id)
-      counts = Map.new(rows, &{&1.question_id, Map.new(@counts, fn key -> {key, 0} end)})
-      counts = count_outcomes(task, counts)
-      counts = count_attempts(task, counts)
-      updated = Enum.map(rows, &update_row!(&1, Map.fetch!(counts, &1.question_id)))
-      update_task!(project, task, updated)
-    end)
+    rows = rows(task.id)
+    counts = Map.new(rows, &{&1.question_id, Map.new(@counts, fn key -> {key, 0} end)})
+    counts = count_outcomes(task, counts)
+    counts = count_attempts(task, counts)
+    updated = Enum.map(rows, &update_row!(&1, Map.fetch!(counts, &1.question_id)))
+    update_task!(project, task, updated)
   end
 
   defp reconcile_coverage!(organization_id, project_id) do
-    Ash.transact(TaskItemCoverage, fn ->
-      project = Access.project!(organization_id, project_id)
+    project = Access.project!(organization_id, project_id)
 
-      ProjectItem
-      |> Ash.Query.filter(project_id == ^project.id)
-      |> Ash.Query.sort(id: :asc)
-      |> Ash.stream!(authorize?: false, batch_size: 100)
-      |> Enum.each(&reconcile_item!(project, &1))
-    end)
+    ProjectItem
+    |> Ash.Query.filter(project_id == ^project.id)
+    |> Ash.Query.sort(id: :asc)
+    |> Ash.stream!(authorize?: false, batch_size: 100)
+    |> Enum.each(&reconcile_item!(project, &1))
   end
 
   def rows(task_id) do

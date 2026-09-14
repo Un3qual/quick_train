@@ -1,18 +1,17 @@
 defmodule QuickTrain.Tasks.Responses.ResponseSubmission do
   @moduledoc false
   use Ash.Resource.Actions.Implementation
-  alias QuickTrain.Projects.Project
 
   alias QuickTrain.Tasks.{Access, Error, Progress}
-  alias QuickTrain.Tasks.Attempts.{Attempt, AttemptQuestion, Leases}
-  alias QuickTrain.Tasks.Responses.{AnswerValidation, QuestionResponse, Response, ResponseDraft}
+  alias QuickTrain.Tasks.Attempts.{AttemptQuestion, Leases}
+  alias QuickTrain.Tasks.Responses.{AnswerValidation, QuestionResponse, ResponseDraft}
   alias QuickTrain.Tasks.Reviews.QuestionReview
 
   require Ash.Query
 
   @impl true
   def run(input, _opts, context) do
-    Ash.transact([Project, Attempt, Response], fn -> submit!(input.arguments, context.actor) end)
+    {:ok, submit!(input.arguments, context.actor)}
   rescue
     error in Ash.Error.Invalid -> {:error, error}
   end

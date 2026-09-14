@@ -56,6 +56,7 @@ defmodule QuickTrain.Tasks.Task do
 
   actions do
     action :reconcile, :struct do
+      transaction? true
       public? false
       constraints instance_of: __MODULE__
       argument :organization_id, :uuid, allow_nil?: false
