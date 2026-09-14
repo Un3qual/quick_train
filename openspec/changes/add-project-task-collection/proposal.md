@@ -1,6 +1,6 @@
 ## Why
 
-QuickTrain can publish reusable forms and immutable dataset revisions, but organizations cannot yet turn them into work or collect attributable answers. This change promotes the Projects and Tasks decisions in `record-future-product-architecture` into an executable contract for configuring projects, issuing work, collecting typed responses, reviewing outcomes, and exporting evidence.
+Before this change, QuickTrain could publish reusable forms and immutable dataset revisions but could not turn them into work or collect attributable answers. This change promotes the Projects and Tasks decisions in `record-future-product-architecture` into an executable contract for configuring projects, issuing work, collecting typed responses, reviewing outcomes, and exporting evidence.
 
 ## What Changes
 
@@ -47,4 +47,4 @@ Explicit non-goals:
 - Depends only on the already archived authentication, datasets/assets, and versioned-forms capabilities. It can be implemented, verified, and archived before `add-project-task-media`, detailed media support, or a production HTTP storage adapter. Adapter contract tests cover opaque downloads and export publication; a compliant reachable adapter remains a deployment requirement for actual file transfer, not a completion gate for this change. Finance and Reputation remain independent.
 - Aligns existing Ash UUID declarations and creation paths, including form graph copying and Assets staging/finalizer claims, with PostgreSQL generation while preserving all existing IDs. This is a generation-policy update within the existing resources, with no new domain, UUID service, registry, or dependency.
 - Requires focused database identity, authorization, lifecycle, typed-value, selection-invariant, concurrency, export, and GraphQL checks, followed by `mise run openspec.validate` and `mise run verify` during implementation.
-- Keeps the source architecture record as historical context and links it to this dedicated change. No runtime changes are made by this proposal.
+- Keeps the source architecture record as historical context and links it to this dedicated change. The implementation adds core collection; image execution remains in the separate media change.

@@ -2,7 +2,7 @@
 
 QuickTrain is a backend-only Elixir template for enterprise applications. It keeps reusable
 account, tenant, authorization, and enterprise identity foundations, with organization-owned
-datasets, assets, and versioned form definitions. It has no frontend.
+datasets, assets, versioned form definitions, and project-based task collection. It has no frontend.
 
 ## Deliberate model choices
 
@@ -33,8 +33,23 @@ datasets, assets, and versioned form definitions. It has no frontend.
 - `QuickTrain.Forms`: reusable typed input and question contracts, editable drafts, immutable
   publication, and copying to new numbered drafts. See the versioned-forms OpenSpec change for
   capability provisioning and authoring limits. Forms do not access dataset content or storage.
-- `QuickTrainWeb.GraphQL.Schema`: an explicit allowlist of authentication, dataset, asset, and
-  form operations with scoped authorization and paginated collections.
+- `QuickTrain.Projects`: frozen cohorts, published form bindings, worker admission, and project lifecycle.
+- `QuickTrain.Tasks`: leased work, typed drafts and immutable submissions, per-question review,
+  progress reconciliation, scoped result reads, and immutable JSONL exports.
+- `QuickTrainWeb.GraphQL.Schema`: an explicit allowlist of authentication, dataset, asset,
+  form, project, and task operations with scoped authorization and paginated collections.
+
+Collection requires explicit `projects.read`, `projects.manage`, `tasks.assign`, `tasks.review`,
+and `tasks.results.read` grants for the relevant organizational roles. No production role gains
+these capabilities automatically. Project workers use the configured member/external admission
+route and always require an active global account. Image contracts are rejected at activation;
+image rendering and spatial answers remain in the separate media change.
+
+Task workers use the `task_maintenance` and `task_exports` Oban queues. Exports require a storage
+adapter implementing streaming staging writes within the publication deadline and existing verification and
+access contract. The in-memory adapter verifies byte generation and opaque access contracts in
+tests; it does not provide HTTP delivery. Accumulated result counts are GraphQL decimal strings;
+configured targets and published integer answers remain GraphQL integers.
 
 ## Toolchain
 
