@@ -4,7 +4,7 @@ See `proposal.md` for motivation and scope. The source is `../record-future-prod
 
 Existing Forms exposes stable FormVersion, InputSlotDefinition, InputFieldRequirement, PresentationElement, QuestionDefinition, QuestionOption, and Label identities. Its typed constraints already define Unicode code-point spans and normalized spatial coordinates. Datasets provide single-valued flat records and immutable revisions. Assets currently certify only immutable bytes, not image dimensions or rendering safety. Existing resource policies and the shared OrganizationCapability check require organization membership for management. The external-worker route specified here is an explicit product relationship, never a relaxation of that shared check.
 
-The user revised the release order: this change must be implementable and complete before detailed media support. Image presentation, image choice, spatial responses, and mask uploads are tracked in [add-project-task-media](../add-project-task-media/proposal.md). Only that follow-up depends on the separately scoped verified-media/storage foundation.
+The user revised the release order: this change must be implementable and complete before detailed media support. Image presentation, image choice, spatial responses, and mask uploads are tracked in [add-project-task-media](../../add-project-task-media/proposal.md). Only that follow-up depends on the separately scoped verified-media/storage foundation.
 
 ## Goals / Non-Goals
 

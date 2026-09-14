@@ -36,7 +36,7 @@ Explicit non-goals:
 
 ## Impact
 
-- Apply and archive `add-project-task-collection` first so its `projects` and `task-responses` specifications exist in the main spec tree. This follow-up's deltas are based on that proposed baseline; rebase them against the then-current main specs before implementation.
+- Core collection is implemented and [archived](../archive/2026-09-13-add-project-task-collection/proposal.md), and its specifications are in the main spec tree. This follow-up's deltas retain that baseline; recheck them against the current main specs and the implemented detailed-media foundation before implementation.
 - Also require the detailed-media/storage work recorded in [the future architecture](../record-future-product-architecture/design.md#deferred-file-interpretation-and-http-storage-integration). It must provide immutable source/hash/dimension facts, source/mask validation, approved rendering access, and real transfer endpoints. Its eventual change name is not assigned here; its acceptance contract is explicit in this design.
 - Adds Ash resources and additive migrations inside the existing Tasks domain, extends Projects/Tasks GraphQL actions and Assets authorization, and preserves all existing projects, attempts, and submitted/exported evidence.
 - These are backend-only product additions within the existing Projects/Tasks boundary. Accounts, Organizations, Authorization, Forms, Datasets, and the opaque Assets contract retain their reusable foundation responsibilities; no frontend or generic media framework is introduced here.
