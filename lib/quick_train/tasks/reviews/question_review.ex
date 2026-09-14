@@ -73,18 +73,29 @@ defmodule QuickTrain.Tasks.Reviews.QuestionReview do
         plan!(outcome, request, actor)
       end)
 
-    {decisions, _tasks} =
-      Enum.map_reduce(plans, tasks, fn
-        {:retry, decision}, tasks ->
-          {decision, tasks}
+    {decisions, changes} =
+      Enum.map_reduce(plans, %{}, fn
+        {:retry, decision}, changes ->
+          {decision, changes}
 
-        {:create, outcome, attributes, previous}, tasks ->
+        {:create, outcome, attributes, previous}, changes ->
           decision = create_decision!(outcome, attributes)
-          task = Map.fetch!(tasks, outcome.task_id)
-          changes = verdict_change(previous, decision_status(decision))
-          task = Progress.change!(project, task, %{outcome.question_id => changes})
-          {decision, Map.put(tasks, task.id, task)}
+          delta = verdict_change(previous, decision_status(decision))
+          key = {outcome.task_id, outcome.question_id}
+
+          changes =
+            Map.update(changes, key, delta, &Map.merge(&1, delta, fn _, a, b -> a + b end))
+
+          {decision, changes}
       end)
+
+    changes
+    |> Enum.group_by(fn {{task_id, _question_id}, _delta} -> task_id end, fn
+      {{_task_id, question_id}, delta} -> {question_id, delta}
+    end)
+    |> Enum.each(fn {task_id, deltas} ->
+      Progress.change!(project, Map.fetch!(tasks, task_id), Map.new(deltas))
+    end)
 
     decisions
   end

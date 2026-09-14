@@ -2,6 +2,7 @@ defmodule QuickTrain.Tasks.Access.ReadAccess do
   @moduledoc false
   use Ash.Policy.FilterCheck
   alias QuickTrain.Authorization.RoleAssignment
+  alias QuickTrain.Tasks.Access.WorkerEligibility
 
   alias QuickTrain.Tasks.Attempts.{Attempt, AttemptInputPresentation, AttemptQuestion}
   alias QuickTrain.Tasks.Progress.{TaskItemCoverage, TaskQuestionProgress}
@@ -52,18 +53,13 @@ defmodule QuickTrain.Tasks.Access.ReadAccess do
         query.context[:accessing_from]
       )
 
-  # This is one SQL eligibility predicate; splitting it hides the audience alternatives.
-  # credo:disable-for-next-line Credo.Check.Refactor.CyclomaticComplexity
   def eligible_attempt(%{id: id}) do
-    expr(
-      worker_id == ^id and worker.status == "active" and organization.status == "active" and
-        not exists(project.worker_access, user_id == ^id and disposition == :block) and
-        ((project.audience in [:organization_members, :both] and
-            exists(project.organization.memberships, user_id == ^id and status == "active")) or
-           (project.audience in [:external_users, :both] and
-              (project.external_access == :open or
-                 exists(project.worker_access, user_id == ^id and disposition == :allow))))
-    )
+    eligibility =
+      QuickTrain.Projects.Project
+      |> Ash.Filter.parse!(WorkerEligibility.project_filter(id))
+      |> Ash.Filter.move_to_relationship_path([:project])
+
+    expr(worker_id == ^id and worker.status == "active" and ^eligibility)
   end
 
   def live_attempt(actor) do

@@ -104,7 +104,8 @@ defmodule QuickTrain.Tasks.Attempts.AttemptAllocation do
 
   defp select_available(project, args, operation, actor, worker_id, live) do
     predecessor = if operation == :follow_up, do: predecessor!(project, args)
-    {candidates, selection, stale_cleared?} = scan_tasks(project, worker_id, live, predecessor)
+    query = candidate_tasks(project, worker_id, live, predecessor)
+    {scanned_ids, selection, stale_cleared?} = scan_tasks(project, query, live, predecessor)
 
     cond do
       not stale_cleared? ->
@@ -115,26 +116,42 @@ defmodule QuickTrain.Tasks.Attempts.AttemptAllocation do
         issue!(project, task, questions, args, operation, actor, worker_id)
 
       predecessor ->
-        if Enum.any?(candidates, &(&1.id == predecessor.task_id)),
+        if predecessor.task_id in scanned_ids,
           do: Error.reject!(:no_capacity),
           else: %AllocationResult{status: :retry_later}
 
       true ->
-        new_selection(project, candidates, args, operation, actor, worker_id)
+        remaining = Ash.Query.filter(query, id not in ^scanned_ids)
+        new_selection(project, remaining, args, operation, actor, worker_id)
     end
   end
 
-  defp scan_tasks(project, worker_id, live, predecessor) do
+  defp candidate_tasks(project, worker_id, live, predecessor) do
     query = Task |> Ash.Query.filter(project_id == ^project.id)
 
-    query =
-      if predecessor do
-        ids = [predecessor.task_id, live && live.task_id] |> Enum.reject(&is_nil/1)
-        Ash.Query.filter(query, id in ^ids)
-      else
-        query
-      end
+    if predecessor do
+      ids = [predecessor.task_id, live && live.task_id] |> Enum.reject(&is_nil/1)
+      Ash.Query.filter(query, id in ^ids)
+    else
+      live_states = Leases.live_states()
+      stale_task_ids = if live, do: [live.task_id], else: []
 
+      # Overdue reservations must be expired under the Task lock before capacity
+      # is decided, including the requesting worker's own stale lease.
+      Ash.Query.filter(
+        query,
+        id in ^stale_task_ids or
+          (not exists(attempts, worker_id == ^worker_id) and
+             (exists(progress, not attention and accepted + pending + live < target) or
+                exists(
+                  attempts,
+                  state in ^live_states and deadline <= fragment("clock_timestamp()")
+                )))
+      )
+    end
+  end
+
+  defp scan_tasks(project, query, live, predecessor) do
     # Read one candidate at a time so independent workers can reserve different
     # Tasks. Stable ordering also covers a stale worker lease on another Task.
     query
@@ -144,20 +161,18 @@ defmodule QuickTrain.Tasks.Attempts.AttemptAllocation do
     |> Enum.reduce_while({[], nil, is_nil(live)}, fn task, {seen, chosen, stale_cleared?} ->
       Leases.expire_task!(project, task)
       stale_cleared? = stale_cleared? or (live && live.task_id == task.id)
-      chosen = chosen || candidate(task, worker_id, predecessor)
-      state = {[task | seen], chosen, stale_cleared?}
+      chosen = chosen || candidate(task, live, predecessor)
+      state = {[task.id | seen], chosen, stale_cleared?}
       if chosen && stale_cleared?, do: {:halt, state}, else: {:cont, state}
     end)
   end
 
-  defp candidate(task, worker_id, predecessor) do
+  defp candidate(task, live, predecessor) do
     eligible? =
       if predecessor do
         task.id == predecessor.task_id
       else
-        not (Attempt
-             |> Ash.Query.filter(task_id == ^task.id and worker_id == ^worker_id)
-             |> Ash.exists?(authorize?: false))
+        is_nil(live) or task.id != live.task_id
       end
 
     questions = if eligible?, do: available(task, not is_nil(predecessor)), else: []
@@ -183,11 +198,11 @@ defmodule QuickTrain.Tasks.Attempts.AttemptAllocation do
     end)
   end
 
-  defp new_selection(project, candidates, args, operation, actor, worker_id) do
-    case lock_coverage(project, length(candidates)) do
+  defp new_selection(project, remaining, args, operation, actor, worker_id) do
+    case lock_coverage(project, remaining) do
       {:ok, coverage} ->
         case select_group(project, coverage) do
-          nil -> no_work(candidates, worker_id)
+          nil -> no_work(project, worker_id)
           group -> issue_group!(project, group, coverage, args, operation, actor, worker_id)
         end
 
@@ -196,9 +211,8 @@ defmodule QuickTrain.Tasks.Attempts.AttemptAllocation do
     end
   end
 
-  defp lock_coverage(project, scanned_tasks) do
-    if Ash.count!(Task, query: [filter: [project_id: project.id]], authorize?: false) >
-         scanned_tasks do
+  defp lock_coverage(project, remaining) do
+    if Ash.exists?(remaining, authorize?: false) do
       :contended
     else
       ensure_coverage!(project)
@@ -461,23 +475,28 @@ defmodule QuickTrain.Tasks.Attempts.AttemptAllocation do
     Enum.sort_by(inputs, &Map.fetch!(positions, {&1.input_slot_id, &1.project_item_id}))
   end
 
-  defp no_work(tasks, worker_id) do
-    rows = Enum.flat_map(tasks, &Progress.rows(&1.id))
+  defp no_work(project, worker_id) do
+    unworked =
+      Task
+      |> Ash.Query.filter(
+        project_id == ^project.id and not exists(attempts, worker_id == ^worker_id)
+      )
 
-    personally_exhausted? =
-      tasks != [] and
-        Enum.all?(tasks, fn task ->
-          Attempt
-          |> Ash.Query.filter(task_id == ^task.id and worker_id == ^worker_id)
-          |> Ash.exists?(authorize?: false)
-        end)
+    progress = Ash.Query.filter(TaskQuestionProgress, project_id == ^project.id)
 
     status =
       cond do
-        personally_exhausted? -> :no_work_for_worker
-        Enum.any?(rows, &(&1.live > 0 or &1.pending > 0)) -> :waiting_for_answers
-        Enum.any?(rows, &(&1.accepted < &1.target)) -> :needs_attention
-        true -> :no_work_for_worker
+        not Ash.exists?(unworked, authorize?: false) ->
+          :no_work_for_worker
+
+        Ash.exists?(Ash.Query.filter(progress, live > 0 or pending > 0), authorize?: false) ->
+          :waiting_for_answers
+
+        Ash.exists?(Ash.Query.filter(progress, accepted < target), authorize?: false) ->
+          :needs_attention
+
+        true ->
+          :no_work_for_worker
       end
 
     %AllocationResult{status: status}

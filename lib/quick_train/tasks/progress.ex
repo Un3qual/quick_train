@@ -29,12 +29,14 @@ defmodule QuickTrain.Tasks.Progress do
   def change!(project, task, changes) do
     updated =
       Enum.map(rows(task.id), fn row ->
-        values =
-          Map.new(Map.get(changes, row.question_id, %{}), fn {key, delta} ->
-            {key, Map.fetch!(row, key) + delta}
-          end)
+        case Map.fetch(changes, row.question_id) do
+          {:ok, deltas} ->
+            values = Map.new(deltas, fn {key, delta} -> {key, Map.fetch!(row, key) + delta} end)
+            update_row!(row, values)
 
-        update_row!(row, values)
+          :error ->
+            row
+        end
       end)
 
     update_task!(project, task, updated)
@@ -134,10 +136,11 @@ defmodule QuickTrain.Tasks.Progress do
     attention =
       current.accepted < current.target and current.failures >= current.failure_threshold
 
-    Ash.update!(row, Map.put(values, :attention, attention),
-      action: :update_internal,
-      authorize?: false
-    )
+    values = Map.put(values, :attention, attention)
+
+    if Enum.all?(values, fn {key, value} -> Map.fetch!(row, key) == value end),
+      do: row,
+      else: Ash.update!(row, values, action: :update_internal, authorize?: false)
   end
 
   defp update_task!(project, task, rows) do

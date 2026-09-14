@@ -47,36 +47,51 @@ defmodule QuickTrain.Projects.Management do
     )
   end
 
-  defp execute(input, actor) do
-    args = input.arguments
-    project = lock!(args.organization_id, args.project_id)
-    authorize!(actor, project.organization_id)
-    action = input.action.name
+  defp execute(%{action: %{name: action}, arguments: args}, actor)
+       when action in [
+              :activate,
+              :pause,
+              :resume,
+              :complete,
+              :archive,
+              :update_title,
+              :update_draft
+            ] do
+    project =
+      QuickTrain.Projects.get_project!(args.organization_id, args.project_id,
+        authorize?: false,
+        not_found_error?: false
+      )
 
-    cond do
-      action in [:activate, :pause, :resume, :complete, :archive] ->
-        transition!(project, action, actor)
+    if is_nil(project), do: Error.reject!(:invalid_project)
 
-      action == :update_title ->
+    case action do
+      :update_title ->
         QuickTrain.Projects.rename_project!(project, %{title: args.title}, actor: actor)
 
-      action in [:set_worker_access, :remove_worker_access] ->
-        edit!(project, action, args)
-
-      action == :update_draft ->
+      :update_draft ->
         QuickTrain.Projects.configure_project!(
           project,
           Map.drop(args, [:organization_id, :project_id]),
           actor: actor
         )
 
-      project.state != :draft ->
-        Error.reject!(:project_not_draft)
-
-      true ->
-        authorize_edit!(project, action, args, actor)
-        edit!(project, action, args)
+      transition ->
+        transition!(project, transition, actor)
     end
+  end
+
+  defp execute(input, actor) do
+    args = input.arguments
+    project = lock!(args.organization_id, args.project_id)
+    authorize!(actor, project.organization_id)
+    action = input.action.name
+
+    if project.state != :draft and action not in [:set_worker_access, :remove_worker_access],
+      do: Error.reject!(:project_not_draft)
+
+    authorize_edit!(project, action, args, actor)
+    edit!(project, action, args)
   end
 
   defp transition!(project, :activate, actor),

@@ -20,7 +20,7 @@ defmodule QuickTrain.Tasks.CollectionConcurrencyTest do
         ~w(projects.read projects.manage forms.read forms.manage datasets.read datasets.manage tasks.assign tasks.results.read)
       )
 
-    source = ProjectsFixture.source!(context, item_count: 1)
+    source = ProjectsFixture.source!(context, item_count: tags[:item_count] || 1)
 
     project =
       ProjectsFixture.configured!(context, source,
@@ -83,6 +83,36 @@ defmodule QuickTrain.Tasks.CollectionConcurrencyTest do
     assert Ash.count!(Attempt, authorize?: false) == 1
     assert Ash.read_one!(TaskItemCoverage, authorize?: false).exposures == 1
     assert Ash.read_one!(TaskQuestionProgress, authorize?: false).live == 1
+  end
+
+  @tag item_count: 2
+  test "a lock on completed task history does not prevent issuing remaining cohort work", ctx do
+    ctx = issue!(ctx)
+    assert {:ok, _} = save(ctx, 0, 3)
+    assert {:ok, _} = terminal(ctx, :submit)
+    other = Accounts.register_user!("history-next@example.test", "Next")
+    parent = self()
+
+    holder =
+      on_connection(fn ->
+        Ash.transact(Task, fn ->
+          task = Ash.get!(Task, ctx.attempt.task_id, authorize?: false, lock: :for_update)
+          send(parent, {:history_locked, task.state})
+          receive do: (:release -> :ok)
+        end)
+      end)
+
+    try do
+      assert_receive {:history_locked, :satisfied}, 5_000
+
+      assert {:ok, %{status: :issued, attempt: next}} =
+               fetch(%{ctx | worker: other}, Ash.UUID.generate())
+
+      assert next.task_id != ctx.attempt.task_id
+    after
+      send(holder.pid, :release)
+      AsyncTask.await(holder, 5_000)
+    end
   end
 
   test "simultaneous identical request keys return one fixed attempt", ctx do

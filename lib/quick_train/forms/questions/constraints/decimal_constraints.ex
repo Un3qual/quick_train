@@ -33,6 +33,7 @@ defmodule QuickTrain.Forms.Questions.Constraints.DecimalConstraints do
 
   actions do
     read :get_task_definition do
+      transaction? true
       get? true
       argument :organization_id, :uuid, allow_nil?: false
       argument :project_id, :uuid, allow_nil?: false

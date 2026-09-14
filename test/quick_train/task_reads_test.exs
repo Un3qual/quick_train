@@ -103,6 +103,16 @@ defmodule QuickTrain.Tasks.TaskReadsTest do
     assert {:error, _} = Ash.read(DatasetValue, actor: ctx.worker, context: %{task_access: true})
   end
 
+  test "malformed definition scopes return normal Ash validation errors", ctx do
+    args = Map.put(scope(ctx), :id, ctx.source.form.version.id)
+
+    for inputs <- [%{}, Map.delete(args, :project_id), Map.put(args, :organization_id, "invalid")] do
+      query = Ash.Query.for_read(FormVersion, :get_task_definition, inputs, actor: ctx.worker)
+      refute query.valid?
+      assert {:error, %Ash.Error.Invalid{}} = Ash.read_one(query)
+    end
+  end
+
   test "substitution and revocation cannot renew work access", ctx do
     stranger = Accounts.register_user!("stranger-read@example.test", "Stranger")
     assert {:error, _} = action(Attempt, :work_bundle, scope(ctx), stranger)

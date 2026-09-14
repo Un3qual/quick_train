@@ -1,9 +1,9 @@
 defmodule QuickTrain.Tasks.Access.WorkerEligibility do
   @moduledoc false
   alias QuickTrain.Accounts.User
-  alias QuickTrain.Organizations.{Membership, Organization}
-  alias QuickTrain.Projects.ProjectWorkerAccess
+  alias QuickTrain.Projects.Project
   alias QuickTrain.Tasks.Error
+  import Ash.Expr
   require Ash.Query
 
   def require!(project, user_id) do
@@ -14,34 +14,27 @@ defmodule QuickTrain.Tasks.Access.WorkerEligibility do
   def eligible?(_project, nil), do: false
 
   def eligible?(project, user_id) do
-    with %{status: "active"} <-
-           Ash.get!(User, user_id, authorize?: false, not_found_error?: false),
-         %{status: "active"} <-
-           Ash.get!(Organization, project.organization_id,
-             authorize?: false,
-             not_found_error?: false
-           ) do
-      access =
-        ProjectWorkerAccess
-        |> Ash.Query.filter(project_id == ^project.id and user_id == ^user_id)
-        |> Ash.read_one!(authorize?: false)
+    eligibility = project_filter(user_id)
 
-      member? =
-        project.audience in [:organization_members, :both] and
-          Membership
-          |> Ash.Query.filter(
-            organization_id == ^project.organization_id and user_id == ^user_id and
-              status == "active"
-          )
-          |> Ash.exists?(authorize?: false)
+    Project
+    |> Ash.Query.filter(
+      id == ^project.id and organization_id == ^project.organization_id and ^eligibility and
+        exists(User, id == ^user_id and status == "active")
+    )
+    |> Ash.exists?(authorize?: false)
+  end
 
-      external? =
-        project.audience in [:external_users, :both] and
-          (project.external_access == :open or match?(%{disposition: :allow}, access))
-
-      not match?(%{disposition: :block}, access) and (member? or external?)
-    else
-      _ -> false
-    end
+  # Allocation and evidence reads share the same audience and revocation rules.
+  # credo:disable-for-next-line Credo.Check.Refactor.CyclomaticComplexity
+  def project_filter(user_id) do
+    expr(
+      organization.status == "active" and
+        not exists(worker_access, user_id == ^user_id and disposition == :block) and
+        ((audience in [:organization_members, :both] and
+            exists(organization.memberships, user_id == ^user_id and status == "active")) or
+           (audience in [:external_users, :both] and
+              (external_access == :open or
+                 exists(worker_access, user_id == ^user_id and disposition == :allow))))
+    )
   end
 end

@@ -5,28 +5,26 @@ defmodule QuickTrain.Tasks.Access.ContractAccess.DefinitionRead do
   alias QuickTrain.Tasks.Attempts.Attempt
   require Ash.Query
 
-  def prepare(query, _opts, context) do
-    if is_nil(context.actor), do: Error.reject!(:forbidden)
+  @impl true
+  def prepare(query, _opts, context),
+    do: Ash.Query.before_action(query, &scope_query(&1, context.actor))
+
+  defp scope_query(query, actor) do
+    if is_nil(actor), do: Error.reject!(:forbidden)
     args = query.arguments
+    project = Access.project!(args.organization_id, args.project_id)
 
-    {:ok, project} =
-      QuickTrain.Repo.transaction(fn ->
-        project = Access.project!(args.organization_id, args.project_id)
+    if args[:attempt_id] do
+      attempt =
+        Attempt
+        |> Ash.Query.filter(id == ^args.attempt_id and project_id == ^project.id)
+        |> Ash.read_one!(authorize?: false)
+        |> Access.found!()
 
-        if args[:attempt_id] do
-          attempt =
-            Attempt
-            |> Ash.Query.filter(id == ^args.attempt_id and project_id == ^project.id)
-            |> Ash.read_one!(authorize?: false)
-            |> Access.found!()
-
-          Access.owner!(project, attempt, context.actor)
-        else
-          Access.manager!(project, context.actor, "tasks.results.read")
-        end
-
-        project
-      end)
+      Access.owner!(project, attempt, actor)
+    else
+      Access.manager!(project, actor, "tasks.results.read")
+    end
 
     case query.resource do
       QuickTrain.Forms.FormVersion ->
