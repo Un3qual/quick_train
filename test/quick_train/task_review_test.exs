@@ -108,6 +108,37 @@ defmodule QuickTrain.Tasks.TaskReviewTest do
     assert counts(ctx).pending == 2
   end
 
+  test "review creation validates human and system provenance before batch persistence", ctx do
+    outcome = outcome!(ctx)
+
+    attrs =
+      Map.merge(ctx.scope, %{
+        task_id: ctx.task.id,
+        question_id: outcome.question_id,
+        question_response_id: outcome.id,
+        number: 1,
+        verdict: :accept
+      })
+
+    for provenance <- [
+          %{origin: :human, requester_id: ctx.actor.id},
+          %{origin: :human, request_key: Ash.UUID.generate()},
+          %{origin: :system, verdict: :reject},
+          %{origin: :system, requester_id: ctx.actor.id},
+          %{origin: :system, request_key: Ash.UUID.generate()}
+        ] do
+      result =
+        Ash.bulk_create([Map.merge(attrs, provenance)], ReviewDecision, :create_internal,
+          authorize?: false,
+          return_errors?: true
+        )
+
+      assert result.status == :error
+    end
+
+    refute Ash.exists?(ReviewDecision, authorize?: false)
+  end
+
   test "skip and self review denial preserves all batch evidence and failure counts", ctx do
     answered = outcome!(ctx)
     skipped = outcome!(ctx, outcome: :skipped)

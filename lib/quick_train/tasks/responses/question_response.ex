@@ -164,6 +164,16 @@ defmodule QuickTrain.Tasks.Responses.QuestionResponse do
         :response_id,
         :question_id
       ]
+
+      for {field, family} <- [
+            {:text_value, :text},
+            {:integer_value, :integer},
+            {:decimal_value, :decimal},
+            {:boolean_value, :boolean}
+          ] do
+        validate attribute_equals(:outcome, :answered), where: [present(field)]
+        validate attribute_equals(:family, family), where: [present(field)]
+      end
     end
 
     destroy :destroy_internal do
@@ -254,12 +264,6 @@ defmodule QuickTrain.Tasks.Responses.QuestionResponse do
       index [:id, :task_id, :project_id, :form_version_id, :question_id],
         unique: true,
         name: "question_responses_scope_0"
-    end
-
-    check_constraints do
-      check_constraint :id, "question_responses_scalar_family",
-        check:
-          "(text_value IS NULL OR (outcome = 'answered' AND family = 'text')) AND (integer_value IS NULL OR (outcome = 'answered' AND family = 'integer')) AND (decimal_value IS NULL OR (outcome = 'answered' AND family = 'decimal')) AND (boolean_value IS NULL OR (outcome = 'answered' AND family = 'boolean'))"
     end
   end
 

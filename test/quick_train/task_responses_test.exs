@@ -77,6 +77,37 @@ defmodule QuickTrain.Tasks.TaskResponsesTest do
     assert submit!(ctx).state == :submitted
   end
 
+  test "question response creates reject mismatched scalar payloads in batches", ctx do
+    response = Ash.read_one!(Response, authorize?: false)
+
+    attrs = %{
+      organization_id: ctx.project.organization_id,
+      project_id: ctx.project.id,
+      form_version_id: ctx.project.form_version_id,
+      task_id: ctx.attempt.task_id,
+      response_id: response.id,
+      question_id: ctx.source.form.question.id,
+      family: :integer,
+      outcome: :answered
+    }
+
+    for payload <- [
+          %{text_value: "wrong family"},
+          %{boolean_value: false},
+          %{outcome: :skipped, integer_value: 3}
+        ] do
+      result =
+        Ash.bulk_create([Map.merge(attrs, payload)], QuestionResponse, :create_internal,
+          authorize?: false,
+          return_errors?: true
+        )
+
+      assert result.status == :error
+    end
+
+    refute Ash.exists?(QuestionResponse, authorize?: false)
+  end
+
   test "revision increments use stored values even when the supplied response is stale" do
     response = Ash.read_one!(Response, authorize?: false)
     assert QuickTrain.Tasks.revise_response!(response, authorize?: false).revision == 1

@@ -146,6 +146,10 @@ defmodule QuickTrain.Tasks.Reviews.ReviewDecision do
         :requester_id,
         :predecessor_id
       ]
+
+      validate present([:requester_id, :request_key]), where: [attribute_equals(:origin, :human)]
+      validate absent([:requester_id, :request_key]), where: [attribute_equals(:origin, :system)]
+      validate attribute_equals(:verdict, :accept), where: [attribute_equals(:origin, :system)]
     end
   end
 
@@ -221,12 +225,6 @@ defmodule QuickTrain.Tasks.Reviews.ReviewDecision do
 
     custom_indexes do
       index [:id, :question_response_id], unique: true, name: "review_decisions_scope_0"
-    end
-
-    check_constraints do
-      check_constraint :id, "review_decisions_origin",
-        check:
-          "(origin = 'human' AND requester_id IS NOT NULL AND request_key IS NOT NULL) OR (origin = 'system' AND requester_id IS NULL AND request_key IS NULL AND verdict = 'accept')"
     end
   end
 

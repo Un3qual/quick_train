@@ -26,7 +26,7 @@ defmodule QuickTrain.Tasks.ResultExportTest do
   alias QuickTrain.Repo
   alias QuickTrain.Tasks
   alias QuickTrain.Tasks.Attempts.Attempt
-  alias QuickTrain.Tasks.Exports.ResultExport
+  alias QuickTrain.Tasks.Exports.{ExportSelection, ResultExport}
   alias QuickTrain.Tasks.Responses.{QuestionResponse, Response, TextSpan}
   alias QuickTrain.Tasks.Reviews.ReviewDecision
   alias QuickTrain.Tasks.TaskInput
@@ -144,6 +144,40 @@ defmodule QuickTrain.Tasks.ResultExportTest do
 
     assert [%Oban.Job{queue: "task_exports"}] =
              Oban.Testing.all_enqueued(Repo, worker: Tasks.Workers.ExportResults)
+  end
+
+  test "export selection batches require the owners appropriate to their evidence kind", scope do
+    scope = submit!(scope)
+    {:ok, export} = request(scope)
+
+    attrs = %{
+      export_id: export.id,
+      organization_id: scope.project.organization_id,
+      project_id: scope.project.id,
+      form_version_id: scope.project.form_version_id,
+      record_count: 1
+    }
+
+    for owners <- [
+          %{kind: :task},
+          %{
+            kind: :task,
+            task_id: scope.attempt.task_id,
+            question_id: scope.source.form.question.id
+          },
+          %{kind: :question_option, question_id: scope.source.form.question.id},
+          %{kind: :dataset_value}
+        ] do
+      result =
+        Ash.bulk_create([Map.merge(attrs, owners)], ExportSelection, :create_internal,
+          authorize?: false,
+          return_errors?: true
+        )
+
+      assert result.status == :error
+    end
+
+    refute Ash.exists?(ExportSelection, authorize?: false)
   end
 
   test "new draft exports fail before persistence and leave the source contract editable",
