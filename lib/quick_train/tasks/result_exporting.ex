@@ -43,6 +43,8 @@ defmodule QuickTrain.Tasks.ResultExporting do
       if existing do
         same_request!(existing, args)
       else
+        require_activated!(project)
+
         attrs =
           Map.merge(args, %{
             requester_id: context.actor.id,
@@ -86,6 +88,11 @@ defmodule QuickTrain.Tasks.ResultExporting do
   rescue
     error in Ash.Error.Invalid -> {:error, error}
   end
+
+  defp require_activated!(%{state: state})
+       when state in [:active, :paused, :completed, :archived], do: :ok
+
+  defp require_activated!(_project), do: Error.reject!(:project_not_activated)
 
   defp same_request!(existing, args) do
     unless Map.take(existing, @filters) == Map.take(args, @filters),
@@ -254,7 +261,8 @@ defmodule QuickTrain.Tasks.ResultExporting do
       case Storage.write_staging(
              asset.staging_key,
              File.stream!(path, 64 * 1024, []),
-             config(:max_bytes)
+             config(:max_bytes),
+             config(:publication_deadline_ms)
            ) do
         {:error, :staging_fenced} -> :ok
         result -> result

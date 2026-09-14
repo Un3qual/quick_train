@@ -50,18 +50,24 @@ defmodule QuickTrain.Assets.Storage do
   @doc """
   Writes an enumerable of binary chunks to staging without publishing it.
 
-  Adapters must enforce the supplied byte cap while consuming the stream and
-  commit staging bytes only after the complete stream succeeds. This capability
+  Adapters must enforce the supplied byte cap and finite deadline while consuming
+  the stream, and commit staging bytes only after the complete stream succeeds.
+  Expiry returns `{:error, :storage_deadline_exceeded}` in finite time, without
+  leaving partial bytes or allowing that operation to commit staging bytes later.
+  As with sealing and verification, deadline enforcement belongs to the trusted
+  adapter. The deadline bounds this storage operation, not total export generation.
+  This capability
   is optional so adapters that only support client uploads remain compatible.
   Generated content still requires the existing verification and seal protocol.
   """
   @callback write_staging(
               staging_key :: object_key(),
               chunks :: Enumerable.t(),
-              byte_cap :: pos_integer()
+              byte_cap :: pos_integer(),
+              deadline_ms()
             ) :: :ok | {:error, term()}
 
-  @optional_callbacks start_link: 1, write_staging: 3
+  @optional_callbacks start_link: 1, write_staging: 4
 
   @callback writable_staging_access(
               staging_key :: object_key(),
@@ -130,27 +136,14 @@ defmodule QuickTrain.Assets.Storage do
     end
   end
 
-  def write_staging(staging_key, chunks, byte_cap)
-      when is_binary(staging_key) and staging_key != "" and is_integer(byte_cap) and byte_cap > 0 do
+  def write_staging(staging_key, chunks, byte_cap, deadline_ms)
+      when is_binary(staging_key) and staging_key != "" and is_integer(byte_cap) and byte_cap > 0 and
+             is_integer(deadline_ms) and deadline_ms > 0 do
     with {:ok, adapter} <- configured_adapter(),
-         true <- Code.ensure_loaded?(adapter) and function_exported?(adapter, :write_staging, 3),
+         true <- Code.ensure_loaded?(adapter) and function_exported?(adapter, :write_staging, 4),
          true <- adapter.enforces_byte_cap?() || {:error, :byte_cap_not_enforced} do
-      case adapter.write_staging(staging_key, chunks, byte_cap) do
-        :ok ->
-          :ok
-
-        {:error, reason}
-        when reason in [
-               :byte_cap_exceeded,
-               :staging_fenced,
-               :invalid_staging_write,
-               :export_storage_unavailable
-             ] ->
-          {:error, reason}
-
-        _failure ->
-          {:error, :storage_write_failed}
-      end
+      adapter.write_staging(staging_key, chunks, byte_cap, deadline_ms)
+      |> staging_write_result()
     else
       {:error, :byte_cap_not_enforced} = error -> error
       _unavailable -> {:error, :export_storage_unavailable}
@@ -161,7 +154,22 @@ defmodule QuickTrain.Assets.Storage do
     _kind, _reason -> {:error, :storage_write_failed}
   end
 
-  def write_staging(_staging_key, _chunks, _byte_cap), do: {:error, :invalid_staging_write}
+  def write_staging(_staging_key, _chunks, _byte_cap, _deadline_ms),
+    do: {:error, :invalid_staging_write}
+
+  defp staging_write_result(:ok), do: :ok
+
+  defp staging_write_result({:error, reason})
+       when reason in [
+              :byte_cap_exceeded,
+              :storage_deadline_exceeded,
+              :staging_fenced,
+              :invalid_staging_write,
+              :export_storage_unavailable
+            ],
+       do: {:error, reason}
+
+  defp staging_write_result(_failure), do: {:error, :storage_write_failed}
 
   def verify_and_publish(staging_key, sealed_key, expected, deadline_ms) do
     with {:ok, adapter} <- configured_adapter() do

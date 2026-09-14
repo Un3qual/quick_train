@@ -106,8 +106,48 @@ defmodule QuickTrain.Tasks.ResultExportTest do
     assert {:error, _} = request(scope, %{request_key: key, mode: :audit})
     assert Ash.count!(ResultExport, authorize?: false) == 1
 
-    assert [%Oban.Job{}] =
+    assert [%Oban.Job{queue: "task_exports"}] =
              Oban.Testing.all_enqueued(Repo, worker: Tasks.Workers.ExportResults)
+  end
+
+  test "new draft exports fail before persistence and leave the source contract editable",
+       scope do
+    draft = ProjectsFixture.draft!(scope.context, scope.source)
+    assert {:error, error} = request(%{scope | project: draft})
+    assert Exception.message(error) =~ "project_not_activated"
+    assert Ash.count!(ResultExport, authorize?: false) == 0
+    assert Oban.Testing.all_enqueued(Repo, worker: Tasks.Workers.ExportResults) == []
+
+    schema =
+      Datasets.create_schema_version!(scope.context.org.id, scope.source.dataset.id,
+        actor: scope.context.actor
+      )
+
+    root =
+      Datasets.add_record_type!(scope.context.org.id, schema.id, "other", "Other",
+        actor: scope.context.actor
+      )
+
+    Datasets.add_field_definition!(
+      scope.context.org.id,
+      root.id,
+      "body",
+      "Body",
+      "text",
+      "single",
+      true,
+      actor: scope.context.actor
+    )
+
+    schema =
+      Datasets.publish_schema_version!(scope.context.org.id, schema.id, root.id,
+        actor: scope.context.actor
+      )
+
+    repinned =
+      ProjectsFixture.run!(scope.context, draft, :update_draft, %{schema_version_id: schema.id})
+
+    assert repinned.schema_version_id == schema.id
   end
 
   test "an empty selection seals and publishes a verified header-only JSONL artifact", scope do
@@ -452,7 +492,9 @@ defmodule QuickTrain.Tasks.ResultExportTest do
               after
                 10_000 -> raise "test synchronization timeout"
               end
-            end, return_notifications?: true)
+            end,
+            return_notifications?: true
+          )
         end)
       end)
 
@@ -484,7 +526,7 @@ defmodule QuickTrain.Tasks.ResultExportTest do
 
   defmodule NoAccessStorage do
     defdelegate enforces_byte_cap?(), to: InMemory
-    defdelegate write_staging(key, chunks, cap), to: InMemory
+    defdelegate write_staging(key, chunks, cap, deadline_ms), to: InMemory
     defdelegate verify_and_publish(staging, sealed, facts, deadline), to: InMemory
     defdelegate verify_sealed(sealed, facts, deadline), to: InMemory
     def sealed_read_access(_key, _expiry), do: {:error, "private provider details"}
@@ -519,6 +561,54 @@ defmodule QuickTrain.Tasks.ResultExportTest do
     assert ready.pending_asset_id == pending.id
     assert ready.asset_id == pending.id
     assert ready.snapshot_at == failed.snapshot_at
+  end
+
+  defmodule SlowWriteStorage do
+    defdelegate enforces_byte_cap?(), to: InMemory
+
+    def write_staging(key, chunks, cap, deadline_ms) do
+      chunks =
+        Stream.map(chunks, fn chunk ->
+          Process.sleep(5_000)
+          chunk
+        end)
+
+      InMemory.write_staging(key, chunks, cap, deadline_ms)
+    end
+  end
+
+  test "write deadlines retain the protected pending identity and clean temporary output",
+       scope do
+    {:ok, export} = request(scope)
+    old = Application.fetch_env!(:quick_train, :assets)
+
+    config =
+      old
+      |> Keyword.put(:storage_adapter, SlowWriteStorage)
+      |> Keyword.put(:publication_deadline_ms, 25)
+
+    Application.put_env(:quick_train, :assets, config)
+    on_exit(fn -> Application.put_env(:quick_train, :assets, old) end)
+    started = System.monotonic_time(:millisecond)
+    assert {:error, :storage_deadline_exceeded} = ResultExporting.process(export.id)
+    assert System.monotonic_time(:millisecond) - started < 2_000
+    failed = Ash.get!(ResultExport, export.id, authorize?: false)
+    pending = Ash.get!(Asset, failed.pending_asset_id, authorize?: false)
+    assert pending.state == :pending
+    assert pending.result_export_id == export.id
+    assert failed.asset_id == nil
+
+    assert Path.wildcard(Path.join(System.tmp_dir!(), "quick_train_export_#{export.id}_*.jsonl")) ==
+             []
+
+    Application.put_env(:quick_train, :assets, old)
+    assert :ok = ResultExporting.process(export.id)
+    ready = Ash.get!(ResultExport, export.id, authorize?: false)
+    assert ready.pending_asset_id == pending.id
+    assert ready.snapshot_at == failed.snapshot_at
+
+    assert Ash.get!(Asset, pending.id, authorize?: false).staging_expires_at ==
+             pending.staging_expires_at
   end
 
   defp begin!(scope) do

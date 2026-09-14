@@ -36,19 +36,49 @@ defmodule QuickTrain.Assets.Storage.InMemory do
     do: GenServer.call(__MODULE__, {:issue_staging, key, cap, expires_at})
 
   @impl true
-  def write_staging(key, chunks, byte_cap)
-      when is_binary(key) and key != "" and is_integer(byte_cap) and byte_cap > 0 do
-    case Enum.reduce_while(chunks, {[], 0}, &collect_chunk(&1, &2, byte_cap)) do
-      {:error, reason} ->
-        {:error, reason}
+  def write_staging(key, chunks, byte_cap, deadline_ms)
+      when is_binary(key) and key != "" and is_integer(byte_cap) and byte_cap > 0 and
+             is_integer(deadline_ms) and deadline_ms > 0 do
+    deadline = deadline_after(deadline_ms)
 
-      {reversed, _size} ->
-        bytes = reversed |> Enum.reverse() |> IO.iodata_to_binary()
-        GenServer.call(__MODULE__, {:write_staging, key, bytes})
+    with {:ok, bytes} <- call_before(deadline, &collect_before(chunks, byte_cap, &1)) do
+      call_before(
+        deadline,
+        &GenServer.call(__MODULE__, {:write_staging, key, bytes, deadline}, &1)
+      )
     end
   end
 
-  def write_staging(_key, _chunks, _byte_cap), do: {:error, :invalid_staging_write}
+  def write_staging(_key, _chunks, _byte_cap, _deadline_ms), do: {:error, :invalid_staging_write}
+
+  defp collect_before(chunks, byte_cap, timeout) do
+    # Enumerables may block between chunks. Keep their work outside the storage
+    # server, and terminate it before returning a deadline failure.
+    task = Task.async(fn -> collect_chunks(chunks, byte_cap) end)
+
+    case Task.yield(task, timeout) do
+      {:ok, result} ->
+        result
+
+      nil ->
+        Task.shutdown(task, :brutal_kill)
+        {:error, :storage_deadline_exceeded}
+
+      {:exit, _reason} ->
+        {:error, :storage_write_failed}
+    end
+  end
+
+  defp collect_chunks(chunks, byte_cap) do
+    case Enum.reduce_while(chunks, {[], 0}, &collect_chunk(&1, &2, byte_cap)) do
+      {:error, reason} -> {:error, reason}
+      {reversed, _size} -> {:ok, reversed |> Enum.reverse() |> IO.iodata_to_binary()}
+    end
+  rescue
+    _error -> {:error, :storage_write_failed}
+  catch
+    _kind, _reason -> {:error, :storage_write_failed}
+  end
 
   defp collect_chunk(chunk, {chunks, size}, byte_cap) when is_binary(chunk) do
     size = size + byte_size(chunk)
@@ -175,12 +205,15 @@ defmodule QuickTrain.Assets.Storage.InMemory do
   def handle_call({:put_staging, _token, _bytes}, _from, state),
     do: {:reply, {:error, :invalid_storage_access}, state}
 
-  def handle_call({:write_staging, key, bytes}, _from, state) do
-    case Map.get(state.staging, key) do
-      %{fenced: true} ->
+  def handle_call({:write_staging, key, bytes, deadline}, _from, state) do
+    cond do
+      System.monotonic_time(:millisecond) >= deadline ->
+        {:reply, {:error, :storage_deadline_exceeded}, state}
+
+      match?(%{fenced: true}, Map.get(state.staging, key)) ->
         {:reply, {:error, :staging_fenced}, state}
 
-      _writable ->
+      true ->
         entry = %{bytes: bytes, fenced: false}
         {:reply, :ok, %{state | staging: Map.put(state.staging, key, entry)}}
     end
