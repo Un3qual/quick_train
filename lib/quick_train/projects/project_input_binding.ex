@@ -15,10 +15,6 @@ defmodule QuickTrain.Projects.ProjectInputBinding do
   end
 
   relationships do
-    has_many :issued_inputs, QuickTrain.Tasks.TaskInput,
-      source_attribute: :project_id,
-      destination_attribute: :project_id
-
     belongs_to :project, QuickTrain.Projects.Project, allow_nil?: false, attribute_public?: true
 
     belongs_to :schema_version, QuickTrain.Datasets.DatasetSchemaVersion,
@@ -45,40 +41,6 @@ defmodule QuickTrain.Projects.ProjectInputBinding do
   end
 
   actions do
-    read :list_result_bindings do
-      argument :organization_id, :uuid, allow_nil?: false
-      argument :project_id, :uuid, allow_nil?: false
-
-      filter expr(
-               project_id == ^arg(:project_id) and
-                 project.organization_id == ^arg(:organization_id)
-             )
-
-      filter expr(exists(issued_inputs, input_slot_id == parent(requirement.input_slot_id)))
-      prepare build(sort: [inserted_at: :asc, id: :asc])
-
-      pagination keyset?: true,
-                 required?: true,
-                 default_limit: 50,
-                 max_page_size: 100,
-                 stable_sort: [inserted_at: :asc, id: :asc]
-    end
-
-    read :get_result_binding do
-      get? true
-      argument :id, :uuid, allow_nil?: false
-      filter expr(id == ^arg(:id))
-      argument :organization_id, :uuid, allow_nil?: false
-      argument :project_id, :uuid, allow_nil?: false
-
-      filter expr(
-               project_id == ^arg(:project_id) and
-                 project.organization_id == ^arg(:organization_id)
-             )
-
-      filter expr(exists(issued_inputs, input_slot_id == parent(requirement.input_slot_id)))
-    end
-
     read :read do
       primary? true
 
@@ -132,11 +94,6 @@ defmodule QuickTrain.Projects.ProjectInputBinding do
   end
 
   policies do
-    policy action([:list_result_bindings, :get_result_binding]) do
-      authorize_if {QuickTrain.Authorization.Checks.OrganizationCapability,
-                    capability: "tasks.results.read"}
-    end
-
     policy action(:read) do
       forbid_unless actor_attribute_equals(:status, "active")
       authorize_if relates_to_actor_via([:project, :reader_role_assignments, :user])

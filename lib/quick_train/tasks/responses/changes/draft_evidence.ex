@@ -2,9 +2,8 @@ defmodule QuickTrain.Tasks.Responses.Changes.DraftEvidence do
   @moduledoc false
   use Ash.Resource.Change
   alias QuickTrain.Tasks.{Access, Error}
-  alias QuickTrain.Tasks.Attempts.Leases
+  alias QuickTrain.Tasks.Attempts.{Attempt, Leases}
   alias QuickTrain.Tasks.Responses.QuestionResponse
-  alias QuickTrain.Tasks.Attempts.Attempt
   require Ash.Query
 
   @impl true

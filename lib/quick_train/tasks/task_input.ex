@@ -15,7 +15,7 @@ defmodule QuickTrain.Tasks.TaskInput do
   end
 
   relationships do
-    has_many :requirements, QuickTrain.Forms.Inputs.InputFieldRequirement,
+    has_many :requirements, QuickTrain.Tasks.Context.InputFieldRequirement,
       source_attribute: :input_slot_id,
       destination_attribute: :input_slot_id,
       public?: true
@@ -40,7 +40,7 @@ defmodule QuickTrain.Tasks.TaskInput do
       allow_nil?: false,
       attribute_public?: true
 
-    belongs_to :input_slot, QuickTrain.Forms.Inputs.InputSlotDefinition,
+    belongs_to :input_slot, QuickTrain.Tasks.Context.InputSlotDefinition,
       allow_nil?: false,
       attribute_public?: true,
       public?: true

@@ -26,7 +26,7 @@ defmodule QuickTrain.Tasks.Access.ContractAccess.DefinitionRead do
       Access.manager!(project, actor, "tasks.results.read")
     end
 
-    case query.resource do
+    case query.resource.source_resource() do
       QuickTrain.Forms.FormVersion ->
         Ash.Query.filter(query, id == ^project.form_version_id)
 
@@ -34,7 +34,10 @@ defmodule QuickTrain.Tasks.Access.ContractAccess.DefinitionRead do
         Ash.Query.filter(
           query,
           record_type_id == ^project.root_record_type_id and
-            exists(project_bindings, project_id == ^project.id)
+            exists(
+              QuickTrain.Projects.ProjectInputBinding,
+              field_definition_id == parent(id) and project_id == ^project.id
+            )
         )
 
       _ ->

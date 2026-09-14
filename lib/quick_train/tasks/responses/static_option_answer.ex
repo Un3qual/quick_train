@@ -35,7 +35,7 @@ defmodule QuickTrain.Tasks.Responses.StaticOptionAnswer do
       allow_nil?: false,
       attribute_public?: true
 
-    belongs_to :option, QuickTrain.Forms.Questions.QuestionOption,
+    belongs_to :option, QuickTrain.Tasks.Context.QuestionOption,
       allow_nil?: false,
       attribute_public?: true,
       public?: true

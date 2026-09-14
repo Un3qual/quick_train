@@ -86,7 +86,7 @@ defmodule QuickTrain.Tasks.Responses.QuestionResponse do
       attribute_public?: true,
       public?: true
 
-    belongs_to :question, QuickTrain.Forms.Questions.QuestionDefinition,
+    belongs_to :question, QuickTrain.Tasks.Context.QuestionDefinition,
       allow_nil?: false,
       attribute_public?: true,
       public?: true

@@ -29,6 +29,14 @@ defmodule QuickTrain.Repo.Migrations.PinExportFormVersions do
     WHERE kind IN ('presentation_element', 'question_definition', 'question_option', 'label')
     """)
 
+    # Unpublished retries regenerate the same selection with deterministic JSON
+    # key ordering. Previously published assets and their bytes remain untouched;
+    # superseded pending assets retain export ownership and normal staging expiry.
+    execute("""
+    UPDATE result_exports SET pending_asset_id = NULL
+    WHERE state <> 'ready' AND pending_asset_id IS NOT NULL
+    """)
+
     drop_if_exists unique_index(
                      :export_selections,
                      [

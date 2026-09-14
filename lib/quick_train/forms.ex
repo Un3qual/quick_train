@@ -222,20 +222,6 @@ defmodule QuickTrain.Forms do
 
   graphql do
     queries do
-      read_one FormVersion, :task_form_version, :get_task_definition
-      read_one InputSlotDefinition, :task_input_slot_definition, :get_task_definition
-      read_one InputFieldRequirement, :task_input_field_requirement, :get_task_definition
-      read_one PresentationElement, :task_presentation_element, :get_task_definition
-      read_one QuestionDefinition, :task_question_definition, :get_task_definition
-      read_one QuestionOption, :task_question_option, :get_task_definition
-      read_one LabelSet, :task_label_set, :get_task_definition
-      read_one Label, :task_label, :get_task_definition
-      read_one TextConstraints, :task_text_constraints, :get_task_definition
-      read_one IntegerConstraints, :task_integer_constraints, :get_task_definition
-      read_one DecimalConstraints, :task_decimal_constraints, :get_task_definition
-      read_one SelectionConstraints, :task_selection_constraints, :get_task_definition
-      read_one AnnotationConstraints, :task_annotation_constraints, :get_task_definition
-
       list Form, :forms, :list_scoped,
         relay?: true,
         paginate_with: :keyset

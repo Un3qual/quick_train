@@ -83,12 +83,6 @@ defmodule QuickTrain.Projects do
 
       read_one QuickTrain.Projects.Project, :project, :get_scoped
 
-      list QuickTrain.Projects.ProjectInputBinding, :result_input_bindings, :list_result_bindings,
-        relay?: true,
-        paginate_with: :keyset
-
-      read_one QuickTrain.Projects.ProjectInputBinding, :result_input_binding, :get_result_binding
-
       list QuickTrain.Projects.ProjectItem, :project_items, :list_scoped,
         relay?: true,
         paginate_with: :keyset

@@ -43,9 +43,6 @@ defmodule QuickTrain.Datasets.DatasetFieldDefinition do
   end
 
   relationships do
-    has_many :project_bindings, QuickTrain.Projects.ProjectInputBinding,
-      destination_attribute: :field_definition_id
-
     belongs_to :record_type, DatasetRecordType,
       allow_nil?: false,
       public?: true
@@ -59,17 +56,6 @@ defmodule QuickTrain.Datasets.DatasetFieldDefinition do
   end
 
   actions do
-    read :get_task_definition do
-      transaction? true
-      get? true
-      argument :organization_id, :uuid, allow_nil?: false
-      argument :project_id, :uuid, allow_nil?: false
-      argument :id, :uuid, allow_nil?: false
-      argument :attempt_id, :uuid
-      filter expr(id == ^arg(:id))
-      prepare Module.concat(["QuickTrain.Tasks.Access.ContractAccess.DefinitionRead"])
-    end
-
     read :read do
       primary? true
 
@@ -202,16 +188,8 @@ defmodule QuickTrain.Datasets.DatasetFieldDefinition do
   end
 
   policies do
-    bypass action(:read) do
-      authorize_if Module.concat(["QuickTrain.Tasks.Access.ContractAccess"])
-    end
-
     policy action(:read) do
-      authorize_if Module.concat(["QuickTrain.Tasks.Access.ContractAccess.DatasetAuthority"])
-    end
-
-    policy action(:get_task_definition) do
-      authorize_if Module.concat(["QuickTrain.Tasks.Access.ContractAccess"])
+      authorize_if Module.concat(["QuickTrain.Datasets.ReadAuthority"])
     end
 
     policy action(:read) do

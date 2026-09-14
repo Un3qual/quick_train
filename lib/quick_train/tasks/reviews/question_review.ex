@@ -3,8 +3,8 @@ defmodule QuickTrain.Tasks.Reviews.QuestionReview do
   use Ash.Resource.Actions.Implementation
 
   alias QuickTrain.Tasks.{Access, Error, Progress, Task}
-  alias QuickTrain.Tasks.Responses.QuestionResponse
   alias QuickTrain.Tasks.Attempts.Attempt
+  alias QuickTrain.Tasks.Responses.QuestionResponse
   alias QuickTrain.Tasks.Reviews.ReviewDecision
 
   require Ash.Query

@@ -1,4 +1,4 @@
-defmodule QuickTrain.Tasks.Access.ContractAccess.DatasetAuthority do
+defmodule QuickTrain.Datasets.ReadAuthority do
   @moduledoc false
   use Ash.Policy.FilterCheck
   alias QuickTrain.Authorization.RoleAssignment

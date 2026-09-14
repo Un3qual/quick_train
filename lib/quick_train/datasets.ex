@@ -17,8 +17,6 @@ defmodule QuickTrain.Datasets do
 
   graphql do
     queries do
-      read_one DatasetFieldDefinition, :task_field_definition, :get_task_definition
-
       list Dataset, :datasets, :list_scoped,
         relay?: true,
         paginate_with: :keyset

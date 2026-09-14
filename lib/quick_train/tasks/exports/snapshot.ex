@@ -224,7 +224,11 @@ defmodule QuickTrain.Tasks.Exports.Snapshot do
     ProjectInputBinding
     |> Ash.Query.filter(
       project_id == ^export.project_id and
-        exists(issued_inputs, ^inputs and input_slot_id == parent(requirement.input_slot_id))
+        exists(
+          TaskInput,
+          project_id == parent(project_id) and ^inputs and
+            input_slot_id == parent(requirement.input_slot_id)
+        )
     )
     |> range(export)
     |> stream()

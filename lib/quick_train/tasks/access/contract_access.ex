@@ -12,12 +12,22 @@ defmodule QuickTrain.Tasks.Access.ContractAccess do
     do: "an exact published definition or bound value of currently authorized issued work"
 
   def filter(%{id: _} = actor, %{resource: resource, query: query}, _opts) do
-    if query.action.name == :get_task_definition or is_map(query.context[:accessing_from]),
-      do: definition_filter(resource, actor),
-      else: false
+    if query.action.name in [:get_task_definition, :list_result_bindings, :get_result_binding] or
+         is_map(query.context[:accessing_from]),
+       do: definition_filter(resource.source_resource(), actor),
+       else: false
   end
 
   def filter(_, _, _), do: false
+
+  defp definition_filter(QuickTrain.Projects.ProjectInputBinding, actor) do
+    results = ReadAccess.result_authority(actor)
+
+    expr(
+      exists(Task, project_id == parent(project_id) and ^results) and
+        exists(issued_inputs, input_slot_id == parent(requirement.input_slot_id))
+    )
+  end
 
   defp definition_filter(FormVersion, actor) do
     live = ReadAccess.live_attempt(actor)
@@ -42,6 +52,18 @@ defmodule QuickTrain.Tasks.Access.ContractAccess do
             ] do
     values = value_access(actor)
     expr(exists(DatasetValue, id == parent(dataset_value_id) and ^values))
+  end
+
+  defp definition_filter(QuickTrain.Assets.Asset, actor) do
+    values = value_access(actor)
+
+    expr(
+      exists(
+        DatasetValue.Asset,
+        asset_id == parent(id) and
+          exists(DatasetValue, id == parent(dataset_value_id) and ^values)
+      )
+    )
   end
 
   defp definition_filter(DatasetFieldDefinition, actor) do

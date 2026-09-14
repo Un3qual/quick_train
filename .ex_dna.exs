@@ -5,7 +5,7 @@
   min_similarity: 0.9,
   literal_mode: :abstract,
   normalize_pipes: true,
-  excluded_macros: [:field, :query, :mutation, :resources, :attributes, :actions],
+  excluded_macros: [:field, :query, :mutation, :resources, :attributes, :actions, :references],
   # These normalized resources deliberately repeat DSL declarations for distinct
   # types and foreign keys. ExDNA's near-miss module comparison ignores the macro
   # exclusions above; extracting shared resource macros would hide those contracts.

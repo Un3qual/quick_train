@@ -42,12 +42,12 @@ defmodule QuickTrain.Tasks.Responses.TextSpan do
       attribute_public?: true,
       public?: true
 
-    belongs_to :source_value, QuickTrain.Datasets.DatasetValue,
+    belongs_to :source_value, QuickTrain.Tasks.Context.DatasetValue,
       allow_nil?: false,
       attribute_public?: true,
       public?: true
 
-    belongs_to :label, QuickTrain.Forms.Labels.Label,
+    belongs_to :label, QuickTrain.Tasks.Context.Label,
       allow_nil?: false,
       attribute_public?: true,
       public?: true

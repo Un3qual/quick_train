@@ -15,8 +15,6 @@ defmodule QuickTrain.Forms.Labels.LabelSet do
   alias QuickTrain.Forms.FormVersion
   alias QuickTrain.Forms.Labels.Label
   alias QuickTrain.Repo
-  alias QuickTrain.Tasks.Access.ContractAccess
-  alias QuickTrain.Tasks.Access.ContractAccess.DefinitionRead
 
   attributes do
     uuid_primary_key :id
@@ -48,17 +46,6 @@ defmodule QuickTrain.Forms.Labels.LabelSet do
   end
 
   actions do
-    read :get_task_definition do
-      transaction? true
-      get? true
-      argument :organization_id, :uuid, allow_nil?: false
-      argument :project_id, :uuid, allow_nil?: false
-      argument :id, :uuid, allow_nil?: false
-      argument :attempt_id, :uuid
-      filter expr(id == ^arg(:id))
-      prepare DefinitionRead
-    end
-
     read :read_for_authoring do
       pagination keyset?: true, required?: false
     end
@@ -124,14 +111,6 @@ defmodule QuickTrain.Forms.Labels.LabelSet do
   end
 
   policies do
-    bypass action(:read) do
-      authorize_if ContractAccess
-    end
-
-    policy action(:get_task_definition) do
-      authorize_if ContractAccess
-    end
-
     policy action(:read_for_authoring) do
       authorize_if context_equals(:query_for, :bulk_update)
       authorize_if context_equals(:query_for, :bulk_destroy)

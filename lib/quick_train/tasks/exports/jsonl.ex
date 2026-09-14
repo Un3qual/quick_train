@@ -119,10 +119,23 @@ defmodule QuickTrain.Tasks.Exports.Jsonl do
   defp loads(_kind), do: []
 
   defp write_line!(file, value, {hash, size, count}) do
-    bytes = [Jason.encode_to_iodata!(value), "\n"]
+    bytes = [Jason.encode_to_iodata!(ordered(value)), "\n"]
     :ok = IO.binwrite(file, bytes)
     {:crypto.hash_update(hash, bytes), size + IO.iodata_length(bytes), count}
   end
+
+  # Atom-key map enumeration can change across VM boots. Publication retries
+  # must reproduce the same hash, including keys in nested constraint objects.
+  defp ordered(%_{} = value), do: value
+
+  defp ordered(value) when is_map(value) do
+    value
+    |> Enum.map(fn {key, child} -> {to_string(key), ordered(child)} end)
+    |> Enum.sort_by(&elem(&1, 0))
+    |> Jason.OrderedObject.new()
+  end
+
+  defp ordered(value), do: value
 
   defp row(_selections, :task, row), do: row |> fields() |> Map.drop([:state, :updated_at])
 

@@ -2,8 +2,8 @@ defmodule QuickTrain.Projects.Project.Changes.Transition do
   @moduledoc false
   use Ash.Resource.Change
   alias QuickTrain.Projects.{Error, Management, ProjectActivation}
-  alias QuickTrain.Tasks.Progress
   alias QuickTrain.Tasks.Attempts.Leases
+  alias QuickTrain.Tasks.Progress
   alias QuickTrain.Tasks.Progress.ProjectCompletion
 
   @impl true

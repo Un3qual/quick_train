@@ -15,7 +15,7 @@ defmodule QuickTrain.Tasks.Access.BoundValue do
     attribute :value, :struct,
       public?: true,
       writable?: false,
-      constraints: [instance_of: Module.concat(["QuickTrain.Datasets.DatasetValue"])]
+      constraints: [instance_of: Module.concat(["QuickTrain.Tasks.Context.DatasetValue"])]
   end
 
   graphql do

@@ -2,11 +2,12 @@ defmodule QuickTrain.Tasks.Access.ReadActions do
   @moduledoc false
   use Ash.Resource.Actions.Implementation
   alias QuickTrain.Assets.{AssetAccessResult, AssetSummary, Storage}
-  alias QuickTrain.Datasets.{DatasetItemRevision, DatasetValue}
+  alias QuickTrain.Datasets.DatasetItemRevision
   alias QuickTrain.Projects.ProjectInputBinding
   alias QuickTrain.Tasks.{Access, Error, TaskInput}
   alias QuickTrain.Tasks.Access.BoundValue
   alias QuickTrain.Tasks.Attempts.{Attempt, Leases, Receipt}
+  alias QuickTrain.Tasks.Context.DatasetValue
   require Ash.Query
 
   def run(%{action: %{name: :work_bundle}, arguments: args}, _opts, context) do
@@ -140,6 +141,6 @@ defmodule QuickTrain.Tasks.Access.ReadActions do
     unless asset && asset.state == :ready, do: Error.reject!(:invalid_source)
     expiry = DateTime.add(Leases.now!(), 300, :second)
     expiry = if deadline && DateTime.compare(deadline, expiry) == :lt, do: deadline, else: expiry
-    {asset, expiry}
+    {Ash.get!(QuickTrain.Assets.Asset, asset.id, authorize?: false), expiry}
   end
 end

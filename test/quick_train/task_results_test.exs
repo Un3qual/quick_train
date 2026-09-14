@@ -26,7 +26,7 @@ defmodule QuickTrain.Tasks.ResultExportTest do
   alias QuickTrain.Repo
   alias QuickTrain.Tasks
   alias QuickTrain.Tasks.Attempts.Attempt
-  alias QuickTrain.Tasks.Exports.{ExportSelection, ResultExport}
+  alias QuickTrain.Tasks.Exports.{ExportSelection, Jsonl, ResultExport}
   alias QuickTrain.Tasks.Responses.{QuestionResponse, TextSpan}
   alias QuickTrain.Tasks.Reviews.ReviewDecision
   alias QuickTrain.Tasks.TaskInput
@@ -129,6 +129,38 @@ defmodule QuickTrain.Tasks.ResultExportTest do
 
     :ok = InMemory.reset()
     %{context: context, project: project, source: source}
+  end
+
+  @tag :rich
+  test "a sealed export reproduces its bytes after a runtime restart", scope do
+    scope = submit!(scope)
+    {:ok, export} = request(scope)
+    export = Tasks.seal_export_snapshot!(export.id, authorize?: false)
+    path = Path.join(System.tmp_dir!(), "export_restart_#{export.id}")
+
+    try do
+      Jsonl.write!(export, path)
+
+      code = """
+      Application.ensure_all_started(:quick_train)
+      Ecto.Adapters.SQL.Sandbox.checkout(QuickTrain.Repo, sandbox: false)
+      export = Ash.get!(QuickTrain.Tasks.Exports.ResultExport, #{inspect(export.id)}, authorize?: false)
+      QuickTrain.Tasks.Exports.Jsonl.write!(export, #{inspect(path <> "_restarted")})
+      """
+
+      {output, status} =
+        System.cmd(
+          "mix",
+          ["run", "--no-start", "--no-compile", "--no-deps-check", "-e", code],
+          stderr_to_stdout: true
+        )
+
+      assert status == 0, output
+      assert File.read!(path) == File.read!(path <> "_restarted")
+    after
+      File.rm(path)
+      File.rm(path <> "_restarted")
+    end
   end
 
   test "request UUIDs fail before persistence and identical requests share one job", scope do

@@ -6,7 +6,7 @@ The collection architecture stores a second response lifecycle for each attempt,
 
 - Make Attempt own draft revisions, submitted answers, and submission state; remove the Response resource and response-specific query roots.
 - Calculate question attention and task status from transactional progress counters and project state.
-- Pin immutable form context once per export, retaining committed membership for changing evidence.
+- Pin immutable form context once per export, retaining committed membership for changing evidence and deterministic JSONL serialization across runtime restarts.
 - Initialize coverage at activation and separate explicit group locking from balanced selection.
 - Own collection context reads and authorization inside Tasks; keep ordinary Forms and Datasets authority in their domains.
 - Preserve collected evidence, historical export provenance, leases, pagination, and organization boundaries.
@@ -19,6 +19,7 @@ The collection architecture stores a second response lifecycle for each attempt,
 
 - `task-responses`: Attempt owns draft revisions and question outcomes.
 - `task-review`: Attention and task state are derived projections.
+- `projects`: Activation initializes frozen cohort coverage.
 - `task-allocation`: Explicit issuance has a narrow locking boundary.
 - `task-results`: Immutable form context uses a version-level snapshot and collection-owned reads.
 
