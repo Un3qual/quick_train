@@ -47,7 +47,21 @@ defmodule QuickTrain.Assets.Storage do
 
   @callback start_link(keyword()) :: GenServer.on_start() | :ignore
 
-  @optional_callbacks start_link: 1
+  @doc """
+  Writes an enumerable of binary chunks to staging without publishing it.
+
+  Adapters must enforce the supplied byte cap while consuming the stream and
+  commit staging bytes only after the complete stream succeeds. This capability
+  is optional so adapters that only support client uploads remain compatible.
+  Generated content still requires the existing verification and seal protocol.
+  """
+  @callback write_staging(
+              staging_key :: object_key(),
+              chunks :: Enumerable.t(),
+              byte_cap :: pos_integer()
+            ) :: :ok | {:error, term()}
+
+  @optional_callbacks start_link: 1, write_staging: 3
 
   @callback writable_staging_access(
               staging_key :: object_key(),
@@ -115,6 +129,39 @@ defmodule QuickTrain.Assets.Storage do
       {:error, reason} -> raise "storage access failed: #{inspect(reason)}"
     end
   end
+
+  def write_staging(staging_key, chunks, byte_cap)
+      when is_binary(staging_key) and staging_key != "" and is_integer(byte_cap) and byte_cap > 0 do
+    with {:ok, adapter} <- configured_adapter(),
+         true <- Code.ensure_loaded?(adapter) and function_exported?(adapter, :write_staging, 3),
+         true <- adapter.enforces_byte_cap?() || {:error, :byte_cap_not_enforced} do
+      case adapter.write_staging(staging_key, chunks, byte_cap) do
+        :ok ->
+          :ok
+
+        {:error, reason}
+        when reason in [
+               :byte_cap_exceeded,
+               :staging_fenced,
+               :invalid_staging_write,
+               :export_storage_unavailable
+             ] ->
+          {:error, reason}
+
+        _failure ->
+          {:error, :storage_write_failed}
+      end
+    else
+      {:error, :byte_cap_not_enforced} = error -> error
+      _unavailable -> {:error, :export_storage_unavailable}
+    end
+  rescue
+    _error -> {:error, :storage_write_failed}
+  catch
+    _kind, _reason -> {:error, :storage_write_failed}
+  end
+
+  def write_staging(_staging_key, _chunks, _byte_cap), do: {:error, :invalid_staging_write}
 
   def verify_and_publish(staging_key, sealed_key, expected, deadline_ms) do
     with {:ok, adapter} <- configured_adapter() do

@@ -1,5 +1,11 @@
 defmodule QuickTrain.Assets.Storage.InMemory do
-  @moduledoc "Deterministic in-memory storage for development and tests."
+  @moduledoc """
+  Deterministic in-memory storage contract double for development and tests.
+
+  It retains complete object bytes in memory and supplies descriptors for
+  contract checks only; it does not provide reachable HTTP upload or download
+  endpoints.
+  """
 
   use GenServer
 
@@ -28,6 +34,31 @@ defmodule QuickTrain.Assets.Storage.InMemory do
   @impl true
   def writable_staging_access(key, cap, expires_at),
     do: GenServer.call(__MODULE__, {:issue_staging, key, cap, expires_at})
+
+  @impl true
+  def write_staging(key, chunks, byte_cap)
+      when is_binary(key) and key != "" and is_integer(byte_cap) and byte_cap > 0 do
+    case Enum.reduce_while(chunks, {[], 0}, &collect_chunk(&1, &2, byte_cap)) do
+      {:error, reason} ->
+        {:error, reason}
+
+      {reversed, _size} ->
+        bytes = reversed |> Enum.reverse() |> IO.iodata_to_binary()
+        GenServer.call(__MODULE__, {:write_staging, key, bytes})
+    end
+  end
+
+  def write_staging(_key, _chunks, _byte_cap), do: {:error, :invalid_staging_write}
+
+  defp collect_chunk(chunk, {chunks, size}, byte_cap) when is_binary(chunk) do
+    size = size + byte_size(chunk)
+
+    if size <= byte_cap,
+      do: {:cont, {[chunk | chunks], size}},
+      else: {:halt, {:error, :byte_cap_exceeded}}
+  end
+
+  defp collect_chunk(_chunk, _acc, _byte_cap), do: {:halt, {:error, :invalid_staging_write}}
 
   @impl true
   def sealed_read_access(sealed, expires_at),
@@ -143,6 +174,17 @@ defmodule QuickTrain.Assets.Storage.InMemory do
 
   def handle_call({:put_staging, _token, _bytes}, _from, state),
     do: {:reply, {:error, :invalid_storage_access}, state}
+
+  def handle_call({:write_staging, key, bytes}, _from, state) do
+    case Map.get(state.staging, key) do
+      %{fenced: true} ->
+        {:reply, {:error, :staging_fenced}, state}
+
+      _writable ->
+        entry = %{bytes: bytes, fenced: false}
+        {:reply, :ok, %{state | staging: Map.put(state.staging, key, entry)}}
+    end
+  end
 
   def handle_call({:pin_staging, key}, _from, state) do
     case Map.get(state.staging, key) do
