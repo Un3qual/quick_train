@@ -4,8 +4,6 @@ defmodule QuickTrain.Tasks.Exports.Jsonl do
   alias QuickTrain.Tasks.Error
   alias QuickTrain.Tasks.Exports.Snapshot
   alias QuickTrain.Tasks.ExportSelection
-  alias QuickTrain.Tasks.QuestionResponse
-  alias QuickTrain.Tasks.Response
   @moduledoc false
   require Ash.Query
 
@@ -61,7 +59,7 @@ defmodule QuickTrain.Tasks.Exports.Jsonl do
   end
 
   defp write_kind!(file, export, schema_version_id, kind, state) do
-    Snapshot.rows(export, kind)
+    Snapshot.rows(export, kind, loads(kind))
     |> Enum.reduce(state, fn row, {hash, size, count} ->
       value =
         row(export, kind, row)
@@ -76,6 +74,18 @@ defmodule QuickTrain.Tasks.Exports.Jsonl do
       write_line!(file, value, {hash, size, count + 1})
     end)
   end
+
+  defp loads(:question_response), do: [:response]
+
+  defp loads(kind) when kind in [:static_option_answer, :task_input_answer, :text_span],
+    do: [question_response: :response]
+
+  defp loads(:question_definition),
+    do:
+      [annotation_constraints: :source_convention] ++ (@constraints -- [:annotation_constraints])
+
+  defp loads(:project_input_binding), do: [:requirement, :field_definition]
+  defp loads(_kind), do: []
 
   defp write_line!(file, value, {hash, size, count}) do
     bytes = [Jason.encode_to_iodata!(value), "\n"]
@@ -93,14 +103,12 @@ defmodule QuickTrain.Tasks.Exports.Jsonl do
       )
       |> Ash.read_one!(authorize?: false)
 
-    response = Ash.get!(Response, row.response_id, authorize?: false)
-
     row
     |> fields()
     |> Map.merge(%{
       effective_decision_id: selection.decision_id,
-      attempt_id: response.attempt_id,
-      submitted_at: response.submitted_at
+      attempt_id: row.response.attempt_id,
+      submitted_at: row.response.submitted_at
     })
   end
 
@@ -116,10 +124,7 @@ defmodule QuickTrain.Tasks.Exports.Jsonl do
       )
       |> Ash.read_one!(authorize?: false)
 
-    outcome =
-      Ash.get!(QuestionResponse, row.question_response_id, authorize?: false)
-
-    response = Ash.get!(Response, outcome.response_id, authorize?: false)
+    response = row.question_response.response
 
     fields(row)
     |> Map.merge(%{
@@ -130,15 +135,8 @@ defmodule QuickTrain.Tasks.Exports.Jsonl do
   end
 
   defp row(_export, :question_definition, row) do
-    row = Ash.load!(row, @constraints, authorize?: false)
-
     Enum.reduce(@constraints, fields(row), fn key, value ->
       constraint = Map.fetch!(row, key)
-
-      constraint =
-        if key == :annotation_constraints and constraint,
-          do: Ash.load!(constraint, :source_convention, authorize?: false),
-          else: constraint
 
       serialized = if constraint, do: fields(constraint), else: nil
 
@@ -152,8 +150,6 @@ defmodule QuickTrain.Tasks.Exports.Jsonl do
   end
 
   defp row(_export, :project_input_binding, row) do
-    row = Ash.load!(row, [:requirement, :field_definition], authorize?: false)
-
     fields(row)
     |> Map.merge(%{
       input_slot_id: row.requirement.input_slot_id,

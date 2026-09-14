@@ -3,7 +3,7 @@ defmodule QuickTrain.Tasks.OfferedPolicy do
   use Ash.Resource.Calculation
   alias QuickTrain.Authorization
   alias QuickTrain.Projects.{Project, ProjectQuestionPolicy}
-  alias QuickTrain.Tasks.{Access, Attempt, Error, QuestionResponse, ReviewDecision}
+  alias QuickTrain.Tasks.{Access, Attempt, Error, QuestionResponse}
   require Ash.Query
 
   def load(_query, _opts, _context),
@@ -21,6 +21,7 @@ defmodule QuickTrain.Tasks.OfferedPolicy do
       response.attempt_id == ^row.attempt_id and question_id == ^row.question_id and
         response.state == :submitted
     )
+    |> Ash.Query.load(:effective_verdict)
     |> Ash.read_one!(authorize?: false)
     |> review_status()
   end
@@ -43,20 +44,9 @@ defmodule QuickTrain.Tasks.OfferedPolicy do
   defp review_status(nil), do: :unsubmitted
   defp review_status(%{outcome: :skipped}), do: :skipped
 
-  defp review_status(outcome) do
-    decision =
-      ReviewDecision
-      |> Ash.Query.filter(question_response_id == ^outcome.id)
-      |> Ash.Query.sort(number: :desc)
-      |> Ash.Query.limit(1)
-      |> Ash.read_one!(authorize?: false)
-
-    case decision do
-      nil -> :pending
-      %{verdict: :accept} -> :accepted
-      _ -> :rejected
-    end
-  end
+  defp review_status(%{effective_verdict: nil}), do: :pending
+  defp review_status(%{effective_verdict: :accept}), do: :accepted
+  defp review_status(%{effective_verdict: :reject}), do: :rejected
 
   defp authorize!(project, attempt, actor, live?) do
     cond do

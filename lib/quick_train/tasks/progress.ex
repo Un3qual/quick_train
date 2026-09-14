@@ -75,6 +75,7 @@ defmodule QuickTrain.Tasks.Progress do
   defp count_outcomes(task, counts) do
     QuestionResponse
     |> Ash.Query.filter(task_id == ^task.id and response.state == :submitted)
+    |> Ash.Query.load(:effective_decision)
     |> Ash.stream!(authorize?: false, batch_size: 100)
     |> Enum.reduce(counts, fn outcome, counts ->
       status = QuestionReview.effective_status(outcome)

@@ -70,18 +70,6 @@ defmodule QuickTrain.Projects.ExplicitGroupInput do
                  stable_sort: [position: :asc, id: :asc]
     end
 
-    read :get_scoped do
-      get? true
-      argument :organization_id, :uuid, allow_nil?: false
-      argument :project_id, :uuid, allow_nil?: false
-      argument :id, :uuid, allow_nil?: false
-
-      filter expr(
-               id == ^arg(:id) and project_id == ^arg(:project_id) and
-                 project.organization_id == ^arg(:organization_id)
-             )
-    end
-
     create :create_internal do
       accept [
         :position,
@@ -107,7 +95,7 @@ defmodule QuickTrain.Projects.ExplicitGroupInput do
       authorize_if accessing_from(Module.concat(["QuickTrain.Projects.ExplicitGroup"]), :inputs)
     end
 
-    policy action([:list_scoped, :get_scoped]) do
+    policy action(:list_scoped) do
       authorize_if {QuickTrain.Authorization.Checks.OrganizationCapability,
                     capability: "projects.read"}
     end

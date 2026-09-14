@@ -281,7 +281,10 @@ defmodule QuickTrain.Tasks.TaskReviewTest do
     Ash.Seed.update!(ctx.project, %{state: :completed})
     assert {:ok, second} = decide(ctx, request(outcome, :reject, first.id, "Corrected"))
     assert Ash.get!(Task, ctx.task.id, authorize?: false).state == :cancelled
-    assert {:ok, _} = decide(ctx, request(outcome, :accept, second.id, "Restored"))
+    assert {:ok, third} = decide(ctx, request(outcome, :accept, second.id, "Restored"))
+    current = Ash.load!(outcome, [:effective_decision, :effective_verdict], authorize?: false)
+    assert current.effective_decision.id == third.id
+    assert current.effective_verdict == :accept
     assert Ash.get!(Task, ctx.task.id, authorize?: false).state == :satisfied
 
     assert Enum.all?(
@@ -403,7 +406,7 @@ defmodule QuickTrain.Tasks.TaskReviewTest do
     assert Enum.count(results, &match?({:error, _}, &1)) == 1
     assert Ash.count!(ReviewDecision, authorize?: false) == 1
 
-    current = QuestionReview.current_decision(outcome.id)
+    current = Ash.load!(outcome, :effective_decision, authorize?: false).effective_decision
     correction = request(outcome, :accept, current.id, "Reconciled correction")
 
     results =

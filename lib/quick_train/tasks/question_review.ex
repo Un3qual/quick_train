@@ -36,16 +36,10 @@ defmodule QuickTrain.Tasks.QuestionReview do
     :accepted
   end
 
-  def current_decision(question_response_id) do
-    ReviewDecision
-    |> Ash.Query.filter(question_response_id == ^question_response_id)
-    |> Ash.Query.sort(number: :desc)
-    |> Ash.Query.limit(1)
-    |> Ash.read_one!(authorize?: false)
-  end
-
   def effective_status(%{outcome: :skipped}), do: :skipped
-  def effective_status(%{outcome: :answered, id: id}), do: decision_status(current_decision(id))
+
+  def effective_status(%{outcome: :answered, effective_decision: decision}),
+    do: decision_status(decision)
 
   defp decide_all!(project, requests, actor) do
     ids = Enum.map(requests, & &1.question_response_id)
@@ -68,7 +62,11 @@ defmodule QuickTrain.Tasks.QuestionReview do
       |> Ash.load!(:attempt, authorize?: false)
       |> Map.new(&{&1.id, &1})
 
-    outcomes = lock_records(QuestionResponse, project.id, ids) |> Map.new(&{&1.id, &1})
+    outcomes =
+      lock_records(QuestionResponse, project.id, ids)
+      |> Ash.load!(:effective_decision, authorize?: false)
+      |> Map.new(&{&1.id, &1})
+
     Access.manager!(project, actor, "tasks.review")
 
     plans =
@@ -126,7 +124,7 @@ defmodule QuickTrain.Tasks.QuestionReview do
   end
 
   defp successor!(outcome, attributes) do
-    current = current_decision(outcome.id)
+    current = outcome.effective_decision
     predecessor_id = if current, do: current.id
 
     if predecessor_id != attributes.predecessor_id,

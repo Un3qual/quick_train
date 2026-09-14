@@ -26,7 +26,6 @@ defmodule QuickTrain.Tasks.ResultExportTest do
   alias QuickTrain.Repo
   alias QuickTrain.Tasks
   alias QuickTrain.Tasks.Attempt
-  alias QuickTrain.Tasks.Exports.Snapshot
   alias QuickTrain.Tasks.QuestionResponse
   alias QuickTrain.Tasks.Response
   alias QuickTrain.Tasks.ResultExport
@@ -180,7 +179,11 @@ defmodule QuickTrain.Tasks.ResultExportTest do
              Enum.sort(Enum.map(rows, &{&1["kind"], &1["id"]}))
 
     assert MapSet.new(rows, & &1["kind"]) ==
-             MapSet.new(Snapshot.kinds(), &Atom.to_string/1)
+             MapSet.new(~w(
+               task task_input attempt attempt_question attempt_input_presentation question_response
+               static_option_answer task_input_answer text_span review_decision presentation_element
+               question_definition question_option label project_input_binding dataset_value
+             ))
 
     assert Enum.count(rows, &(&1["kind"] == "text_span")) == 150
 

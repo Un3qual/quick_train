@@ -46,50 +46,32 @@ defmodule QuickTrain.Tasks.AttemptInputPresentation do
   end
 
   actions do
-    read :list_audit do
-      argument :organization_id, :uuid, allow_nil?: false
-      argument :project_id, :uuid, allow_nil?: false
-      filter expr(organization_id == ^arg(:organization_id) and project_id == ^arg(:project_id))
-      prepare {Module.concat(["QuickTrain.Tasks.ReadAccess.Prepare"]), mode: :audit}
+    for {mode, list_action, get_action} <- [
+          {:audit, :list_audit, :get_audit},
+          {:accepted, :list_accepted, :get_accepted}
+        ] do
+      read list_action do
+        argument :organization_id, :uuid, allow_nil?: false
+        argument :project_id, :uuid, allow_nil?: false
+        filter expr(organization_id == ^arg(:organization_id) and project_id == ^arg(:project_id))
+        prepare {Module.concat(["QuickTrain.Tasks.ReadAccess.Prepare"]), mode: mode}
 
-      pagination keyset?: true,
-                 required?: true,
-                 default_limit: 50,
-                 max_page_size: 100,
-                 stable_sort: [inserted_at: :asc, id: :asc]
-    end
+        pagination keyset?: true,
+                   required?: true,
+                   default_limit: 50,
+                   max_page_size: 100,
+                   stable_sort: [inserted_at: :asc, id: :asc]
+      end
 
-    read :get_audit do
-      get? true
-      argument :id, :uuid, allow_nil?: false
-      filter expr(id == ^arg(:id))
-      argument :organization_id, :uuid, allow_nil?: false
-      argument :project_id, :uuid, allow_nil?: false
-      filter expr(organization_id == ^arg(:organization_id) and project_id == ^arg(:project_id))
-      prepare {Module.concat(["QuickTrain.Tasks.ReadAccess.Prepare"]), mode: :audit}
-    end
-
-    read :list_accepted do
-      argument :organization_id, :uuid, allow_nil?: false
-      argument :project_id, :uuid, allow_nil?: false
-      filter expr(organization_id == ^arg(:organization_id) and project_id == ^arg(:project_id))
-      prepare {Module.concat(["QuickTrain.Tasks.ReadAccess.Prepare"]), mode: :accepted}
-
-      pagination keyset?: true,
-                 required?: true,
-                 default_limit: 50,
-                 max_page_size: 100,
-                 stable_sort: [inserted_at: :asc, id: :asc]
-    end
-
-    read :get_accepted do
-      get? true
-      argument :id, :uuid, allow_nil?: false
-      filter expr(id == ^arg(:id))
-      argument :organization_id, :uuid, allow_nil?: false
-      argument :project_id, :uuid, allow_nil?: false
-      filter expr(organization_id == ^arg(:organization_id) and project_id == ^arg(:project_id))
-      prepare {Module.concat(["QuickTrain.Tasks.ReadAccess.Prepare"]), mode: :accepted}
+      read get_action do
+        get? true
+        argument :id, :uuid, allow_nil?: false
+        filter expr(id == ^arg(:id))
+        argument :organization_id, :uuid, allow_nil?: false
+        argument :project_id, :uuid, allow_nil?: false
+        filter expr(organization_id == ^arg(:organization_id) and project_id == ^arg(:project_id))
+        prepare {Module.concat(["QuickTrain.Tasks.ReadAccess.Prepare"]), mode: mode}
+      end
     end
 
     read :read do

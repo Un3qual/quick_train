@@ -95,7 +95,6 @@ defmodule QuickTrain.Tasks.ReviewDecision do
 
     read :read do
       primary? true
-      prepare build(sort: [number: :asc, id: :asc])
 
       pagination keyset?: true,
                  required?: false,

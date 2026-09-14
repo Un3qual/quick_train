@@ -349,9 +349,14 @@ defmodule QuickTrain.Tasks.Exports.Snapshot do
   def stream(query),
     do: query |> Ash.Query.sort(id: :asc) |> Ash.stream!(batch_size: 100, authorize?: false)
 
-  def rows(export, kind) do
+  def rows(export, kind, load) do
     membership = membership(export, kind)
-    Keyword.fetch!(@resources, kind) |> Ash.Query.filter(^membership) |> range(export) |> stream()
+
+    Keyword.fetch!(@resources, kind)
+    |> Ash.Query.filter(^membership)
+    |> range(export)
+    |> Ash.Query.load(load)
+    |> stream()
   end
 
   for {kind, field, parent_field} <- [
