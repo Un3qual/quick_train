@@ -27,6 +27,7 @@ defmodule QuickTrain.Tasks.Exports.ResultExport do
     attribute :evidence_kind, :string, public?: true, allow_nil?: true
     attribute :evidence_id_from, :uuid, public?: true, allow_nil?: true
     attribute :evidence_id_to, :uuid, public?: true, allow_nil?: true
+    attribute :include_form_context, :boolean, allow_nil?: false, default: false
     attribute :snapshot_at, :utc_datetime_usec, public?: true, allow_nil?: true
     attribute :record_count, :integer, public?: true, allow_nil?: true, constraints: [min: 0]
     attribute :error_code, :string, public?: true, allow_nil?: true
@@ -142,6 +143,7 @@ defmodule QuickTrain.Tasks.Exports.ResultExport do
         :evidence_id_from,
         :evidence_id_to,
         :snapshot_at,
+        :include_form_context,
         :record_count,
         :error_code,
         :organization_id,
@@ -154,7 +156,15 @@ defmodule QuickTrain.Tasks.Exports.ResultExport do
     end
 
     update :update_internal do
-      accept [:state, :snapshot_at, :record_count, :error_code, :asset_id, :pending_asset_id]
+      accept [
+        :state,
+        :snapshot_at,
+        :include_form_context,
+        :record_count,
+        :error_code,
+        :asset_id,
+        :pending_asset_id
+      ]
     end
   end
 

@@ -12,9 +12,6 @@ defmodule QuickTrain.Tasks.Exports.ExportSelection do
     :question_id,
     :question_response_id,
     :decision_id,
-    :presentation_element_id,
-    :question_option_id,
-    :label_id,
     :binding_id,
     :dataset_value_id,
     :revision_id,
@@ -39,10 +36,6 @@ defmodule QuickTrain.Tasks.Exports.ExportSelection do
           :task_input_answer,
           :text_span,
           :review_decision,
-          :presentation_element,
-          :question_definition,
-          :question_option,
-          :label,
           :project_input_binding,
           :dataset_value
         ]
@@ -61,9 +54,6 @@ defmodule QuickTrain.Tasks.Exports.ExportSelection do
     belongs_to :question, QuickTrain.Forms.Questions.QuestionDefinition
     belongs_to :question_response, QuickTrain.Tasks.Responses.QuestionResponse
     belongs_to :decision, QuickTrain.Tasks.Reviews.ReviewDecision
-    belongs_to :presentation_element, QuickTrain.Forms.Presentation.PresentationElement
-    belongs_to :question_option, QuickTrain.Forms.Questions.QuestionOption
-    belongs_to :label, QuickTrain.Forms.Labels.Label
     belongs_to :binding, QuickTrain.Projects.ProjectInputBinding
     belongs_to :dataset_value, QuickTrain.Datasets.DatasetValue
     belongs_to :revision, QuickTrain.Datasets.DatasetItemRevision
@@ -100,10 +90,6 @@ defmodule QuickTrain.Tasks.Exports.ExportSelection do
              [:task_id, :question_id, :question_response_id], [:decision_id]},
             {[:review_decision], [:task_id, :question_id, :question_response_id, :decision_id],
              []},
-            {[:presentation_element], [:presentation_element_id], []},
-            {[:question_definition], [:question_id], []},
-            {[:question_option], [:question_id, :question_option_id], []},
-            {[:label], [:label_id], []},
             {[:project_input_binding], [:binding_id, :field_definition_id], []},
             {[:dataset_value],
              [
@@ -176,16 +162,6 @@ defmodule QuickTrain.Tasks.Exports.ExportSelection do
         on_delete: :restrict,
         match_with: [question_response_id: :question_response_id]
 
-      reference :presentation_element,
-        on_delete: :restrict,
-        match_with: [form_version_id: :version_id]
-
-      reference :question_option,
-        on_delete: :restrict,
-        match_with: [question_id: :question_id, form_version_id: :version_id]
-
-      reference :label, on_delete: :restrict, match_with: [form_version_id: :version_id]
-
       reference :binding,
         on_delete: :restrict,
         match_with: [project_id: :project_id, field_definition_id: :field_definition_id]
@@ -222,9 +198,6 @@ defmodule QuickTrain.Tasks.Exports.ExportSelection do
                :question_id,
                :question_response_id,
                :decision_id,
-               :presentation_element_id,
-               :question_option_id,
-               :label_id,
                :binding_id,
                :dataset_value_id
              ],

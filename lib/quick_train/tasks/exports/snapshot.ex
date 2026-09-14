@@ -43,14 +43,8 @@ defmodule QuickTrain.Tasks.Exports.Snapshot do
     project_input_binding: ProjectInputBinding,
     dataset_value: DatasetValue
   ]
-  @contexts [
-    :presentation_element,
-    :question_definition,
-    :question_option,
-    :label,
-    :project_input_binding,
-    :dataset_value
-  ]
+  @form_context [:presentation_element, :question_definition, :question_option, :label]
+  @contexts [:project_input_binding, :dataset_value]
   def kinds, do: Keyword.keys(@resources)
   def resources, do: @resources
 
@@ -78,7 +72,7 @@ defmodule QuickTrain.Tasks.Exports.Snapshot do
         true ->
           project = Access.project!(export.organization_id, export.project_id)
           Access.manager!(project, %{id: export.requester_id}, "tasks.results.read")
-          select!(export)
+          {include_form_context, form_count} = select!(export)
 
           count =
             ExportSelection
@@ -90,7 +84,8 @@ defmodule QuickTrain.Tasks.Exports.Snapshot do
             %{
               state: :writing,
               snapshot_at: Leases.now!(),
-              record_count: count,
+              record_count: count + form_count,
+              include_form_context: include_form_context,
               error_code: nil
             },
             action: :update_internal,
@@ -104,7 +99,18 @@ defmodule QuickTrain.Tasks.Exports.Snapshot do
     wanted =
       if export.evidence_kind, do: [String.to_existing_atom(export.evidence_kind)], else: kinds()
 
-    Enum.each(wanted, fn kind -> select_kind!(export, kind) end)
+    form_kinds = Enum.filter(wanted, &(&1 in @form_context))
+
+    include_form_context =
+      form_kinds != [] and Ash.exists?(eligible(Attempt, export), authorize?: false)
+
+    form_count =
+      if include_form_context,
+        do: Enum.sum_by(form_kinds, &Ash.count!(form_context(export, &1), authorize?: false)),
+        else: 0
+
+    wanted |> Enum.reject(&(&1 in @form_context)) |> Enum.each(&select_kind!(export, &1))
+    {include_form_context, form_count}
   end
 
   defp select_kind!(export, kind) when kind in [:task, :task_input] do
@@ -192,8 +198,7 @@ defmodule QuickTrain.Tasks.Exports.Snapshot do
     end
   end
 
-  defp context!(export, kind)
-       when kind in [:presentation_element, :question_definition, :question_option, :label] do
+  defp form_context(export, kind) do
     resource = Keyword.fetch!(@resources, kind)
     query = Ash.Query.filter(resource, version_id == ^export.form_version_id)
 
@@ -210,20 +215,7 @@ defmodule QuickTrain.Tasks.Exports.Snapshot do
         query
       end
 
-    query
-    |> range(export)
-    |> stream()
-    |> Enum.each(fn row ->
-      attrs =
-        case kind do
-          :presentation_element -> %{presentation_element_id: row.id}
-          :question_definition -> %{question_id: row.id}
-          :question_option -> %{question_id: row.question_id, question_option_id: row.id}
-          :label -> %{label_id: row.id}
-        end
-
-      pin!(export, kind, attrs, 1)
-    end)
+    range(query, export)
   end
 
   defp context!(export, :project_input_binding) do
@@ -367,6 +359,15 @@ defmodule QuickTrain.Tasks.Exports.Snapshot do
   def stream(query),
     do: query |> Ash.Query.sort(id: :asc) |> Ash.stream!(batch_size: 100, authorize?: false)
 
+  def rows(export, kind, load) when kind in @form_context do
+    if export.include_form_context and
+         (is_nil(export.evidence_kind) or export.evidence_kind == Atom.to_string(kind)) do
+      export |> form_context(kind) |> Ash.Query.load(load) |> stream()
+    else
+      []
+    end
+  end
+
   def rows(export, kind, load) do
     membership = membership(export, kind)
 
@@ -388,10 +389,6 @@ defmodule QuickTrain.Tasks.Exports.Snapshot do
         {:task_input_answer, :question_response_id, :question_response_id},
         {:text_span, :question_response_id, :question_response_id},
         {:review_decision, :decision_id, :id},
-        {:presentation_element, :presentation_element_id, :id},
-        {:question_definition, :question_id, :id},
-        {:question_option, :question_option_id, :id},
-        {:label, :label_id, :id},
         {:project_input_binding, :binding_id, :id},
         {:dataset_value, :dataset_value_id, :id}
       ] do

@@ -10,8 +10,8 @@
 
 ## 3. Version-level form snapshots
 
-- [ ] 3.1 Replace individual immutable Forms membership with sealed form-context eligibility and migrate existing snapshots.
-- [ ] 3.2 Verify filters, exact counts, snapshot retries, and empty context.
+- [x] 3.1 Replace individual immutable Forms membership with sealed form-context eligibility and migrate existing snapshots.
+- [x] 3.2 Verify filters, exact counts, snapshot retries, and empty context.
 
 ## 4. Explicit allocation
 
