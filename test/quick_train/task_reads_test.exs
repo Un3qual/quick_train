@@ -1,9 +1,10 @@
 defmodule QuickTrain.Tasks.TaskReadsTest do
   use QuickTrain.DataCase, async: false
   alias QuickTrain.{Accounts, Authorization, Forms, Organizations, ProjectsFixture}
-  alias QuickTrain.Tasks.{Attempt, QuestionResponse, Response, TaskInput}
-  alias QuickTrain.Forms.FormVersion
   alias QuickTrain.Datasets.DatasetValue
+  alias QuickTrain.Forms.FormVersion
+  alias QuickTrain.Projects.Management
+  alias QuickTrain.Tasks.{Access, Attempt, QuestionResponse, Response, TaskInput}
   require Ash.Query
 
   setup tags do
@@ -18,7 +19,8 @@ defmodule QuickTrain.Tasks.TaskReadsTest do
     project =
       ProjectsFixture.configured!(context, source,
         audience: :external_users,
-        external_access: :open
+        external_access: :open,
+        lease_minutes: 1
       )
 
     if tags[:rich_source] do
@@ -138,7 +140,7 @@ defmodule QuickTrain.Tasks.TaskReadsTest do
     assert outcome.question.renderer == :stars
     assert outcome.question.integer_constraints.maximum == 5
     assert outcome.effective_decision.verdict == :accept
-    assert length(outcome.review_decisions) == 1
+    assert [_] = outcome.review_decisions
     [attempt] = rows(Attempt, :list_audit, ctx, reader)
 
     attempt =
@@ -185,7 +187,7 @@ defmodule QuickTrain.Tasks.TaskReadsTest do
     [attempt] = rows(Attempt, :list_audit, ctx, reader)
     attempt = Ash.load!(attempt, [:response, :offered_questions], actor: reader)
     assert is_nil(attempt.response)
-    assert length(attempt.offered_questions) == 1
+    assert [_] = attempt.offered_questions
     assert {:error, _} = Ash.read(QuestionResponse, actor: ctx.worker)
   end
 
@@ -260,21 +262,21 @@ defmodule QuickTrain.Tasks.TaskReadsTest do
     [task] = Ash.read!(query).results
     assert task.outcomes == []
     assert task.attempts == []
-    assert length(task.progress) == 1
-    assert length(rows(QuickTrain.Tasks.TaskItemCoverage, :list_audit, ctx, reader)) == 1
+    assert [_] = task.progress
+    assert [_] = rows(QuickTrain.Tasks.TaskItemCoverage, :list_audit, ctx, reader)
     assert rows(QuickTrain.Tasks.TaskItemCoverage, :list_accepted, ctx, reader) == []
 
     bundle =
       action!(Attempt, :work_bundle, scope(ctx), reader)
       |> Ash.load!([response: :outcomes], actor: reader)
 
-    assert length(bundle.response.outcomes) == 1
+    assert [_] = bundle.response.outcomes
 
     action!(Response, :submit, scope(ctx), reader)
     [task] = Ash.read!(query).results
-    assert length(task.outcomes) == 1
-    assert length(task.attempts) == 1
-    assert length(rows(QuickTrain.Tasks.TaskItemCoverage, :list_accepted, ctx, reader)) == 1
+    assert [_] = task.outcomes
+    assert [_] = task.attempts
+    assert [_] = rows(QuickTrain.Tasks.TaskItemCoverage, :list_accepted, ctx, reader)
 
     accepted =
       QuickTrain.Tasks.Task
@@ -283,7 +285,7 @@ defmodule QuickTrain.Tasks.TaskReadsTest do
 
     [task] = Ash.read!(accepted).results
     [outcome] = task.outcomes
-    assert length(outcome.review_decisions) == 1
+    assert [_] = outcome.review_decisions
     [decision] = outcome.review_decisions
 
     Ash.create!(
@@ -308,9 +310,9 @@ defmodule QuickTrain.Tasks.TaskReadsTest do
 
     assert Ash.read!(accepted).results == []
     [task] = Ash.read!(query).results
-    assert length(task.outcomes) == 1
+    assert [_] = task.outcomes
     assert rows(QuickTrain.Tasks.ReviewDecision, :list_accepted, ctx, reader) == []
-    assert length(rows(QuickTrain.Tasks.ReviewDecision, :list_audit, ctx, reader)) == 2
+    assert [_, _] = rows(QuickTrain.Tasks.ReviewDecision, :list_audit, ctx, reader)
   end
 
   @tag :rich_source
@@ -328,7 +330,7 @@ defmodule QuickTrain.Tasks.TaskReadsTest do
     assert absent.revision_id == input.revision_id
 
     bindings = rows(QuickTrain.Projects.ProjectInputBinding, :list_result_bindings, ctx, reader)
-    assert length(bindings) == 3
+    assert [_, _, _] = bindings
     bindings = Ash.load!(bindings, [:requirement, :field_definition], actor: reader)
 
     assert Enum.any?(
@@ -395,6 +397,47 @@ defmodule QuickTrain.Tasks.TaskReadsTest do
       source: QuickTrain.Datasets.DatasetRecord,
       name: :values
     })
+
+    other =
+      ProjectsFixture.configured!(ctx.context, ctx.source,
+        audience: :external_users,
+        external_access: :open
+      )
+
+    for {requirement, field} <- ctx.source.extra_bindings do
+      ProjectsFixture.run!(ctx.context, other, :set_binding, %{
+        requirement_id: requirement.id,
+        field_definition_id: field.id
+      })
+    end
+
+    ProjectsFixture.run!(ctx.context, other, :set_binding, %{
+      requirement_id: ctx.source.form.field.id,
+      field_definition_id: ctx.source.secret.id
+    })
+
+    other = ProjectsFixture.run!(ctx.context, other, :activate)
+
+    action!(
+      Attempt,
+      :fetch,
+      %{
+        organization_id: ctx.context.org.id,
+        project_id: other.id,
+        request_key: Ash.UUID.generate()
+      },
+      ctx.worker
+    )
+
+    query = """
+    { taskFieldDefinition(organizationId: "#{ctx.context.org.id}", projectId: "#{ctx.project.id}",
+       id: "#{ctx.source.secret.id}") { id key } }
+    """
+
+    assert {:ok, rejected} =
+             Absinthe.run(query, QuickTrainWeb.GraphQL.Schema, context: %{actor: reader})
+
+    assert get_in(rejected, [:data, "taskFieldDefinition"]) == nil
 
     body =
       action!(
@@ -477,7 +520,7 @@ defmodule QuickTrain.Tasks.TaskReadsTest do
 
     {:ok, task} =
       Repo.transaction(fn ->
-        QuickTrain.Projects.Management.lock!(ctx.context.org.id, ctx.project.id)
+        Management.lock!(ctx.context.org.id, ctx.project.id)
 
         task =
           Task.async(fn ->
@@ -485,7 +528,7 @@ defmodule QuickTrain.Tasks.TaskReadsTest do
               Repo.transaction(fn ->
                 %{rows: [[backend]]} = Repo.query!("SELECT pg_backend_pid()")
                 send(parent, {:reader_connection, backend})
-                QuickTrain.Tasks.Access.project!(ctx.context.org.id, ctx.project.id)
+                Access.project!(ctx.context.org.id, ctx.project.id)
                 Ash.load!(ctx.attempt, :offered_questions, actor: ctx.worker).offered_questions
               end)
             end)
@@ -536,8 +579,8 @@ defmodule QuickTrain.Tasks.TaskReadsTest do
 
   defp rich_source!(context) do
     alias QuickTrain.{Assets, Datasets, FormsFixture}
-    alias QuickTrain.Forms.Inputs.InputFieldRequirement
     alias QuickTrain.Assets.Storage.InMemory
+    alias QuickTrain.Forms.Inputs.InputFieldRequirement
     form = FormsFixture.rating!(context)
 
     note =

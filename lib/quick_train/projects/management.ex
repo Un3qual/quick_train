@@ -19,6 +19,7 @@ defmodule QuickTrain.Projects.Management do
 
   alias QuickTrain.Datasets.{DatasetItemRevision, DatasetSchemaVersion}
   alias QuickTrain.Forms.FormVersion
+  alias QuickTrain.Tasks.{Leases, ProjectCompletion}
   require Ash.Query
 
   @configuration [
@@ -30,6 +31,13 @@ defmodule QuickTrain.Projects.Management do
     :coverage_target,
     :lease_minutes
   ]
+  @source_states %{
+    activate: [:draft],
+    pause: [:active],
+    resume: [:paused],
+    complete: [:active, :paused],
+    archive: [:completed]
+  }
   @targets %{
     activate: :active,
     pause: :paused,
@@ -120,26 +128,7 @@ defmodule QuickTrain.Projects.Management do
         Error.reject!(:project_not_draft)
 
       true ->
-        if action == :update_draft do
-          if args[:dataset_id] || args[:schema_version_id],
-            do: authorize!(actor, project.organization_id, "datasets.read")
-
-          if args[:form_version_id], do: authorize!(actor, project.organization_id, "forms.read")
-        end
-
-        if action in [:enroll_revisions, :set_binding] do
-          authorize!(actor, project.organization_id, "datasets.read")
-        end
-
-        if action in [
-             :set_binding,
-             :set_slot_policy,
-             :set_question_policy,
-             :create_explicit_group
-           ] do
-          authorize!(actor, project.organization_id, "forms.read")
-        end
-
+        authorize_edit!(project, action, args, actor)
         edit!(project, action, args)
     end
   end
@@ -150,28 +139,81 @@ defmodule QuickTrain.Projects.Management do
     if project.state == target do
       project
     else
-      allowed =
-        case action do
-          :activate -> project.state == :draft
-          :pause -> project.state == :active
-          :resume -> project.state == :paused
-          :complete -> project.state in [:active, :paused]
-          :archive -> project.state == :completed
-        end
+      unless project.state in Map.fetch!(@source_states, action),
+        do: Error.reject!(:invalid_project_transition)
 
-      unless allowed, do: Error.reject!(:invalid_project_transition)
       if action == :activate, do: ProjectActivation.validate!(project)
-      attrs = %{state: target}
-
-      attrs =
-        case action do
-          :activate -> Map.put(attrs, :activated_at, DateTime.utc_now())
-          :complete -> Map.put(attrs, :completed_at, DateTime.utc_now())
-          :archive -> Map.put(attrs, :archived_at, DateTime.utc_now())
-          _ -> attrs
-        end
+      attrs = Map.put(transition_attributes!(project, action), :state, target)
 
       update!(project, attrs)
+    end
+  end
+
+  defp authorize_edit!(project, :update_draft, args, actor) do
+    if args[:dataset_id] || args[:schema_version_id],
+      do: authorize!(actor, project.organization_id, "datasets.read")
+
+    if args[:form_version_id], do: authorize!(actor, project.organization_id, "forms.read")
+  end
+
+  defp authorize_edit!(project, action, _args, actor) do
+    if action in [:enroll_revisions, :set_binding],
+      do: authorize!(actor, project.organization_id, "datasets.read")
+
+    if action in [:set_binding, :set_slot_policy, :set_question_policy, :create_explicit_group],
+      do: authorize!(actor, project.organization_id, "forms.read")
+  end
+
+  defp transition_attributes!(_project, :activate), do: %{activated_at: DateTime.utc_now()}
+  defp transition_attributes!(_project, :archive), do: %{archived_at: DateTime.utc_now()}
+
+  defp transition_attributes!(project, :complete) do
+    cutoff = Leases.now!()
+    ProjectCompletion.complete!(project, cutoff)
+    %{completed_at: cutoff}
+  end
+
+  defp transition_attributes!(_project, _action), do: %{}
+
+  defp schema_attributes!(project, args) do
+    if args[:dataset_id] || args[:schema_version_id] do
+      dataset_id = args[:dataset_id] || project.dataset_id
+      schema_id = args[:schema_version_id] || project.schema_version_id
+
+      schema =
+        DatasetSchemaVersion
+        |> Ash.Query.filter(
+          id == ^schema_id and dataset_id == ^dataset_id and
+            dataset.organization_id == ^project.organization_id and state == :published
+        )
+        |> Ash.read_one!(authorize?: false)
+
+      if is_nil(schema), do: Error.reject!(:invalid_project_configuration)
+
+      %{
+        dataset_id: dataset_id,
+        schema_version_id: schema_id,
+        root_record_type_id: schema.root_record_type_id
+      }
+    else
+      %{}
+    end
+  end
+
+  defp form_attributes!(project, args) do
+    if args[:form_version_id] do
+      version =
+        FormVersion
+        |> Ash.Query.filter(
+          id == ^args.form_version_id and form.organization_id == ^project.organization_id and
+            state == :published
+        )
+        |> Ash.read_one!(authorize?: false)
+
+      if is_nil(version), do: Error.reject!(:invalid_project_configuration)
+      %{form_id: version.form_id, form_version_id: version.id}
+    else
+      %{}
     end
   end
 
@@ -179,44 +221,9 @@ defmodule QuickTrain.Projects.Management do
     attrs = args |> Map.take(@configuration) |> Map.reject(fn {_key, value} -> is_nil(value) end)
 
     attrs =
-      if args[:dataset_id] || args[:schema_version_id] do
-        dataset_id = args[:dataset_id] || project.dataset_id
-        schema_id = args[:schema_version_id] || project.schema_version_id
-
-        schema =
-          DatasetSchemaVersion
-          |> Ash.Query.filter(
-            id == ^schema_id and dataset_id == ^dataset_id and
-              dataset.organization_id == ^project.organization_id and state == :published
-          )
-          |> Ash.read_one!(authorize?: false)
-
-        if is_nil(schema), do: Error.reject!(:invalid_project_configuration)
-
-        Map.merge(attrs, %{
-          dataset_id: dataset_id,
-          schema_version_id: schema_id,
-          root_record_type_id: schema.root_record_type_id
-        })
-      else
-        attrs
-      end
-
-    attrs =
-      if args[:form_version_id] do
-        version =
-          FormVersion
-          |> Ash.Query.filter(
-            id == ^args.form_version_id and form.organization_id == ^project.organization_id and
-              state == :published
-          )
-          |> Ash.read_one!(authorize?: false)
-
-        if is_nil(version), do: Error.reject!(:invalid_project_configuration)
-        Map.merge(attrs, %{form_id: version.form_id, form_version_id: version.id})
-      else
-        attrs
-      end
+      attrs
+      |> Map.merge(schema_attributes!(project, args))
+      |> Map.merge(form_attributes!(project, args))
 
     update!(project, attrs)
   end

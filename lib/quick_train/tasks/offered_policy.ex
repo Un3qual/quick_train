@@ -1,88 +1,73 @@
 defmodule QuickTrain.Tasks.OfferedPolicy do
   @moduledoc false
   use Ash.Resource.Calculation
-  alias QuickTrain.Tasks.{Access, Attempt, QuestionResponse, ReviewDecision}
-  alias QuickTrain.Projects.ProjectQuestionPolicy
+  alias QuickTrain.Authorization
+  alias QuickTrain.Projects.{Project, ProjectQuestionPolicy}
+  alias QuickTrain.Tasks.{Access, Attempt, Error, QuestionResponse, ReviewDecision}
   require Ash.Query
 
   def load(_query, _opts, _context),
     do: [:attempt_id, :project_id, :organization_id, :question_id]
 
-  def calculate(records, opts, context) do
-    Enum.map(records, fn row ->
-      project =
-        QuickTrain.Projects.Project
-        |> Ash.Query.filter(id == ^row.project_id)
-        |> Ash.read_one!(authorize?: false)
+  def calculate(records, opts, context),
+    do: Enum.map(records, &value!(&1, opts[:field], context.actor))
 
-      if opts[:field] == :review_status do
-        authorize_status!(project, row, context.actor)
+  defp value!(row, :review_status, actor) do
+    {project, attempt} = scope!(row)
+    authorize!(project, attempt, actor, false)
 
-        outcome =
-          QuestionResponse
-          |> Ash.Query.filter(
-            response.attempt_id == ^row.attempt_id and question_id == ^row.question_id and
-              response.state == :submitted
-          )
-          |> Ash.read_one!(authorize?: false)
-
-        case outcome do
-          nil ->
-            :unsubmitted
-
-          %{outcome: :skipped} ->
-            :skipped
-
-          outcome ->
-            decision =
-              ReviewDecision
-              |> Ash.Query.filter(question_response_id == ^outcome.id)
-              |> Ash.Query.sort(number: :desc)
-              |> Ash.Query.limit(1)
-              |> Ash.read_one!(authorize?: false)
-
-            case decision do
-              nil -> :pending
-              %{verdict: :accept} -> :accepted
-              _ -> :rejected
-            end
-        end
-      else
-        attempt = Ash.get!(Attempt, row.attempt_id, authorize?: false)
-
-        authorize!(project, attempt, context.actor, true)
-
-        policy =
-          ProjectQuestionPolicy
-          |> Ash.Query.filter(project_id == ^row.project_id and question_id == ^row.question_id)
-          |> Ash.read_one!(authorize?: false)
-
-        Map.fetch!(policy, opts[:field])
-      end
-    end)
+    QuestionResponse
+    |> Ash.Query.filter(
+      response.attempt_id == ^row.attempt_id and question_id == ^row.question_id and
+        response.state == :submitted
+    )
+    |> Ash.read_one!(authorize?: false)
+    |> review_status()
   end
 
-  defp authorize_status!(project, row, actor) do
-    attempt = Ash.get!(Attempt, row.attempt_id, authorize?: false)
+  defp value!(row, field, actor) do
+    {project, attempt} = scope!(row)
+    authorize!(project, attempt, actor, true)
 
-    authorize!(project, attempt, actor, false)
+    ProjectQuestionPolicy
+    |> Ash.Query.filter(project_id == ^row.project_id and question_id == ^row.question_id)
+    |> Ash.read_one!(authorize?: false)
+    |> Map.fetch!(field)
+  end
+
+  defp scope!(row) do
+    {Ash.get!(Project, row.project_id, authorize?: false),
+     Ash.get!(Attempt, row.attempt_id, authorize?: false)}
+  end
+
+  defp review_status(nil), do: :unsubmitted
+  defp review_status(%{outcome: :skipped}), do: :skipped
+
+  defp review_status(outcome) do
+    decision =
+      ReviewDecision
+      |> Ash.Query.filter(question_response_id == ^outcome.id)
+      |> Ash.Query.sort(number: :desc)
+      |> Ash.Query.limit(1)
+      |> Ash.read_one!(authorize?: false)
+
+    case decision do
+      nil -> :pending
+      %{verdict: :accept} -> :accepted
+      _ -> :rejected
+    end
   end
 
   defp authorize!(project, attempt, actor, live?) do
     cond do
-      actor &&
-          QuickTrain.Authorization.allowed?(
-            actor.id,
-            project.organization_id,
-            "tasks.results.read"
-          ) ->
+      actor && Authorization.allowed?(actor.id, project.organization_id, "tasks.results.read") ->
         Access.manager!(project, actor, "tasks.results.read")
 
       actor && actor.id == attempt.worker_id ->
         Access.owner!(project, attempt, actor, live?)
 
       true ->
-        QuickTrain.Tasks.Error.reject!(:forbidden)
+        Error.reject!(:forbidden)
     end
   end
 end

@@ -4,6 +4,7 @@ defmodule QuickTrain.ProjectsTest do
 
   alias QuickTrain.Projects.{
     ExplicitGroup,
+    Management,
     Project,
     ProjectInputBinding,
     ProjectItem,
@@ -74,7 +75,7 @@ defmodule QuickTrain.ProjectsTest do
     refute Map.has_key?(response, :errors)
     assert result["id"] == project.id
     assert result["state"] == "active"
-    assert length(result["items"]["edges"]) == 2
+    assert [_, _] = result["items"]["edges"]
   end
 
   test "enrollment is atomic and cannot mix foreign or newer schema revisions", context do
@@ -97,7 +98,7 @@ defmodule QuickTrain.ProjectsTest do
                revision_ids: [hd(context.source.revisions).id]
              })
 
-    assert length(ProjectsFixture.items(project)) == 2
+    assert [_, _] = ProjectsFixture.items(project)
 
     other =
       ProjectsFixture.context!(
@@ -130,7 +131,7 @@ defmodule QuickTrain.ProjectsTest do
                authorize?: false
              )
 
-    assert length(ProjectsFixture.items(project)) == 2
+    assert [_, _] = ProjectsFixture.items(project)
   end
 
   test "draft repinning, mixed schemas, and binding family/requiredness fail atomically",
@@ -154,7 +155,9 @@ defmodule QuickTrain.ProjectsTest do
         "Body",
         "text",
         "single",
-        false, actor: context.actor)
+        false,
+        actor: context.actor
+      )
 
     integer =
       Datasets.add_field_definition!(
@@ -164,7 +167,9 @@ defmodule QuickTrain.ProjectsTest do
         "Number",
         "integer",
         "single",
-        true, actor: context.actor)
+        true,
+        actor: context.actor
+      )
 
     schema =
       Datasets.publish_schema_version!(context.org.id, schema.id, root.id, actor: context.actor)
@@ -176,7 +181,9 @@ defmodule QuickTrain.ProjectsTest do
         schema.id,
         nil,
         "new-schema",
-        [%{field: "body", text: "Body"}, %{field: "number", integer: 3}], actor: context.actor).revision
+        [%{field: "body", text: "Body"}, %{field: "number", integer: 3}],
+        actor: context.actor
+      ).revision
 
     assert {:error, _} =
              ProjectsFixture.run(context, project, :enroll_revisions, %{
@@ -189,7 +196,7 @@ defmodule QuickTrain.ProjectsTest do
     assert Projects.get_project!(context.org.id, project.id, actor: context.actor).schema_version_id ==
              context.source.schema.id
 
-    assert length(ProjectsFixture.items(project)) == 2
+    assert [_, _] = ProjectsFixture.items(project)
 
     empty = ProjectsFixture.draft!(context, context.source)
 
@@ -375,7 +382,7 @@ defmodule QuickTrain.ProjectsTest do
 
     {:ok, {task, notifications}} =
       Repo.transaction(fn ->
-        QuickTrain.Projects.Management.lock!(context.org.id, project.id)
+        Management.lock!(context.org.id, project.id)
 
         task =
           Task.async(fn ->
@@ -425,9 +432,9 @@ defmodule QuickTrain.ProjectsTest do
       )
 
     first = Ash.read!(query, page: [limit: 100])
-    assert length(first.results) == 100
+    assert Enum.count_until(first.results, 101) == 100
     second = Ash.page!(first, :next)
-    assert length(second.results) == 5
+    assert [_, _, _, _, _] = second.results
 
     assert MapSet.new(first.results ++ second.results, & &1.revision_id) ==
              MapSet.new(source.revisions, & &1.id)

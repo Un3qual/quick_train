@@ -48,6 +48,9 @@ defmodule QuickTrain.Datasets.DatasetFieldDefinition do
   end
 
   relationships do
+    has_many :project_bindings, QuickTrain.Projects.ProjectInputBinding,
+      destination_attribute: :field_definition_id
+
     belongs_to :record_type, DatasetRecordType,
       allow_nil?: false,
       public?: true

@@ -14,9 +14,9 @@ defmodule QuickTrain.Tasks.ReadAccess do
     Task,
     TaskInput,
     TaskInputAnswer,
-    TextSpan,
+    TaskItemCoverage,
     TaskQuestionProgress,
-    TaskItemCoverage
+    TextSpan
   }
 
   import Ash.Expr
@@ -54,6 +54,8 @@ defmodule QuickTrain.Tasks.ReadAccess do
         query.context[:accessing_from]
       )
 
+  # This is one SQL eligibility predicate; splitting it hides the audience alternatives.
+  # credo:disable-for-next-line Credo.Check.Refactor.CyclomaticComplexity
   def eligible_attempt(%{id: id}) do
     expr(
       worker_id == ^id and worker.status == "active" and organization.status == "active" and
@@ -89,130 +91,106 @@ defmodule QuickTrain.Tasks.ReadAccess do
   end
 
   def authorized_filter(resource, actor, mode \\ :audit, receipt? \\ false) do
-    live = live_attempt(actor)
-
-    worker =
-      case resource do
-        Task ->
-          expr(exists(Attempt, task_id == parent(id) and ^live))
-
-        TaskInput ->
-          expr(exists(Attempt, task_id == parent(task_id) and ^live))
-
-        Attempt ->
-          live
-
-        module when module in [AttemptQuestion, AttemptInputPresentation, Response] ->
-          expr(exists(attempt, ^live))
-
-        QuestionResponse ->
-          expr(exists(response.attempt, ^live))
-
-        module when module in [StaticOptionAnswer, TaskInputAnswer, TextSpan] ->
-          expr(exists(question_response.response.attempt, ^live))
-
-        module when module in [ReviewDecision, TaskQuestionProgress, TaskItemCoverage] ->
-          false
-      end
-
-    worker =
-      if receipt? and resource == AttemptQuestion do
-        eligible = eligible_attempt(actor)
-        expr(exists(attempt, ^eligible))
-      else
-        worker
-      end
-
+    worker = worker_filter(resource, actor, receipt?)
     authority = result_authority(actor)
     evidence = evidence_filter(resource, mode)
     expr(^worker or (^authority and ^evidence))
   end
 
-  def evidence_filter(resource, mode) do
-    base =
-      case resource do
-        module when module in [Task, TaskInput, TaskQuestionProgress] ->
-          true
-
-        TaskItemCoverage ->
-          expr(exists(issued_inputs, true))
-
-        Attempt ->
-          expr(state in [:submitted, :expired, :released, :cancelled])
-
-        module when module in [AttemptQuestion, AttemptInputPresentation] ->
-          expr(attempt.state in [:submitted, :expired, :released, :cancelled])
-
-        Response ->
-          expr(state == :submitted)
-
-        QuestionResponse ->
-          expr(response.state == :submitted)
-
-        module when module in [StaticOptionAnswer, TaskInputAnswer, TextSpan, ReviewDecision] ->
-          expr(question_response.response.state == :submitted)
-      end
-
-    accepted =
-      case resource do
-        Task ->
-          expr(exists(outcomes, response.state == :submitted and effective_verdict == :accept))
-
-        module when module in [TaskInput, TaskQuestionProgress] ->
-          expr(
-            exists(task.outcomes, response.state == :submitted and effective_verdict == :accept)
-          )
-
-        TaskItemCoverage ->
-          expr(
-            exists(
-              issued_inputs.task.outcomes,
-              response.state == :submitted and effective_verdict == :accept
-            )
-          )
-
-        Attempt ->
-          expr(exists(response.outcomes, effective_verdict == :accept))
-
-        AttemptQuestion ->
-          expr(
-            exists(
-              attempt.response.outcomes,
-              effective_verdict == :accept
-            )
-          )
-
-        AttemptInputPresentation ->
-          expr(exists(attempt.response.outcomes, effective_verdict == :accept))
-
-        Response ->
-          expr(exists(outcomes, effective_verdict == :accept))
-
-        QuestionResponse ->
-          expr(effective_verdict == :accept)
-
-        module when module in [StaticOptionAnswer, TaskInputAnswer, TextSpan] ->
-          expr(question_response.effective_verdict == :accept)
-
-        ReviewDecision ->
-          expr(
-            question_response.effective_verdict == :accept and
-              number == question_response.effective_decision_number
-          )
-      end
-
-    if mode == :accepted, do: expr(^base and ^accepted), else: base
+  defp worker_filter(AttemptQuestion, actor, true) do
+    eligible = eligible_attempt(actor)
+    expr(exists(attempt, ^eligible))
   end
+
+  defp worker_filter(resource, actor, _receipt?) do
+    live_worker_filter(resource, live_attempt(actor))
+  end
+
+  defp live_worker_filter(Task, live), do: expr(exists(Attempt, task_id == parent(id) and ^live))
+
+  defp live_worker_filter(TaskInput, live),
+    do: expr(exists(Attempt, task_id == parent(task_id) and ^live))
+
+  defp live_worker_filter(Attempt, live), do: live
+
+  defp live_worker_filter(resource, live)
+       when resource in [AttemptQuestion, AttemptInputPresentation, Response],
+       do: expr(exists(attempt, ^live))
+
+  defp live_worker_filter(QuestionResponse, live), do: expr(exists(response.attempt, ^live))
+
+  defp live_worker_filter(resource, live)
+       when resource in [StaticOptionAnswer, TaskInputAnswer, TextSpan],
+       do: expr(exists(question_response.response.attempt, ^live))
+
+  defp live_worker_filter(resource, _live)
+       when resource in [ReviewDecision, TaskQuestionProgress, TaskItemCoverage], do: false
+
+  def evidence_filter(resource, :accepted) do
+    base = audit_filter(resource)
+    accepted = accepted_filter(resource)
+    expr(^base and ^accepted)
+  end
+
+  def evidence_filter(resource, _mode), do: audit_filter(resource)
+
+  defp audit_filter(resource) when resource in [Task, TaskInput, TaskQuestionProgress], do: true
+  defp audit_filter(TaskItemCoverage), do: expr(exists(issued_inputs, true))
+  defp audit_filter(Attempt), do: expr(state in [:submitted, :expired, :released, :cancelled])
+
+  defp audit_filter(resource) when resource in [AttemptQuestion, AttemptInputPresentation],
+    do: expr(attempt.state in [:submitted, :expired, :released, :cancelled])
+
+  defp audit_filter(Response), do: expr(state == :submitted)
+  defp audit_filter(QuestionResponse), do: expr(response.state == :submitted)
+
+  defp audit_filter(resource)
+       when resource in [StaticOptionAnswer, TaskInputAnswer, TextSpan, ReviewDecision],
+       do: expr(question_response.response.state == :submitted)
+
+  defp accepted_filter(Task),
+    do: expr(exists(outcomes, response.state == :submitted and effective_verdict == :accept))
+
+  defp accepted_filter(resource) when resource in [TaskInput, TaskQuestionProgress],
+    do: expr(exists(task.outcomes, response.state == :submitted and effective_verdict == :accept))
+
+  defp accepted_filter(TaskItemCoverage),
+    do:
+      expr(
+        exists(
+          issued_inputs.task.outcomes,
+          response.state == :submitted and effective_verdict == :accept
+        )
+      )
+
+  defp accepted_filter(Attempt), do: expr(exists(response.outcomes, effective_verdict == :accept))
+
+  defp accepted_filter(resource) when resource in [AttemptQuestion, AttemptInputPresentation],
+    do: expr(exists(attempt.response.outcomes, effective_verdict == :accept))
+
+  defp accepted_filter(Response), do: expr(exists(outcomes, effective_verdict == :accept))
+  defp accepted_filter(QuestionResponse), do: expr(effective_verdict == :accept)
+
+  defp accepted_filter(resource) when resource in [StaticOptionAnswer, TaskInputAnswer, TextSpan],
+    do: expr(question_response.effective_verdict == :accept)
+
+  defp accepted_filter(ReviewDecision),
+    do:
+      expr(
+        question_response.effective_verdict == :accept and
+          number == question_response.effective_decision_number
+      )
 end
 
 defmodule QuickTrain.Tasks.ReadAccess.Prepare do
   @moduledoc false
   use Ash.Resource.Preparation
+  alias QuickTrain.Tasks.ReadAccess
   require Ash.Query
 
   def prepare(query, opts, _context) do
     mode = Keyword.fetch!(opts, :mode)
-    filter = QuickTrain.Tasks.ReadAccess.evidence_filter(query.resource, mode)
+    filter = ReadAccess.evidence_filter(query.resource, mode)
 
     query =
       query
@@ -232,10 +210,11 @@ end
 defmodule QuickTrain.Tasks.ReadActions do
   @moduledoc false
   use Ash.Resource.Actions.Implementation
-  alias QuickTrain.Tasks.{Access, Attempt, BoundValue, Error, Leases, Receipt, TaskInput}
-  alias QuickTrain.Projects.ProjectInputBinding
-  alias QuickTrain.Datasets.DatasetValue
+  alias QuickTrain.Assets.{AssetAccessResult, AssetSummary, Storage}
+  alias QuickTrain.Datasets.{DatasetItemRevision, DatasetValue}
   alias QuickTrain.Forms.Inputs.InputFieldRequirement
+  alias QuickTrain.Projects.ProjectInputBinding
+  alias QuickTrain.Tasks.{Access, Attempt, BoundValue, Error, Leases, Receipt, TaskInput}
   require Ash.Query
 
   def run(input, _opts, context) do
@@ -316,7 +295,7 @@ defmodule QuickTrain.Tasks.ReadActions do
       |> Access.found!()
 
     revision =
-      Ash.get!(QuickTrain.Datasets.DatasetItemRevision, input.revision_id, authorize?: false)
+      Ash.get!(DatasetItemRevision, input.revision_id, authorize?: false)
 
     requirement = Ash.get!(InputFieldRequirement, requirement_id, authorize?: false)
 
@@ -331,7 +310,7 @@ defmodule QuickTrain.Tasks.ReadActions do
     asset =
       if value do
         loaded = Ash.load!(value, [asset_value: :asset], authorize?: false)
-        if loaded.asset_value, do: QuickTrain.Assets.AssetSummary.from(loaded.asset_value.asset)
+        if loaded.asset_value, do: AssetSummary.from(loaded.asset_value.asset)
       end
 
     struct!(BoundValue, %{
@@ -348,25 +327,10 @@ defmodule QuickTrain.Tasks.ReadActions do
 
   defp source_download(args, actor) do
     with {:ok, {asset, expiry}} <-
-           QuickTrain.Repo.transaction(fn ->
-             {project, input, deadline} = authorize_input!(args, actor)
-             bound = bound_value!(project, input, args.requirement_id)
-             if bound.missing, do: Error.reject!(:invalid_source)
-             value = Ash.load!(bound.value, [asset_value: :asset], authorize?: false)
-             asset = value.asset_value && value.asset_value.asset
-             unless asset && asset.state == :ready, do: Error.reject!(:invalid_source)
-             expiry = DateTime.add(Leases.now!(), 300, :second)
-
-             expiry =
-               if deadline && DateTime.compare(deadline, expiry) == :lt,
-                 do: deadline,
-                 else: expiry
-
-             {asset, expiry}
-           end),
+           QuickTrain.Repo.transaction(fn -> source_asset!(args, actor) end),
          {:ok, descriptor} <-
-           QuickTrain.Assets.Storage.sealed_read_access(asset.sealed_key, expiry) do
-      {:ok, QuickTrain.Assets.AssetAccessResult.from(asset, descriptor)}
+           Storage.sealed_read_access(asset.sealed_key, expiry) do
+      {:ok, AssetAccessResult.from(asset, descriptor)}
     else
       {:error, error} when is_atom(error) ->
         {:error, QuickTrain.Tasks.Error.exception(category: error)}
@@ -374,5 +338,17 @@ defmodule QuickTrain.Tasks.ReadActions do
       other ->
         other
     end
+  end
+
+  defp source_asset!(args, actor) do
+    {project, input, deadline} = authorize_input!(args, actor)
+    bound = bound_value!(project, input, args.requirement_id)
+    if bound.missing, do: Error.reject!(:invalid_source)
+    value = Ash.load!(bound.value, [asset_value: :asset], authorize?: false)
+    asset = value.asset_value && value.asset_value.asset
+    unless asset && asset.state == :ready, do: Error.reject!(:invalid_source)
+    expiry = DateTime.add(Leases.now!(), 300, :second)
+    expiry = if deadline && DateTime.compare(deadline, expiry) == :lt, do: deadline, else: expiry
+    {asset, expiry}
   end
 end

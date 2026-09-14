@@ -1,68 +1,72 @@
 defmodule QuickTrain.Tasks.ContractAccess do
   @moduledoc false
   use Ash.Policy.FilterCheck
-  alias QuickTrain.Tasks.{Attempt, ReadAccess, Task, TaskInput}
   alias QuickTrain.Datasets.{DatasetFieldDefinition, DatasetValue}
   alias QuickTrain.Forms.FormVersion
+  alias QuickTrain.Tasks.{Attempt, ReadAccess, Task, TaskInput}
   import Ash.Expr
 
   def describe(_),
     do: "an exact published definition or bound value of currently authorized issued work"
 
   def filter(%{id: _} = actor, %{resource: resource, query: query}, _opts) do
-    if query.action.name == :get_task_definition or is_map(query.context[:accessing_from]) do
-      live = ReadAccess.live_attempt(actor)
-      results = ReadAccess.result_authority(actor)
-
-      case resource do
-        FormVersion ->
-          expr(
-            exists(Attempt, form_version_id == parent(id) and ^live) or
-              exists(Task, form_version_id == parent(id) and ^results)
-          )
-
-        DatasetValue ->
-          value_access(actor)
-
-        resource
-        when resource in [
-               DatasetValue.Text,
-               DatasetValue.Integer,
-               DatasetValue.Decimal,
-               DatasetValue.Boolean,
-               DatasetValue.DateTime,
-               DatasetValue.Asset
-             ] ->
-          values = value_access(actor)
-          expr(exists(DatasetValue, id == parent(dataset_value_id) and ^values))
-
-        DatasetFieldDefinition ->
-          input_access = ReadAccess.authorized_filter(TaskInput, actor)
-
-          expr(
-            exists(
-              TaskInput,
-              ^input_access and
-                exists(
-                  project.bindings,
-                  field_definition_id == parent(parent(id)) and
-                    requirement.input_slot_id == parent(input_slot_id)
-                )
-            )
-          )
-
-        _ ->
-          expr(
-            exists(Attempt, form_version_id == parent(version_id) and ^live) or
-              exists(Task, form_version_id == parent(version_id) and ^results)
-          )
-      end
-    else
-      false
-    end
+    if query.action.name == :get_task_definition or is_map(query.context[:accessing_from]),
+      do: definition_filter(resource, actor),
+      else: false
   end
 
   def filter(_, _, _), do: false
+
+  defp definition_filter(FormVersion, actor) do
+    live = ReadAccess.live_attempt(actor)
+    results = ReadAccess.result_authority(actor)
+
+    expr(
+      exists(Attempt, form_version_id == parent(id) and ^live) or
+        exists(Task, form_version_id == parent(id) and ^results)
+    )
+  end
+
+  defp definition_filter(DatasetValue, actor), do: value_access(actor)
+
+  defp definition_filter(resource, actor)
+       when resource in [
+              DatasetValue.Text,
+              DatasetValue.Integer,
+              DatasetValue.Decimal,
+              DatasetValue.Boolean,
+              DatasetValue.DateTime,
+              DatasetValue.Asset
+            ] do
+    values = value_access(actor)
+    expr(exists(DatasetValue, id == parent(dataset_value_id) and ^values))
+  end
+
+  defp definition_filter(DatasetFieldDefinition, actor) do
+    input_access = ReadAccess.authorized_filter(TaskInput, actor)
+
+    expr(
+      exists(
+        TaskInput,
+        ^input_access and
+          exists(
+            project.bindings,
+            field_definition_id == parent(parent(id)) and
+              requirement.input_slot_id == parent(input_slot_id)
+          )
+      )
+    )
+  end
+
+  defp definition_filter(_resource, actor) do
+    live = ReadAccess.live_attempt(actor)
+    results = ReadAccess.result_authority(actor)
+
+    expr(
+      exists(Attempt, form_version_id == parent(version_id) and ^live) or
+        exists(Task, form_version_id == parent(version_id) and ^results)
+    )
+  end
 
   defp value_access(actor) do
     input_access = ReadAccess.authorized_filter(TaskInput, actor)
@@ -84,11 +88,11 @@ end
 defmodule QuickTrain.Tasks.ContractAccess.DefinitionRead do
   @moduledoc false
   use Ash.Resource.Preparation
-  alias QuickTrain.Tasks.{Access, Attempt}
+  alias QuickTrain.Tasks.{Access, Attempt, Error}
   require Ash.Query
 
   def prepare(query, _opts, context) do
-    if is_nil(context.actor), do: QuickTrain.Tasks.Error.reject!(:forbidden)
+    if is_nil(context.actor), do: Error.reject!(:forbidden)
     args = query.arguments
 
     {:ok, project} =
@@ -115,7 +119,11 @@ defmodule QuickTrain.Tasks.ContractAccess.DefinitionRead do
         Ash.Query.filter(query, id == ^project.form_version_id)
 
       QuickTrain.Datasets.DatasetFieldDefinition ->
-        Ash.Query.filter(query, record_type_id == ^project.root_record_type_id)
+        Ash.Query.filter(
+          query,
+          record_type_id == ^project.root_record_type_id and
+            exists(project_bindings, project_id == ^project.id)
+        )
 
       _ ->
         Ash.Query.filter(query, version_id == ^project.form_version_id)
@@ -155,12 +163,7 @@ defmodule QuickTrain.Tasks.ContractAccess.DatasetAuthority do
   def describe(_), do: "current ordinary dataset authority for the source row"
 
   def filter(%{id: id}, %{resource: resource}, _opts) do
-    authority =
-      expr(
-        user_id == ^id and user.status == "active" and organization.status == "active" and
-          exists(role.role_capabilities, capability.key in ["datasets.read", "datasets.manage"]) and
-          exists(organization.memberships, user_id == ^id and status == "active")
-      )
+    authority = authority(id)
 
     case resource do
       QuickTrain.Datasets.DatasetValue ->
@@ -186,4 +189,12 @@ defmodule QuickTrain.Tasks.ContractAccess.DatasetAuthority do
   end
 
   def filter(_, _, _), do: false
+
+  defp authority(id),
+    do:
+      expr(
+        user_id == ^id and user.status == "active" and organization.status == "active" and
+          exists(role.role_capabilities, capability.key in ["datasets.read", "datasets.manage"]) and
+          exists(organization.memberships, user_id == ^id and status == "active")
+      )
 end
