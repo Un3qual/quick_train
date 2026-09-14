@@ -1,20 +1,21 @@
 defmodule QuickTrain.Assets.Asset.Actions.Access do
-  @moduledoc false
-
+  alias QuickTrain.Assets
+  alias QuickTrain.Assets.AssetAccessResult
+  alias QuickTrain.Assets.Ownership
+  alias QuickTrain.Assets.Storage
   alias QuickTrain.DatasetAssetError
+  @moduledoc false
 
   use Ash.Resource.Actions.Implementation
 
-  alias QuickTrain.Assets
-  alias QuickTrain.Assets.{AssetAccessResult, Storage}
-
   @impl true
-  def run(input, _opts, _context), do: DatasetAssetError.wrap(execute(input))
+  def run(input, _opts, context), do: DatasetAssetError.wrap(execute(input, context))
 
-  defp execute(input) do
+  defp execute(input, context) do
     %{asset_id: asset_id, organization_id: organization_id} = input.arguments
 
     with {:ok, asset} <- accessible_asset(asset_id, organization_id),
+         :ok <- Ownership.require_independent(asset.id, context),
          {:ok, access} <- Storage.sealed_read_access(asset.sealed_key, read_expiry()) do
       {:ok, AssetAccessResult.from(asset, access)}
     end

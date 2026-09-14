@@ -233,18 +233,18 @@ defmodule QuickTrain.Tasks.AnswerValidation do
 
     input_roots = Map.new(inputs, &{&1.id, Map.get(roots, &1.revision_id)})
 
-    Enum.each(spans, fn span ->
-      source = Map.get(sources, span.source_value_id)
+    Enum.each(spans, &validate_span_source!(&1, sources, input_roots))
+  end
 
-      require!(
-        not is_nil(source) and source.record_id == Map.get(input_roots, span.task_input_id)
-      )
+  defp validate_span_source!(span, sources, input_roots) do
+    source = Map.get(sources, span.source_value_id)
 
-      require!(
-        is_integer(span.start) and is_integer(span.end) and span.start >= 0 and
-          span.start < span.end and span.end <= source.length
-      )
-    end)
+    require!(not is_nil(source) and source.record_id == Map.get(input_roots, span.task_input_id))
+
+    require!(
+      is_integer(span.start) and is_integer(span.end) and span.start >= 0 and
+        span.start < span.end and span.end <= source.length
+    )
   end
 
   defp slot_inputs!(project, task, slot_id) do

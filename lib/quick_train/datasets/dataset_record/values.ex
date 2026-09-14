@@ -1,8 +1,10 @@
 defmodule QuickTrain.Datasets.DatasetRecord.Values do
+  alias QuickTrain.Assets.Asset
+  alias QuickTrain.Assets.Ownership
+  alias QuickTrain.Datasets.DatasetValue.Family
   @moduledoc false
 
-  alias QuickTrain.Assets.Asset
-  alias QuickTrain.Datasets.DatasetValue.Family
+  require Ash.Query
 
   @families Family.values()
   @typed_relationships [
@@ -141,10 +143,12 @@ defmodule QuickTrain.Datasets.DatasetRecord.Values do
 
       ids ->
         ready_count =
-          Ash.count!(Asset,
-            query: [filter: [id: [in: ids], organization_id: organization_id, state: :ready]],
-            authorize?: false
+          Asset
+          |> Ash.Query.filter(
+            id in ^ids and organization_id == ^organization_id and state == :ready
           )
+          |> Ownership.independent_query()
+          |> Ash.count!(authorize?: false)
 
         if ready_count == length(ids), do: :ok, else: {:error, :invalid_asset}
     end

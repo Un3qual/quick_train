@@ -1,6 +1,7 @@
 defmodule QuickTrain.Tasks.AnswerInputTest do
   use ExUnit.Case, async: true
 
+  alias QuickTrain.Tasks.AnswerValidation
   alias QuickTrain.Tasks.Inputs.AnswerInput
 
   test "validation rejects a task outside the pinned project before reading its contract" do
@@ -9,7 +10,7 @@ defmodule QuickTrain.Tasks.AnswerInputTest do
     question = %{id: "question", version_id: "version", family: :text, input_slot_id: nil}
 
     assert_raise Ash.Error.Invalid, fn ->
-      QuickTrain.Tasks.AnswerValidation.validate!(project, task, question, %{}, :draft)
+      AnswerValidation.validate!(project, task, question, %{}, :draft)
     end
   end
 
@@ -331,6 +332,8 @@ defmodule QuickTrain.Tasks.AnswerValidationTest do
     assert validate!(scope, question, %{spans: [span, overlap]}).spans == [span, overlap]
     assert validate!(scope, question, %{spans: []}, :draft).spans == []
 
+    [_first_input, other_input] = scope.inputs
+
     for spans <- [
           [],
           [span, span],
@@ -339,7 +342,7 @@ defmodule QuickTrain.Tasks.AnswerValidationTest do
           [%{span | start: -1}],
           [%{span | label_id: base.other_label.id}],
           [%{span | source_value_id: scope.other_value.id}],
-          [%{span | task_input_id: List.last(scope.inputs).id}],
+          [%{span | task_input_id: other_input.id}],
           [%{span | task_input_id: scope.foreign_input.id}]
         ] do
       assert_raise Ash.Error.Invalid, fn -> validate!(scope, question, %{spans: spans}) end

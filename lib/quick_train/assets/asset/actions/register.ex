@@ -1,13 +1,14 @@
 defmodule QuickTrain.Assets.Asset.Actions.Register do
-  @moduledoc false
-
+  alias QuickTrain.Assets.Asset
+  alias QuickTrain.Assets.AssetRegistrationResult
+  alias QuickTrain.Assets.Ownership
+  alias QuickTrain.Assets.Storage
   alias QuickTrain.DatasetAssetError
+  @moduledoc false
 
   use Ash.Resource.Actions.Implementation
 
   require Ash.Query
-
-  alias QuickTrain.Assets.{Asset, AssetRegistrationResult, Storage}
 
   @impl true
   def run(input, _opts, _context), do: DatasetAssetError.wrap(execute(input))
@@ -59,6 +60,7 @@ defmodule QuickTrain.Assets.Asset.Actions.Register do
     |> Ash.Query.filter(
       organization_id == ^organization_id and sha256 == ^sha256 and state == :ready
     )
+    |> Ownership.independent_query()
     |> Ash.read_one!(authorize?: false)
   end
 

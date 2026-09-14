@@ -64,6 +64,8 @@ defmodule QuickTrain.Assets.Asset do
       allow_nil?: false,
       attribute_public?: true
 
+    belongs_to :result_export, QuickTrain.Tasks.ResultExport
+
     belongs_to :canonical_asset, __MODULE__, public?: true
 
     has_many :duplicate_assets, __MODULE__, destination_attribute: :canonical_asset_id
@@ -125,6 +127,7 @@ defmodule QuickTrain.Assets.Asset do
       accept [
         :id,
         :organization_id,
+        :result_export_id,
         :sha256,
         :byte_size,
         :media_type,
@@ -194,6 +197,16 @@ defmodule QuickTrain.Assets.Asset do
   end
 
   policies do
+    policy action([:read, :get_scoped]) do
+      authorize_if expr(
+                     is_nil(result_export_id) or
+                       exists(
+                         duplicate_assets,
+                         is_nil(result_export_id) and state == :duplicate_content
+                       )
+                   )
+    end
+
     policy action(:read) do
       authorize_if accessing_from(__MODULE__, :canonical_asset)
 
@@ -240,6 +253,10 @@ defmodule QuickTrain.Assets.Asset do
 
     references do
       reference :organization, on_delete: :restrict, name: "assets_organization_id_fkey"
+
+      reference :result_export,
+        on_delete: :restrict,
+        match_with: [organization_id: :organization_id]
 
       reference :canonical_asset,
         on_delete: :restrict,

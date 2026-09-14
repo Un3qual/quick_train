@@ -1,24 +1,31 @@
 defmodule QuickTrain.Assets.Asset.Actions.Finalize do
+  alias QuickTrain.AshError
+  alias QuickTrain.Assets
+  alias QuickTrain.Assets.Asset
+  alias QuickTrain.Assets.AssetFinalizationResult
+  alias QuickTrain.Assets.Ownership
+  alias QuickTrain.Assets.Storage
+  alias QuickTrain.DatasetAssetError
   # Claim fencing is an explicit storage/database state machine with bounded branches.
   # credo:disable-for-this-file Credo.Check.Refactor.Nesting
   # credo:disable-for-this-file Credo.Check.Refactor.CyclomaticComplexity
   @moduledoc false
 
-  alias QuickTrain.DatasetAssetError
-
   use Ash.Resource.Actions.Implementation
 
   require Ash.Query
 
-  alias QuickTrain.{AshError, Assets}
-  alias QuickTrain.Assets.{Asset, AssetFinalizationResult, Storage}
-
   @commit_attempts 2
 
   @impl true
-  def run(input, _opts, _context) do
+  def run(input, _opts, context) do
     %{asset_id: asset_id, organization_id: organization_id} = input.arguments
-    DatasetAssetError.wrap(finalize(asset_id, organization_id))
+
+    result =
+      with :ok <- Ownership.require_independent(asset_id, context),
+           do: finalize(asset_id, organization_id)
+
+    DatasetAssetError.wrap(result)
   end
 
   defp finalize(asset_id, organization_id) do
