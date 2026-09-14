@@ -177,7 +177,7 @@ defmodule QuickTrain.Datasets.DatasetRecordType do
 
   policies do
     policy action(:read) do
-      authorize_if Module.concat(["QuickTrain.Tasks.ContractAccess.DatasetSchemaRead"])
+      authorize_if Module.concat(["QuickTrain.Tasks.ContractAccess.DatasetAuthority"])
     end
 
     policy action(:read) do

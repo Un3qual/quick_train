@@ -3,7 +3,6 @@ defmodule QuickTrain.ConnCase do
 
   use ExUnit.CaseTemplate
 
-  alias Ecto.Adapters.SQL.Sandbox
   alias Phoenix.ConnTest
 
   using do
@@ -17,19 +16,7 @@ defmodule QuickTrain.ConnCase do
   end
 
   setup tags do
-    if tags[:committed_db] do
-      if tags[:async], do: raise("committed database tests must run synchronously")
-      :ok = Sandbox.checkout(QuickTrain.Repo, sandbox: false)
-
-      on_exit(fn ->
-        Sandbox.unboxed_run(QuickTrain.Repo, fn ->
-          QuickTrain.Repo.query!("TRUNCATE users, organizations, capabilities, oban_jobs CASCADE")
-        end)
-      end)
-    else
-      owner = Sandbox.start_owner!(QuickTrain.Repo, shared: not tags[:async])
-      on_exit(fn -> Sandbox.stop_owner(owner) end)
-    end
+    QuickTrain.DataCase.setup_sandbox(tags)
 
     {:ok, conn: ConnTest.build_conn()}
   end

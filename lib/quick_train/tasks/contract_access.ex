@@ -133,28 +133,6 @@ defmodule QuickTrain.Tasks.ContractAccess.DefinitionRead do
   end
 end
 
-defmodule QuickTrain.Tasks.ContractAccess.DatasetSchemaRead do
-  @moduledoc false
-  use Ash.Policy.FilterCheck
-  alias QuickTrain.Authorization.RoleAssignment
-  import Ash.Expr
-  def describe(_), do: "ordinary dataset inspection is authorized before reverse schema traversal"
-
-  def filter(%{id: id}, _, _) do
-    expr(
-      exists(
-        RoleAssignment,
-        organization_id == parent(schema_version.dataset.organization_id) and user_id == ^id and
-          user.status == "active" and organization.status == "active" and
-          exists(role.role_capabilities, capability.key in ["datasets.read", "datasets.manage"]) and
-          exists(organization.memberships, user_id == ^id and status == "active")
-      )
-    )
-  end
-
-  def filter(_, _, _), do: false
-end
-
 defmodule QuickTrain.Tasks.ContractAccess.DatasetAuthority do
   @moduledoc false
   use Ash.Policy.FilterCheck
@@ -175,6 +153,14 @@ defmodule QuickTrain.Tasks.ContractAccess.DatasetAuthority do
             RoleAssignment,
             organization_id == parent(record_type.schema_version.dataset.organization_id) and
               ^authority
+          )
+        )
+
+      QuickTrain.Datasets.DatasetRecordType ->
+        expr(
+          exists(
+            RoleAssignment,
+            organization_id == parent(schema_version.dataset.organization_id) and ^authority
           )
         )
 

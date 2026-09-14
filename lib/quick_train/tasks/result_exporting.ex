@@ -185,11 +185,7 @@ defmodule QuickTrain.Tasks.ResultExporting do
            {:ok, _access} <- read_access(canonical),
            {:ok, _export} <-
              Ash.transact(ResultExport, fn ->
-               current =
-                 ResultExport
-                 |> Ash.Query.filter(id == ^export.id)
-                 |> Ash.Query.lock(:for_update)
-                 |> Ash.read_one!(authorize?: false)
+               current = locked_export!(export.id)
 
                Ash.update!(current, %{state: :ready, asset_id: canonical.id, error_code: nil},
                  action: :update_internal,
@@ -208,11 +204,7 @@ defmodule QuickTrain.Tasks.ResultExporting do
 
   defp pending_asset(export, facts) do
     Ash.transact([ResultExport, Asset], fn ->
-      current =
-        ResultExport
-        |> Ash.Query.filter(id == ^export.id)
-        |> Ash.Query.lock(:for_update)
-        |> Ash.read_one!(authorize?: false)
+      current = locked_export!(export.id)
 
       pending_asset!(current, facts)
     end)

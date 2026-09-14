@@ -212,7 +212,6 @@ defmodule QuickTrain.Tasks.ReadActions do
   use Ash.Resource.Actions.Implementation
   alias QuickTrain.Assets.{AssetAccessResult, AssetSummary, Storage}
   alias QuickTrain.Datasets.{DatasetItemRevision, DatasetValue}
-  alias QuickTrain.Forms.Inputs.InputFieldRequirement
   alias QuickTrain.Projects.ProjectInputBinding
   alias QuickTrain.Tasks.{Access, Attempt, BoundValue, Error, Leases, Receipt, TaskInput}
   require Ash.Query
@@ -297,8 +296,6 @@ defmodule QuickTrain.Tasks.ReadActions do
     revision =
       Ash.get!(DatasetItemRevision, input.revision_id, authorize?: false)
 
-    requirement = Ash.get!(InputFieldRequirement, requirement_id, authorize?: false)
-
     value =
       DatasetValue
       |> Ash.Query.filter(
@@ -316,7 +313,7 @@ defmodule QuickTrain.Tasks.ReadActions do
     struct!(BoundValue, %{
       task_input_id: input.id,
       revision_id: revision.id,
-      requirement_id: requirement.id,
+      requirement_id: binding.requirement_id,
       field_definition_id: binding.field_definition_id,
       binding_id: binding.id,
       missing: is_nil(value),
