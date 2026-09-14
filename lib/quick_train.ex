@@ -9,6 +9,8 @@ defmodule QuickTrain do
       Authorization,
       Datasets,
       Forms,
+      Projects,
+      Tasks,
       EnterpriseIdentity,
       EnterpriseIdentity.Adapter,
       Organizations

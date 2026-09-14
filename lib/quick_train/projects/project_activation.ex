@@ -127,7 +127,9 @@ defmodule QuickTrain.Projects.ProjectActivation do
         count + 1
       end)
 
-    unless item_count > 0 and item_count >= Enum.sum(Enum.map(policies, & &1.item_count)),
+    required_count = Enum.reduce(policies, 0, &(&1.item_count + &2))
+
+    unless item_count > 0 and item_count >= required_count,
       do:
         Error.reject!(:invalid_project_configuration, [
           project.id <> ": insufficient distinct items"
@@ -214,7 +216,7 @@ defmodule QuickTrain.Projects.ProjectActivation do
         unless key == group.canonical_key and not MapSet.member?(keys, encoded),
           do:
             Error.reject!(:invalid_project_configuration, [
-              group.id <> ": duplicate or invalid explicit group"
+              "#{group.id}: duplicate or invalid explicit group"
             ])
 
         coverage =

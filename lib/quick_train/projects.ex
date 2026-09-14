@@ -70,6 +70,12 @@ defmodule QuickTrain.Projects do
 
       read_one QuickTrain.Projects.Project, :project, :get_scoped
 
+      list QuickTrain.Projects.ProjectInputBinding, :result_input_bindings, :list_result_bindings,
+        relay?: true,
+        paginate_with: :keyset
+
+      read_one QuickTrain.Projects.ProjectInputBinding, :result_input_binding, :get_result_binding
+
       list QuickTrain.Projects.ProjectItem, :project_items, :list_scoped,
         relay?: true,
         paginate_with: :keyset
@@ -78,15 +84,15 @@ defmodule QuickTrain.Projects do
         relay?: true,
         paginate_with: :keyset
 
-      list QuickTrain.Projects.ProjectSlotPolicy, :project_slot_policys, :list_scoped,
+      list QuickTrain.Projects.ProjectSlotPolicy, :project_slot_policies, :list_scoped,
         relay?: true,
         paginate_with: :keyset
 
-      list QuickTrain.Projects.ProjectQuestionPolicy, :project_question_policys, :list_scoped,
+      list QuickTrain.Projects.ProjectQuestionPolicy, :project_question_policies, :list_scoped,
         relay?: true,
         paginate_with: :keyset
 
-      list QuickTrain.Projects.ProjectWorkerAccess, :project_worker_accesss, :list_scoped,
+      list QuickTrain.Projects.ProjectWorkerAccess, :project_worker_access_entries, :list_scoped,
         relay?: true,
         paginate_with: :keyset
 

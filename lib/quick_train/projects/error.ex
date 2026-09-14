@@ -2,6 +2,8 @@ defmodule QuickTrain.Projects.Error do
   @moduledoc false
   use Splode.Error, fields: [:category, issues: []], class: :invalid
 
+  @spec reject!(atom()) :: no_return()
+  @spec reject!(atom(), [String.t()]) :: no_return()
   def reject!(category, issues \\ []) do
     raise Ash.Error.Invalid, errors: [exception(category: category, issues: issues)]
   end

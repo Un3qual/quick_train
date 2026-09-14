@@ -1,0 +1,187 @@
+defmodule QuickTrain.Tasks do
+  @moduledoc "Scoped collection work, immutable outcomes, review, and result exports."
+  use Ash.Domain, otp_app: :quick_train, extensions: [AshGraphql.Domain]
+
+  resources do
+    resource QuickTrain.Tasks.Task
+
+    resource QuickTrain.Tasks.TaskInput do
+      define :bound_value, action: :bound_value, args: [:organization_id, :project_id]
+      define :source_download, action: :source_download, args: [:organization_id, :project_id]
+    end
+
+    resource QuickTrain.Tasks.Attempt do
+      define :fetch_work, action: :fetch, args: [:organization_id, :project_id, :request_key]
+
+      define :assign_work,
+        action: :assign,
+        args: [:organization_id, :project_id, :worker_id, :request_key]
+
+      define :assign_follow_up,
+        action: :follow_up,
+        args: [:organization_id, :project_id, :worker_id, :predecessor_id, :request_key]
+
+      define :start_attempt, action: :start, args: [:organization_id, :project_id, :attempt_id]
+
+      define :release_attempt,
+        action: :release,
+        args: [:organization_id, :project_id, :attempt_id]
+
+      define :cancel_attempt, action: :cancel, args: [:organization_id, :project_id, :attempt_id]
+
+      define :work_bundle,
+        action: :work_bundle,
+        args: [:organization_id, :project_id, :attempt_id]
+
+      define :attempt_receipt,
+        action: :receipt,
+        args: [:organization_id, :project_id, :attempt_id]
+    end
+
+    resource QuickTrain.Tasks.AttemptQuestion
+    resource QuickTrain.Tasks.AttemptInputPresentation
+
+    resource QuickTrain.Tasks.Response do
+      define :save_question,
+        action: :save_question,
+        args: [:organization_id, :project_id, :attempt_id]
+
+      define :submit_response, action: :submit, args: [:organization_id, :project_id, :attempt_id]
+    end
+
+    resource QuickTrain.Tasks.TaskQuestionProgress
+    resource QuickTrain.Tasks.TaskItemCoverage
+    resource QuickTrain.Tasks.QuestionResponse
+    resource QuickTrain.Tasks.StaticOptionAnswer
+    resource QuickTrain.Tasks.TaskInputAnswer
+    resource QuickTrain.Tasks.TextSpan
+
+    resource QuickTrain.Tasks.ReviewDecision do
+      define :decide_question, action: :decide, args: [:organization_id, :project_id]
+
+      define :review_questions,
+        action: :review_batch,
+        args: [:organization_id, :project_id, :decisions]
+    end
+
+    resource QuickTrain.Tasks.ResultExport do
+      define :request_result_export,
+        action: :request_export,
+        args: [:organization_id, :project_id, :request_key, :mode]
+
+      define :list_result_exports, action: :list_scoped, args: [:organization_id, :project_id]
+
+      define :get_result_export,
+        action: :get_scoped,
+        args: [:organization_id, :project_id, :export_id]
+
+      define :result_export_download,
+        action: :download_export,
+        args: [:organization_id, :project_id, :export_id]
+    end
+
+    resource QuickTrain.Tasks.ExportSelection
+  end
+
+  graphql do
+    queries do
+      for {resource, singular, plural} <- [
+            {QuickTrain.Tasks.Task, :task, :tasks},
+            {QuickTrain.Tasks.TaskQuestionProgress, :task_progress, :task_progress_rows},
+            {QuickTrain.Tasks.TaskItemCoverage, :task_item_coverage, :task_item_coverage_rows},
+            {QuickTrain.Tasks.TaskInput, :task_input, :task_inputs},
+            {QuickTrain.Tasks.Attempt, :attempt, :attempts},
+            {QuickTrain.Tasks.AttemptQuestion, :attempt_question, :attempt_questions},
+            {QuickTrain.Tasks.AttemptInputPresentation, :attempt_input_presentation,
+             :attempt_input_presentations},
+            {QuickTrain.Tasks.Response, :task_response, :task_responses},
+            {QuickTrain.Tasks.QuestionResponse, :question_response, :question_responses},
+            {QuickTrain.Tasks.StaticOptionAnswer, :static_option_answer, :static_option_answers},
+            {QuickTrain.Tasks.TaskInputAnswer, :task_input_answer, :task_input_answers},
+            {QuickTrain.Tasks.TextSpan, :text_span, :text_spans},
+            {QuickTrain.Tasks.ReviewDecision, :review_decision, :review_decisions}
+          ] do
+        list resource, :"audit_#{plural}", :list_audit, relay?: true, paginate_with: :keyset
+        read_one resource, :"audit_#{singular}", :get_audit
+        list resource, :"accepted_#{plural}", :list_accepted, relay?: true, paginate_with: :keyset
+        read_one resource, :"accepted_#{singular}", :get_accepted
+      end
+
+      action QuickTrain.Tasks.Attempt, :work_bundle, :work_bundle
+
+      action QuickTrain.Tasks.Attempt, :attempt_receipt, :receipt
+
+      action QuickTrain.Tasks.TaskInput, :task_bound_value, :bound_value
+
+      action QuickTrain.Tasks.TaskInput, :task_source_download, :source_download
+
+      list QuickTrain.Tasks.ResultExport, :result_exports, :list_scoped,
+        relay?: true,
+        paginate_with: :keyset
+
+      read_one QuickTrain.Tasks.ResultExport, :result_export, :get_scoped
+
+      action QuickTrain.Tasks.ResultExport, :result_export_download, :download_export
+    end
+
+    mutations do
+      action QuickTrain.Tasks.Attempt, :fetch_work, :fetch,
+        args: [:organization_id, :project_id, :request_key]
+
+      action QuickTrain.Tasks.Attempt, :assign_work, :assign,
+        args: [:organization_id, :project_id, :worker_id, :request_key]
+
+      action QuickTrain.Tasks.Attempt, :assign_follow_up, :follow_up,
+        args: [:organization_id, :project_id, :worker_id, :predecessor_id, :request_key]
+
+      action QuickTrain.Tasks.Attempt, :start_attempt, :start,
+        args: [:organization_id, :project_id, :attempt_id]
+
+      action QuickTrain.Tasks.Attempt, :release_attempt, :release,
+        args: [:organization_id, :project_id, :attempt_id]
+
+      action QuickTrain.Tasks.Attempt, :cancel_attempt, :cancel,
+        args: [:organization_id, :project_id, :attempt_id]
+
+      action QuickTrain.Tasks.Response, :save_task_question, :save_question,
+        args: [
+          :organization_id,
+          :project_id,
+          :attempt_id,
+          :question_id,
+          :expected_revision,
+          :answer
+        ]
+
+      action QuickTrain.Tasks.Response, :submit_task_response, :submit,
+        args: [:organization_id, :project_id, :attempt_id]
+
+      action QuickTrain.Tasks.ReviewDecision, :decide_task_question, :decide,
+        args: [
+          :organization_id,
+          :project_id,
+          :question_response_id,
+          :request_key,
+          :expected_predecessor_id,
+          :verdict,
+          :reason
+        ]
+
+      action QuickTrain.Tasks.ReviewDecision, :review_task_questions, :review_batch,
+        args: [:organization_id, :project_id, :decisions]
+
+      action QuickTrain.Tasks.ResultExport, :request_result_export, :request_export,
+        args: [
+          :organization_id,
+          :project_id,
+          :request_key,
+          :mode,
+          :task_id_from,
+          :task_id_to,
+          :evidence_kind,
+          :evidence_id_from,
+          :evidence_id_to
+        ]
+    end
+  end
+end

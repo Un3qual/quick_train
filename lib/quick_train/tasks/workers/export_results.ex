@@ -2,7 +2,7 @@ defmodule QuickTrain.Tasks.Workers.ExportResults do
   alias QuickTrain.Tasks.ResultExporting
   @moduledoc false
   use Oban.Worker,
-    queue: :task_maintenance,
+    queue: :task_exports,
     max_attempts: 10,
     unique: [
       fields: [:worker, :args],
