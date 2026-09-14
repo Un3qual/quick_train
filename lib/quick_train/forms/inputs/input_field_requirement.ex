@@ -14,6 +14,8 @@ defmodule QuickTrain.Forms.Inputs.InputFieldRequirement do
   alias QuickTrain.Forms.Inputs.InputSlotDefinition
   alias QuickTrain.Forms.Types.{AssetIntendedUse, FieldCardinality, InputValueFamily}
   alias QuickTrain.Repo
+  alias QuickTrain.Tasks.Access.ContractAccess
+  alias QuickTrain.Tasks.Access.ContractAccess.DefinitionRead
 
   attributes do
     uuid_primary_key :id
@@ -60,7 +62,7 @@ defmodule QuickTrain.Forms.Inputs.InputFieldRequirement do
       argument :id, :uuid, allow_nil?: false
       argument :attempt_id, :uuid
       filter expr(id == ^arg(:id))
-      prepare Module.concat(["QuickTrain.Tasks.Access.ContractAccess.DefinitionRead"])
+      prepare DefinitionRead
     end
 
     read :read_for_authoring do
@@ -146,11 +148,11 @@ defmodule QuickTrain.Forms.Inputs.InputFieldRequirement do
 
   policies do
     bypass action(:read) do
-      authorize_if Module.concat(["QuickTrain.Tasks.Access.ContractAccess"])
+      authorize_if ContractAccess
     end
 
     policy action(:get_task_definition) do
-      authorize_if Module.concat(["QuickTrain.Tasks.Access.ContractAccess"])
+      authorize_if ContractAccess
     end
 
     policy action(:read_for_authoring) do
