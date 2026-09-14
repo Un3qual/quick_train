@@ -14,6 +14,9 @@ defmodule QuickTrain.Tasks.Exports.ResultExporting do
   @filters [:mode, :task_id_from, :task_id_to, :evidence_kind, :evidence_id_from, :evidence_id_to]
 
   @impl true
+  def run(%{action: %{name: :process}, arguments: %{id: id}}, _opts, _context),
+    do: process(id) |> DatasetAssetError.wrap()
+
   def run(%{action: %{name: :request_export}} = input, _opts, context) do
     args = Map.merge(Map.new(@filters, &{&1, nil}), input.arguments)
 
@@ -123,14 +126,7 @@ defmodule QuickTrain.Tasks.Exports.ResultExporting do
     if lower > upper, do: Error.reject!(:invalid_export_filter)
   end
 
-  def snapshot!(id) do
-    case Snapshot.seal(id) do
-      {:ok, export} -> export
-      {:error, error} -> raise Ash.Error.to_error_class(error)
-    end
-  end
-
-  def process(id) do
+  defp process(id) do
     {:ok, export} =
       Ash.transact(ResultExport, fn ->
         export = locked_export!(id)
@@ -147,7 +143,7 @@ defmodule QuickTrain.Tasks.Exports.ResultExporting do
     if export.state == :ready do
       :ok
     else
-      case Snapshot.seal(id) do
+      case QuickTrain.Tasks.seal_export_snapshot(id, authorize?: false) do
         {:ok, snapshot} -> publish(snapshot)
         {:error, _error} -> fail(id, :export_snapshot_failed)
       end

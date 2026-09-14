@@ -3,7 +3,6 @@ defmodule QuickTrainWeb.ProjectTaskCollectionTest do
   alias QuickTrain.{Accounts, Authorization, Organizations, ProjectsFixture, Tasks}
   alias QuickTrain.Assets.Storage.InMemory
   alias QuickTrain.Tasks.Attempts.Attempt
-  alias QuickTrain.Tasks.Exports.ResultExporting
   alias QuickTrain.Tasks.Progress.TaskQuestionProgress
   require Ash.Query
 
@@ -207,10 +206,15 @@ defmodule QuickTrainWeb.ProjectTaskCollectionTest do
     key = Ash.UUID.generate()
     Tasks.fetch_work!(ctx.context.org.id, ctx.project.id, key, actor: ctx.worker)
 
-    ProjectsFixture.run!(ctx.context, ctx.project, :set_worker_access, %{
-      user_id: ctx.worker.id,
-      disposition: :block
-    })
+    QuickTrain.Projects.set_worker_access!(
+      ctx.context.org.id,
+      ctx.project.id,
+      %{
+        user_id: ctx.worker.id,
+        disposition: :block
+      },
+      actor: ctx.context.actor
+    )
 
     assert request(
              conn,
@@ -232,7 +236,7 @@ defmodule QuickTrainWeb.ProjectTaskCollectionTest do
     export = response["data"]["requestResultExport"]
     assert export["state"] == "queued"
     assert request(conn, mutation)["data"]["requestResultExport"]["id"] == export["id"]
-    assert ResultExporting.process(export["id"]) == :ok
+    assert QuickTrain.Tasks.process_result_export(export["id"], authorize?: false) == :ok
 
     status =
       "{ resultExport(#{scope(ctx)}, exportId: \"#{export["id"]}\") { id state recordCount } }"

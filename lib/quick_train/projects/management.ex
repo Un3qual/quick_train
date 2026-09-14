@@ -8,7 +8,6 @@ defmodule QuickTrain.Projects.Management do
     ExplicitGroup,
     ExplicitGroupInput,
     GroupIdentity,
-    Project,
     ProjectActivation,
     ProjectInputBinding,
     ProjectItem,
@@ -17,35 +16,8 @@ defmodule QuickTrain.Projects.Management do
     ProjectWorkerAccess
   }
 
-  alias QuickTrain.Datasets.{DatasetItemRevision, DatasetSchemaVersion}
-  alias QuickTrain.Forms.FormVersion
-  alias QuickTrain.Tasks.Attempts.Leases
-  alias QuickTrain.Tasks.Progress.ProjectCompletion
+  alias QuickTrain.Datasets.DatasetItemRevision
   require Ash.Query
-
-  @configuration [
-    :title,
-    :audience,
-    :external_access,
-    :selection_mode,
-    :review_mode,
-    :coverage_target,
-    :lease_minutes
-  ]
-  @source_states %{
-    activate: [:draft],
-    pause: [:active],
-    resume: [:paused],
-    complete: [:active, :paused],
-    archive: [:completed]
-  }
-  @targets %{
-    activate: :active,
-    pause: :paused,
-    resume: :active,
-    complete: :completed,
-    archive: :archived
-  }
 
   @impl true
   def run(input, _opts, context) do
@@ -70,39 +42,9 @@ defmodule QuickTrain.Projects.Management do
   end
 
   defp execute(%{action: %{name: :create_project}, arguments: args}, actor) do
-    authorize!(actor, args.organization_id)
-    authorize!(actor, args.organization_id, "datasets.read")
-    authorize!(actor, args.organization_id, "forms.read")
-
-    schema =
-      DatasetSchemaVersion
-      |> Ash.Query.filter(
-        id == ^args.schema_version_id and dataset_id == ^args.dataset_id and
-          dataset.organization_id == ^args.organization_id and state == :published
-      )
-      |> Ash.read_one!(authorize?: false)
-
-    form_version =
-      FormVersion
-      |> Ash.Query.filter(
-        id == ^args.form_version_id and form.organization_id == ^args.organization_id and
-          state == :published
-      )
-      |> Ash.read_one!(authorize?: false)
-
-    if is_nil(schema) or is_nil(form_version), do: Error.reject!(:invalid_project_configuration)
-
-    attrs =
-      args
-      |> Map.take(
-        @configuration ++ [:organization_id, :dataset_id, :schema_version_id, :form_version_id]
-      )
-      |> Map.merge(%{
-        form_id: form_version.form_id,
-        root_record_type_id: schema.root_record_type_id
-      })
-
-    create!(Project, attrs)
+    QuickTrain.Projects.create_project!(args.organization_id, Map.delete(args, :organization_id),
+      actor: actor
+    )
   end
 
   defp execute(input, actor) do
@@ -112,14 +54,21 @@ defmodule QuickTrain.Projects.Management do
     action = input.action.name
 
     cond do
-      Map.has_key?(@targets, action) ->
-        transition!(project, action)
+      action in [:activate, :pause, :resume, :complete, :archive] ->
+        transition!(project, action, actor)
 
       action == :update_title ->
-        update!(project, %{title: args.title})
+        QuickTrain.Projects.rename_project!(project, %{title: args.title}, actor: actor)
 
       action in [:set_worker_access, :remove_worker_access] ->
         edit!(project, action, args)
+
+      action == :update_draft ->
+        QuickTrain.Projects.configure_project!(
+          project,
+          Map.drop(args, [:organization_id, :project_id]),
+          actor: actor
+        )
 
       project.state != :draft ->
         Error.reject!(:project_not_draft)
@@ -130,28 +79,20 @@ defmodule QuickTrain.Projects.Management do
     end
   end
 
-  defp transition!(project, action) do
-    target = Map.fetch!(@targets, action)
+  defp transition!(project, :activate, actor),
+    do: QuickTrain.Projects.activate_project_record!(project, actor: actor)
 
-    if project.state == target do
-      project
-    else
-      unless project.state in Map.fetch!(@source_states, action),
-        do: Error.reject!(:invalid_project_transition)
+  defp transition!(project, :pause, actor),
+    do: QuickTrain.Projects.pause_project_record!(project, actor: actor)
 
-      if action == :activate, do: ProjectActivation.validate!(project)
-      attrs = Map.put(transition_attributes!(project, action), :state, target)
+  defp transition!(project, :resume, actor),
+    do: QuickTrain.Projects.resume_project_record!(project, actor: actor)
 
-      update!(project, attrs)
-    end
-  end
+  defp transition!(project, :complete, actor),
+    do: QuickTrain.Projects.complete_project_record!(project, actor: actor)
 
-  defp authorize_edit!(project, :update_draft, args, actor) do
-    if args[:dataset_id] || args[:schema_version_id],
-      do: authorize!(actor, project.organization_id, "datasets.read")
-
-    if args[:form_version_id], do: authorize!(actor, project.organization_id, "forms.read")
-  end
+  defp transition!(project, :archive, actor),
+    do: QuickTrain.Projects.archive_project_record!(project, actor: actor)
 
   defp authorize_edit!(project, action, _args, actor) do
     if action in [:enroll_revisions, :set_binding],
@@ -159,70 +100,6 @@ defmodule QuickTrain.Projects.Management do
 
     if action in [:set_binding, :set_slot_policy, :set_question_policy, :create_explicit_group],
       do: authorize!(actor, project.organization_id, "forms.read")
-  end
-
-  defp transition_attributes!(_project, :activate), do: %{activated_at: DateTime.utc_now()}
-  defp transition_attributes!(_project, :archive), do: %{archived_at: DateTime.utc_now()}
-
-  defp transition_attributes!(project, :complete) do
-    cutoff = Leases.now!()
-    ProjectCompletion.complete!(project, cutoff)
-    %{completed_at: cutoff}
-  end
-
-  defp transition_attributes!(_project, _action), do: %{}
-
-  defp schema_attributes!(project, args) do
-    if args[:dataset_id] || args[:schema_version_id] do
-      dataset_id = args[:dataset_id] || project.dataset_id
-      schema_id = args[:schema_version_id] || project.schema_version_id
-
-      schema =
-        DatasetSchemaVersion
-        |> Ash.Query.filter(
-          id == ^schema_id and dataset_id == ^dataset_id and
-            dataset.organization_id == ^project.organization_id and state == :published
-        )
-        |> Ash.read_one!(authorize?: false)
-
-      if is_nil(schema), do: Error.reject!(:invalid_project_configuration)
-
-      %{
-        dataset_id: dataset_id,
-        schema_version_id: schema_id,
-        root_record_type_id: schema.root_record_type_id
-      }
-    else
-      %{}
-    end
-  end
-
-  defp form_attributes!(project, args) do
-    if args[:form_version_id] do
-      version =
-        FormVersion
-        |> Ash.Query.filter(
-          id == ^args.form_version_id and form.organization_id == ^project.organization_id and
-            state == :published
-        )
-        |> Ash.read_one!(authorize?: false)
-
-      if is_nil(version), do: Error.reject!(:invalid_project_configuration)
-      %{form_id: version.form_id, form_version_id: version.id}
-    else
-      %{}
-    end
-  end
-
-  defp edit!(project, :update_draft, args) do
-    attrs = args |> Map.take(@configuration) |> Map.reject(fn {_key, value} -> is_nil(value) end)
-
-    attrs =
-      attrs
-      |> Map.merge(schema_attributes!(project, args))
-      |> Map.merge(form_attributes!(project, args))
-
-    update!(project, attrs)
   end
 
   defp edit!(project, action, args)
@@ -399,7 +276,4 @@ defmodule QuickTrain.Projects.Management do
 
   defp create!(resource, attrs),
     do: Ash.create!(resource, attrs, action: :create_internal, authorize?: false)
-
-  defp update!(record, attrs),
-    do: Ash.update!(record, attrs, action: :update_internal, authorize?: false)
 end

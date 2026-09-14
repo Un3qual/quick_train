@@ -5,7 +5,7 @@ defmodule QuickTrain.Tasks.CollectionConcurrencyTest do
   alias Elixir.Task, as: AsyncTask
   alias QuickTrain.{Accounts, ProjectsFixture}
   alias QuickTrain.Projects.Project
-  alias QuickTrain.Tasks.{Access, Progress, Task, TaskInput}
+  alias QuickTrain.Tasks.{Access, Task, TaskInput}
   alias QuickTrain.Tasks.Attempts.Attempt
   alias QuickTrain.Tasks.Progress.{TaskItemCoverage, TaskQuestionProgress}
   alias QuickTrain.Tasks.Responses.{QuestionResponse, Response}
@@ -32,25 +32,37 @@ defmodule QuickTrain.Tasks.CollectionConcurrencyTest do
     if tags[:selection_mode] == :explicit do
       [item] = ProjectsFixture.items(project)
 
-      ProjectsFixture.run!(context, project, :create_explicit_group, %{
-        position: 0,
-        inputs: [
-          %{input_slot_id: source.form.slot.id, project_item_id: item.id, position: 0}
-        ]
-      })
+      QuickTrain.Projects.create_explicit_group!(
+        context.org.id,
+        project.id,
+        %{
+          position: 0,
+          inputs: [
+            %{input_slot_id: source.form.slot.id, project_item_id: item.id, position: 0}
+          ]
+        },
+        actor: context.actor
+      )
     end
 
     if tags[:accepted_target] do
-      ProjectsFixture.run!(context, project, :set_question_policy, %{
-        question_id: source.form.question.id,
-        accepted_target: tags.accepted_target,
-        skip_allowed: true,
-        reason_required: true,
-        failure_threshold: 3
-      })
+      QuickTrain.Projects.set_question_policy!(
+        context.org.id,
+        project.id,
+        %{
+          question_id: source.form.question.id,
+          accepted_target: tags.accepted_target,
+          skip_allowed: true,
+          reason_required: true,
+          failure_threshold: 3
+        },
+        actor: context.actor
+      )
     end
 
-    project = ProjectsFixture.run!(context, project, :activate)
+    project =
+      QuickTrain.Projects.activate_project!(context.org.id, project.id, actor: context.actor)
+
     worker = Accounts.register_user!("race-worker@example.test", "Worker")
     %{context: context, source: source, project: project, worker: worker}
   end
@@ -240,7 +252,12 @@ defmodule QuickTrain.Tasks.CollectionConcurrencyTest do
       before = Ash.read_one!(TaskQuestionProgress, authorize?: false)
 
       assert {:ok, _} =
-               Progress.reconcile!(ctx.context.org.id, ctx.project.id, ctx.attempt.task_id)
+               QuickTrain.Tasks.reconcile_task(
+                 ctx.context.org.id,
+                 ctx.project.id,
+                 ctx.attempt.task_id,
+                 authorize?: false
+               )
 
       after_rebuild = Ash.read_one!(TaskQuestionProgress, authorize?: false)
 
@@ -257,7 +274,9 @@ defmodule QuickTrain.Tasks.CollectionConcurrencyTest do
       submit = fn -> terminal(ctx, :submit) end
 
       rebuild = fn ->
-        Progress.reconcile!(ctx.context.org.id, ctx.project.id, ctx.attempt.task_id)
+        QuickTrain.Tasks.reconcile_task(ctx.context.org.id, ctx.project.id, ctx.attempt.task_id,
+          authorize?: false
+        )
       end
 
       {first, second} =
@@ -340,7 +359,11 @@ defmodule QuickTrain.Tasks.CollectionConcurrencyTest do
     )
   end
 
-  defp terminal(ctx, :complete), do: ProjectsFixture.run(ctx.context, ctx.project, :complete)
+  defp terminal(ctx, :complete),
+    do:
+      QuickTrain.Projects.complete_project(ctx.context.org.id, ctx.project.id,
+        actor: ctx.context.actor
+      )
 
   defp terminal(ctx, :submit),
     do: action(ctx, Response, :submit, %{attempt_id: ctx.attempt.id}, ctx.worker)

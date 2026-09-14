@@ -55,6 +55,15 @@ defmodule QuickTrain.Tasks.Task do
   end
 
   actions do
+    action :reconcile, :struct do
+      public? false
+      constraints instance_of: __MODULE__
+      argument :organization_id, :uuid, allow_nil?: false
+      argument :project_id, :uuid, allow_nil?: false
+      argument :task_id, :uuid, allow_nil?: false
+      run Module.concat(["QuickTrain.Tasks.Progress"])
+    end
+
     for {mode, list_action, get_action} <- [
           {:audit, :list_audit, :get_audit},
           {:accepted, :list_accepted, :get_accepted}

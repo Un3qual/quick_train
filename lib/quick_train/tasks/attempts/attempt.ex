@@ -69,6 +69,21 @@ defmodule QuickTrain.Tasks.Attempts.Attempt do
   end
 
   actions do
+    read :read_work_bundle do
+      get? true
+      transaction? true
+      argument :organization_id, :uuid, allow_nil?: false
+      argument :project_id, :uuid, allow_nil?: false
+      argument :attempt_id, :uuid, allow_nil?: false
+
+      filter expr(
+               id == ^arg(:attempt_id) and project_id == ^arg(:project_id) and
+                 organization_id == ^arg(:organization_id)
+             )
+
+      prepare Module.concat(["QuickTrain.Tasks.Attempts.WorkBundle"])
+    end
+
     action :receipt, QuickTrain.Tasks.Attempts.Receipt do
       argument :organization_id, :uuid, allow_nil?: false
       argument :project_id, :uuid, allow_nil?: false
@@ -76,6 +91,7 @@ defmodule QuickTrain.Tasks.Attempts.Attempt do
       run Module.concat(["QuickTrain.Tasks.Access.ReadActions"])
     end
 
+    # GraphQL keeps its direct result shape; the domain uses read_work_bundle.
     action :work_bundle, :struct do
       constraints instance_of: QuickTrain.Tasks.Attempts.Attempt
       argument :organization_id, :uuid, allow_nil?: false
@@ -190,13 +206,30 @@ defmodule QuickTrain.Tasks.Attempts.Attempt do
       ]
     end
 
+    for action <- [:start_record, :release_record, :cancel_record, :expire_record] do
+      update action do
+        accept []
+        require_atomic? false
+        change Module.concat(["QuickTrain.Tasks.Attempts.Changes.Transition"])
+      end
+    end
+
+    action :expire, :struct do
+      public? false
+      constraints instance_of: __MODULE__
+      argument :organization_id, :uuid, allow_nil?: false
+      argument :project_id, :uuid, allow_nil?: false
+      argument :attempt_id, :uuid, allow_nil?: false
+      run Module.concat(["QuickTrain.Tasks.Attempts.AttemptActions"])
+    end
+
     update :update_internal do
       accept [:state, :started_at, :terminal_at]
     end
   end
 
   policies do
-    policy action([:work_bundle, :receipt]) do
+    policy action([:work_bundle, :read_work_bundle, :receipt]) do
       authorize_if actor_present()
     end
 
@@ -209,11 +242,11 @@ defmodule QuickTrain.Tasks.Attempts.Attempt do
                     capability: "tasks.results.read"}
     end
 
-    policy action([:start, :release]) do
+    policy action([:start, :release, :start_record, :release_record]) do
       authorize_if actor_present()
     end
 
-    policy action(:cancel) do
+    policy action([:cancel, :cancel_record]) do
       authorize_if {QuickTrain.Authorization.Checks.OrganizationCapability,
                     capability: "tasks.assign"}
     end

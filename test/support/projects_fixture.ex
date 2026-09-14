@@ -1,7 +1,7 @@
 defmodule QuickTrain.ProjectsFixture do
   @moduledoc false
   alias QuickTrain.{Datasets, Forms, FormsFixture, Projects}
-  alias QuickTrain.Projects.{Project, ProjectItem}
+  alias QuickTrain.Projects.ProjectItem
   require Ash.Query
 
   def context!(
@@ -109,58 +109,58 @@ defmodule QuickTrain.ProjectsFixture do
   def configured!(context, source, opts \\ []) do
     project = draft!(context, source, opts)
 
-    run!(context, project, :enroll_revisions, %{revision_ids: Enum.map(source.revisions, & &1.id)})
+    Projects.enroll_revisions!(
+      context.org.id,
+      project.id,
+      %{revision_ids: Enum.map(source.revisions, & &1.id)},
+      actor: context.actor
+    )
 
-    run!(context, project, :set_binding, %{
-      requirement_id: source.form.field.id,
-      field_definition_id: source.field.id
-    })
+    Projects.set_binding!(
+      context.org.id,
+      project.id,
+      %{
+        requirement_id: source.form.field.id,
+        field_definition_id: source.field.id
+      },
+      actor: context.actor
+    )
 
-    run!(context, project, :set_slot_policy, %{
-      input_slot_id: source.form.slot.id,
-      item_count: 1,
-      shuffle: false
-    })
+    Projects.set_slot_policy!(
+      context.org.id,
+      project.id,
+      %{
+        input_slot_id: source.form.slot.id,
+        item_count: 1,
+        shuffle: false
+      },
+      actor: context.actor
+    )
 
-    run!(context, project, :set_question_policy, %{
-      question_id: source.form.question.id,
-      accepted_target: 1,
-      skip_allowed: true,
-      reason_required: true,
-      failure_threshold: 3
-    })
+    Projects.set_question_policy!(
+      context.org.id,
+      project.id,
+      %{
+        question_id: source.form.question.id,
+        accepted_target: 1,
+        skip_allowed: true,
+        reason_required: true,
+        failure_threshold: 3
+      },
+      actor: context.actor
+    )
 
     project
   end
 
   def active!(context, source, opts \\ []) do
     project = configured!(context, source, opts)
-    run!(context, project, :activate)
+    Projects.activate_project!(context.org.id, project.id, actor: context.actor)
   end
 
   def items(project) do
     ProjectItem
     |> Ash.Query.filter(project_id == ^project.id)
     |> Ash.read!(authorize?: false, page: false)
-  end
-
-  def run(context, project, action, attrs \\ %{}) do
-    Project
-    |> Ash.ActionInput.for_action(
-      action,
-      Map.merge(attrs, %{organization_id: context.org.id, project_id: project.id}),
-      actor: context.actor
-    )
-    |> Ash.run_action()
-  end
-
-  def run!(context, project, action, attrs \\ %{}) do
-    Project
-    |> Ash.ActionInput.for_action(
-      action,
-      Map.merge(attrs, %{organization_id: context.org.id, project_id: project.id}),
-      actor: context.actor
-    )
-    |> Ash.run_action!()
   end
 end

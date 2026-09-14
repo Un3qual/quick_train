@@ -27,14 +27,20 @@ defmodule QuickTrain.Tasks.TaskReadsTest do
 
     if tags[:rich_source] do
       for {requirement, field} <- source.extra_bindings do
-        ProjectsFixture.run!(context, project, :set_binding, %{
-          requirement_id: requirement.id,
-          field_definition_id: field.id
-        })
+        QuickTrain.Projects.set_binding!(
+          context.org.id,
+          project.id,
+          %{
+            requirement_id: requirement.id,
+            field_definition_id: field.id
+          },
+          actor: context.actor
+        )
       end
     end
 
-    project = ProjectsFixture.run!(context, project, :activate)
+    project =
+      QuickTrain.Projects.activate_project!(context.org.id, project.id, actor: context.actor)
 
     worker = Accounts.register_user!("reader-worker@example.test", "Worker")
 
@@ -105,10 +111,15 @@ defmodule QuickTrain.Tasks.TaskReadsTest do
     assert {:error, _} =
              action(Attempt, :work_bundle, %{scope(ctx) | project_id: other.id}, ctx.worker)
 
-    ProjectsFixture.run!(ctx.context, ctx.project, :set_worker_access, %{
-      user_id: ctx.worker.id,
-      disposition: :block
-    })
+    QuickTrain.Projects.set_worker_access!(
+      ctx.context.org.id,
+      ctx.project.id,
+      %{
+        user_id: ctx.worker.id,
+        disposition: :block
+      },
+      actor: ctx.context.actor
+    )
 
     assert {:error, _} = action(Attempt, :work_bundle, scope(ctx), ctx.worker)
 
@@ -407,18 +418,31 @@ defmodule QuickTrain.Tasks.TaskReadsTest do
       )
 
     for {requirement, field} <- ctx.source.extra_bindings do
-      ProjectsFixture.run!(ctx.context, other, :set_binding, %{
-        requirement_id: requirement.id,
-        field_definition_id: field.id
-      })
+      QuickTrain.Projects.set_binding!(
+        ctx.context.org.id,
+        other.id,
+        %{
+          requirement_id: requirement.id,
+          field_definition_id: field.id
+        },
+        actor: ctx.context.actor
+      )
     end
 
-    ProjectsFixture.run!(ctx.context, other, :set_binding, %{
-      requirement_id: ctx.source.form.field.id,
-      field_definition_id: ctx.source.secret.id
-    })
+    QuickTrain.Projects.set_binding!(
+      ctx.context.org.id,
+      other.id,
+      %{
+        requirement_id: ctx.source.form.field.id,
+        field_definition_id: ctx.source.secret.id
+      },
+      actor: ctx.context.actor
+    )
 
-    other = ProjectsFixture.run!(ctx.context, other, :activate)
+    other =
+      QuickTrain.Projects.activate_project!(ctx.context.org.id, other.id,
+        actor: ctx.context.actor
+      )
 
     action!(
       Attempt,
@@ -451,10 +475,15 @@ defmodule QuickTrain.Tasks.TaskReadsTest do
 
     assert Ash.load!(body.value, :text_value, actor: ctx.worker).text_value.value =~ "Body"
 
-    ProjectsFixture.run!(ctx.context, ctx.project, :set_worker_access, %{
-      user_id: ctx.worker.id,
-      disposition: :block
-    })
+    QuickTrain.Projects.set_worker_access!(
+      ctx.context.org.id,
+      ctx.project.id,
+      %{
+        user_id: ctx.worker.id,
+        disposition: :block
+      },
+      actor: ctx.context.actor
+    )
 
     assert_empty_read(DatasetValue, [body.value.id], ctx.worker, %{
       source: QuickTrain.Datasets.DatasetRecord,

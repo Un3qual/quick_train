@@ -1,4 +1,5 @@
 defmodule QuickTrain.Tasks.Exports.Snapshot do
+  use Ash.Resource.Actions.Implementation
   alias QuickTrain.Datasets.DatasetItemRevision
   alias QuickTrain.Datasets.DatasetValue
   alias QuickTrain.Forms.Labels.Label
@@ -54,7 +55,8 @@ defmodule QuickTrain.Tasks.Exports.Snapshot do
   def kinds, do: Keyword.keys(@resources)
   def resources, do: @resources
 
-  def seal(id) do
+  @impl true
+  def run(%{arguments: %{id: id}}, _opts, _context) do
     Ash.transact([ResultExport, ExportSelection], fn ->
       # This must be the transaction's first statement: every page sees one
       # committed MVCC snapshot, including submissions concurrent with selection.

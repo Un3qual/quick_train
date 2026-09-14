@@ -9,21 +9,26 @@ defmodule QuickTrain.Tasks.Access.ReadActions do
   alias QuickTrain.Tasks.Attempts.{Attempt, Leases, Receipt}
   require Ash.Query
 
+  def run(%{action: %{name: :work_bundle}, arguments: args}, _opts, context) do
+    QuickTrain.Tasks.work_bundle(args.organization_id, args.project_id, args.attempt_id,
+      scope: context
+    )
+  end
+
   def run(input, _opts, context) do
     if is_nil(context.actor), do: Error.reject!(:forbidden)
 
     if input.action.name == :source_download do
       source_download(input.arguments, context.actor)
     else
-      QuickTrain.Repo.transaction(fn -> execute(input, context.actor) end)
+      Ash.transact(Attempt, fn -> execute(input, context.actor) end)
     end
   rescue
     error in [Ash.Error.Invalid, Ash.Error.Forbidden, Ash.Error.Unknown, Postgrex.Error] ->
       {:error, error}
   end
 
-  defp execute(%{action: %{name: action}, arguments: args}, actor)
-       when action in [:work_bundle, :receipt] do
+  defp execute(%{action: %{name: :receipt}, arguments: args}, actor) do
     project = Access.project!(args.organization_id, args.project_id)
 
     attempt =
@@ -32,14 +37,10 @@ defmodule QuickTrain.Tasks.Access.ReadActions do
       |> Ash.read_one!(authorize?: false)
       |> Access.found!()
 
-    Access.owner!(project, attempt, actor, action == :work_bundle)
+    Access.owner!(project, attempt, actor, false)
 
-    if action == :receipt do
-      if attempt.state in Leases.live_states(), do: Error.reject!(:attempt_not_terminal)
-      struct!(Receipt, Map.take(attempt, [:id, :state, :started_at, :terminal_at, :inserted_at]))
-    else
-      attempt
-    end
+    if attempt.state in Leases.live_states(), do: Error.reject!(:attempt_not_terminal)
+    struct!(Receipt, Map.take(attempt, [:id, :state, :started_at, :terminal_at, :inserted_at]))
   end
 
   defp execute(%{action: %{name: :bound_value}, arguments: args}, actor) do
@@ -117,7 +118,7 @@ defmodule QuickTrain.Tasks.Access.ReadActions do
 
   defp source_download(args, actor) do
     with {:ok, {asset, expiry}} <-
-           QuickTrain.Repo.transaction(fn -> source_asset!(args, actor) end),
+           Ash.transact(Attempt, fn -> source_asset!(args, actor) end),
          {:ok, descriptor} <-
            Storage.sealed_read_access(asset.sealed_key, expiry) do
       {:ok, AssetAccessResult.from(asset, descriptor)}

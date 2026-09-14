@@ -41,6 +41,13 @@ defmodule QuickTrain.Tasks.Progress.TaskItemCoverage do
   end
 
   actions do
+    action :reconcile do
+      public? false
+      argument :organization_id, :uuid, allow_nil?: false
+      argument :project_id, :uuid, allow_nil?: false
+      run {Module.concat(["QuickTrain.Tasks.Progress"]), coverage?: true}
+    end
+
     for {mode, list_action, get_action} <- [
           {:audit, :list_audit, :get_audit},
           {:accepted, :list_accepted, :get_accepted}

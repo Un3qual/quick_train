@@ -17,6 +17,32 @@ defmodule QuickTrain.ProjectsTest do
     Map.merge(context, %{source: source})
   end
 
+  test "native project updates recheck current state and retain explicit stale inputs", context do
+    project = ProjectsFixture.configured!(context, context.source)
+    Projects.rename_project!(project, %{title: "Changed"}, actor: context.actor)
+
+    assert Projects.rename_project!(project, %{title: project.title}, actor: context.actor).title ==
+             project.title
+
+    configured = Projects.configure_project!(project, %{coverage_target: 2}, actor: context.actor)
+    assert configured.coverage_target == 2
+
+    unchanged = Projects.configure_project!(project, %{title: nil}, actor: context.actor)
+    assert unchanged.coverage_target == 2
+    assert unchanged.title == project.title
+
+    Projects.activate_project_record!(project, actor: context.actor)
+
+    assert_raise Ash.Error.Invalid, ~r/project_not_draft/, fn ->
+      Projects.configure_project!(project, %{title: "Frozen"}, actor: context.actor)
+    end
+
+    Organizations.deactivate_membership!(context.membership)
+
+    assert {:error, _} =
+             Projects.rename_project(project, %{title: "Denied"}, actor: context.actor)
+  end
+
   test "database identity, management result, and explicit scoped read authority", context do
     project = ProjectsFixture.configured!(context, context.source)
     assert {:ok, id} = Ash.Type.cast_input(:uuid, project.id)
@@ -28,15 +54,20 @@ defmodule QuickTrain.ProjectsTest do
     assert {:error, _} = Ash.read(Project)
 
     assert {:error, _} =
-             Ash.create(Project, %{id: project.id}, action: :create_internal, authorize?: false)
+             Ash.create(Project, %{id: project.id}, action: :create, authorize?: false)
 
     stranger = Accounts.register_user!("stranger@example.test", "Stranger")
     assert {:error, _} = Projects.get_project(context.org.id, project.id, actor: stranger)
 
     assert {:error, _} =
-             ProjectsFixture.run(%{context | actor: stranger}, project, :update_title, %{
-               title: "No"
-             })
+             Projects.update_title(
+               context.org.id,
+               project.id,
+               %{
+                 title: "No"
+               },
+               actor: stranger
+             )
 
     assert {:error, _} =
              ProjectItem
@@ -83,20 +114,35 @@ defmodule QuickTrain.ProjectsTest do
     invalid_id = "00000000-0000-4000-8000-000000000001"
 
     assert {:error, _} =
-             ProjectsFixture.run(context, project, :enroll_revisions, %{
-               revision_ids: [hd(context.source.revisions).id, invalid_id]
-             })
+             Projects.enroll_revisions(
+               context.org.id,
+               project.id,
+               %{
+                 revision_ids: [hd(context.source.revisions).id, invalid_id]
+               },
+               actor: context.actor
+             )
 
     assert ProjectsFixture.items(project) == []
 
-    ProjectsFixture.run!(context, project, :enroll_revisions, %{
-      revision_ids: Enum.map(context.source.revisions, & &1.id)
-    })
+    Projects.enroll_revisions!(
+      context.org.id,
+      project.id,
+      %{
+        revision_ids: Enum.map(context.source.revisions, & &1.id)
+      },
+      actor: context.actor
+    )
 
     assert {:error, _} =
-             ProjectsFixture.run(context, project, :enroll_revisions, %{
-               revision_ids: [hd(context.source.revisions).id]
-             })
+             Projects.enroll_revisions(
+               context.org.id,
+               project.id,
+               %{
+                 revision_ids: [hd(context.source.revisions).id]
+               },
+               actor: context.actor
+             )
 
     assert [_, _] = ProjectsFixture.items(project)
 
@@ -109,10 +155,15 @@ defmodule QuickTrain.ProjectsTest do
     foreign = ProjectsFixture.source!(other)
 
     assert {:error, _} =
-             ProjectsFixture.run(context, project, :set_binding, %{
-               requirement_id: context.source.form.field.id,
-               field_definition_id: foreign.field.id
-             })
+             Projects.set_binding(
+               context.org.id,
+               project.id,
+               %{
+                 requirement_id: context.source.form.field.id,
+                 field_definition_id: foreign.field.id
+               },
+               actor: context.actor
+             )
 
     assert Ash.count!(ProjectInputBinding, authorize?: false) == 0
     revision = hd(foreign.revisions)
@@ -186,12 +237,19 @@ defmodule QuickTrain.ProjectsTest do
       ).revision
 
     assert {:error, _} =
-             ProjectsFixture.run(context, project, :enroll_revisions, %{
-               revision_ids: [revision.id]
-             })
+             Projects.enroll_revisions(
+               context.org.id,
+               project.id,
+               %{
+                 revision_ids: [revision.id]
+               },
+               actor: context.actor
+             )
 
     assert {:error, _} =
-             ProjectsFixture.run(context, project, :update_draft, %{schema_version_id: schema.id})
+             Projects.update_draft(context.org.id, project.id, %{schema_version_id: schema.id},
+               actor: context.actor
+             )
 
     assert Projects.get_project!(context.org.id, project.id, actor: context.actor).schema_version_id ==
              context.source.schema.id
@@ -201,17 +259,24 @@ defmodule QuickTrain.ProjectsTest do
     empty = ProjectsFixture.draft!(context, context.source)
 
     repinned =
-      ProjectsFixture.run!(context, empty, :update_draft, %{schema_version_id: schema.id})
+      Projects.update_draft!(context.org.id, empty.id, %{schema_version_id: schema.id},
+        actor: context.actor
+      )
 
     assert repinned.schema_version_id == schema.id
     assert repinned.root_record_type_id == root.id
 
     for field <- [optional, integer] do
       assert {:error, error} =
-               ProjectsFixture.run(context, repinned, :set_binding, %{
-                 requirement_id: context.source.form.field.id,
-                 field_definition_id: field.id
-               })
+               Projects.set_binding(
+                 context.org.id,
+                 repinned.id,
+                 %{
+                   requirement_id: context.source.form.field.id,
+                   field_definition_id: field.id
+                 },
+                 actor: context.actor
+               )
 
       assert Exception.message(error) =~ "incompatible binding"
     end
@@ -220,7 +285,7 @@ defmodule QuickTrain.ProjectsTest do
   test "activation freezes configuration and lifecycle retries retain exact timestamps",
        context do
     project = ProjectsFixture.configured!(context, context.source)
-    active = ProjectsFixture.run!(context, project, :activate)
+    active = Projects.activate_project!(context.org.id, project.id, actor: context.actor)
     assert active.state == :active
 
     later =
@@ -239,37 +304,54 @@ defmodule QuickTrain.ProjectsTest do
     assert MapSet.new(ProjectsFixture.items(project), & &1.revision_id) ==
              MapSet.new(context.source.revisions, & &1.id)
 
-    assert persisted(ProjectsFixture.run!(context, project, :activate)) == persisted(active)
+    assert persisted(Projects.activate_project!(context.org.id, project.id, actor: context.actor)) ==
+             persisted(active)
 
     assert {:error, _} =
-             ProjectsFixture.run(context, project, :set_slot_policy, %{
-               input_slot_id: context.source.form.slot.id,
-               item_count: 1,
-               shuffle: true
-             })
+             Projects.set_slot_policy(
+               context.org.id,
+               project.id,
+               %{
+                 input_slot_id: context.source.form.slot.id,
+                 item_count: 1,
+                 shuffle: true
+               },
+               actor: context.actor
+             )
 
     assert {:error, _} =
-             ProjectsFixture.run(context, project, :enroll_revisions, %{
-               revision_ids: [hd(context.source.revisions).id]
-             })
+             Projects.enroll_revisions(
+               context.org.id,
+               project.id,
+               %{
+                 revision_ids: [hd(context.source.revisions).id]
+               },
+               actor: context.actor
+             )
 
-    assert ProjectsFixture.run!(context, project, :update_title, %{title: "Renamed"}).title ==
+    assert Projects.update_title!(context.org.id, project.id, %{title: "Renamed"},
+             actor: context.actor
+           ).title ==
              "Renamed"
 
     for {action, state} <- [
-          pause: :paused,
-          resume: :active,
-          complete: :completed,
-          archive: :archived
+          {&Projects.pause_project!/3, :paused},
+          {&Projects.resume_project!/3, :active},
+          {&Projects.complete_project!/3, :completed},
+          {&Projects.archive_project!/3, :archived}
         ] do
-      changed = ProjectsFixture.run!(context, project, action)
+      changed = action.(context.org.id, project.id, actor: context.actor)
       assert changed.state == state
-      assert persisted(ProjectsFixture.run!(context, project, action)) == persisted(changed)
+
+      assert persisted(action.(context.org.id, project.id, actor: context.actor)) ==
+               persisted(changed)
     end
 
-    assert {:error, _} = ProjectsFixture.run(context, project, :resume)
+    assert {:error, _} = Projects.resume_project(context.org.id, project.id, actor: context.actor)
     Organizations.deactivate_membership!(context.membership)
-    assert {:error, _} = ProjectsFixture.run(context, project, :archive)
+
+    assert {:error, _} =
+             Projects.archive_project(context.org.id, project.id, actor: context.actor)
   end
 
   test "active access overrides remain editable without reopening the configuration", context do
@@ -277,22 +359,33 @@ defmodule QuickTrain.ProjectsTest do
     worker = Accounts.register_user!("worker@example.test", "Worker")
 
     for disposition <- [:allow, :block] do
-      assert ProjectsFixture.run!(context, project, :set_worker_access, %{
-               user_id: worker.id,
-               disposition: disposition
-             }).state == :active
+      assert Projects.set_worker_access!(
+               context.org.id,
+               project.id,
+               %{
+                 user_id: worker.id,
+                 disposition: disposition
+               },
+               actor: context.actor
+             ).state == :active
 
       row = Ash.read_one!(ProjectWorkerAccess, authorize?: false)
       assert row.disposition == disposition
     end
 
-    ProjectsFixture.run!(context, project, :remove_worker_access, %{user_id: worker.id})
+    Projects.remove_worker_access!(context.org.id, project.id, %{user_id: worker.id},
+      actor: context.actor
+    )
+
     assert Ash.count!(ProjectWorkerAccess, authorize?: false) == 0
   end
 
   test "missing policies leave the draft intact", context do
     project = ProjectsFixture.draft!(context, context.source)
-    assert {:error, error} = ProjectsFixture.run(context, project, :activate)
+
+    assert {:error, error} =
+             Projects.activate_project(context.org.id, project.id, actor: context.actor)
+
     assert Exception.message(error) =~ "invalid_project_configuration"
     assert Projects.get_project!(context.org.id, project.id, actor: context.actor).state == :draft
   end
@@ -306,7 +399,10 @@ defmodule QuickTrain.ProjectsTest do
 
     source = ProjectsFixture.source!(context, image_requirement: true)
     project = ProjectsFixture.configured!(context, source)
-    assert {:error, error} = ProjectsFixture.run(context, project, :activate)
+
+    assert {:error, error} =
+             Projects.activate_project(context.org.id, project.id, actor: context.actor)
+
     assert Exception.message(error) =~ "unsupported_task_contract"
     assert Projects.get_project!(context.org.id, project.id, actor: context.actor).state == :draft
   end
@@ -317,23 +413,38 @@ defmodule QuickTrain.ProjectsTest do
     [first, second] = ProjectsFixture.items(project)
     input = %{input_slot_id: context.source.form.slot.id, project_item_id: first.id, position: 0}
 
-    ProjectsFixture.run!(context, project, :create_explicit_group, %{position: 0, inputs: [input]})
+    Projects.create_explicit_group!(context.org.id, project.id, %{position: 0, inputs: [input]},
+      actor: context.actor
+    )
 
     assert {:error, _} =
-             ProjectsFixture.run(context, project, :create_explicit_group, %{
-               position: 1,
-               inputs: [%{input | position: 99}]
-             })
+             Projects.create_explicit_group(
+               context.org.id,
+               project.id,
+               %{
+                 position: 1,
+                 inputs: [%{input | position: 99}]
+               },
+               actor: context.actor
+             )
 
     assert Ash.count!(ExplicitGroup, authorize?: false) == 1
-    assert {:error, _} = ProjectsFixture.run(context, project, :activate)
 
-    ProjectsFixture.run!(context, project, :create_explicit_group, %{
-      position: 1,
-      inputs: [%{input | project_item_id: second.id}]
-    })
+    assert {:error, _} =
+             Projects.activate_project(context.org.id, project.id, actor: context.actor)
 
-    assert ProjectsFixture.run!(context, project, :activate).state == :active
+    Projects.create_explicit_group!(
+      context.org.id,
+      project.id,
+      %{
+        position: 1,
+        inputs: [%{input | project_item_id: second.id}]
+      },
+      actor: context.actor
+    )
+
+    assert Projects.activate_project!(context.org.id, project.id, actor: context.actor).state ==
+             :active
   end
 
   @tag :committed_db
@@ -342,18 +453,23 @@ defmodule QuickTrain.ProjectsTest do
 
     results =
       concurrently([
-        fn -> ProjectsFixture.run(context, project, :activate) end,
+        fn -> Projects.activate_project(context.org.id, project.id, actor: context.actor) end,
         fn ->
-          ProjectsFixture.run(context, project, :set_slot_policy, %{
-            input_slot_id: context.source.form.slot.id,
-            item_count: 1,
-            shuffle: true
-          })
+          Projects.set_slot_policy(
+            context.org.id,
+            project.id,
+            %{
+              input_slot_id: context.source.form.slot.id,
+              item_count: 1,
+              shuffle: true
+            },
+            actor: context.actor
+          )
         end
       ])
 
     assert {:ok, %{state: :active}} = hd(results)
-    policy = Ash.read_one!(QuickTrain.Projects.ProjectSlotPolicy, authorize?: false)
+    policy = Ash.read_one!(Projects.ProjectSlotPolicy, authorize?: false)
 
     case Enum.at(results, 1) do
       {:ok, _} ->
@@ -368,11 +484,16 @@ defmodule QuickTrain.ProjectsTest do
              :active
 
     assert {:error, _} =
-             ProjectsFixture.run(context, project, :set_slot_policy, %{
-               input_slot_id: context.source.form.slot.id,
-               item_count: 1,
-               shuffle: false
-             })
+             Projects.set_slot_policy(
+               context.org.id,
+               project.id,
+               %{
+                 input_slot_id: context.source.form.slot.id,
+                 item_count: 1,
+                 shuffle: false
+               },
+               actor: context.actor
+             )
   end
 
   @tag :committed_db
@@ -390,11 +511,16 @@ defmodule QuickTrain.ProjectsTest do
               %{rows: [[backend_id]]} = Repo.query!("SELECT pg_backend_pid()")
               send(parent, {:editor_connection, backend_id})
 
-              ProjectsFixture.run(context, project, :set_slot_policy, %{
-                input_slot_id: context.source.form.slot.id,
-                item_count: 1,
-                shuffle: true
-              })
+              Projects.set_slot_policy(
+                context.org.id,
+                project.id,
+                %{
+                  input_slot_id: context.source.form.slot.id,
+                  item_count: 1,
+                  shuffle: true
+                },
+                actor: context.actor
+              )
             end)
           end)
 
@@ -409,7 +535,7 @@ defmodule QuickTrain.ProjectsTest do
 
     Ash.Notifier.notify(notifications)
     assert {:error, _} = Task.await(task, 10_000)
-    policy = Ash.read_one!(QuickTrain.Projects.ProjectSlotPolicy, authorize?: false)
+    policy = Ash.read_one!(Projects.ProjectSlotPolicy, authorize?: false)
     refute policy.shuffle
   end
 

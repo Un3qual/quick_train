@@ -1,5 +1,6 @@
 defmodule QuickTrain.Tasks.Progress do
   @moduledoc false
+  use Ash.Resource.Actions.Implementation
   alias QuickTrain.Projects.ProjectItem
   alias QuickTrain.Tasks.{Access, Task, TaskInput}
   alias QuickTrain.Tasks.Attempts.{AttemptQuestion, Leases}
@@ -9,6 +10,20 @@ defmodule QuickTrain.Tasks.Progress do
   require Ash.Query
 
   @counts [:accepted, :pending, :skipped, :rejected, :live, :failures]
+
+  @impl true
+  def run(input, opts, _context) do
+    args = input.arguments
+
+    if opts[:coverage?] do
+      case reconcile_coverage!(args.organization_id, args.project_id) do
+        {:ok, :ok} -> :ok
+        error -> error
+      end
+    else
+      reconcile!(args.organization_id, args.project_id, args.task_id)
+    end
+  end
 
   # Callers hold the Task lock; counts and their evidence commit together.
   def change!(project, task, changes) do
@@ -25,7 +40,7 @@ defmodule QuickTrain.Tasks.Progress do
     update_task!(project, task, updated)
   end
 
-  def reconcile!(organization_id, project_id, task_id) do
+  defp reconcile!(organization_id, project_id, task_id) do
     Ash.transact(Task, fn ->
       project = Access.project!(organization_id, project_id)
 
@@ -45,7 +60,7 @@ defmodule QuickTrain.Tasks.Progress do
     end)
   end
 
-  def reconcile_coverage!(organization_id, project_id) do
+  defp reconcile_coverage!(organization_id, project_id) do
     Ash.transact(TaskItemCoverage, fn ->
       project = Access.project!(organization_id, project_id)
 

@@ -26,7 +26,7 @@ defmodule QuickTrain.Tasks.ResultExportTest do
   alias QuickTrain.Repo
   alias QuickTrain.Tasks
   alias QuickTrain.Tasks.Attempts.Attempt
-  alias QuickTrain.Tasks.Exports.{ResultExport, ResultExporting}
+  alias QuickTrain.Tasks.Exports.ResultExport
   alias QuickTrain.Tasks.Responses.{QuestionResponse, Response, TextSpan}
   alias QuickTrain.Tasks.Reviews.ReviewDecision
   alias QuickTrain.Tasks.TaskInput
@@ -45,48 +45,80 @@ defmodule QuickTrain.Tasks.ResultExportTest do
     project =
       ProjectsFixture.draft!(context, source, audience: :external_users, external_access: :open)
 
-    ProjectsFixture.run!(context, project, :enroll_revisions, %{
-      revision_ids: Enum.map(source.revisions, & &1.id)
-    })
+    QuickTrain.Projects.enroll_revisions!(
+      context.org.id,
+      project.id,
+      %{
+        revision_ids: Enum.map(source.revisions, & &1.id)
+      },
+      actor: context.actor
+    )
 
-    ProjectsFixture.run!(context, project, :set_binding, %{
-      requirement_id: source.form.field.id,
-      field_definition_id: source.field.id
-    })
+    QuickTrain.Projects.set_binding!(
+      context.org.id,
+      project.id,
+      %{
+        requirement_id: source.form.field.id,
+        field_definition_id: source.field.id
+      },
+      actor: context.actor
+    )
 
-    ProjectsFixture.run!(context, project, :set_slot_policy, %{
-      input_slot_id: source.form.slot.id,
-      item_count: if(tags[:rich], do: 2, else: 1),
-      shuffle: false
-    })
+    QuickTrain.Projects.set_slot_policy!(
+      context.org.id,
+      project.id,
+      %{
+        input_slot_id: source.form.slot.id,
+        item_count: if(tags[:rich], do: 2, else: 1),
+        shuffle: false
+      },
+      actor: context.actor
+    )
 
-    ProjectsFixture.run!(context, project, :set_question_policy, %{
-      question_id: source.form.question.id,
-      accepted_target: 1,
-      skip_allowed: true,
-      reason_required: true,
-      failure_threshold: 3
-    })
+    QuickTrain.Projects.set_question_policy!(
+      context.org.id,
+      project.id,
+      %{
+        question_id: source.form.question.id,
+        accepted_target: 1,
+        skip_allowed: true,
+        reason_required: true,
+        failure_threshold: 3
+      },
+      actor: context.actor
+    )
 
     for question <- Map.get(source, :extra_questions, []),
         do:
-          ProjectsFixture.run!(context, project, :set_question_policy, %{
-            question_id: question.id,
-            accepted_target: 1,
-            skip_allowed: true,
-            reason_required: false,
-            failure_threshold: 3
-          })
+          QuickTrain.Projects.set_question_policy!(
+            context.org.id,
+            project.id,
+            %{
+              question_id: question.id,
+              accepted_target: 1,
+              skip_allowed: true,
+              reason_required: false,
+              failure_threshold: 3
+            },
+            actor: context.actor
+          )
 
     if tags[:rich],
       do:
-        ProjectsFixture.run!(context, project, :set_slot_policy, %{
-          input_slot_id: source.form.slot.id,
-          item_count: 2,
-          shuffle: false
-        })
+        QuickTrain.Projects.set_slot_policy!(
+          context.org.id,
+          project.id,
+          %{
+            input_slot_id: source.form.slot.id,
+            item_count: 2,
+            shuffle: false
+          },
+          actor: context.actor
+        )
 
-    project = ProjectsFixture.run!(context, project, :activate)
+    project =
+      QuickTrain.Projects.activate_project!(context.org.id, project.id, actor: context.actor)
+
     :ok = InMemory.reset()
     %{context: context, project: project, source: source}
   end
@@ -141,14 +173,19 @@ defmodule QuickTrain.Tasks.ResultExportTest do
       )
 
     repinned =
-      ProjectsFixture.run!(scope.context, draft, :update_draft, %{schema_version_id: schema.id})
+      QuickTrain.Projects.update_draft!(
+        scope.context.org.id,
+        draft.id,
+        %{schema_version_id: schema.id},
+        actor: scope.context.actor
+      )
 
     assert repinned.schema_version_id == schema.id
   end
 
   test "an empty selection seals and publishes a verified header-only JSONL artifact", scope do
     {:ok, export} = request(scope)
-    assert :ok = ResultExporting.process(export.id)
+    assert :ok = QuickTrain.Tasks.process_result_export(export.id, authorize?: false)
     ready = Ash.get!(ResultExport, export.id, authorize?: false)
     assert ready.state == :ready
     assert ready.record_count == 0
@@ -156,7 +193,7 @@ defmodule QuickTrain.Tasks.ResultExportTest do
     access = download!(scope, export.id)
     assert {:ok, bytes} = InMemory.read_sealed(access.read_access)
     assert [%{"kind" => "header", "format_version" => 1, "record_count" => "0"}] = jsonl(bytes)
-    assert :ok = ResultExporting.process(export.id)
+    assert :ok = QuickTrain.Tasks.process_result_export(export.id, authorize?: false)
     assert Ash.get!(ResultExport, export.id, authorize?: false).asset_id == ready.asset_id
   end
 
@@ -165,9 +202,9 @@ defmodule QuickTrain.Tasks.ResultExportTest do
        scope do
     scope = submit!(scope)
     {:ok, export} = request(scope)
-    sealed = ResultExporting.snapshot!(export.id)
+    sealed = QuickTrain.Tasks.seal_export_snapshot!(export.id, authorize?: false)
     assert sealed.record_count > 150
-    assert :ok = ResultExporting.process(export.id)
+    assert :ok = QuickTrain.Tasks.process_result_export(export.id, authorize?: false)
     {:ok, bytes} = InMemory.read_sealed(download!(scope, export.id).read_access)
     [header | rows] = jsonl(bytes)
     assert header["record_count"] == Integer.to_string(length(rows))
@@ -239,7 +276,7 @@ defmodule QuickTrain.Tasks.ResultExportTest do
       |> Ash.read!(authorize?: false, page: false)
 
     {:ok, export} = request(scope)
-    sealed = ResultExporting.snapshot!(export.id)
+    sealed = QuickTrain.Tasks.seal_export_snapshot!(export.id, authorize?: false)
 
     Ash.create!(
       ReviewDecision,
@@ -261,7 +298,7 @@ defmodule QuickTrain.Tasks.ResultExportTest do
       authorize?: false
     )
 
-    assert :ok = ResultExporting.process(export.id)
+    assert :ok = QuickTrain.Tasks.process_result_export(export.id, authorize?: false)
     {:ok, bytes} = InMemory.read_sealed(download!(scope, export.id).read_access)
     [header | rows] = jsonl(bytes)
     assert header["record_count"] == Integer.to_string(sealed.record_count)
@@ -273,10 +310,13 @@ defmodule QuickTrain.Tasks.ResultExportTest do
 
     assert Enum.any?(rows, &(&1["kind"] == "review_decision" and &1["id"] == decision.id))
     {:ok, new_export} = request(scope)
-    assert ResultExporting.snapshot!(new_export.id).record_count == 0
+
+    assert QuickTrain.Tasks.seal_export_snapshot!(new_export.id, authorize?: false).record_count ==
+             0
+
     {:ok, audit} = request(scope, %{mode: :audit, evidence_kind: "review_decision"})
-    assert ResultExporting.snapshot!(audit.id).record_count == 2
-    assert :ok = ResultExporting.process(audit.id)
+    assert QuickTrain.Tasks.seal_export_snapshot!(audit.id, authorize?: false).record_count == 2
+    assert :ok = QuickTrain.Tasks.process_result_export(audit.id, authorize?: false)
     {:ok, audit_bytes} = InMemory.read_sealed(download!(scope, audit.id).read_access)
     assert Enum.count(jsonl(audit_bytes)) == 3
   end
@@ -302,8 +342,10 @@ defmodule QuickTrain.Tasks.ResultExportTest do
         task_id_to: scope.attempt.task_id
       })
 
-    assert ResultExporting.snapshot!(export.id).record_count == 111
-    assert :ok = ResultExporting.process(export.id)
+    assert QuickTrain.Tasks.seal_export_snapshot!(export.id, authorize?: false).record_count ==
+             111
+
+    assert :ok = QuickTrain.Tasks.process_result_export(export.id, authorize?: false)
     {:ok, bytes} = InMemory.read_sealed(download!(scope, export.id).read_access)
     [_header | rows] = jsonl(bytes)
     assert Enum.count(rows) == 111
@@ -315,7 +357,7 @@ defmodule QuickTrain.Tasks.ResultExportTest do
         task_id_from: "ffffffff-ffff-ffff-ffff-ffffffffffff"
       })
 
-    assert ResultExporting.snapshot!(missing.id).record_count == 0
+    assert QuickTrain.Tasks.seal_export_snapshot!(missing.id, authorize?: false).record_count == 0
     assert {:error, _} = request(scope, %{evidence_id_from: low})
 
     assert {:error, _} =
@@ -331,7 +373,7 @@ defmodule QuickTrain.Tasks.ResultExportTest do
     save!(scope, scope.source.form.question, %{family: :integer, integer_value: 4}, 0)
     action!(Attempt, :release, attempt_scope(scope), scope.worker)
     {:ok, export} = request(scope, %{mode: :audit})
-    assert :ok = ResultExporting.process(export.id)
+    assert :ok = QuickTrain.Tasks.process_result_export(export.id, authorize?: false)
     {:ok, bytes} = InMemory.read_sealed(download!(scope, export.id).read_access)
     [_header | rows] = jsonl(bytes)
     assert Enum.any?(rows, &(&1["kind"] == "attempt_question"))
@@ -355,7 +397,13 @@ defmodule QuickTrain.Tasks.ResultExportTest do
     )
 
     on_exit(fn -> Application.put_env(:quick_train, :assets, old) end)
-    assert {:error, :export_storage_unavailable} = ResultExporting.process(export.id)
+
+    assert {:error,
+            %Ash.Error.Invalid{
+              errors: [%QuickTrain.DatasetAssetError{category: :export_storage_unavailable}]
+            }} =
+             QuickTrain.Tasks.process_result_export(export.id, authorize?: false)
+
     failed = Ash.get!(ResultExport, export.id, authorize?: false)
     assert failed.state == :failed
     assert failed.asset_id == nil
@@ -364,7 +412,7 @@ defmodule QuickTrain.Tasks.ResultExportTest do
     assert pending.state == :pending
     assert {:error, _} = download(scope, export.id)
     Application.put_env(:quick_train, :assets, old)
-    assert :ok = ResultExporting.process(export.id)
+    assert :ok = QuickTrain.Tasks.process_result_export(export.id, authorize?: false)
     ready = Ash.get!(ResultExport, export.id, authorize?: false)
     assert ready.pending_asset_id == pending.id
     assert ready.snapshot_at == failed.snapshot_at
@@ -376,7 +424,7 @@ defmodule QuickTrain.Tasks.ResultExportTest do
   test "export hashes and IDs cannot bypass result authority before independent upload proof",
        scope do
     {:ok, export} = request(scope)
-    assert :ok = ResultExporting.process(export.id)
+    assert :ok = QuickTrain.Tasks.process_result_export(export.id, authorize?: false)
     ready = Ash.get!(ResultExport, export.id, authorize?: false)
     asset = Ash.get!(Asset, ready.asset_id, authorize?: false)
 
@@ -448,7 +496,7 @@ defmodule QuickTrain.Tasks.ResultExportTest do
     Authorization.grant_capability!(role.id, capability.id)
     reader_scope = put_in(scope.context.actor, reader)
     {:ok, export} = request(reader_scope)
-    assert :ok = ResultExporting.process(export.id)
+    assert :ok = QuickTrain.Tasks.process_result_export(export.id, authorize?: false)
     assert {:ok, _} = download(reader_scope, export.id)
     {:ok, waiting} = request(reader_scope)
     Organizations.deactivate_membership!(membership)
@@ -467,7 +515,7 @@ defmodule QuickTrain.Tasks.ResultExportTest do
              )
              |> Ash.read_one()
 
-    assert {:error, _} = ResultExporting.process(waiting.id)
+    assert {:error, _} = QuickTrain.Tasks.process_result_export(waiting.id, authorize?: false)
     failed = Ash.get!(ResultExport, waiting.id, authorize?: false)
     assert failed.snapshot_at == nil
     assert failed.asset_id == nil
@@ -500,26 +548,33 @@ defmodule QuickTrain.Tasks.ResultExportTest do
 
     assert_receive :submission_uncommitted, 5_000
     {:ok, export} = request(scope)
-    sealed = ResultExporting.snapshot!(export.id)
+    sealed = QuickTrain.Tasks.seal_export_snapshot!(export.id, authorize?: false)
     assert sealed.record_count == 0
     send(transaction.pid, :commit)
     assert {:ok, :ok, notifications} = Elixir.Task.await(transaction)
     Ash.Notifier.notify(notifications)
-    assert :ok = ResultExporting.process(export.id)
+    assert :ok = QuickTrain.Tasks.process_result_export(export.id, authorize?: false)
     {:ok, newer} = request(scope)
-    assert ResultExporting.snapshot!(newer.id).record_count > 0
+    assert QuickTrain.Tasks.seal_export_snapshot!(newer.id, authorize?: false).record_count > 0
   end
 
   test "concurrent workers converge without overwriting ready state or asset identity", scope do
     {:ok, export} = request(scope)
-    ResultExporting.snapshot!(export.id)
+    QuickTrain.Tasks.seal_export_snapshot!(export.id, authorize?: false)
 
-    results = concurrently(List.duplicate(fn -> ResultExporting.process(export.id) end, 3))
+    results =
+      concurrently(
+        List.duplicate(
+          fn -> QuickTrain.Tasks.process_result_export(export.id, authorize?: false) end,
+          3
+        )
+      )
+
     assert :ok in results
 
     ready = Ash.get!(ResultExport, export.id, authorize?: false)
     assert ready.state == :ready
-    assert :ok = ResultExporting.process(export.id)
+    assert :ok = QuickTrain.Tasks.process_result_export(export.id, authorize?: false)
     assert Ash.get!(ResultExport, export.id, authorize?: false).asset_id == ready.asset_id
     assert Ash.count!(Asset, authorize?: false) == 1
   end
@@ -544,7 +599,13 @@ defmodule QuickTrain.Tasks.ResultExportTest do
     )
 
     on_exit(fn -> Application.put_env(:quick_train, :assets, old) end)
-    assert {:error, :export_access_unavailable} = ResultExporting.process(export.id)
+
+    assert {:error,
+            %Ash.Error.Invalid{
+              errors: [%QuickTrain.DatasetAssetError{category: :export_access_unavailable}]
+            }} =
+             QuickTrain.Tasks.process_result_export(export.id, authorize?: false)
+
     failed = Ash.get!(ResultExport, export.id, authorize?: false)
     assert failed.asset_id == nil
     assert failed.error_code == "export_access_unavailable"
@@ -556,7 +617,7 @@ defmodule QuickTrain.Tasks.ResultExportTest do
     assert pending.state == :ready
     assert {:error, _} = download(scope, export.id)
     Application.put_env(:quick_train, :assets, old)
-    assert :ok = ResultExporting.process(export.id)
+    assert :ok = QuickTrain.Tasks.process_result_export(export.id, authorize?: false)
     ready = Ash.get!(ResultExport, export.id, authorize?: false)
     assert ready.pending_asset_id == pending.id
     assert ready.asset_id == pending.id
@@ -590,7 +651,13 @@ defmodule QuickTrain.Tasks.ResultExportTest do
     Application.put_env(:quick_train, :assets, config)
     on_exit(fn -> Application.put_env(:quick_train, :assets, old) end)
     started = System.monotonic_time(:millisecond)
-    assert {:error, :storage_deadline_exceeded} = ResultExporting.process(export.id)
+
+    assert {:error,
+            %Ash.Error.Invalid{
+              errors: [%QuickTrain.DatasetAssetError{category: :storage_deadline_exceeded}]
+            }} =
+             QuickTrain.Tasks.process_result_export(export.id, authorize?: false)
+
     assert System.monotonic_time(:millisecond) - started < 2_000
     failed = Ash.get!(ResultExport, export.id, authorize?: false)
     pending = Ash.get!(Asset, failed.pending_asset_id, authorize?: false)
@@ -602,7 +669,7 @@ defmodule QuickTrain.Tasks.ResultExportTest do
              []
 
     Application.put_env(:quick_train, :assets, old)
-    assert :ok = ResultExporting.process(export.id)
+    assert :ok = QuickTrain.Tasks.process_result_export(export.id, authorize?: false)
     ready = Ash.get!(ResultExport, export.id, authorize?: false)
     assert ready.pending_asset_id == pending.id
     assert ready.snapshot_at == failed.snapshot_at

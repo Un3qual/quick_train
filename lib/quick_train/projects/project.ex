@@ -161,6 +161,8 @@ defmodule QuickTrain.Projects.Project do
       prepare build(lock: :for_update)
     end
 
+    # These generic actions preserve the direct GraphQL mutation results. Record
+    # creation and project updates run through the named create/update actions below.
     action :create_project, :struct do
       transaction? true
       allow_nil? false
@@ -418,43 +420,67 @@ defmodule QuickTrain.Projects.Project do
       run Module.concat(["QuickTrain.Projects.Management"])
     end
 
-    create :create_internal do
+    create :create do
       accept [
-        :audience,
-        :external_access,
-        :selection_mode,
-        :review_mode,
-        :coverage_target,
-        :lease_minutes,
         :title,
         :organization_id,
         :dataset_id,
         :schema_version_id,
-        :root_record_type_id,
-        :form_id,
-        :form_version_id
-      ]
-    end
-
-    update :update_internal do
-      accept [
-        :dataset_id,
-        :schema_version_id,
-        :root_record_type_id,
-        :form_id,
         :form_version_id,
         :audience,
         :external_access,
         :selection_mode,
         :review_mode,
         :coverage_target,
-        :lease_minutes,
-        :title,
-        :state,
-        :activated_at,
-        :completed_at,
-        :archived_at
+        :lease_minutes
       ]
+
+      change Module.concat(["QuickTrain.Projects.Project.Changes.Configure"])
+    end
+
+    update :configure do
+      require_atomic? false
+
+      accept [
+        :title,
+        :dataset_id,
+        :schema_version_id,
+        :form_version_id,
+        :audience,
+        :external_access,
+        :selection_mode,
+        :review_mode,
+        :coverage_target,
+        :lease_minutes
+      ]
+
+      change get_and_lock(:for_update)
+      change Module.concat(["QuickTrain.Projects.Project.Changes.Configure"])
+    end
+
+    update :rename do
+      require_atomic? false
+      accept [:title]
+      require_attributes [:title]
+      change get_and_lock(:for_update)
+      change Module.concat(["QuickTrain.Projects.Project.Changes.Configure"])
+    end
+
+    for {action, source, target} <- [
+          {:activate_record, [:draft], :active},
+          {:pause_record, [:active], :paused},
+          {:resume_record, [:paused], :active},
+          {:complete_record, [:active, :paused], :completed},
+          {:archive_record, [:completed], :archived}
+        ] do
+      update action do
+        accept []
+        require_atomic? false
+        change get_and_lock(:for_update)
+
+        change {Module.concat(["QuickTrain.Projects.Project.Changes.Transition"]),
+                from: source, to: target}
+      end
     end
   end
 
@@ -473,6 +499,14 @@ defmodule QuickTrain.Projects.Project do
              :remove_slot_policy,
              :remove_binding,
              :create_project,
+             :create,
+             :configure,
+             :rename,
+             :activate_record,
+             :pause_record,
+             :resume_record,
+             :complete_record,
+             :archive_record,
              :update_draft,
              :update_title,
              :enroll_revisions,

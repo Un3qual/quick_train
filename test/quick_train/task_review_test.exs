@@ -269,7 +269,12 @@ defmodule QuickTrain.Tasks.TaskReviewTest do
     assert Ash.get!(Task, ctx.task.id, authorize?: false).state == :open
     expected = counts(ctx)
     Ash.Seed.update!(current_progress(ctx), %{accepted: 0, failures: 99, attention: true})
-    assert {:ok, _} = Progress.reconcile!(ctx.org.id, ctx.project.id, ctx.task.id)
+
+    assert {:ok, _} =
+             QuickTrain.Tasks.reconcile_task(ctx.org.id, ctx.project.id, ctx.task.id,
+               authorize?: false
+             )
+
     assert counts(ctx) == expected
     refute current_progress(ctx).attention
   end
@@ -413,7 +418,11 @@ defmodule QuickTrain.Tasks.TaskReviewTest do
 
     results =
       concurrently([
-        fn -> Progress.reconcile!(ctx.org.id, ctx.project.id, ctx.task.id) end,
+        fn ->
+          QuickTrain.Tasks.reconcile_task(ctx.org.id, ctx.project.id, ctx.task.id,
+            authorize?: false
+          )
+        end,
         fn -> decide(ctx, correction) end
       ])
 

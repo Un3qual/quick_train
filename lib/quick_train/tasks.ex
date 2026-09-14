@@ -3,7 +3,9 @@ defmodule QuickTrain.Tasks do
   use Ash.Domain, otp_app: :quick_train, extensions: [AshGraphql.Domain]
 
   resources do
-    resource QuickTrain.Tasks.Task
+    resource QuickTrain.Tasks.Task do
+      define :reconcile_task, action: :reconcile, args: [:organization_id, :project_id, :task_id]
+    end
 
     resource QuickTrain.Tasks.TaskInput do
       define :bound_value, action: :bound_value, args: [:organization_id, :project_id]
@@ -11,6 +13,16 @@ defmodule QuickTrain.Tasks do
     end
 
     resource QuickTrain.Tasks.Attempts.Attempt do
+      define :get_attempt_internal,
+        action: :read,
+        get_by: [:id, :project_id, :organization_id],
+        not_found_error?: false
+
+      define :start_attempt_record, action: :start_record
+      define :release_attempt_record, action: :release_record
+      define :cancel_attempt_record, action: :cancel_record
+      define :expire_attempt_record, action: :expire_record
+      define :expire_attempt, action: :expire, args: [:organization_id, :project_id, :attempt_id]
       define :fetch_work, action: :fetch, args: [:organization_id, :project_id, :request_key]
 
       define :assign_work,
@@ -30,7 +42,7 @@ defmodule QuickTrain.Tasks do
       define :cancel_attempt, action: :cancel, args: [:organization_id, :project_id, :attempt_id]
 
       define :work_bundle,
-        action: :work_bundle,
+        action: :read_work_bundle,
         args: [:organization_id, :project_id, :attempt_id]
 
       define :attempt_receipt,
@@ -52,7 +64,11 @@ defmodule QuickTrain.Tasks do
     end
 
     resource QuickTrain.Tasks.Progress.TaskQuestionProgress
-    resource QuickTrain.Tasks.Progress.TaskItemCoverage
+
+    resource QuickTrain.Tasks.Progress.TaskItemCoverage do
+      define :reconcile_coverage, action: :reconcile, args: [:organization_id, :project_id]
+    end
+
     resource QuickTrain.Tasks.Responses.QuestionResponse
     resource QuickTrain.Tasks.Responses.StaticOptionAnswer
     resource QuickTrain.Tasks.Responses.TaskInputAnswer
@@ -67,6 +83,9 @@ defmodule QuickTrain.Tasks do
     end
 
     resource QuickTrain.Tasks.Exports.ResultExport do
+      define :process_result_export, action: :process, args: [:id]
+      define :seal_export_snapshot, action: :seal_snapshot, args: [:id]
+
       define :request_result_export,
         action: :request_export,
         args: [:organization_id, :project_id, :request_key, :mode]

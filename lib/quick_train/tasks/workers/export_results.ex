@@ -1,5 +1,5 @@
 defmodule QuickTrain.Tasks.Workers.ExportResults do
-  alias QuickTrain.Tasks.Exports.ResultExporting
+  alias QuickTrain.Tasks
   @moduledoc false
   use Oban.Worker,
     queue: :task_exports,
@@ -12,5 +12,6 @@ defmodule QuickTrain.Tasks.Workers.ExportResults do
     ]
 
   @impl Oban.Worker
-  def perform(%Oban.Job{args: %{"id" => id}}), do: ResultExporting.process(id)
+  def perform(%Oban.Job{args: %{"id" => id}}),
+    do: Tasks.process_result_export(id, authorize?: false)
 end

@@ -50,6 +50,19 @@ defmodule QuickTrain.Tasks.Exports.ResultExport do
   end
 
   actions do
+    action :process do
+      public? false
+      argument :id, :uuid, allow_nil?: false
+      run Module.concat(["QuickTrain.Tasks.Exports.ResultExporting"])
+    end
+
+    action :seal_snapshot, :struct do
+      public? false
+      constraints instance_of: __MODULE__
+      argument :id, :uuid, allow_nil?: false
+      run Module.concat(["QuickTrain.Tasks.Exports.Snapshot"])
+    end
+
     action :request_export, :struct do
       constraints instance_of: __MODULE__
       argument :organization_id, :uuid, allow_nil?: false

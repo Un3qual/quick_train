@@ -5,7 +5,7 @@ defmodule QuickTrain.Tasks.Responses.ResponseDraft do
   alias QuickTrain.Projects.{Project, ProjectQuestionPolicy}
 
   alias QuickTrain.Tasks.{Access, Error}
-  alias QuickTrain.Tasks.Attempts.{Attempt, AttemptQuestion, Leases}
+  alias QuickTrain.Tasks.Attempts.{Attempt, AttemptQuestion}
 
   alias QuickTrain.Tasks.Responses.{
     AnswerValidation,
@@ -81,11 +81,7 @@ defmodule QuickTrain.Tasks.Responses.ResponseDraft do
       QuickTrain.Tasks.revise_response!(response, authorize?: false)
 
     if attempt.state in [:claimed, :assigned],
-      do:
-        Ash.update!(attempt, %{state: :in_progress, started_at: Leases.now!()},
-          action: :update_internal,
-          authorize?: false
-        )
+      do: QuickTrain.Tasks.start_attempt_record!(attempt, actor: actor)
 
     response
   end

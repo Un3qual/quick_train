@@ -4,6 +4,14 @@ defmodule QuickTrain.Projects do
 
   resources do
     resource QuickTrain.Projects.Project do
+      define :configure_project, action: :configure
+      define :rename_project, action: :rename
+      define :activate_project_record, action: :activate_record
+      define :pause_project_record, action: :pause_record
+      define :resume_project_record, action: :resume_record
+      define :complete_project_record, action: :complete_record
+      define :archive_project_record, action: :archive_record
+
       define :lock_project,
         action: :lock,
         args: [:organization_id, :project_id],
@@ -11,7 +19,7 @@ defmodule QuickTrain.Projects do
 
       define :get_project, action: :get_scoped, args: [:organization_id, :id]
       define :list_projects, action: :list_scoped, args: [:organization_id]
-      define :create_project, action: :create_project, args: [:organization_id]
+      define :create_project, action: :create, args: [:organization_id]
       define :update_draft, action: :update_draft, args: [:organization_id, :project_id]
       define :update_title, action: :update_title, args: [:organization_id, :project_id]
       define :enroll_revisions, action: :enroll_revisions, args: [:organization_id, :project_id]

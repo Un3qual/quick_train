@@ -66,11 +66,16 @@ defmodule QuickTrain.Tasks.TaskAllocationTest do
         selection_mode: :explicit
       )
 
-    ProjectsFixture.run!(ctx.context, project, :set_slot_policy, %{
-      input_slot_id: ctx.source.form.slot.id,
-      item_count: 4,
-      shuffle: false
-    })
+    QuickTrain.Projects.set_slot_policy!(
+      ctx.context.org.id,
+      project.id,
+      %{
+        input_slot_id: ctx.source.form.slot.id,
+        item_count: 4,
+        shuffle: false
+      },
+      actor: ctx.context.actor
+    )
 
     groups =
       project
@@ -78,22 +83,31 @@ defmodule QuickTrain.Tasks.TaskAllocationTest do
       |> Enum.sort_by(& &1.id)
       |> Enum.chunk_every(4)
       |> Enum.with_index(fn items, position ->
-        ProjectsFixture.run!(ctx.context, project, :create_explicit_group, %{
-          position: position,
-          inputs:
-            Enum.with_index(items, fn item, position ->
-              %{
-                input_slot_id: ctx.source.form.slot.id,
-                project_item_id: item.id,
-                position: position
-              }
-            end)
-        })
+        QuickTrain.Projects.create_explicit_group!(
+          ctx.context.org.id,
+          project.id,
+          %{
+            position: position,
+            inputs:
+              Enum.with_index(items, fn item, position ->
+                %{
+                  input_slot_id: ctx.source.form.slot.id,
+                  project_item_id: item.id,
+                  position: position
+                }
+              end)
+          },
+          actor: ctx.context.actor
+        )
 
         {position, Enum.map(items, & &1.id)}
       end)
 
-    project = ProjectsFixture.run!(ctx.context, project, :activate)
+    project =
+      QuickTrain.Projects.activate_project!(ctx.context.org.id, project.id,
+        actor: ctx.context.actor
+      )
+
     ctx = %{ctx | project: project}
 
     for {position, expected} <- groups do
@@ -120,10 +134,15 @@ defmodule QuickTrain.Tasks.TaskAllocationTest do
     key = Ash.UUID.generate()
     fetch(ctx, key)
 
-    ProjectsFixture.run!(ctx.context, ctx.project, :set_worker_access, %{
-      user_id: ctx.worker.id,
-      disposition: :block
-    })
+    QuickTrain.Projects.set_worker_access!(
+      ctx.context.org.id,
+      ctx.project.id,
+      %{
+        user_id: ctx.worker.id,
+        disposition: :block
+      },
+      actor: ctx.context.actor
+    )
 
     assert_raise Ash.Error.Invalid, ~r/forbidden/, fn -> fetch(ctx, key) end
   end
@@ -138,7 +157,11 @@ defmodule QuickTrain.Tasks.TaskAllocationTest do
       [Ecto.UUID.dump!(first.id)]
     )
 
-    completed = ProjectsFixture.run!(ctx.context, ctx.project, :complete)
+    completed =
+      QuickTrain.Projects.complete_project!(ctx.context.org.id, ctx.project.id,
+        actor: ctx.context.actor
+      )
+
     assert completed.state == :completed
     assert Ash.get!(Attempt, first.id, authorize?: false).state == :expired
     assert Ash.get!(Attempt, second.id, authorize?: false).state == :cancelled
@@ -147,7 +170,9 @@ defmodule QuickTrain.Tasks.TaskAllocationTest do
     assert Enum.sum(Enum.map(progress, & &1.failures)) == 1
     assert Enum.all?(Ash.read!(Task, authorize?: false), &(&1.state == :cancelled))
 
-    assert ProjectsFixture.run!(ctx.context, ctx.project, :complete).completed_at ==
+    assert QuickTrain.Projects.complete_project!(ctx.context.org.id, ctx.project.id,
+             actor: ctx.context.actor
+           ).completed_at ==
              completed.completed_at
   end
 
@@ -204,15 +229,24 @@ defmodule QuickTrain.Tasks.TaskAllocationTest do
         external_access: :open
       )
 
-    ProjectsFixture.run!(ctx.context, project, :set_question_policy, %{
-      question_id: ctx.source.form.question.id,
-      accepted_target: 1,
-      failure_threshold: 1,
-      skip_allowed: true,
-      reason_required: false
-    })
+    QuickTrain.Projects.set_question_policy!(
+      ctx.context.org.id,
+      project.id,
+      %{
+        question_id: ctx.source.form.question.id,
+        accepted_target: 1,
+        failure_threshold: 1,
+        skip_allowed: true,
+        reason_required: false
+      },
+      actor: ctx.context.actor
+    )
 
-    project = ProjectsFixture.run!(ctx.context, project, :activate)
+    project =
+      QuickTrain.Projects.activate_project!(ctx.context.org.id, project.id,
+        actor: ctx.context.actor
+      )
+
     ctx = %{ctx | project: project}
     first = fetch(ctx, Ash.UUID.generate()).attempt
 
@@ -243,17 +277,27 @@ defmodule QuickTrain.Tasks.TaskAllocationTest do
     assert first.worker_id == ctx.worker.id
     outsider = Accounts.register_user!("allowlisted@example.test", "Outside")
 
-    ProjectsFixture.run!(ctx.context, project, :set_worker_access, %{
-      user_id: outsider.id,
-      disposition: :allow
-    })
+    QuickTrain.Projects.set_worker_access!(
+      ctx.context.org.id,
+      project.id,
+      %{
+        user_id: outsider.id,
+        disposition: :allow
+      },
+      actor: ctx.context.actor
+    )
 
     assert fetch(%{ctx | worker: outsider}, Ash.UUID.generate()).status == :issued
 
-    ProjectsFixture.run!(ctx.context, project, :set_worker_access, %{
-      user_id: ctx.worker.id,
-      disposition: :block
-    })
+    QuickTrain.Projects.set_worker_access!(
+      ctx.context.org.id,
+      project.id,
+      %{
+        user_id: ctx.worker.id,
+        disposition: :block
+      },
+      actor: ctx.context.actor
+    )
 
     assert_raise Ash.Error.Invalid, ~r/forbidden/, fn -> fetch(ctx, first.request_key) end
   end
@@ -261,7 +305,10 @@ defmodule QuickTrain.Tasks.TaskAllocationTest do
   test "pause permits existing work but prevents a new claim, with fixed start retry timestamps",
        ctx do
     attempt = fetch(ctx, Ash.UUID.generate()).attempt
-    ProjectsFixture.run!(ctx.context, ctx.project, :pause)
+
+    QuickTrain.Projects.pause_project!(ctx.context.org.id, ctx.project.id,
+      actor: ctx.context.actor
+    )
 
     started =
       QuickTrain.Tasks.start_attempt!(ctx.context.org.id, ctx.project.id, attempt.id,
