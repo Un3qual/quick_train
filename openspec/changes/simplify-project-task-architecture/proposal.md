@@ -8,7 +8,9 @@ The collection architecture stores a second response lifecycle for each attempt,
 - Calculate question attention and task status from transactional progress counters and project state.
 - Pin immutable form context once per export, retaining committed membership for changing evidence and deterministic JSONL serialization across runtime restarts.
 - Initialize coverage at activation and separate explicit group locking from balanced selection.
+- Batch explicit-group activation reads and coverage increments, and index project-scoped coverage/progress queries.
 - Keep collection entry points in Tasks, reuse canonical domain resources, and centralize cross-domain collection/source checks in Authorization through native Ash policies and a scoped-read fragment.
+- Resolve bound assets once for metadata and source-download workflows while keeping private storage fields out of public results.
 - Preserve collected evidence, historical export provenance, leases, pagination, and organization boundaries.
 
 ## Capabilities

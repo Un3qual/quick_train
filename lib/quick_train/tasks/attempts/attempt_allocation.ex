@@ -28,6 +28,7 @@ defmodule QuickTrain.Tasks.Attempts.AttemptAllocation do
   alias QuickTrain.Tasks.Workers.ExpireAttempt
 
   require Ash.Query
+  import Ash.Expr
 
   @impl true
   def run(input, _opts, context) do
@@ -212,10 +213,10 @@ defmodule QuickTrain.Tasks.Attempts.AttemptAllocation do
     if Ash.exists?(remaining, authorize?: false) do
       %AllocationResult{status: :retry_later}
     else
-      {group, coverage} = select_new_group(project)
+      group = select_new_group(project)
 
       if group,
-        do: issue_group!(project, group, coverage, args, operation, actor, worker_id),
+        do: issue_group!(project, group, args, operation, actor, worker_id),
         else: no_work(project, worker_id)
     end
   end
@@ -223,7 +224,7 @@ defmodule QuickTrain.Tasks.Attempts.AttemptAllocation do
   defp select_new_group(%{selection_mode: :explicit} = project) do
     case select_group(project, nil) do
       nil ->
-        {nil, []}
+        nil
 
       {inputs, group_id} = group ->
         # Recheck after the group lock: another issuer may have committed after
@@ -242,7 +243,8 @@ defmodule QuickTrain.Tasks.Attempts.AttemptAllocation do
             project_id == ^project.id and project_item_id in ^ids
           )
 
-        {group, lock_coverage(query, length(ids))}
+        lock_coverage(query, length(ids))
+        group
     end
   end
 
@@ -250,7 +252,7 @@ defmodule QuickTrain.Tasks.Attempts.AttemptAllocation do
     query = Ash.Query.filter(TaskItemCoverage, project_id == ^project.id)
     total = Ash.count!(ProjectItem, query: [filter: [project_id: project.id]], authorize?: false)
     coverage = lock_coverage(query, total)
-    {select_group(project, coverage), coverage}
+    select_group(project, coverage)
   end
 
   defp lock_coverage(query, expected) do
@@ -267,7 +269,6 @@ defmodule QuickTrain.Tasks.Attempts.AttemptAllocation do
   defp issue_group!(
          project,
          {inputs, explicit_group_id},
-         coverage,
          args,
          operation,
          actor,
@@ -290,14 +291,17 @@ defmodule QuickTrain.Tasks.Attempts.AttemptAllocation do
     create_inputs!(project, task, inputs)
     create_progress!(project, task)
     result = issue!(project, task, available(task, false), args, operation, actor, worker_id)
-    ids = MapSet.new(inputs, & &1.project_item_id)
+    ids = Enum.map(inputs, & &1.project_item_id)
 
-    for row <- coverage, MapSet.member?(ids, row.project_item_id) do
-      Ash.update!(row, %{exposures: row.exposures + 1},
-        action: :update_internal,
-        authorize?: false
-      )
-    end
+    # Coverage rows are already locked in the issuance transaction.
+    TaskItemCoverage
+    |> Ash.Query.filter(project_id == ^project.id and project_item_id in ^ids)
+    |> Ash.bulk_update!(:update_internal, %{},
+      strategy: [:atomic],
+      transaction: false,
+      authorize?: false,
+      atomic_update: %{exposures: expr(exposures + 1)}
+    )
 
     result
   end

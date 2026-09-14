@@ -45,10 +45,11 @@ defmodule QuickTrain.Tasks.Access.ReadActions do
 
   defp execute(%{action: %{name: :bound_value}, arguments: args}, actor) do
     {project, input, _deadline} = authorize_input!(args, actor)
-    bound_value!(project, input, args.requirement_id)
+    {bound, _asset} = resolve_bound_value!(project, input, args.requirement_id)
+    bound
   end
 
-  def authorize_input!(args, actor) do
+  defp authorize_input!(args, actor) do
     project = Access.project!(args.organization_id, args.project_id)
 
     input =
@@ -77,7 +78,7 @@ defmodule QuickTrain.Tasks.Access.ReadActions do
     {project, input, deadline}
   end
 
-  def bound_value!(project, input, requirement_id) do
+  defp resolve_bound_value!(project, input, requirement_id) do
     binding =
       ProjectInputBinding
       |> Ash.Query.filter(
@@ -101,19 +102,22 @@ defmodule QuickTrain.Tasks.Access.ReadActions do
     asset =
       if value do
         loaded = Ash.load!(value, [asset_value: :asset], authorize?: false)
-        if loaded.asset_value, do: AssetSummary.from(loaded.asset_value.asset)
+        if loaded.asset_value, do: loaded.asset_value.asset
       end
 
-    struct!(BoundValue, %{
-      task_input_id: input.id,
-      revision_id: revision.id,
-      requirement_id: binding.requirement_id,
-      field_definition_id: binding.field_definition_id,
-      binding_id: binding.id,
-      missing: is_nil(value),
-      value: value,
-      asset: asset
-    })
+    bound =
+      struct!(BoundValue, %{
+        task_input_id: input.id,
+        revision_id: revision.id,
+        requirement_id: binding.requirement_id,
+        field_definition_id: binding.field_definition_id,
+        binding_id: binding.id,
+        missing: is_nil(value),
+        value: value,
+        asset: if(asset, do: AssetSummary.from(asset))
+      })
+
+    {bound, asset}
   end
 
   defp source_download(args, actor) do
@@ -133,10 +137,7 @@ defmodule QuickTrain.Tasks.Access.ReadActions do
 
   defp source_asset!(args, actor) do
     {project, input, deadline} = authorize_input!(args, actor)
-    bound = bound_value!(project, input, args.requirement_id)
-    if bound.missing, do: Error.reject!(:invalid_source)
-    value = Ash.load!(bound.value, [asset_value: :asset], authorize?: false)
-    asset = value.asset_value && value.asset_value.asset
+    {_bound, asset} = resolve_bound_value!(project, input, args.requirement_id)
     unless asset && asset.state == :ready, do: Error.reject!(:invalid_source)
     expiry = DateTime.add(Leases.now!(), 300, :second)
     expiry = if deadline && DateTime.compare(deadline, expiry) == :lt, do: deadline, else: expiry

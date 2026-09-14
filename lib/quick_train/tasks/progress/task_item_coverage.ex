@@ -126,6 +126,10 @@ defmodule QuickTrain.Tasks.Progress.TaskItemCoverage do
     repo QuickTrain.Repo
     migration_types exposures: :bigint
 
+    custom_indexes do
+      index [:project_id, :project_item_id]
+    end
+
     references do
       reference :organization,
         on_delete: :restrict,

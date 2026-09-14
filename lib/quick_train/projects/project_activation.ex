@@ -3,7 +3,6 @@ defmodule QuickTrain.Projects.ProjectActivation do
   alias QuickTrain.Projects.{
     Error,
     ExplicitGroup,
-    ExplicitGroupInput,
     GroupIdentity,
     ProjectInputBinding,
     ProjectItem,
@@ -80,7 +79,7 @@ defmodule QuickTrain.Projects.ProjectActivation do
     validate_contract!(requirements, questions)
     {bindings, policies} = validate_policies!(project, requirements, questions, slots)
     validate_cohort!(project, requirements, bindings, policies)
-    if project.selection_mode == :explicit, do: validate_explicit!(project)
+    if project.selection_mode == :explicit, do: validate_explicit!(project, policies)
     :ok
   end
 
@@ -188,24 +187,29 @@ defmodule QuickTrain.Projects.ProjectActivation do
   end
 
   def validate_group!(project, inputs) do
-    policies = Enum.to_list(rows(ProjectSlotPolicy, project_id: project.id))
-    expected = Map.new(policies, &{&1.input_slot_id, &1.item_count})
+    expected =
+      rows(ProjectSlotPolicy, project_id: project.id)
+      |> Map.new(&{&1.input_slot_id, &1.item_count})
+
+    validate_group_shape!(project, inputs, expected)
+    ids = Enum.map(inputs, & &1.project_item_id)
+
+    count =
+      ProjectItem
+      |> Ash.Query.filter(project_id == ^project.id and id in ^ids)
+      |> Ash.count!(authorize?: false)
+
+    if count != length(ids), do: Error.reject!(:invalid_project_configuration)
+    :ok
+  end
+
+  defp validate_group_shape!(project, inputs, expected) do
     actual = Enum.frequencies_by(inputs, & &1.input_slot_id)
     ids = Enum.map(inputs, & &1.project_item_id)
 
     unless inputs != [] and expected == actual and length(ids) == MapSet.size(MapSet.new(ids)),
       do:
         Error.reject!(:invalid_project_configuration, [project.id <> ": invalid explicit group"])
-
-    for input <- inputs do
-      unless Ash.exists?(ProjectItem,
-               query: [filter: [id: input.project_item_id, project_id: project.id]],
-               authorize?: false
-             ),
-             do: Error.reject!(:invalid_project_configuration)
-
-      definition!(InputSlotDefinition, project, input.input_slot_id)
-    end
 
     positions = Enum.map(inputs, &{&1.input_slot_id, &1.position})
 
@@ -216,14 +220,18 @@ defmodule QuickTrain.Projects.ProjectActivation do
     :ok
   end
 
-  defp validate_explicit!(project) do
-    {coverage, _keys} =
-      rows(ExplicitGroup, project_id: project.id)
-      |> Enum.reduce({%{}, MapSet.new()}, fn group, {coverage, keys} ->
-        inputs =
-          Enum.to_list(rows(ExplicitGroupInput, project_id: project.id, group_id: group.id))
+  defp validate_explicit!(project, policies) do
+    expected = Map.new(policies, &{&1.input_slot_id, &1.item_count})
 
-        validate_group!(project, inputs)
+    {coverage, _keys} =
+      ExplicitGroup
+      |> Ash.Query.filter(project_id == ^project.id)
+      |> Ash.Query.load(:inputs)
+      |> Ash.stream!(authorize?: false, batch_size: 100)
+      |> Enum.reduce({%{}, MapSet.new()}, fn group, {coverage, keys} ->
+        # Scoped foreign keys already guarantee each stored input's item and slot.
+        inputs = group.inputs
+        validate_group_shape!(project, inputs, expected)
         {key, encoded} = GroupIdentity.canonical(inputs)
 
         unless key == group.canonical_key and not MapSet.member?(keys, encoded),

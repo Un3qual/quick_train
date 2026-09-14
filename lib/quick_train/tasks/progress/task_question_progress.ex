@@ -181,6 +181,10 @@ defmodule QuickTrain.Tasks.Progress.TaskQuestionProgress do
     table "task_question_progress"
     repo QuickTrain.Repo
 
+    custom_indexes do
+      index [:project_id]
+    end
+
     migration_types target: :bigint,
                     failure_threshold: :bigint,
                     accepted: :bigint,
