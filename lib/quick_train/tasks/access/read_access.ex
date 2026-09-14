@@ -9,7 +9,6 @@ defmodule QuickTrain.Tasks.Access.ReadAccess do
 
   alias QuickTrain.Tasks.Responses.{
     QuestionResponse,
-    Response,
     StaticOptionAnswer,
     TaskInputAnswer,
     TextSpan
@@ -108,14 +107,14 @@ defmodule QuickTrain.Tasks.Access.ReadAccess do
   defp live_worker_filter(Attempt, live), do: live
 
   defp live_worker_filter(resource, live)
-       when resource in [AttemptQuestion, AttemptInputPresentation, Response],
+       when resource in [AttemptQuestion, AttemptInputPresentation],
        do: expr(exists(attempt, ^live))
 
-  defp live_worker_filter(QuestionResponse, live), do: expr(exists(response.attempt, ^live))
+  defp live_worker_filter(QuestionResponse, live), do: expr(exists(attempt, ^live))
 
   defp live_worker_filter(resource, live)
        when resource in [StaticOptionAnswer, TaskInputAnswer, TextSpan],
-       do: expr(exists(question_response.response.attempt, ^live))
+       do: expr(exists(question_response.attempt, ^live))
 
   defp live_worker_filter(resource, _live)
        when resource in [ReviewDecision, TaskQuestionProgress, TaskItemCoverage], do: false
@@ -135,34 +134,32 @@ defmodule QuickTrain.Tasks.Access.ReadAccess do
   defp audit_filter(resource) when resource in [AttemptQuestion, AttemptInputPresentation],
     do: expr(attempt.state in [:submitted, :expired, :released, :cancelled])
 
-  defp audit_filter(Response), do: expr(state == :submitted)
-  defp audit_filter(QuestionResponse), do: expr(response.state == :submitted)
+  defp audit_filter(QuestionResponse), do: expr(attempt.state == :submitted)
 
   defp audit_filter(resource)
        when resource in [StaticOptionAnswer, TaskInputAnswer, TextSpan, ReviewDecision],
-       do: expr(question_response.response.state == :submitted)
+       do: expr(question_response.attempt.state == :submitted)
 
   defp accepted_filter(Task),
-    do: expr(exists(outcomes, response.state == :submitted and effective_verdict == :accept))
+    do: expr(exists(outcomes, attempt.state == :submitted and effective_verdict == :accept))
 
   defp accepted_filter(resource) when resource in [TaskInput, TaskQuestionProgress],
-    do: expr(exists(task.outcomes, response.state == :submitted and effective_verdict == :accept))
+    do: expr(exists(task.outcomes, attempt.state == :submitted and effective_verdict == :accept))
 
   defp accepted_filter(TaskItemCoverage),
     do:
       expr(
         exists(
           issued_inputs.task.outcomes,
-          response.state == :submitted and effective_verdict == :accept
+          attempt.state == :submitted and effective_verdict == :accept
         )
       )
 
-  defp accepted_filter(Attempt), do: expr(exists(response.outcomes, effective_verdict == :accept))
+  defp accepted_filter(Attempt), do: expr(exists(outcomes, effective_verdict == :accept))
 
   defp accepted_filter(resource) when resource in [AttemptQuestion, AttemptInputPresentation],
-    do: expr(exists(attempt.response.outcomes, effective_verdict == :accept))
+    do: expr(exists(attempt.outcomes, effective_verdict == :accept))
 
-  defp accepted_filter(Response), do: expr(exists(outcomes, effective_verdict == :accept))
   defp accepted_filter(QuestionResponse), do: expr(effective_verdict == :accept)
 
   defp accepted_filter(resource) when resource in [StaticOptionAnswer, TaskInputAnswer, TextSpan],

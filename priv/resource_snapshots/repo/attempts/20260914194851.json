@@ -14,7 +14,31 @@
     },
     {
       "allow_nil?": false,
-      "default": "\"draft\"",
+      "default": "nil",
+      "generated?": false,
+      "precision": null,
+      "primary_key?": false,
+      "references": null,
+      "scale": null,
+      "size": null,
+      "source": "request_key",
+      "type": "uuid"
+    },
+    {
+      "allow_nil?": false,
+      "default": "nil",
+      "generated?": false,
+      "precision": null,
+      "primary_key?": false,
+      "references": null,
+      "scale": null,
+      "size": null,
+      "source": "operation",
+      "type": "text"
+    },
+    {
+      "allow_nil?": false,
+      "default": "nil",
       "generated?": false,
       "precision": null,
       "primary_key?": false,
@@ -23,6 +47,42 @@
       "size": null,
       "source": "state",
       "type": "text"
+    },
+    {
+      "allow_nil?": false,
+      "default": "nil",
+      "generated?": false,
+      "precision": null,
+      "primary_key?": false,
+      "references": null,
+      "scale": null,
+      "size": null,
+      "source": "deadline",
+      "type": "utc_datetime_usec"
+    },
+    {
+      "allow_nil?": true,
+      "default": "nil",
+      "generated?": false,
+      "precision": null,
+      "primary_key?": false,
+      "references": null,
+      "scale": null,
+      "size": null,
+      "source": "started_at",
+      "type": "utc_datetime_usec"
+    },
+    {
+      "allow_nil?": true,
+      "default": "nil",
+      "generated?": false,
+      "precision": null,
+      "primary_key?": false,
+      "references": null,
+      "scale": null,
+      "size": null,
+      "source": "terminal_at",
+      "type": "utc_datetime_usec"
     },
     {
       "allow_nil?": false,
@@ -45,8 +105,8 @@
       "references": null,
       "scale": null,
       "size": null,
-      "source": "submitted_at",
-      "type": "utc_datetime_usec"
+      "source": "legacy_response_id",
+      "type": "uuid"
     },
     {
       "allow_nil?": false,
@@ -93,7 +153,7 @@
           "global": null,
           "strategy": null
         },
-        "name": "responses_organization_scope_fkey",
+        "name": "attempts_organization_scope_fkey",
         "on_delete": "restrict",
         "on_update": null,
         "primary_key?": true,
@@ -129,7 +189,7 @@
           "global": null,
           "strategy": null
         },
-        "name": "responses_project_scope_fkey",
+        "name": "attempts_project_scope_fkey",
         "on_delete": "restrict",
         "on_update": null,
         "primary_key?": true,
@@ -162,7 +222,7 @@
           "global": null,
           "strategy": null
         },
-        "name": "responses_form_version_scope_fkey",
+        "name": "attempts_form_version_scope_fkey",
         "on_delete": "restrict",
         "on_update": null,
         "primary_key?": true,
@@ -198,7 +258,7 @@
           "global": null,
           "strategy": null
         },
-        "name": "responses_task_scope_fkey",
+        "name": "attempts_task_scope_fkey",
         "on_delete": "restrict",
         "on_update": null,
         "primary_key?": true,
@@ -225,8 +285,73 @@
         "index_where": null,
         "match_tenant?": false,
         "match_type": null,
+        "match_with": null,
+        "multitenancy": {
+          "attribute": null,
+          "global": null,
+          "strategy": null
+        },
+        "name": "attempts_worker_scope_fkey",
+        "on_delete": "restrict",
+        "on_update": null,
+        "primary_key?": true,
+        "schema": "public",
+        "table": "users"
+      },
+      "scale": null,
+      "size": null,
+      "source": "worker_id",
+      "type": "uuid"
+    },
+    {
+      "allow_nil?": false,
+      "default": "nil",
+      "generated?": false,
+      "precision": null,
+      "primary_key?": false,
+      "references": {
+        "deferrable": false,
+        "destination_attribute": "id",
+        "destination_attribute_default": null,
+        "destination_attribute_generated": null,
+        "index?": false,
+        "index_where": null,
+        "match_tenant?": false,
+        "match_type": null,
+        "match_with": null,
+        "multitenancy": {
+          "attribute": null,
+          "global": null,
+          "strategy": null
+        },
+        "name": "attempts_requester_scope_fkey",
+        "on_delete": "restrict",
+        "on_update": null,
+        "primary_key?": true,
+        "schema": "public",
+        "table": "users"
+      },
+      "scale": null,
+      "size": null,
+      "source": "requester_id",
+      "type": "uuid"
+    },
+    {
+      "allow_nil?": true,
+      "default": "nil",
+      "generated?": false,
+      "precision": null,
+      "primary_key?": false,
+      "references": {
+        "deferrable": false,
+        "destination_attribute": "id",
+        "destination_attribute_default": null,
+        "destination_attribute_generated": null,
+        "index?": false,
+        "index_where": null,
+        "match_tenant?": false,
+        "match_type": null,
         "match_with": {
-          "form_version_id": "form_version_id",
           "project_id": "project_id",
           "task_id": "task_id"
         },
@@ -235,7 +360,7 @@
           "global": null,
           "strategy": null
         },
-        "name": "responses_attempt_scope_fkey",
+        "name": "attempts_predecessor_scope_fkey",
         "on_delete": "restrict",
         "on_update": null,
         "primary_key?": true,
@@ -244,7 +369,7 @@
       },
       "scale": null,
       "size": null,
-      "source": "attempt_id",
+      "source": "predecessor_id",
       "type": "uuid"
     }
   ],
@@ -282,30 +407,193 @@
       "include": null,
       "include_base_filter?": true,
       "message": null,
-      "name": "responses_scope_0",
+      "name": "attempts_scope_0",
       "nulls_distinct": true,
       "prefix": null,
       "table": null,
       "unique": true,
       "using": null,
       "where": null
+    },
+    {
+      "all_tenants?": false,
+      "concurrently": false,
+      "error_fields": [
+        "id",
+        "task_id",
+        "project_id"
+      ],
+      "fields": [
+        {
+          "type": "atom",
+          "value": "id"
+        },
+        {
+          "type": "atom",
+          "value": "task_id"
+        },
+        {
+          "type": "atom",
+          "value": "project_id"
+        }
+      ],
+      "include": null,
+      "include_base_filter?": true,
+      "message": null,
+      "name": "attempts_scope_1",
+      "nulls_distinct": true,
+      "prefix": null,
+      "table": null,
+      "unique": true,
+      "using": null,
+      "where": null
+    },
+    {
+      "all_tenants?": false,
+      "concurrently": false,
+      "error_fields": [
+        "task_id",
+        "state",
+        "deadline"
+      ],
+      "fields": [
+        {
+          "type": "atom",
+          "value": "task_id"
+        },
+        {
+          "type": "atom",
+          "value": "state"
+        },
+        {
+          "type": "atom",
+          "value": "deadline"
+        }
+      ],
+      "include": null,
+      "include_base_filter?": true,
+      "message": null,
+      "name": "attempts_scope_2",
+      "nulls_distinct": true,
+      "prefix": null,
+      "table": null,
+      "unique": false,
+      "using": null,
+      "where": null
+    },
+    {
+      "all_tenants?": false,
+      "concurrently": false,
+      "error_fields": [
+        "project_id",
+        "worker_id",
+        "state"
+      ],
+      "fields": [
+        {
+          "type": "atom",
+          "value": "project_id"
+        },
+        {
+          "type": "atom",
+          "value": "worker_id"
+        },
+        {
+          "type": "atom",
+          "value": "state"
+        }
+      ],
+      "include": null,
+      "include_base_filter?": true,
+      "message": null,
+      "name": "attempts_scope_3",
+      "nulls_distinct": true,
+      "prefix": null,
+      "table": null,
+      "unique": false,
+      "using": null,
+      "where": null
+    },
+    {
+      "all_tenants?": false,
+      "concurrently": false,
+      "error_fields": [
+        "task_id",
+        "worker_id"
+      ],
+      "fields": [
+        {
+          "type": "atom",
+          "value": "task_id"
+        },
+        {
+          "type": "atom",
+          "value": "worker_id"
+        }
+      ],
+      "include": null,
+      "include_base_filter?": true,
+      "message": null,
+      "name": "attempts_scope_4",
+      "nulls_distinct": true,
+      "prefix": null,
+      "table": null,
+      "unique": false,
+      "using": null,
+      "where": null
+    },
+    {
+      "all_tenants?": false,
+      "concurrently": false,
+      "error_fields": [
+        "project_id",
+        "worker_id"
+      ],
+      "fields": [
+        {
+          "type": "atom",
+          "value": "project_id"
+        },
+        {
+          "type": "atom",
+          "value": "worker_id"
+        }
+      ],
+      "include": null,
+      "include_base_filter?": true,
+      "message": null,
+      "name": "attempts_one_live_worker",
+      "nulls_distinct": true,
+      "prefix": null,
+      "table": null,
+      "unique": true,
+      "using": null,
+      "where": "state IN ('claimed', 'assigned', 'in_progress')"
     }
   ],
   "custom_statements": [],
   "has_create_action": true,
-  "hash": "B312380478B23A39EFA4815907612D2745413C0CAEC5E1F33F38FA148763E8C3",
+  "hash": "11EA15BE36418F235173CE11C0DF39E2CE769BFDC8D29DF16941ADCC7DE9C166",
   "identities": [
     {
       "all_tenants?": false,
       "base_filter": null,
-      "index_name": "responses_attempt_index",
+      "index_name": "attempts_request_index",
       "keys": [
         {
           "type": "atom",
-          "value": "attempt_id"
+          "value": "project_id"
+        },
+        {
+          "type": "atom",
+          "value": "requester_id"
+        },
+        {
+          "type": "atom",
+          "value": "request_key"
         }
       ],
-      "name": "attempt",
+      "name": "request",
       "nils_distinct?": true,
       "where": null
     }
@@ -317,5 +605,5 @@
   },
   "repo": "Elixir.QuickTrain.Repo",
   "schema": null,
-  "table": "responses"
+  "table": "attempts"
 }

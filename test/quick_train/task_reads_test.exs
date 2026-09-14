@@ -6,7 +6,7 @@ defmodule QuickTrain.Tasks.TaskReadsTest do
   alias QuickTrain.Projects.Management
   alias QuickTrain.Tasks.{Access, TaskInput}
   alias QuickTrain.Tasks.Attempts.Attempt
-  alias QuickTrain.Tasks.Responses.{QuestionResponse, Response}
+  alias QuickTrain.Tasks.Responses.QuestionResponse
   require Ash.Query
 
   setup tags do
@@ -148,7 +148,7 @@ defmodule QuickTrain.Tasks.TaskReadsTest do
     reader = result_reader!(ctx)
     save!(ctx)
     assert rows(QuestionResponse, :list_audit, ctx, reader) == []
-    submitted = action!(Response, :submit, scope(ctx), ctx.worker)
+    submitted = action!(Attempt, :submit, scope(ctx), ctx.worker)
     assert submitted.state == :submitted
     [outcome] = rows(QuestionResponse, :list_accepted, ctx, reader)
 
@@ -208,8 +208,8 @@ defmodule QuickTrain.Tasks.TaskReadsTest do
     reader = result_reader!(ctx)
     assert rows(QuestionResponse, :list_audit, ctx, reader) == []
     [attempt] = rows(Attempt, :list_audit, ctx, reader)
-    attempt = Ash.load!(attempt, [:response, :offered_questions], actor: reader)
-    assert is_nil(attempt.response)
+    attempt = Ash.load!(attempt, [:outcomes, :offered_questions], actor: reader)
+    assert attempt.outcomes == []
     assert [_] = attempt.offered_questions
     assert {:error, _} = Ash.read(QuestionResponse, actor: ctx.worker)
   end
@@ -291,11 +291,11 @@ defmodule QuickTrain.Tasks.TaskReadsTest do
 
     bundle =
       action!(Attempt, :work_bundle, scope(ctx), reader)
-      |> Ash.load!([response: :outcomes], actor: reader)
+      |> Ash.load!([:outcomes], actor: reader)
 
-    assert [_] = bundle.response.outcomes
+    assert [_] = bundle.outcomes
 
-    action!(Response, :submit, scope(ctx), reader)
+    action!(Attempt, :submit, scope(ctx), reader)
     [task] = Ash.read!(query).results
     assert [_] = task.outcomes
     assert [_] = task.attempts
@@ -727,7 +727,7 @@ defmodule QuickTrain.Tasks.TaskReadsTest do
   defp save!(ctx),
     do:
       action!(
-        Response,
+        Attempt,
         :save_question,
         Map.merge(scope(ctx), %{
           question_id: ctx.source.form.question.id,

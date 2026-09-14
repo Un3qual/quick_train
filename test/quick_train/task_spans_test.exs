@@ -19,7 +19,7 @@ defmodule QuickTrain.Tasks.TextSpansTest do
   alias QuickTrain.Forms.Questions.QuestionDefinition
   alias QuickTrain.Tasks.Attempts.Attempt
   alias QuickTrain.Tasks.Progress.TaskQuestionProgress
-  alias QuickTrain.Tasks.Responses.{Response, TextSpan}
+  alias QuickTrain.Tasks.Responses.TextSpan
   alias QuickTrain.Tasks.TaskInput
   alias QuickTrainWeb.GraphQL.Schema
 
@@ -81,9 +81,9 @@ defmodule QuickTrain.Tasks.TextSpansTest do
     assert {:error, _} =
              FormsFixture.edit(Label, ctx.context, ctx.source.form.label, %{text: "Changed"})
 
-    assert {:ok, submitted} = action(ctx, Response, :submit, %{attempt_id: ctx.attempt.id})
+    assert {:ok, submitted} = action(ctx, Attempt, :submit, %{attempt_id: ctx.attempt.id})
     assert submitted.state == :submitted
-    assert {:ok, retry} = action(ctx, Response, :submit, %{attempt_id: ctx.attempt.id})
+    assert {:ok, retry} = action(ctx, Attempt, :submit, %{attempt_id: ctx.attempt.id})
     assert retry.id == submitted.id
     assert {:error, _} = save(ctx, 1, [span(ctx, 0, 1)])
 
@@ -150,7 +150,7 @@ defmodule QuickTrain.Tasks.TextSpansTest do
     assert {:ok, %{revision: 1}} = save(ctx, 0, spans)
 
     assert {:ok, %{state: :submitted}} =
-             action(ctx, Response, :submit, %{attempt_id: ctx.attempt.id})
+             action(ctx, Attempt, :submit, %{attempt_id: ctx.attempt.id})
 
     ash_page = read_page!(ctx, :list_accepted)
     assert Enum.count(ash_page.results) == 50
@@ -230,7 +230,7 @@ defmodule QuickTrain.Tasks.TextSpansTest do
 
   defp save(ctx, revision, spans),
     do:
-      action(ctx, Response, :save_question, %{
+      action(ctx, Attempt, :save_question, %{
         attempt_id: ctx.attempt.id,
         question_id: ctx.source.form.question.id,
         expected_revision: revision,

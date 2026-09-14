@@ -81,7 +81,7 @@ defmodule QuickTrain.Tasks.Responses.QuestionResponse do
 
     belongs_to :task, QuickTrain.Tasks.Task, allow_nil?: false, attribute_public?: true
 
-    belongs_to :response, QuickTrain.Tasks.Responses.Response,
+    belongs_to :attempt, QuickTrain.Tasks.Attempts.Attempt,
       allow_nil?: false,
       attribute_public?: true,
       public?: true
@@ -161,7 +161,7 @@ defmodule QuickTrain.Tasks.Responses.QuestionResponse do
         :project_id,
         :form_version_id,
         :task_id,
-        :response_id,
+        :attempt_id,
         :question_id
       ]
 
@@ -211,7 +211,7 @@ defmodule QuickTrain.Tasks.Responses.QuestionResponse do
                                review_decisions: :relay
 
     relationships [
-      :response,
+      :attempt,
       :question,
       :static_options,
       :input_answers,
@@ -245,9 +245,9 @@ defmodule QuickTrain.Tasks.Responses.QuestionResponse do
         name: "question_responses_task_scope_fkey",
         match_with: [project_id: :project_id, form_version_id: :form_version_id]
 
-      reference :response,
+      reference :attempt,
         on_delete: :restrict,
-        name: "question_responses_response_scope_fkey",
+        name: "question_responses_attempt_scope_fkey",
         match_with: [
           task_id: :task_id,
           project_id: :project_id,
@@ -268,6 +268,6 @@ defmodule QuickTrain.Tasks.Responses.QuestionResponse do
   end
 
   identities do
-    identity :response_question, [:response_id, :question_id]
+    identity :attempt_question, [:attempt_id, :question_id]
   end
 end

@@ -4,7 +4,6 @@ defmodule QuickTrain.Tasks.Access do
   alias QuickTrain.Tasks.Access.WorkerEligibility
   alias QuickTrain.Tasks.Attempts.{Attempt, Leases}
   alias QuickTrain.Tasks.{Error, Task}
-  alias QuickTrain.Tasks.Responses.Response
   require Ash.Query
 
   def project!(organization_id, project_id, lock \\ "FOR SHARE") do
@@ -57,14 +56,6 @@ defmodule QuickTrain.Tasks.Access do
     end
 
     :ok
-  end
-
-  def response!(attempt) do
-    Response
-    |> Ash.Query.filter(attempt_id == ^attempt.id)
-    |> Ash.Query.lock(:for_update)
-    |> Ash.read_one!(authorize?: false)
-    |> found!()
   end
 
   def scope(project),

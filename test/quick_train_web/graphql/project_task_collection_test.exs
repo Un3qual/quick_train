@@ -39,7 +39,7 @@ defmodule QuickTrainWeb.ProjectTaskCollectionTest do
         id formVersion { id questions(first: 5) { edges { node { id renderer integerConstraints { minimum maximum } } } } }
         offeredQuestions(first: 5) { edges { node { questionId skipAllowed reasonRequired } } }
         inputPresentations(first: 5) { edges { node { taskInputId position } } }
-        response { id revision }
+        revision
       } }
       """)["workBundle"]
 
@@ -94,7 +94,7 @@ defmodule QuickTrainWeb.ProjectTaskCollectionTest do
       request(bearer(ctx.conn, ctx.reader), """
       { acceptedQuestionResponses(#{scope}, first: 5) { edges { node {
         id integerValue question { renderer integerConstraints { minimum maximum } }
-        response { attempt { workerId inputPresentations(first: 5) { edges { node { position } } } } }
+        attempt { workerId inputPresentations(first: 5) { edges { node { position } } } }
       } } } }
       """)
 

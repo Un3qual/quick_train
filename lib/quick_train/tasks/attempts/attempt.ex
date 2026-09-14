@@ -28,6 +28,15 @@ defmodule QuickTrain.Tasks.Attempts.Attempt do
     attribute :deadline, :utc_datetime_usec, public?: true, allow_nil?: false
     attribute :started_at, :utc_datetime_usec, public?: true, allow_nil?: true
     attribute :terminal_at, :utc_datetime_usec, public?: true, allow_nil?: true
+
+    attribute :revision, :integer,
+      public?: true,
+      allow_nil?: false,
+      default: 0,
+      constraints: [min: 0]
+
+    # Retained only to reproduce provenance in exports sealed before response consolidation.
+    attribute :legacy_response_id, :uuid
     timestamps()
   end
 
@@ -40,7 +49,7 @@ defmodule QuickTrain.Tasks.Attempts.Attempt do
       destination_attribute: :attempt_id,
       public?: true
 
-    has_one :response, QuickTrain.Tasks.Responses.Response,
+    has_many :outcomes, QuickTrain.Tasks.Responses.QuestionResponse,
       destination_attribute: :attempt_id,
       public?: true
 
@@ -69,6 +78,27 @@ defmodule QuickTrain.Tasks.Attempts.Attempt do
   end
 
   actions do
+    action :submit, :struct do
+      transaction? true
+      constraints instance_of: QuickTrain.Tasks.Attempts.Attempt
+      argument :organization_id, :uuid, allow_nil?: false
+      argument :project_id, :uuid, allow_nil?: false
+      argument :attempt_id, :uuid, allow_nil?: false
+      run Module.concat(["QuickTrain.Tasks.Responses.ResponseSubmission"])
+    end
+
+    action :save_question, :struct do
+      transaction? true
+      constraints instance_of: __MODULE__
+      argument :organization_id, :uuid, allow_nil?: false
+      argument :project_id, :uuid, allow_nil?: false
+      argument :attempt_id, :uuid, allow_nil?: false
+      argument :question_id, :uuid, allow_nil?: false
+      argument :expected_revision, :integer, allow_nil?: false, constraints: [min: 0]
+      argument :answer, QuickTrain.Tasks.Responses.Inputs.AnswerInput, allow_nil?: false
+      run Module.concat(["QuickTrain.Tasks.Responses.ResponseDraft"])
+    end
+
     read :read_work_bundle do
       get? true
       transaction? true
@@ -224,6 +254,13 @@ defmodule QuickTrain.Tasks.Attempts.Attempt do
       run Module.concat(["QuickTrain.Tasks.Attempts.AttemptActions"])
     end
 
+    update :revise do
+      accept []
+      require_atomic? false
+      change Module.concat(["QuickTrain.Tasks.Responses.Changes.DraftEvidence"])
+      change atomic_update(:revision, expr(revision + 1))
+    end
+
     update :update_internal do
       accept [:state, :started_at, :terminal_at]
     end
@@ -231,6 +268,10 @@ defmodule QuickTrain.Tasks.Attempts.Attempt do
 
   policies do
     policy action([:work_bundle, :read_work_bundle, :receipt]) do
+      authorize_if actor_present()
+    end
+
+    policy action([:save_question, :submit]) do
       authorize_if actor_present()
     end
 
@@ -261,7 +302,7 @@ defmodule QuickTrain.Tasks.Attempts.Attempt do
                     capability: "tasks.assign"}
     end
 
-    policy action([:create_internal, :update_internal]) do
+    policy action([:create_internal, :update_internal, :revise]) do
       forbid_if always()
     end
   end
@@ -270,13 +311,18 @@ defmodule QuickTrain.Tasks.Attempts.Attempt do
     type :attempt
     derive_filter? false
     derive_sort? false
-    paginate_relationship_with offered_questions: :relay, input_presentations: :relay
-    relationships [:form_version, :task, :offered_questions, :input_presentations, :response]
+
+    paginate_relationship_with offered_questions: :relay,
+                               input_presentations: :relay,
+                               outcomes: :relay
+
+    relationships [:form_version, :task, :offered_questions, :input_presentations, :outcomes]
   end
 
   postgres do
     table "attempts"
     repo QuickTrain.Repo
+    migration_types revision: :bigint
 
     references do
       reference :organization, on_delete: :restrict, name: "attempts_organization_scope_fkey"

@@ -5,7 +5,7 @@ defmodule QuickTrain.Tasks.TaskReviewTest do
   alias QuickTrain.Tasks.Attempts.{Attempt, AttemptQuestion}
   alias QuickTrain.Tasks.{Progress, Task, TaskInput}
   alias QuickTrain.Tasks.Progress.{TaskItemCoverage, TaskQuestionProgress}
-  alias QuickTrain.Tasks.Responses.{QuestionResponse, Response}
+  alias QuickTrain.Tasks.Responses.QuestionResponse
   alias QuickTrain.Tasks.Reviews.{QuestionReview, ReviewDecision}
   alias QuickTrain.Tasks.Workers.{ReconcileCoverage, ReconcileProgress}
 
@@ -236,14 +236,14 @@ defmodule QuickTrain.Tasks.TaskReviewTest do
         attempt = allocation.attempt
 
         response =
-          worker_action!(Response, :save_question, ctx, worker, %{
+          worker_action!(Attempt, :save_question, ctx, worker, %{
             attempt_id: attempt.id,
             question_id: ctx.source.form.question.id,
             expected_revision: 0,
             answer: %{outcome: :answered, family: :integer, integer_value: 4}
           })
 
-        assert worker_action!(Response, :submit, ctx, worker, %{attempt_id: attempt.id}).state ==
+        assert worker_action!(Attempt, :submit, ctx, worker, %{attempt_id: attempt.id}).state ==
                  :submitted
 
         progress =
@@ -254,7 +254,7 @@ defmodule QuickTrain.Tasks.TaskReviewTest do
         assert {progress.accepted, progress.pending, progress.live} == {0, 1, 0}
 
         QuestionResponse
-        |> Ash.Query.filter(response_id == ^response.id)
+        |> Ash.Query.filter(attempt_id == ^response.id)
         |> Ash.read_one!(authorize?: false)
       end
 
@@ -384,9 +384,7 @@ defmodule QuickTrain.Tasks.TaskReviewTest do
 
     for state <- [:expired, :released, :cancelled, :in_progress] do
       draft = outcome!(ctx, project_counts: false)
-      response = Ash.get!(Response, draft.response_id, authorize?: false)
-      Ash.Seed.update!(response, %{state: :draft, submitted_at: nil})
-      attempt = Ash.get!(Attempt, response.attempt_id, authorize?: false)
+      attempt = Ash.get!(Attempt, draft.attempt_id, authorize?: false)
       Ash.Seed.update!(attempt, %{state: state})
       assert {:error, _} = decide(ctx, request(draft, :accept))
     end
@@ -516,16 +514,6 @@ defmodule QuickTrain.Tasks.TaskReviewTest do
       })
     )
 
-    response =
-      create!(
-        Response,
-        Map.merge(ctx.scope, %{
-          task_id: ctx.task.id,
-          attempt_id: attempt.id,
-          state: :draft
-        })
-      )
-
     outcome = Keyword.get(opts, :outcome, :answered)
 
     result =
@@ -533,7 +521,7 @@ defmodule QuickTrain.Tasks.TaskReviewTest do
         QuestionResponse,
         Map.merge(ctx.scope, %{
           task_id: ctx.task.id,
-          response_id: response.id,
+          attempt_id: attempt.id,
           question_id: ctx.progress.question_id,
           outcome: outcome,
           family: :integer,
@@ -542,11 +530,6 @@ defmodule QuickTrain.Tasks.TaskReviewTest do
           skipped_at: if(outcome == :skipped, do: DateTime.utc_now())
         })
       )
-
-    Ash.update!(response, %{state: :submitted, submitted_at: DateTime.utc_now()},
-      action: :update_internal,
-      authorize?: false
-    )
 
     Ash.update!(attempt, %{state: :submitted, terminal_at: DateTime.utc_now()},
       action: :update_internal,

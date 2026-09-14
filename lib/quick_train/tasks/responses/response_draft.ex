@@ -27,10 +27,8 @@ defmodule QuickTrain.Tasks.Responses.ResponseDraft do
   defp save!(args, actor) do
     project = Access.project!(args.organization_id, args.project_id)
     {task, attempt} = Access.lock_attempt!(project, args.attempt_id)
-    response = Access.response!(attempt)
     Access.owner!(project, attempt, actor)
-    if response.state != :draft, do: Error.reject!(:response_submitted)
-    if response.revision != args.expected_revision, do: Error.reject!(:stale_response)
+    if attempt.revision != args.expected_revision, do: Error.reject!(:stale_response)
 
     offered =
       AttemptQuestion
@@ -41,13 +39,13 @@ defmodule QuickTrain.Tasks.Responses.ResponseDraft do
     question = Ash.get!(QuestionDefinition, args.question_id, authorize?: false)
     normalized = AnswerValidation.validate!(project, task, question, args.answer, :draft)
     skip_policies!(project, [Map.put(normalized.attributes, :question_id, question.id)])
-    remove_previous!(response, question.id)
+    remove_previous!(attempt, question.id)
     scope = Map.merge(Access.scope(project), %{task_id: task.id, question_id: question.id})
 
     outcome =
       Ash.create!(
         QuestionResponse,
-        Map.merge(scope, Map.put(normalized.attributes, :response_id, response.id)),
+        Map.merge(scope, Map.put(normalized.attributes, :attempt_id, attempt.id)),
         action: :create_internal,
         authorize?: false
       )
@@ -68,13 +66,11 @@ defmodule QuickTrain.Tasks.Responses.ResponseDraft do
       )
     end
 
-    response =
-      QuickTrain.Tasks.revise_response!(response, authorize?: false)
+    attempt = QuickTrain.Tasks.revise_attempt!(attempt, authorize?: false)
 
     if attempt.state in [:claimed, :assigned],
-      do: QuickTrain.Tasks.start_attempt_record!(attempt, actor: actor)
-
-    response
+      do: QuickTrain.Tasks.start_attempt_record!(attempt, actor: actor),
+      else: attempt
   end
 
   def skip_policies!(project, outcomes) do
@@ -100,10 +96,10 @@ defmodule QuickTrain.Tasks.Responses.ResponseDraft do
       do: Error.reject!(:skip_reason_required)
   end
 
-  defp remove_previous!(response, question_id) do
+  defp remove_previous!(attempt, question_id) do
     prior =
       QuestionResponse
-      |> Ash.Query.filter(response_id == ^response.id and question_id == ^question_id)
+      |> Ash.Query.filter(attempt_id == ^attempt.id and question_id == ^question_id)
       |> Ash.Query.lock(:for_update)
       |> Ash.read_one!(authorize?: false)
 

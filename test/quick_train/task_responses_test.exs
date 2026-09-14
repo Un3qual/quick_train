@@ -3,7 +3,7 @@ defmodule QuickTrain.Tasks.TaskResponsesTest do
   alias QuickTrain.{Accounts, ProjectsFixture}
   alias QuickTrain.Tasks.Attempts.Attempt
   alias QuickTrain.Tasks.Progress.TaskQuestionProgress
-  alias QuickTrain.Tasks.Responses.{QuestionResponse, Response}
+  alias QuickTrain.Tasks.Responses.QuestionResponse
 
   setup do
     context = ProjectsFixture.context!()
@@ -72,20 +72,20 @@ defmodule QuickTrain.Tasks.TaskResponsesTest do
   test "incomplete draft stays editable after a rejected submission", ctx do
     response = save!(ctx, 0, %{outcome: :answered, family: :integer})
     assert_raise Ash.Error.Invalid, fn -> submit!(ctx) end
-    assert Ash.get!(Response, response.id, authorize?: false).state == :draft
+    assert Ash.get!(Attempt, response.id, authorize?: false).state == :in_progress
     save!(ctx, 1, %{outcome: :answered, family: :integer, integer_value: 3})
     assert submit!(ctx).state == :submitted
   end
 
   test "question response creates reject mismatched scalar payloads in batches", ctx do
-    response = Ash.read_one!(Response, authorize?: false)
+    response = Ash.read_one!(Attempt, authorize?: false)
 
     attrs = %{
       organization_id: ctx.project.organization_id,
       project_id: ctx.project.id,
       form_version_id: ctx.project.form_version_id,
       task_id: ctx.attempt.task_id,
-      response_id: response.id,
+      attempt_id: response.id,
       question_id: ctx.source.form.question.id,
       family: :integer,
       outcome: :answered
@@ -109,9 +109,9 @@ defmodule QuickTrain.Tasks.TaskResponsesTest do
   end
 
   test "revision increments use stored values even when the supplied response is stale" do
-    response = Ash.read_one!(Response, authorize?: false)
-    assert QuickTrain.Tasks.revise_response!(response, authorize?: false).revision == 1
-    assert QuickTrain.Tasks.revise_response!(response, authorize?: false).revision == 2
+    response = Ash.read_one!(Attempt, authorize?: false)
+    assert QuickTrain.Tasks.revise_attempt!(response, authorize?: false).revision == 1
+    assert QuickTrain.Tasks.revise_attempt!(response, authorize?: false).revision == 2
 
     result =
       Ash.bulk_update!([response], :revise, %{},
@@ -126,7 +126,7 @@ defmodule QuickTrain.Tasks.TaskResponsesTest do
 
   defp save!(ctx, revision, answer) do
     action!(
-      Response,
+      Attempt,
       :save_question,
       Map.merge(scope(ctx), %{
         question_id: ctx.source.form.question.id,
@@ -137,7 +137,7 @@ defmodule QuickTrain.Tasks.TaskResponsesTest do
     )
   end
 
-  defp submit!(ctx), do: action!(Response, :submit, scope(ctx), ctx.worker)
+  defp submit!(ctx), do: action!(Attempt, :submit, scope(ctx), ctx.worker)
 
   defp scope(ctx),
     do: %{

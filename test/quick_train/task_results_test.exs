@@ -27,7 +27,7 @@ defmodule QuickTrain.Tasks.ResultExportTest do
   alias QuickTrain.Tasks
   alias QuickTrain.Tasks.Attempts.Attempt
   alias QuickTrain.Tasks.Exports.{ExportSelection, ResultExport}
-  alias QuickTrain.Tasks.Responses.{QuestionResponse, Response, TextSpan}
+  alias QuickTrain.Tasks.Responses.{QuestionResponse, TextSpan}
   alias QuickTrain.Tasks.Reviews.ReviewDecision
   alias QuickTrain.Tasks.TaskInput
 
@@ -590,9 +590,9 @@ defmodule QuickTrain.Tasks.ResultExportTest do
       Elixir.Task.async(fn ->
         Ecto.Adapters.SQL.Sandbox.unboxed_run(Repo, fn ->
           Ash.transact(
-            Response,
+            Attempt,
             fn ->
-              action!(Response, :submit, attempt_scope(scope), scope.worker)
+              action!(Attempt, :submit, attempt_scope(scope), scope.worker)
               send(parent, :submission_uncommitted)
 
               receive do
@@ -830,14 +830,14 @@ defmodule QuickTrain.Tasks.ResultExportTest do
       )
     end
 
-    action!(Response, :submit, attempt_scope(scope), scope.worker)
+    action!(Attempt, :submit, attempt_scope(scope), scope.worker)
     scope
   end
 
   defp save!(scope, question, answer, revision),
     do:
       action!(
-        Response,
+        Attempt,
         :save_question,
         Map.merge(attempt_scope(scope), %{
           question_id: question.id,

@@ -26,13 +26,13 @@ defmodule QuickTrain.Tasks.Attempts.OfferedPolicy do
   defp values(records, :review_status) do
     QuestionResponse
     |> Ash.Query.filter(
-      response.attempt_id in ^Enum.map(records, & &1.attempt_id) and
+      attempt_id in ^Enum.map(records, & &1.attempt_id) and
         question_id in ^Enum.map(records, & &1.question_id) and
-        response.state == :submitted
+        attempt.state == :submitted
     )
-    |> Ash.Query.load([:effective_verdict, :response])
+    |> Ash.Query.load([:effective_verdict])
     |> Ash.read!(authorize?: false, page: false)
-    |> Map.new(&{{&1.response.attempt_id, &1.question_id}, &1})
+    |> Map.new(&{{&1.attempt_id, &1.question_id}, &1})
   end
 
   defp values(records, _field) do

@@ -8,7 +8,7 @@ defmodule QuickTrain.Tasks.CollectionConcurrencyTest do
   alias QuickTrain.Tasks.{Access, Task, TaskInput}
   alias QuickTrain.Tasks.Attempts.Attempt
   alias QuickTrain.Tasks.Progress.{TaskItemCoverage, TaskQuestionProgress}
-  alias QuickTrain.Tasks.Responses.{QuestionResponse, Response}
+  alias QuickTrain.Tasks.Responses.QuestionResponse
   alias QuickTrain.Tasks.Reviews.ReviewDecision
   alias QuickTrain.Tasks.Workers.ExpireAttempt
 
@@ -162,7 +162,7 @@ defmodule QuickTrain.Tasks.CollectionConcurrencyTest do
     [{:error, error}] = Enum.filter(results, &match?({:error, _}, &1))
     assert Exception.message(error) =~ "stale_response"
     assert response.revision == 1
-    assert Ash.read_one!(Response, authorize?: false).revision == 1
+    assert Ash.read_one!(Attempt, authorize?: false).revision == 1
     assert Ash.count!(QuestionResponse, authorize?: false) == 1
     expected = if match?([{:ok, _}, _], results), do: 2, else: 4
     assert Ash.read_one!(QuestionResponse, authorize?: false).integer_value == expected
@@ -356,7 +356,7 @@ defmodule QuickTrain.Tasks.CollectionConcurrencyTest do
 
       assert Exception.message(error) =~ "injected_failure"
 
-      for resource <- [Task, TaskInput, Attempt, Response, TaskQuestionProgress, TaskItemCoverage],
+      for resource <- [Task, TaskInput, Attempt, TaskQuestionProgress, TaskItemCoverage],
           do: assert(Ash.count!(resource, authorize?: false) == 0)
 
       assert %{rows: [[0]]} = Repo.query!("SELECT count(*) FROM oban_jobs")
@@ -377,7 +377,7 @@ defmodule QuickTrain.Tasks.CollectionConcurrencyTest do
   defp save(ctx, revision, value) do
     action(
       ctx,
-      Response,
+      Attempt,
       :save_question,
       %{
         attempt_id: ctx.attempt.id,
@@ -396,7 +396,7 @@ defmodule QuickTrain.Tasks.CollectionConcurrencyTest do
       )
 
   defp terminal(ctx, :submit),
-    do: action(ctx, Response, :submit, %{attempt_id: ctx.attempt.id}, ctx.worker)
+    do: action(ctx, Attempt, :submit, %{attempt_id: ctx.attempt.id}, ctx.worker)
 
   defp terminal(ctx, :expire) do
     ExpireAttempt.perform(%Oban.Job{

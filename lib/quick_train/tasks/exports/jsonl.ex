@@ -102,10 +102,10 @@ defmodule QuickTrain.Tasks.Exports.Jsonl do
 
   defp selections(_export, _kind, _rows), do: %{}
 
-  defp loads(:question_response), do: [:response]
+  defp loads(:question_response), do: [:attempt]
 
   defp loads(kind) when kind in [:static_option_answer, :task_input_answer, :text_span],
-    do: [question_response: :response]
+    do: [question_response: :attempt]
 
   defp loads(:question_definition),
     do:
@@ -133,10 +133,14 @@ defmodule QuickTrain.Tasks.Exports.Jsonl do
     |> fields()
     |> Map.merge(%{
       effective_decision_id: selection.decision_id,
-      attempt_id: row.response.attempt_id,
-      submitted_at: row.response.submitted_at
+      attempt_id: row.attempt_id,
+      response_id: row.attempt.legacy_response_id || row.attempt_id,
+      submitted_at: row.attempt.terminal_at
     })
   end
+
+  defp row(_selections, :attempt, row),
+    do: row |> fields() |> Map.drop([:revision, :legacy_response_id])
 
   defp row(_selections, :presentation_element, row),
     do: Map.put(fields(row), :element_kind, row.kind)
@@ -145,12 +149,12 @@ defmodule QuickTrain.Tasks.Exports.Jsonl do
        when kind in [:static_option_answer, :task_input_answer, :text_span] do
     selection = Map.fetch!(selections, row.question_response_id)
 
-    response = row.question_response.response
+    attempt = row.question_response.attempt
 
     fields(row)
     |> Map.merge(%{
-      response_id: response.id,
-      attempt_id: response.attempt_id,
+      response_id: attempt.legacy_response_id || attempt.id,
+      attempt_id: attempt.id,
       effective_decision_id: selection.decision_id
     })
   end

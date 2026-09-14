@@ -19,10 +19,9 @@ defmodule QuickTrain.Tasks.Responses.ResponseSubmission do
   defp submit!(args, actor) do
     project = Access.project!(args.organization_id, args.project_id)
     {task, attempt} = Access.lock_attempt!(project, args.attempt_id)
-    response = Access.response!(attempt)
     Access.owner!(project, attempt, actor, false)
 
-    if response.state == :submitted do
+    if attempt.state == :submitted do
       attempt
     else
       Access.owner!(project, attempt, actor)
@@ -35,7 +34,7 @@ defmodule QuickTrain.Tasks.Responses.ResponseSubmission do
 
       outcomes =
         QuestionResponse
-        |> Ash.Query.filter(response_id == ^response.id)
+        |> Ash.Query.filter(attempt_id == ^attempt.id)
         |> Ash.Query.sort(id: :asc)
         |> Ash.Query.lock(:for_update)
         |> Ash.read!(authorize?: false, page: false)
@@ -85,11 +84,6 @@ defmodule QuickTrain.Tasks.Responses.ResponseSubmission do
 
       Access.owner!(project, attempt, actor)
       cutoff = Leases.now!()
-
-      Ash.update!(response, %{state: :submitted, submitted_at: cutoff},
-        action: :update_internal,
-        authorize?: false
-      )
 
       submitted =
         Ash.update!(attempt, %{state: :submitted, terminal_at: cutoff},

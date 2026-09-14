@@ -25,7 +25,6 @@ defmodule QuickTrain.Tasks.Attempts.AttemptAllocation do
   }
 
   alias QuickTrain.Tasks.Progress.{TaskItemCoverage, TaskQuestionProgress}
-  alias QuickTrain.Tasks.Responses.Response
   alias QuickTrain.Tasks.Workers.ExpireAttempt
 
   require Ash.Query
@@ -408,7 +407,6 @@ defmodule QuickTrain.Tasks.Attempts.AttemptAllocation do
 
     attempt = Ash.create!(Attempt, attrs, action: :create_internal, authorize?: false)
     scope = Map.merge(project_scope, %{task_id: task.id, attempt_id: attempt.id})
-    Ash.create!(Response, scope, action: :create_internal, authorize?: false)
 
     questions
     |> Enum.map(&Map.put(scope, :question_id, &1.question_id))

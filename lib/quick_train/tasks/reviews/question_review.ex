@@ -3,7 +3,8 @@ defmodule QuickTrain.Tasks.Reviews.QuestionReview do
   use Ash.Resource.Actions.Implementation
 
   alias QuickTrain.Tasks.{Access, Error, Progress, Task}
-  alias QuickTrain.Tasks.Responses.{QuestionResponse, Response}
+  alias QuickTrain.Tasks.Responses.QuestionResponse
+  alias QuickTrain.Tasks.Attempts.Attempt
   alias QuickTrain.Tasks.Reviews.ReviewDecision
 
   require Ash.Query
@@ -62,9 +63,8 @@ defmodule QuickTrain.Tasks.Reviews.QuestionReview do
     tasks =
       lock_records(Task, project.id, Enum.map(initial, & &1.task_id)) |> Map.new(&{&1.id, &1})
 
-    responses =
-      lock_records(Response, project.id, Enum.map(initial, & &1.response_id))
-      |> Ash.load!(:attempt, authorize?: false)
+    attempts =
+      lock_records(Attempt, project.id, Enum.map(initial, & &1.attempt_id))
       |> Map.new(&{&1.id, &1})
 
     outcomes =
@@ -94,10 +94,10 @@ defmodule QuickTrain.Tasks.Reviews.QuestionReview do
     plans =
       Enum.map(requests, fn request ->
         outcome = Map.fetch!(outcomes, request.question_response_id)
-        response = Map.fetch!(responses, outcome.response_id)
-        if response.state != :submitted, do: Error.reject!(:response_not_submitted)
+        attempt = Map.fetch!(attempts, outcome.attempt_id)
+        if attempt.state != :submitted, do: Error.reject!(:response_not_submitted)
         if outcome.outcome == :skipped, do: Error.reject!(:skip_not_reviewable)
-        if response.attempt.worker_id == actor.id, do: Error.reject!(:self_review)
+        if attempt.worker_id == actor.id, do: Error.reject!(:self_review)
         plan!(outcome, request, actor, Map.get(retries, {outcome.id, request.request_key}))
       end)
 

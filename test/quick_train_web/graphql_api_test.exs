@@ -371,7 +371,6 @@ defmodule QuickTrainWeb.GraphqlApiTest do
             {"Attempt", "Attempts"},
             {"AttemptQuestion", "AttemptQuestions"},
             {"AttemptInputPresentation", "AttemptInputPresentations"},
-            {"TaskResponse", "TaskResponses"},
             {"QuestionResponse", "QuestionResponses"},
             {"StaticOptionAnswer", "StaticOptionAnswers"},
             {"TaskInputAnswer", "TaskInputAnswers"},

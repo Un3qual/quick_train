@@ -13,6 +13,14 @@ defmodule QuickTrain.Tasks do
     end
 
     resource QuickTrain.Tasks.Attempts.Attempt do
+      define :revise_attempt, action: :revise
+
+      define :save_question,
+        action: :save_question,
+        args: [:organization_id, :project_id, :attempt_id]
+
+      define :submit_response, action: :submit, args: [:organization_id, :project_id, :attempt_id]
+
       define :get_attempt_internal,
         action: :read,
         get_by: [:id, :project_id, :organization_id],
@@ -52,16 +60,6 @@ defmodule QuickTrain.Tasks do
 
     resource QuickTrain.Tasks.Attempts.AttemptQuestion
     resource QuickTrain.Tasks.Attempts.AttemptInputPresentation
-
-    resource QuickTrain.Tasks.Responses.Response do
-      define :revise_response, action: :revise
-
-      define :save_question,
-        action: :save_question,
-        args: [:organization_id, :project_id, :attempt_id]
-
-      define :submit_response, action: :submit, args: [:organization_id, :project_id, :attempt_id]
-    end
 
     resource QuickTrain.Tasks.Progress.TaskQuestionProgress
 
@@ -116,7 +114,6 @@ defmodule QuickTrain.Tasks do
             {QuickTrain.Tasks.Attempts.AttemptQuestion, :attempt_question, :attempt_questions},
             {QuickTrain.Tasks.Attempts.AttemptInputPresentation, :attempt_input_presentation,
              :attempt_input_presentations},
-            {QuickTrain.Tasks.Responses.Response, :task_response, :task_responses},
             {QuickTrain.Tasks.Responses.QuestionResponse, :question_response,
              :question_responses},
             {QuickTrain.Tasks.Responses.StaticOptionAnswer, :static_option_answer,
@@ -167,7 +164,7 @@ defmodule QuickTrain.Tasks do
       action QuickTrain.Tasks.Attempts.Attempt, :cancel_attempt, :cancel,
         args: [:organization_id, :project_id, :attempt_id]
 
-      action QuickTrain.Tasks.Responses.Response, :save_task_question, :save_question,
+      action QuickTrain.Tasks.Attempts.Attempt, :save_task_question, :save_question,
         args: [
           :organization_id,
           :project_id,
@@ -177,7 +174,7 @@ defmodule QuickTrain.Tasks do
           :answer
         ]
 
-      action QuickTrain.Tasks.Responses.Response, :submit_task_response, :submit,
+      action QuickTrain.Tasks.Attempts.Attempt, :submit_task_response, :submit,
         args: [:organization_id, :project_id, :attempt_id]
 
       action QuickTrain.Tasks.Reviews.ReviewDecision, :decide_task_question, :decide,
