@@ -32,9 +32,4 @@ defmodule QuickTrain.Projects.Project.Changes.Transition do
     ProjectCompletion.complete!(changeset.data, cutoff)
     Ash.Changeset.force_change_attribute(changeset, :completed_at, cutoff)
   end
-
-  defp prepare_transition!(%{action: %{name: :archive_record}} = changeset),
-    do: Ash.Changeset.force_change_attribute(changeset, :archived_at, DateTime.utc_now())
-
-  defp prepare_transition!(changeset), do: changeset
 end

@@ -40,7 +40,7 @@ defmodule QuickTrain.Tasks.Responses.ResponseDraft do
     unless offered, do: Error.reject!(:question_not_offered)
     question = Ash.get!(QuestionDefinition, args.question_id, authorize?: false)
     normalized = AnswerValidation.validate!(project, task, question, args.answer, :draft)
-    skip_policy!(project, question.id, normalized.attributes)
+    skip_policies!(project, [Map.put(normalized.attributes, :question_id, question.id)])
     remove_previous!(response, question.id)
     scope = Map.merge(Access.scope(project), %{task_id: task.id, question_id: question.id})
 
@@ -77,19 +77,28 @@ defmodule QuickTrain.Tasks.Responses.ResponseDraft do
     response
   end
 
-  def skip_policy!(project, question_id, %{outcome: :skipped} = attrs) do
-    policy =
-      ProjectQuestionPolicy
-      |> Ash.Query.filter(project_id == ^project.id and question_id == ^question_id)
-      |> Ash.read_one!(authorize?: false)
+  def skip_policies!(project, outcomes) do
+    skipped = Enum.filter(outcomes, &(&1.outcome == :skipped))
 
+    if skipped != [] do
+      policies =
+        ProjectQuestionPolicy
+        |> Ash.Query.filter(
+          project_id == ^project.id and question_id in ^Enum.map(skipped, & &1.question_id)
+        )
+        |> Ash.read!(authorize?: false, page: false)
+        |> Map.new(&{&1.question_id, &1})
+
+      Enum.each(skipped, &skip_policy!(Map.get(policies, &1.question_id), &1))
+    end
+  end
+
+  defp skip_policy!(policy, attrs) do
     unless policy && policy.skip_allowed, do: Error.reject!(:skip_not_allowed)
 
     if policy.reason_required and (is_nil(attrs.reason) or String.trim(attrs.reason) == ""),
       do: Error.reject!(:skip_reason_required)
   end
-
-  def skip_policy!(_project, _question, _attrs), do: :ok
 
   defp remove_previous!(response, question_id) do
     prior =

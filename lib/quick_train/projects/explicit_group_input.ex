@@ -112,7 +112,7 @@ defmodule QuickTrain.Projects.ExplicitGroupInput do
       reference :form_version, on_delete: :restrict
 
       reference :group,
-        on_delete: :restrict,
+        on_delete: :delete,
         match_with: [project_id: :project_id, form_version_id: :form_version_id]
 
       reference :project_item, on_delete: :restrict, match_with: [project_id: :project_id]

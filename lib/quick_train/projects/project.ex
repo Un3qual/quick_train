@@ -7,6 +7,9 @@ defmodule QuickTrain.Projects.Project do
     extensions: [AshGraphql.Resource],
     authorizers: [Ash.Policy.Authorizer]
 
+  alias QuickTrain.Authorization.RoleAssignment
+  alias QuickTrain.Projects.Error
+
   attributes do
     uuid_primary_key :id
 
@@ -459,19 +462,14 @@ defmodule QuickTrain.Projects.Project do
     end
 
     update :rename do
-      require_atomic? false
-      accept [:title]
-      require_attributes [:title]
-      change get_and_lock(:for_update)
-      change Module.concat(["QuickTrain.Projects.Project.Changes.Configure"])
+      accept []
+      argument :title, :string, allow_nil?: false
+      change set_attribute(:title, arg(:title))
     end
 
     for {action, source, target} <- [
           {:activate_record, [:draft], :active},
-          {:pause_record, [:active], :paused},
-          {:resume_record, [:paused], :active},
-          {:complete_record, [:active, :paused], :completed},
-          {:archive_record, [:completed], :archived}
+          {:complete_record, [:active, :paused], :completed}
         ] do
       update action do
         accept []
@@ -481,6 +479,36 @@ defmodule QuickTrain.Projects.Project do
 
         change {Module.concat(["QuickTrain.Projects.Project.Changes.Transition"]),
                 from: source, to: target}
+      end
+    end
+
+    for {action, source, target} <- [
+          {:pause_record, :active, :paused},
+          {:resume_record, :paused, :active},
+          {:archive_record, :completed, :archived}
+        ] do
+      update action do
+        accept []
+
+        change atomic_update(
+                 :state,
+                 expr(
+                   if state in ^[source, target] do
+                     ^target
+                   else
+                     error(^Error, %{category: :invalid_project_transition})
+                   end
+                 )
+               )
+
+        change atomic_update(:updated_at, expr(if state == ^target, do: updated_at, else: now()))
+
+        if action == :archive_record do
+          change atomic_update(
+                   :archived_at,
+                   expr(if state == :archived, do: archived_at, else: now())
+                 )
+        end
       end
     end
   end
@@ -502,12 +530,8 @@ defmodule QuickTrain.Projects.Project do
              :create_project,
              :create,
              :configure,
-             :rename,
              :activate_record,
-             :pause_record,
-             :resume_record,
              :complete_record,
-             :archive_record,
              :update_draft,
              :update_title,
              :enroll_revisions,
@@ -527,6 +551,23 @@ defmodule QuickTrain.Projects.Project do
            ]) do
       authorize_if {QuickTrain.Authorization.Checks.OrganizationCapability,
                     capability: "projects.manage"}
+    end
+
+    policy action([:rename, :pause_record, :resume_record, :archive_record]) do
+      forbid_unless actor_attribute_equals(:status, "active")
+
+      authorize_if expr(
+                     exists(
+                       RoleAssignment,
+                       organization_id == parent(organization_id) and user_id == ^actor(:id) and
+                         user.status == "active" and organization.status == "active" and
+                         exists(role.role_capabilities, capability.key == "projects.manage") and
+                         exists(
+                           organization.memberships,
+                           user_id == ^actor(:id) and status == "active"
+                         )
+                     )
+                   )
     end
   end
 

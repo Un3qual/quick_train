@@ -2,29 +2,16 @@ defmodule QuickTrain.Tasks.Responses.AnswerValidation do
   @moduledoc "Validates normalized outcomes after the caller locks and authorizes their attempt."
 
   alias QuickTrain.Datasets.{DatasetItemRevision, DatasetValue}
-  alias QuickTrain.Forms.Inputs.InputFieldRequirement
-  alias QuickTrain.Forms.Labels.Label
-  alias QuickTrain.Forms.Questions.QuestionOption
-
-  alias QuickTrain.Forms.Questions.Constraints.{
-    AnnotationConstraints,
-    DecimalConstraints,
-    IntegerConstraints,
-    SelectionConstraints,
-    TextConstraints
-  }
-
-  alias QuickTrain.Projects.ProjectInputBinding
-  alias QuickTrain.Tasks.{Error, TaskInput}
+  alias QuickTrain.Tasks.Error
   alias QuickTrain.Tasks.Responses.Inputs.AnswerInput
   require Ash.Query
 
   @scalars [:text_value, :integer_value, :decimal_value, :boolean_value]
   @collections [:option_ids, :inputs, :spans]
   @scalar_types %{
-    text: {:text_value, :string, TextConstraints},
-    integer: {:integer_value, :integer, IntegerConstraints},
-    decimal: {:decimal_value, :decimal, DecimalConstraints},
+    text: {:text_value, :string, :text_constraints},
+    integer: {:integer_value, :integer, :integer_constraints},
+    decimal: {:decimal_value, :decimal, :decimal_constraints},
     boolean: {:boolean_value, :boolean, nil}
   }
 
@@ -67,13 +54,37 @@ defmodule QuickTrain.Tasks.Responses.AnswerValidation do
 
       :answered ->
         require!(is_nil(answer.reason) and is_nil(answer.explanation))
+
+        question =
+          Ash.load!(question, question_load(question.family), authorize?: false, lazy?: true)
+
         validate_answer!(result, project, task, question, answer, stage)
     end
   end
 
+  def load_questions!(questions) do
+    questions
+    |> Enum.group_by(& &1.family)
+    |> Enum.flat_map(fn {family, questions} ->
+      Ash.load!(questions, question_load(family), authorize?: false, lazy?: true)
+    end)
+  end
+
+  defp question_load(:text), do: [:text_constraints]
+  defp question_load(:integer), do: [:integer_constraints]
+  defp question_load(:decimal), do: [:decimal_constraints]
+  defp question_load(:static_single_choice), do: [:options]
+  defp question_load(:static_multiple_choice), do: [:selection_constraints, :options]
+  defp question_load(:task_input_multiple_choice), do: [:selection_constraints]
+
+  defp question_load(:text_spans),
+    do: [annotation_constraints: [:source_requirement, label_set: :labels]]
+
+  defp question_load(_family), do: []
+
   defp validate_answer!(result, _project, _task, question, answer, stage)
        when is_map_key(@scalar_types, question.family) do
-    {field, type, constraint_resource} = Map.fetch!(@scalar_types, question.family)
+    {field, type, constraint_relationship} = Map.fetch!(@scalar_types, question.family)
     only_payload!(answer, [field])
     value = Map.fetch!(answer, field)
     require!(stage == :draft or not is_nil(value))
@@ -82,7 +93,7 @@ defmodule QuickTrain.Tasks.Responses.AnswerValidation do
       result
     else
       if type == :string, do: optional_text!(value)
-      bounds = if constraint_resource, do: constraint!(constraint_resource, question), else: nil
+      bounds = if constraint_relationship, do: Map.fetch!(question, constraint_relationship)
       constraints = scalar_constraints(type, bounds)
 
       with {:ok, value} <- Ash.Type.cast_input(type, value, constraints),
@@ -100,19 +111,9 @@ defmodule QuickTrain.Tasks.Responses.AnswerValidation do
     unique!(answer.option_ids)
     count!(length(answer.option_ids), selection_bounds(question), stage)
 
-    selected =
-      Ash.count!(QuestionOption,
-        query: [
-          filter: [
-            id: [in: answer.option_ids],
-            question_id: question.id,
-            version_id: question.version_id
-          ]
-        ],
-        authorize?: false
-      )
+    allowed = MapSet.new(question.options, & &1.id)
 
-    require!(selected == length(answer.option_ids))
+    require!(MapSet.subset?(MapSet.new(answer.option_ids), allowed))
     %{result | option_ids: answer.option_ids}
   end
 
@@ -155,37 +156,26 @@ defmodule QuickTrain.Tasks.Responses.AnswerValidation do
       )
 
     unique!(spans)
-    bounds = constraint!(AnnotationConstraints, question)
+    bounds = question.annotation_constraints
     require!(not is_nil(bounds))
     count!(length(spans), bounds, stage)
 
-    requirement =
-      InputFieldRequirement
-      |> Ash.Query.filter(
-        id == ^bounds.source_requirement_id and version_id == ^question.version_id and
-          value_family == :text and required == true and cardinality == :single
-      )
-      |> Ash.read_one!(authorize?: false)
+    requirement = bounds.source_requirement
 
-    require!(not is_nil(requirement))
+    require!(
+      requirement && requirement.version_id == question.version_id &&
+        requirement.value_family == :text && requirement.required &&
+        requirement.cardinality == :single
+    )
+
     inputs = slot_inputs!(project, task, requirement.input_slot_id)
     allowed_ids = MapSet.new(inputs, & &1.id)
     require!(Enum.all?(spans, &MapSet.member?(allowed_ids, &1.task_input_id)))
     labels = spans |> Enum.map(& &1.label_id) |> Enum.uniq()
 
-    count =
-      Ash.count!(Label,
-        query: [
-          filter: [
-            id: [in: labels],
-            label_set_id: bounds.label_set_id,
-            version_id: question.version_id
-          ]
-        ],
-        authorize?: false
-      )
+    allowed_labels = MapSet.new(bounds.label_set.labels, & &1.id)
 
-    require!(count == length(labels))
+    require!(MapSet.subset?(MapSet.new(labels), allowed_labels))
     validate_sources!(project, requirement, inputs, spans)
     %{result | spans: spans}
   end
@@ -194,12 +184,10 @@ defmodule QuickTrain.Tasks.Responses.AnswerValidation do
 
   defp validate_sources!(project, requirement, inputs, spans) do
     binding =
-      ProjectInputBinding
-      |> Ash.Query.filter(
-        project_id == ^project.id and form_version_id == ^project.form_version_id and
-          requirement_id == ^requirement.id
-      )
-      |> Ash.read_one!(authorize?: false)
+      project
+      |> Ash.load!(:bindings, authorize?: false, lazy?: true)
+      |> Map.fetch!(:bindings)
+      |> Enum.find(&(&1.requirement_id == requirement.id))
 
     require!(not is_nil(binding))
     selected_inputs = MapSet.new(spans, & &1.task_input_id)
@@ -245,28 +233,21 @@ defmodule QuickTrain.Tasks.Responses.AnswerValidation do
   end
 
   defp slot_inputs!(project, task, slot_id) do
-    TaskInput
-    |> Ash.Query.filter(
-      organization_id == ^project.organization_id and project_id == ^project.id and
-        form_version_id == ^project.form_version_id and task_id == ^task.id and
-        input_slot_id == ^slot_id
+    task
+    |> Ash.load!(:inputs, authorize?: false, lazy?: true)
+    |> Map.fetch!(:inputs)
+    |> Enum.filter(
+      &(&1.organization_id == project.organization_id and &1.project_id == project.id and
+          &1.form_version_id == project.form_version_id and &1.input_slot_id == slot_id)
     )
-    |> Ash.Query.select([:id, :revision_id])
-    |> Ash.read!(authorize?: false, page: false)
   end
-
-  defp constraint!(resource, question),
-    do:
-      resource
-      |> Ash.Query.filter(question_id == ^question.id and version_id == ^question.version_id)
-      |> Ash.read_one!(authorize?: false)
 
   defp selection_bounds(%{family: family})
        when family in [:static_single_choice, :task_input_single_choice],
        do: %{minimum: 1, maximum: 1}
 
   defp selection_bounds(question) do
-    bounds = constraint!(SelectionConstraints, question)
+    bounds = question.selection_constraints
     require!(not is_nil(bounds))
     bounds
   end

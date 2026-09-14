@@ -44,8 +44,33 @@ defmodule QuickTrain.Tasks.Responses.ResponseSubmission do
       unless MapSet.new(outcomes, & &1.question_id) == offered,
         do: Error.reject!(:incomplete_response)
 
+      questions =
+        outcomes
+        |> Enum.filter(&(&1.outcome == :answered))
+        |> Enum.map(& &1.question)
+        |> AnswerValidation.load_questions!()
+        |> Map.new(&{&1.id, &1})
+
+      task =
+        if Enum.any?(
+             outcomes,
+             &(&1.family in [
+                 :task_input_single_choice,
+                 :task_input_multiple_choice,
+                 :task_input_ranking,
+                 :text_spans
+               ])
+           ),
+           do: Ash.load!(task, :inputs, authorize?: false),
+           else: task
+
+      project =
+        if Enum.any?(outcomes, &(&1.family == :text_spans)),
+          do: Ash.load!(project, :bindings, authorize?: false),
+          else: project
+
       for outcome <- outcomes do
-        question = outcome.question
+        question = Map.get(questions, outcome.question_id, outcome.question)
 
         AnswerValidation.validate!(
           project,
@@ -54,9 +79,9 @@ defmodule QuickTrain.Tasks.Responses.ResponseSubmission do
           ResponseDraft.stored_answer(outcome),
           :submit
         )
-
-        ResponseDraft.skip_policy!(project, question.id, outcome)
       end
+
+      ResponseDraft.skip_policies!(project, outcomes)
 
       Access.owner!(project, attempt, actor)
       cutoff = Leases.now!()

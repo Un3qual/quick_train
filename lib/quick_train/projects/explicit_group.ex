@@ -62,10 +62,7 @@ defmodule QuickTrain.Projects.ExplicitGroup do
       accept [:position, :canonical_key, :project_id, :form_version_id]
     end
 
-    destroy :destroy_internal do
-      require_atomic? false
-      change cascade_destroy(:inputs, action: :destroy_internal, after_action?: false)
-    end
+    destroy :destroy_internal
   end
 
   policies do

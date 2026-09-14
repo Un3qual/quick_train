@@ -13,7 +13,6 @@ defmodule QuickTrain.Projects.ProjectActivation do
 
   alias QuickTrain.Datasets.{
     DatasetFieldDefinition,
-    DatasetItemRevision,
     DatasetSchemaVersion,
     DatasetValue
   }
@@ -45,7 +44,12 @@ defmodule QuickTrain.Projects.ProjectActivation do
       |> Ash.Query.filter(id == ^field_id and record_type_id == ^project.root_record_type_id)
       |> Ash.read_one!(authorize?: false)
 
-    unless field && field.value_family == requirement.value_family &&
+    compatible_binding!(project, requirement, field)
+  end
+
+  defp compatible_binding!(project, requirement, field) do
+    unless field && field.record_type_id == project.root_record_type_id &&
+             field.value_family == requirement.value_family &&
              field.cardinality == requirement.cardinality &&
              (!requirement.required || field.required),
            do:
@@ -58,7 +62,10 @@ defmodule QuickTrain.Projects.ProjectActivation do
 
   def validate_slot!(project, slot_id, count) do
     slot = definition!(InputSlotDefinition, project, slot_id)
+    compatible_slot!(slot, count)
+  end
 
+  defp compatible_slot!(slot, count) do
     unless count >= slot.minimum and count <= slot.maximum,
       do: Error.reject!(:invalid_project_configuration, [slot.id <> ": incompatible item count"])
 
@@ -100,17 +107,30 @@ defmodule QuickTrain.Projects.ProjectActivation do
   end
 
   defp validate_policies!(project, requirements, questions, slots) do
-    bindings = Enum.to_list(rows(ProjectInputBinding, project_id: project.id))
+    bindings =
+      rows(ProjectInputBinding, project_id: project.id)
+      |> Enum.to_list()
+      |> Ash.load!(:field_definition, authorize?: false)
+
     policies = Enum.to_list(rows(ProjectSlotPolicy, project_id: project.id))
     question_policies = Enum.to_list(rows(ProjectQuestionPolicy, project_id: project.id))
     exact!(requirements, bindings, :requirement_id, "complete bindings are required")
     exact!(slots, policies, :input_slot_id, "complete slot policies are required")
     exact!(questions, question_policies, :question_id, "complete question policies are required")
 
-    for binding <- bindings,
-        do: validate_binding!(project, binding.requirement_id, binding.field_definition_id)
+    requirements_by_id = Map.new(requirements, &{&1.id, &1})
+    slots_by_id = Map.new(slots, &{&1.id, &1})
 
-    for policy <- policies, do: validate_slot!(project, policy.input_slot_id, policy.item_count)
+    for binding <- bindings,
+        do:
+          compatible_binding!(
+            project,
+            Map.fetch!(requirements_by_id, binding.requirement_id),
+            binding.field_definition
+          )
+
+    for policy <- policies,
+        do: compatible_slot!(Map.fetch!(slots_by_id, policy.input_slot_id), policy.item_count)
 
     {bindings, policies}
   end
@@ -120,10 +140,18 @@ defmodule QuickTrain.Projects.ProjectActivation do
     required_bindings = Enum.filter(bindings, &MapSet.member?(required_fields, &1.requirement_id))
     field_ids = Enum.map(bindings, & &1.field_definition_id)
 
+    values =
+      DatasetValue
+      |> Ash.Query.filter(field_definition_id in ^field_ids)
+      |> Ash.Query.load(asset_value: :asset)
+
     item_count =
-      rows(ProjectItem, project_id: project.id)
+      ProjectItem
+      |> Ash.Query.filter(project_id == ^project.id)
+      |> Ash.Query.load(revision: [root_record: [values: values]])
+      |> Ash.stream!(authorize?: false, batch_size: 100)
       |> Enum.reduce(0, fn item, count ->
-        validate_item!(project, item, field_ids, required_bindings)
+        validate_item!(project, item, required_bindings)
         count + 1
       end)
 
@@ -136,40 +164,25 @@ defmodule QuickTrain.Projects.ProjectActivation do
         ])
   end
 
-  defp validate_item!(project, item, field_ids, required_bindings) do
-    revision =
-      DatasetItemRevision
-      |> Ash.Query.filter(
-        id == ^item.revision_id and item_id == ^item.item_id and
-          dataset_id == ^project.dataset_id and
-          schema_version_id == ^project.schema_version_id
-      )
-      |> Ash.read_one!(authorize?: false)
+  defp validate_item!(project, item, required_bindings) do
+    revision = item.revision
 
-    if is_nil(revision), do: Error.reject!(:invalid_project_configuration)
+    unless revision && revision.item_id == item.item_id &&
+             revision.dataset_id == project.dataset_id &&
+             revision.schema_version_id == project.schema_version_id,
+           do: Error.reject!(:invalid_project_configuration)
 
-    values =
-      DatasetValue
-      |> Ash.Query.filter(
-        record_id == ^revision.root_record_id and field_definition_id in ^field_ids
-      )
-      |> Ash.stream!(authorize?: false, batch_size: 100)
-      |> Enum.to_list()
-
+    values = revision.root_record.values
     present = MapSet.new(values, & &1.field_definition_id)
 
     unless Enum.all?(required_bindings, &MapSet.member?(present, &1.field_definition_id)),
       do: Error.reject!(:invalid_project_configuration, [item.id <> ": missing required value"])
 
-    value_ids = Enum.map(values, & &1.id)
-
-    if DatasetValue.Asset
-       |> Ash.Query.filter(dataset_value_id in ^value_ids and asset.state != :ready)
-       |> Ash.exists?(authorize?: false),
-       do:
-         Error.reject!(:invalid_project_configuration, [
-           item.id <> ": source asset is not ready"
-         ])
+    if Enum.any?(values, &(&1.asset_value && &1.asset_value.asset.state != :ready)),
+      do:
+        Error.reject!(:invalid_project_configuration, [
+          item.id <> ": source asset is not ready"
+        ])
 
     :ok
   end

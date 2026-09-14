@@ -79,6 +79,45 @@ defmodule QuickTrain.ProjectsTest do
              |> Ash.read()
   end
 
+  test "atomic project batches enforce organization authority and preserve lifecycle retries",
+       context do
+    projects = for _ <- 1..2, do: ProjectsFixture.active!(context, context.source)
+
+    other =
+      ProjectsFixture.context!(
+        ~w(projects.manage forms.read forms.manage datasets.read datasets.manage),
+        "other-projects"
+      )
+
+    foreign = ProjectsFixture.draft!(other, ProjectsFixture.source!(other))
+
+    opts = [
+      actor: context.actor,
+      strategy: [:atomic],
+      authorize_query?: false,
+      return_records?: true
+    ]
+
+    renamed = Ash.bulk_update!(Project, :rename, %{title: "Renamed"}, opts).records
+    assert MapSet.new(renamed, & &1.id) == MapSet.new(projects, & &1.id)
+    assert Enum.all?(renamed, &(&1.title == "Renamed"))
+    assert Ash.get!(Project, foreign.id, authorize?: false).title == foreign.title
+
+    paused = Ash.bulk_update!(Project, :pause_record, %{}, opts).records
+    assert Enum.all?(paused, &(&1.state == :paused))
+
+    retried = Ash.bulk_update!(Project, :pause_record, %{}, opts).records
+    assert MapSet.new(retried, &persisted/1) == MapSet.new(paused, &persisted/1)
+    assert Ash.get!(Project, foreign.id, authorize?: false).state == :draft
+
+    Organizations.deactivate_membership!(context.membership)
+    assert Ash.bulk_update!(Project, :resume_record, %{}, opts).records == []
+
+    for project <- projects do
+      assert Ash.get!(Project, project.id, authorize?: false).state == :paused
+    end
+  end
+
   test "manage-only capability authorizes mutation results without general inspection",
        _context do
     context =
@@ -366,7 +405,10 @@ defmodule QuickTrain.ProjectsTest do
                persisted(changed)
     end
 
-    assert {:error, _} = Projects.resume_project(context.org.id, project.id, actor: context.actor)
+    assert {:error, error} =
+             Projects.resume_project(context.org.id, project.id, actor: context.actor)
+
+    assert Exception.message(error) =~ "invalid_project_transition"
     Organizations.deactivate_membership!(context.membership)
 
     assert {:error, _} =
