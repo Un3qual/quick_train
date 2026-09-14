@@ -58,7 +58,7 @@ defmodule QuickTrain.Tasks.TaskInput do
       argument :task_input_id, :uuid, allow_nil?: false
       argument :requirement_id, :uuid, allow_nil?: false
       argument :attempt_id, :uuid
-      run QuickTrain.Tasks.ReadActions
+      run Module.concat(["QuickTrain.Tasks.ReadActions"])
     end
 
     action :bound_value, QuickTrain.Tasks.BoundValue do
@@ -67,14 +67,14 @@ defmodule QuickTrain.Tasks.TaskInput do
       argument :task_input_id, :uuid, allow_nil?: false
       argument :requirement_id, :uuid, allow_nil?: false
       argument :attempt_id, :uuid
-      run QuickTrain.Tasks.ReadActions
+      run Module.concat(["QuickTrain.Tasks.ReadActions"])
     end
 
     read :list_audit do
       argument :organization_id, :uuid, allow_nil?: false
       argument :project_id, :uuid, allow_nil?: false
       filter expr(organization_id == ^arg(:organization_id) and project_id == ^arg(:project_id))
-      prepare {QuickTrain.Tasks.ReadAccess.Prepare, mode: :audit}
+      prepare {Module.concat(["QuickTrain.Tasks.ReadAccess.Prepare"]), mode: :audit}
 
       pagination keyset?: true,
                  required?: true,
@@ -90,14 +90,14 @@ defmodule QuickTrain.Tasks.TaskInput do
       argument :organization_id, :uuid, allow_nil?: false
       argument :project_id, :uuid, allow_nil?: false
       filter expr(organization_id == ^arg(:organization_id) and project_id == ^arg(:project_id))
-      prepare {QuickTrain.Tasks.ReadAccess.Prepare, mode: :audit}
+      prepare {Module.concat(["QuickTrain.Tasks.ReadAccess.Prepare"]), mode: :audit}
     end
 
     read :list_accepted do
       argument :organization_id, :uuid, allow_nil?: false
       argument :project_id, :uuid, allow_nil?: false
       filter expr(organization_id == ^arg(:organization_id) and project_id == ^arg(:project_id))
-      prepare {QuickTrain.Tasks.ReadAccess.Prepare, mode: :accepted}
+      prepare {Module.concat(["QuickTrain.Tasks.ReadAccess.Prepare"]), mode: :accepted}
 
       pagination keyset?: true,
                  required?: true,
@@ -113,7 +113,7 @@ defmodule QuickTrain.Tasks.TaskInput do
       argument :organization_id, :uuid, allow_nil?: false
       argument :project_id, :uuid, allow_nil?: false
       filter expr(organization_id == ^arg(:organization_id) and project_id == ^arg(:project_id))
-      prepare {QuickTrain.Tasks.ReadAccess.Prepare, mode: :accepted}
+      prepare {Module.concat(["QuickTrain.Tasks.ReadAccess.Prepare"]), mode: :accepted}
     end
 
     read :read do
@@ -147,7 +147,7 @@ defmodule QuickTrain.Tasks.TaskInput do
     end
 
     policy action(:read) do
-      authorize_if QuickTrain.Tasks.ReadAccess
+      authorize_if Module.concat(["QuickTrain.Tasks.ReadAccess"])
     end
 
     policy action([:list_audit, :get_audit, :list_accepted, :get_accepted]) do

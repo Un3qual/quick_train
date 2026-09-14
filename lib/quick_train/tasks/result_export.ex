@@ -66,7 +66,7 @@ defmodule QuickTrain.Tasks.ResultExport do
       argument :evidence_kind, :string, constraints: [trim?: false]
       argument :evidence_id_from, :uuid
       argument :evidence_id_to, :uuid
-      run QuickTrain.Tasks.ResultExporting
+      run Module.concat(["QuickTrain.Tasks.ResultExporting"])
     end
 
     read :list_scoped do
@@ -97,7 +97,7 @@ defmodule QuickTrain.Tasks.ResultExport do
       argument :organization_id, :uuid, allow_nil?: false
       argument :project_id, :uuid, allow_nil?: false
       argument :export_id, :uuid, allow_nil?: false
-      run QuickTrain.Tasks.ResultExporting
+      run Module.concat(["QuickTrain.Tasks.ResultExporting"])
     end
 
     read :read do

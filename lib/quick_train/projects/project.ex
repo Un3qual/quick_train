@@ -206,7 +206,7 @@ defmodule QuickTrain.Projects.Project do
         default: 30,
         allow_nil?: false
 
-      run QuickTrain.Projects.Management
+      run Module.concat(["QuickTrain.Projects.Management"])
     end
 
     action :update_draft, :struct do
@@ -228,7 +228,7 @@ defmodule QuickTrain.Projects.Project do
       argument :dataset_id, :uuid
       argument :schema_version_id, :uuid
       argument :form_version_id, :uuid
-      run QuickTrain.Projects.Management
+      run Module.concat(["QuickTrain.Projects.Management"])
     end
 
     action :update_title, :struct do
@@ -238,7 +238,7 @@ defmodule QuickTrain.Projects.Project do
       argument :organization_id, :uuid, allow_nil?: false
       argument :project_id, :uuid, allow_nil?: false
       argument :title, :string, allow_nil?: false, constraints: [match: ~r/\S/u]
-      run QuickTrain.Projects.Management
+      run Module.concat(["QuickTrain.Projects.Management"])
     end
 
     action :enroll_revisions, :struct do
@@ -248,7 +248,7 @@ defmodule QuickTrain.Projects.Project do
       argument :organization_id, :uuid, allow_nil?: false
       argument :project_id, :uuid, allow_nil?: false
       argument :revision_ids, {:array, :uuid}, allow_nil?: false
-      run QuickTrain.Projects.Management
+      run Module.concat(["QuickTrain.Projects.Management"])
     end
 
     action :remove_project_items, :struct do
@@ -258,7 +258,7 @@ defmodule QuickTrain.Projects.Project do
       argument :organization_id, :uuid, allow_nil?: false
       argument :project_id, :uuid, allow_nil?: false
       argument :project_item_ids, {:array, :uuid}, allow_nil?: false
-      run QuickTrain.Projects.Management
+      run Module.concat(["QuickTrain.Projects.Management"])
     end
 
     action :set_binding, :struct do
@@ -269,7 +269,7 @@ defmodule QuickTrain.Projects.Project do
       argument :project_id, :uuid, allow_nil?: false
       argument :requirement_id, :uuid, allow_nil?: false
       argument :field_definition_id, :uuid, allow_nil?: false
-      run QuickTrain.Projects.Management
+      run Module.concat(["QuickTrain.Projects.Management"])
     end
 
     action :set_slot_policy, :struct do
@@ -281,7 +281,7 @@ defmodule QuickTrain.Projects.Project do
       argument :input_slot_id, :uuid, allow_nil?: false
       argument :item_count, :integer, allow_nil?: false, constraints: [min: 1, max: 2_147_483_647]
       argument :shuffle, :boolean, allow_nil?: false
-      run QuickTrain.Projects.Management
+      run Module.concat(["QuickTrain.Projects.Management"])
     end
 
     action :set_question_policy, :struct do
@@ -303,7 +303,7 @@ defmodule QuickTrain.Projects.Project do
         allow_nil?: false,
         constraints: [min: 1, max: 2_147_483_647]
 
-      run QuickTrain.Projects.Management
+      run Module.concat(["QuickTrain.Projects.Management"])
     end
 
     action :set_worker_access, :struct do
@@ -314,7 +314,7 @@ defmodule QuickTrain.Projects.Project do
       argument :project_id, :uuid, allow_nil?: false
       argument :user_id, :uuid, allow_nil?: false
       argument :disposition, :atom, allow_nil?: false, constraints: [one_of: [:allow, :block]]
-      run QuickTrain.Projects.Management
+      run Module.concat(["QuickTrain.Projects.Management"])
     end
 
     action :remove_worker_access, :struct do
@@ -324,7 +324,7 @@ defmodule QuickTrain.Projects.Project do
       argument :organization_id, :uuid, allow_nil?: false
       argument :project_id, :uuid, allow_nil?: false
       argument :user_id, :uuid, allow_nil?: false
-      run QuickTrain.Projects.Management
+      run Module.concat(["QuickTrain.Projects.Management"])
     end
 
     action :create_explicit_group, :struct do
@@ -335,7 +335,7 @@ defmodule QuickTrain.Projects.Project do
       argument :project_id, :uuid, allow_nil?: false
       argument :position, :integer, allow_nil?: false, constraints: [min: 0, max: 2_147_483_647]
       argument :inputs, {:array, QuickTrain.Projects.GroupInput}, allow_nil?: false
-      run QuickTrain.Projects.Management
+      run Module.concat(["QuickTrain.Projects.Management"])
     end
 
     action :remove_explicit_group, :struct do
@@ -345,7 +345,7 @@ defmodule QuickTrain.Projects.Project do
       argument :organization_id, :uuid, allow_nil?: false
       argument :project_id, :uuid, allow_nil?: false
       argument :group_id, :uuid, allow_nil?: false
-      run QuickTrain.Projects.Management
+      run Module.concat(["QuickTrain.Projects.Management"])
     end
 
     action :remove_binding, :struct do
@@ -355,7 +355,7 @@ defmodule QuickTrain.Projects.Project do
       argument :organization_id, :uuid, allow_nil?: false
       argument :project_id, :uuid, allow_nil?: false
       argument :requirement_id, :uuid, allow_nil?: false
-      run QuickTrain.Projects.Management
+      run Module.concat(["QuickTrain.Projects.Management"])
     end
 
     action :remove_slot_policy, :struct do
@@ -365,7 +365,7 @@ defmodule QuickTrain.Projects.Project do
       argument :organization_id, :uuid, allow_nil?: false
       argument :project_id, :uuid, allow_nil?: false
       argument :input_slot_id, :uuid, allow_nil?: false
-      run QuickTrain.Projects.Management
+      run Module.concat(["QuickTrain.Projects.Management"])
     end
 
     action :remove_question_policy, :struct do
@@ -375,7 +375,7 @@ defmodule QuickTrain.Projects.Project do
       argument :organization_id, :uuid, allow_nil?: false
       argument :project_id, :uuid, allow_nil?: false
       argument :question_id, :uuid, allow_nil?: false
-      run QuickTrain.Projects.Management
+      run Module.concat(["QuickTrain.Projects.Management"])
     end
 
     action :activate, :struct do
@@ -384,7 +384,7 @@ defmodule QuickTrain.Projects.Project do
       constraints instance_of: __MODULE__
       argument :organization_id, :uuid, allow_nil?: false
       argument :project_id, :uuid, allow_nil?: false
-      run QuickTrain.Projects.Management
+      run Module.concat(["QuickTrain.Projects.Management"])
     end
 
     action :pause, :struct do
@@ -393,7 +393,7 @@ defmodule QuickTrain.Projects.Project do
       constraints instance_of: __MODULE__
       argument :organization_id, :uuid, allow_nil?: false
       argument :project_id, :uuid, allow_nil?: false
-      run QuickTrain.Projects.Management
+      run Module.concat(["QuickTrain.Projects.Management"])
     end
 
     action :resume, :struct do
@@ -402,7 +402,7 @@ defmodule QuickTrain.Projects.Project do
       constraints instance_of: __MODULE__
       argument :organization_id, :uuid, allow_nil?: false
       argument :project_id, :uuid, allow_nil?: false
-      run QuickTrain.Projects.Management
+      run Module.concat(["QuickTrain.Projects.Management"])
     end
 
     action :complete, :struct do
@@ -411,7 +411,7 @@ defmodule QuickTrain.Projects.Project do
       constraints instance_of: __MODULE__
       argument :organization_id, :uuid, allow_nil?: false
       argument :project_id, :uuid, allow_nil?: false
-      run QuickTrain.Projects.Management
+      run Module.concat(["QuickTrain.Projects.Management"])
     end
 
     action :archive, :struct do
@@ -420,7 +420,7 @@ defmodule QuickTrain.Projects.Project do
       constraints instance_of: __MODULE__
       argument :organization_id, :uuid, allow_nil?: false
       argument :project_id, :uuid, allow_nil?: false
-      run QuickTrain.Projects.Management
+      run Module.concat(["QuickTrain.Projects.Management"])
     end
 
     create :create_internal do

@@ -60,7 +60,7 @@ defmodule QuickTrain.Tasks.Response do
       argument :organization_id, :uuid, allow_nil?: false
       argument :project_id, :uuid, allow_nil?: false
       filter expr(organization_id == ^arg(:organization_id) and project_id == ^arg(:project_id))
-      prepare {QuickTrain.Tasks.ReadAccess.Prepare, mode: :audit}
+      prepare {Module.concat(["QuickTrain.Tasks.ReadAccess.Prepare"]), mode: :audit}
 
       pagination keyset?: true,
                  required?: true,
@@ -76,14 +76,14 @@ defmodule QuickTrain.Tasks.Response do
       argument :organization_id, :uuid, allow_nil?: false
       argument :project_id, :uuid, allow_nil?: false
       filter expr(organization_id == ^arg(:organization_id) and project_id == ^arg(:project_id))
-      prepare {QuickTrain.Tasks.ReadAccess.Prepare, mode: :audit}
+      prepare {Module.concat(["QuickTrain.Tasks.ReadAccess.Prepare"]), mode: :audit}
     end
 
     read :list_accepted do
       argument :organization_id, :uuid, allow_nil?: false
       argument :project_id, :uuid, allow_nil?: false
       filter expr(organization_id == ^arg(:organization_id) and project_id == ^arg(:project_id))
-      prepare {QuickTrain.Tasks.ReadAccess.Prepare, mode: :accepted}
+      prepare {Module.concat(["QuickTrain.Tasks.ReadAccess.Prepare"]), mode: :accepted}
 
       pagination keyset?: true,
                  required?: true,
@@ -99,7 +99,7 @@ defmodule QuickTrain.Tasks.Response do
       argument :organization_id, :uuid, allow_nil?: false
       argument :project_id, :uuid, allow_nil?: false
       filter expr(organization_id == ^arg(:organization_id) and project_id == ^arg(:project_id))
-      prepare {QuickTrain.Tasks.ReadAccess.Prepare, mode: :accepted}
+      prepare {Module.concat(["QuickTrain.Tasks.ReadAccess.Prepare"]), mode: :accepted}
     end
 
     action :submit, :struct do
@@ -107,7 +107,7 @@ defmodule QuickTrain.Tasks.Response do
       argument :organization_id, :uuid, allow_nil?: false
       argument :project_id, :uuid, allow_nil?: false
       argument :attempt_id, :uuid, allow_nil?: false
-      run QuickTrain.Tasks.ResponseSubmission
+      run Module.concat(["QuickTrain.Tasks.ResponseSubmission"])
     end
 
     action :save_question, :struct do
@@ -118,7 +118,7 @@ defmodule QuickTrain.Tasks.Response do
       argument :question_id, :uuid, allow_nil?: false
       argument :expected_revision, :integer, allow_nil?: false, constraints: [min: 0]
       argument :answer, QuickTrain.Tasks.Inputs.AnswerInput, allow_nil?: false
-      run QuickTrain.Tasks.ResponseDraft
+      run Module.concat(["QuickTrain.Tasks.ResponseDraft"])
     end
 
     read :read do
@@ -147,7 +147,7 @@ defmodule QuickTrain.Tasks.Response do
     end
 
     update :update_internal do
-      change QuickTrain.Tasks.Changes.DraftEvidence
+      change Module.concat(["QuickTrain.Tasks.Changes.DraftEvidence"])
       require_atomic? false
       accept [:state, :revision, :submitted_at]
     end
@@ -155,7 +155,7 @@ defmodule QuickTrain.Tasks.Response do
 
   policies do
     policy action(:read) do
-      authorize_if QuickTrain.Tasks.ReadAccess
+      authorize_if Module.concat(["QuickTrain.Tasks.ReadAccess"])
     end
 
     policy action([:list_audit, :get_audit, :list_accepted, :get_accepted]) do

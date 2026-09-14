@@ -86,7 +86,7 @@ defmodule QuickTrain.Projects.ProjectItem do
     end
 
     policy action(:read) do
-      authorize_if accessing_from(QuickTrain.Projects.Project, :items)
+      authorize_if accessing_from(Module.concat(["QuickTrain.Projects.Project"]), :items)
     end
 
     policy action([:list_scoped, :get_scoped]) do

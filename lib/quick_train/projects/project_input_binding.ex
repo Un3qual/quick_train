@@ -156,7 +156,7 @@ defmodule QuickTrain.Projects.ProjectInputBinding do
     end
 
     policy action(:read) do
-      authorize_if accessing_from(QuickTrain.Projects.Project, :bindings)
+      authorize_if accessing_from(Module.concat(["QuickTrain.Projects.Project"]), :bindings)
     end
 
     policy action([:list_scoped, :get_scoped]) do

@@ -45,7 +45,7 @@ defmodule QuickTrain.Forms.Questions.Constraints.TextConstraints do
       argument :id, :uuid, allow_nil?: false
       argument :attempt_id, :uuid
       filter expr(id == ^arg(:id))
-      prepare QuickTrain.Tasks.ContractAccess.DefinitionRead
+      prepare Module.concat(["QuickTrain.Tasks.ContractAccess.DefinitionRead"])
     end
 
     read :read_for_authoring do
@@ -94,11 +94,11 @@ defmodule QuickTrain.Forms.Questions.Constraints.TextConstraints do
 
   policies do
     bypass action(:read) do
-      authorize_if QuickTrain.Tasks.ContractAccess
+      authorize_if Module.concat(["QuickTrain.Tasks.ContractAccess"])
     end
 
     policy action(:get_task_definition) do
-      authorize_if QuickTrain.Tasks.ContractAccess
+      authorize_if Module.concat(["QuickTrain.Tasks.ContractAccess"])
     end
 
     policy action(:read_for_authoring) do

@@ -75,7 +75,7 @@ defmodule QuickTrain.Tasks.Attempt do
       argument :organization_id, :uuid, allow_nil?: false
       argument :project_id, :uuid, allow_nil?: false
       argument :attempt_id, :uuid, allow_nil?: false
-      run QuickTrain.Tasks.ReadActions
+      run Module.concat(["QuickTrain.Tasks.ReadActions"])
     end
 
     action :work_bundle, :struct do
@@ -83,14 +83,14 @@ defmodule QuickTrain.Tasks.Attempt do
       argument :organization_id, :uuid, allow_nil?: false
       argument :project_id, :uuid, allow_nil?: false
       argument :attempt_id, :uuid, allow_nil?: false
-      run QuickTrain.Tasks.ReadActions
+      run Module.concat(["QuickTrain.Tasks.ReadActions"])
     end
 
     read :list_audit do
       argument :organization_id, :uuid, allow_nil?: false
       argument :project_id, :uuid, allow_nil?: false
       filter expr(organization_id == ^arg(:organization_id) and project_id == ^arg(:project_id))
-      prepare {QuickTrain.Tasks.ReadAccess.Prepare, mode: :audit}
+      prepare {Module.concat(["QuickTrain.Tasks.ReadAccess.Prepare"]), mode: :audit}
 
       pagination keyset?: true,
                  required?: true,
@@ -106,14 +106,14 @@ defmodule QuickTrain.Tasks.Attempt do
       argument :organization_id, :uuid, allow_nil?: false
       argument :project_id, :uuid, allow_nil?: false
       filter expr(organization_id == ^arg(:organization_id) and project_id == ^arg(:project_id))
-      prepare {QuickTrain.Tasks.ReadAccess.Prepare, mode: :audit}
+      prepare {Module.concat(["QuickTrain.Tasks.ReadAccess.Prepare"]), mode: :audit}
     end
 
     read :list_accepted do
       argument :organization_id, :uuid, allow_nil?: false
       argument :project_id, :uuid, allow_nil?: false
       filter expr(organization_id == ^arg(:organization_id) and project_id == ^arg(:project_id))
-      prepare {QuickTrain.Tasks.ReadAccess.Prepare, mode: :accepted}
+      prepare {Module.concat(["QuickTrain.Tasks.ReadAccess.Prepare"]), mode: :accepted}
 
       pagination keyset?: true,
                  required?: true,
@@ -129,7 +129,7 @@ defmodule QuickTrain.Tasks.Attempt do
       argument :organization_id, :uuid, allow_nil?: false
       argument :project_id, :uuid, allow_nil?: false
       filter expr(organization_id == ^arg(:organization_id) and project_id == ^arg(:project_id))
-      prepare {QuickTrain.Tasks.ReadAccess.Prepare, mode: :accepted}
+      prepare {Module.concat(["QuickTrain.Tasks.ReadAccess.Prepare"]), mode: :accepted}
     end
 
     action :cancel, :struct do
@@ -137,7 +137,7 @@ defmodule QuickTrain.Tasks.Attempt do
       argument :organization_id, :uuid, allow_nil?: false
       argument :project_id, :uuid, allow_nil?: false
       argument :attempt_id, :uuid, allow_nil?: false
-      run QuickTrain.Tasks.AttemptActions
+      run Module.concat(["QuickTrain.Tasks.AttemptActions"])
     end
 
     action :release, :struct do
@@ -145,7 +145,7 @@ defmodule QuickTrain.Tasks.Attempt do
       argument :organization_id, :uuid, allow_nil?: false
       argument :project_id, :uuid, allow_nil?: false
       argument :attempt_id, :uuid, allow_nil?: false
-      run QuickTrain.Tasks.AttemptActions
+      run Module.concat(["QuickTrain.Tasks.AttemptActions"])
     end
 
     action :start, :struct do
@@ -153,14 +153,14 @@ defmodule QuickTrain.Tasks.Attempt do
       argument :organization_id, :uuid, allow_nil?: false
       argument :project_id, :uuid, allow_nil?: false
       argument :attempt_id, :uuid, allow_nil?: false
-      run QuickTrain.Tasks.AttemptActions
+      run Module.concat(["QuickTrain.Tasks.AttemptActions"])
     end
 
     action :fetch, QuickTrain.Tasks.AllocationResult do
       argument :organization_id, :uuid, allow_nil?: false
       argument :project_id, :uuid, allow_nil?: false
       argument :request_key, :uuid, allow_nil?: false
-      run QuickTrain.Tasks.AttemptAllocation
+      run Module.concat(["QuickTrain.Tasks.AttemptAllocation"])
     end
 
     action :assign, QuickTrain.Tasks.AllocationResult do
@@ -168,7 +168,7 @@ defmodule QuickTrain.Tasks.Attempt do
       argument :project_id, :uuid, allow_nil?: false
       argument :request_key, :uuid, allow_nil?: false
       argument :worker_id, :uuid, allow_nil?: false
-      run QuickTrain.Tasks.AttemptAllocation
+      run Module.concat(["QuickTrain.Tasks.AttemptAllocation"])
     end
 
     action :follow_up, QuickTrain.Tasks.AllocationResult do
@@ -177,7 +177,7 @@ defmodule QuickTrain.Tasks.Attempt do
       argument :request_key, :uuid, allow_nil?: false
       argument :worker_id, :uuid, allow_nil?: false
       argument :predecessor_id, :uuid, allow_nil?: false
-      run QuickTrain.Tasks.AttemptAllocation
+      run Module.concat(["QuickTrain.Tasks.AttemptAllocation"])
     end
 
     read :read do
@@ -222,7 +222,7 @@ defmodule QuickTrain.Tasks.Attempt do
     end
 
     policy action(:read) do
-      authorize_if QuickTrain.Tasks.ReadAccess
+      authorize_if Module.concat(["QuickTrain.Tasks.ReadAccess"])
     end
 
     policy action([:list_audit, :get_audit, :list_accepted, :get_accepted]) do

@@ -40,15 +40,20 @@ defmodule QuickTrain.Tasks.AttemptQuestion do
   end
 
   calculations do
-    calculate :skip_allowed, :boolean, {QuickTrain.Tasks.OfferedPolicy, field: :skip_allowed},
-      public?: true
+    calculate :skip_allowed,
+              :boolean,
+              {Module.concat(["QuickTrain.Tasks.OfferedPolicy"]), field: :skip_allowed},
+              public?: true
 
     calculate :reason_required,
               :boolean,
-              {QuickTrain.Tasks.OfferedPolicy, field: :reason_required}, public?: true
+              {Module.concat(["QuickTrain.Tasks.OfferedPolicy"]), field: :reason_required},
+              public?: true
 
-    calculate :review_status, :atom, {QuickTrain.Tasks.OfferedPolicy, field: :review_status},
-      public?: true
+    calculate :review_status,
+              :atom,
+              {Module.concat(["QuickTrain.Tasks.OfferedPolicy"]), field: :review_status},
+              public?: true
   end
 
   actions do
@@ -56,7 +61,7 @@ defmodule QuickTrain.Tasks.AttemptQuestion do
       argument :organization_id, :uuid, allow_nil?: false
       argument :project_id, :uuid, allow_nil?: false
       filter expr(organization_id == ^arg(:organization_id) and project_id == ^arg(:project_id))
-      prepare {QuickTrain.Tasks.ReadAccess.Prepare, mode: :audit}
+      prepare {Module.concat(["QuickTrain.Tasks.ReadAccess.Prepare"]), mode: :audit}
 
       pagination keyset?: true,
                  required?: true,
@@ -72,14 +77,14 @@ defmodule QuickTrain.Tasks.AttemptQuestion do
       argument :organization_id, :uuid, allow_nil?: false
       argument :project_id, :uuid, allow_nil?: false
       filter expr(organization_id == ^arg(:organization_id) and project_id == ^arg(:project_id))
-      prepare {QuickTrain.Tasks.ReadAccess.Prepare, mode: :audit}
+      prepare {Module.concat(["QuickTrain.Tasks.ReadAccess.Prepare"]), mode: :audit}
     end
 
     read :list_accepted do
       argument :organization_id, :uuid, allow_nil?: false
       argument :project_id, :uuid, allow_nil?: false
       filter expr(organization_id == ^arg(:organization_id) and project_id == ^arg(:project_id))
-      prepare {QuickTrain.Tasks.ReadAccess.Prepare, mode: :accepted}
+      prepare {Module.concat(["QuickTrain.Tasks.ReadAccess.Prepare"]), mode: :accepted}
 
       pagination keyset?: true,
                  required?: true,
@@ -95,7 +100,7 @@ defmodule QuickTrain.Tasks.AttemptQuestion do
       argument :organization_id, :uuid, allow_nil?: false
       argument :project_id, :uuid, allow_nil?: false
       filter expr(organization_id == ^arg(:organization_id) and project_id == ^arg(:project_id))
-      prepare {QuickTrain.Tasks.ReadAccess.Prepare, mode: :accepted}
+      prepare {Module.concat(["QuickTrain.Tasks.ReadAccess.Prepare"]), mode: :accepted}
     end
 
     read :read do
@@ -124,7 +129,7 @@ defmodule QuickTrain.Tasks.AttemptQuestion do
 
   policies do
     policy action(:read) do
-      authorize_if QuickTrain.Tasks.ReadAccess
+      authorize_if Module.concat(["QuickTrain.Tasks.ReadAccess"])
     end
 
     policy action([:list_audit, :get_audit, :list_accepted, :get_accepted]) do

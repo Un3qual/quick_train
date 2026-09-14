@@ -93,7 +93,7 @@ defmodule QuickTrain.Projects.ProjectSlotPolicy do
     end
 
     policy action(:read) do
-      authorize_if accessing_from(QuickTrain.Projects.Project, :slot_policies)
+      authorize_if accessing_from(Module.concat(["QuickTrain.Projects.Project"]), :slot_policies)
     end
 
     policy action([:list_scoped, :get_scoped]) do

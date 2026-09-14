@@ -112,7 +112,7 @@ defmodule QuickTrain.Tasks.ReviewDecision do
         argument :organization_id, :uuid, allow_nil?: false
         argument :project_id, :uuid, allow_nil?: false
         filter expr(organization_id == ^arg(:organization_id) and project_id == ^arg(:project_id))
-        prepare {QuickTrain.Tasks.ReadAccess.Prepare, mode: mode}
+        prepare {Module.concat(["QuickTrain.Tasks.ReadAccess.Prepare"]), mode: mode}
 
         pagination keyset?: true,
                    required?: true,
@@ -132,7 +132,7 @@ defmodule QuickTrain.Tasks.ReviewDecision do
                    project_id == ^arg(:project_id)
                )
 
-        prepare {QuickTrain.Tasks.ReadAccess.Prepare, mode: mode}
+        prepare {Module.concat(["QuickTrain.Tasks.ReadAccess.Prepare"]), mode: mode}
       end
     end
 
@@ -157,7 +157,7 @@ defmodule QuickTrain.Tasks.ReviewDecision do
 
   policies do
     policy action(:read) do
-      authorize_if QuickTrain.Tasks.ReadAccess
+      authorize_if Module.concat(["QuickTrain.Tasks.ReadAccess"])
     end
 
     policy action([:list_audit, :list_accepted, :get_audit, :get_accepted]) do

@@ -51,7 +51,7 @@ defmodule QuickTrain.Tasks.StaticOptionAnswer do
       argument :organization_id, :uuid, allow_nil?: false
       argument :project_id, :uuid, allow_nil?: false
       filter expr(organization_id == ^arg(:organization_id) and project_id == ^arg(:project_id))
-      prepare {QuickTrain.Tasks.ReadAccess.Prepare, mode: :audit}
+      prepare {Module.concat(["QuickTrain.Tasks.ReadAccess.Prepare"]), mode: :audit}
 
       pagination keyset?: true,
                  required?: true,
@@ -67,14 +67,14 @@ defmodule QuickTrain.Tasks.StaticOptionAnswer do
       argument :organization_id, :uuid, allow_nil?: false
       argument :project_id, :uuid, allow_nil?: false
       filter expr(organization_id == ^arg(:organization_id) and project_id == ^arg(:project_id))
-      prepare {QuickTrain.Tasks.ReadAccess.Prepare, mode: :audit}
+      prepare {Module.concat(["QuickTrain.Tasks.ReadAccess.Prepare"]), mode: :audit}
     end
 
     read :list_accepted do
       argument :organization_id, :uuid, allow_nil?: false
       argument :project_id, :uuid, allow_nil?: false
       filter expr(organization_id == ^arg(:organization_id) and project_id == ^arg(:project_id))
-      prepare {QuickTrain.Tasks.ReadAccess.Prepare, mode: :accepted}
+      prepare {Module.concat(["QuickTrain.Tasks.ReadAccess.Prepare"]), mode: :accepted}
 
       pagination keyset?: true,
                  required?: true,
@@ -90,7 +90,7 @@ defmodule QuickTrain.Tasks.StaticOptionAnswer do
       argument :organization_id, :uuid, allow_nil?: false
       argument :project_id, :uuid, allow_nil?: false
       filter expr(organization_id == ^arg(:organization_id) and project_id == ^arg(:project_id))
-      prepare {QuickTrain.Tasks.ReadAccess.Prepare, mode: :accepted}
+      prepare {Module.concat(["QuickTrain.Tasks.ReadAccess.Prepare"]), mode: :accepted}
     end
 
     read :read do
@@ -106,7 +106,7 @@ defmodule QuickTrain.Tasks.StaticOptionAnswer do
     end
 
     create :create_internal do
-      change QuickTrain.Tasks.Changes.DraftEvidence
+      change Module.concat(["QuickTrain.Tasks.Changes.DraftEvidence"])
 
       accept [
         :organization_id,
@@ -120,14 +120,14 @@ defmodule QuickTrain.Tasks.StaticOptionAnswer do
     end
 
     destroy :destroy_internal do
-      change QuickTrain.Tasks.Changes.DraftEvidence
+      change Module.concat(["QuickTrain.Tasks.Changes.DraftEvidence"])
       require_atomic? false
     end
   end
 
   policies do
     policy action(:read) do
-      authorize_if QuickTrain.Tasks.ReadAccess
+      authorize_if Module.concat(["QuickTrain.Tasks.ReadAccess"])
     end
 
     policy action([:list_audit, :get_audit, :list_accepted, :get_accepted]) do

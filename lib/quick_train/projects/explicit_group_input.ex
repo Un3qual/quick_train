@@ -103,8 +103,8 @@ defmodule QuickTrain.Projects.ExplicitGroupInput do
     end
 
     policy action(:read) do
-      authorize_if accessing_from(QuickTrain.Projects.Project, :group_inputs)
-      authorize_if accessing_from(QuickTrain.Projects.ExplicitGroup, :inputs)
+      authorize_if accessing_from(Module.concat(["QuickTrain.Projects.Project"]), :group_inputs)
+      authorize_if accessing_from(Module.concat(["QuickTrain.Projects.ExplicitGroup"]), :inputs)
     end
 
     policy action([:list_scoped, :get_scoped]) do
