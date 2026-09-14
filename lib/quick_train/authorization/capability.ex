@@ -7,6 +7,7 @@ defmodule QuickTrain.Authorization.Capability do
     extensions: [AshGraphql.Resource]
 
   postgres do
+    migration_defaults id: "fragment(\"gen_random_uuid()\")"
     table "capabilities"
     repo QuickTrain.Repo
     identity_index_names key: "capabilities_key_index"
@@ -17,7 +18,13 @@ defmodule QuickTrain.Authorization.Capability do
   end
 
   attributes do
-    uuid_primary_key :id
+    attribute :id, :uuid,
+      primary_key?: true,
+      allow_nil?: false,
+      generated?: true,
+      public?: true,
+      writable?: false
+
     attribute :key, :string, allow_nil?: false, public?: true
     attribute :description, :string, allow_nil?: false, public?: true
     create_timestamp :inserted_at, public?: true

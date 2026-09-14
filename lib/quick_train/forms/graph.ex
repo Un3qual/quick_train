@@ -316,17 +316,27 @@ defmodule QuickTrain.Forms.Graph do
 
   def copy!(source, destination) do
     graph = load!(source.id)
-    ids = graph |> Map.values() |> List.flatten() |> Map.new(&{&1.id, Ash.UUID.generate()})
 
-    Enum.each(@resources, fn resource ->
-      attributes = Enum.map(graph[resource], &copy_attributes(resource, &1, destination.id, ids))
+    _ids =
+      Enum.reduce(@resources, %{}, fn resource, ids ->
+        originals = graph[resource]
+        attributes = Enum.map(originals, &copy_attributes(resource, &1, destination.id, ids))
 
-      Ash.bulk_create!(attributes, resource, :create_internal,
-        authorize?: false,
-        transaction: :all,
-        stop_on_error?: true
-      )
-    end)
+        result =
+          Ash.bulk_create!(attributes, resource, :create_internal,
+            authorize?: false,
+            transaction: :all,
+            stop_on_error?: true,
+            return_records?: true
+          )
+
+        originals = List.to_tuple(originals)
+
+        Enum.reduce(result.records, ids, fn copied, ids ->
+          original = elem(originals, Ash.Resource.get_metadata(copied, :bulk_create_index))
+          Map.put(ids, original.id, copied.id)
+        end)
+      end)
 
     validate!(destination, :draft)
   end
@@ -346,6 +356,5 @@ defmodule QuickTrain.Forms.Graph do
         old -> Map.fetch!(ids, old)
       end)
     end)
-    |> Map.put(:id, Map.fetch!(ids, original.id))
   end
 end

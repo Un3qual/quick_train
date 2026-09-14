@@ -12,6 +12,7 @@ defmodule QuickTrain.Organizations.Membership do
   require Ash.Query
 
   postgres do
+    migration_defaults id: "fragment(\"gen_random_uuid()\")"
     table "organization_memberships"
     repo QuickTrain.Repo
 
@@ -24,7 +25,13 @@ defmodule QuickTrain.Organizations.Membership do
   end
 
   attributes do
-    uuid_primary_key :id
+    attribute :id, :uuid,
+      primary_key?: true,
+      allow_nil?: false,
+      generated?: true,
+      public?: true,
+      writable?: false
+
     attribute :status, :string, allow_nil?: false, public?: true, default: "active"
     create_timestamp :inserted_at, public?: true
     update_timestamp :updated_at, public?: true

@@ -25,7 +25,12 @@ defmodule QuickTrain.Forms.Questions.QuestionDefinition do
   alias QuickTrain.Repo
 
   attributes do
-    uuid_primary_key :id, writable?: true
+    attribute :id, :uuid,
+      primary_key?: true,
+      allow_nil?: false,
+      generated?: true,
+      public?: true,
+      writable?: false
 
     attribute :key, :string,
       public?: true,
@@ -158,7 +163,6 @@ defmodule QuickTrain.Forms.Questions.QuestionDefinition do
 
     create :create_internal do
       accept [
-        :id,
         :key,
         :prompt,
         :family,
@@ -234,6 +238,7 @@ defmodule QuickTrain.Forms.Questions.QuestionDefinition do
   end
 
   postgres do
+    migration_defaults id: "fragment(\"gen_random_uuid()\")"
     table "form_question_definitions"
     repo Repo
 

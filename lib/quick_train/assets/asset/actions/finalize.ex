@@ -22,18 +22,16 @@ defmodule QuickTrain.Assets.Asset.Actions.Finalize do
   end
 
   defp finalize(asset_id, organization_id) do
-    claim_id = Ecto.UUID.generate()
-
-    case acquire_claim(asset_id, organization_id, claim_id) do
+    case acquire_claim(asset_id, organization_id) do
       {:ok, {:terminal, asset}} -> result(asset)
-      {:ok, {:claimed, asset}} -> publish(asset, claim_id)
+      {:ok, {:claimed, asset}} -> publish(asset, asset.operation_claim_id)
       {:ok, :busy} -> {:error, :asset_operation_in_progress}
       {:ok, :missing} -> {:error, :asset_not_found}
       {:error, error} -> {:error, error}
     end
   end
 
-  defp acquire_claim(asset_id, organization_id, claim_id) do
+  defp acquire_claim(asset_id, organization_id) do
     now = DateTime.utc_now()
     claim_expires_at = DateTime.add(now, config(:operation_claim_seconds), :second)
 
@@ -58,7 +56,6 @@ defmodule QuickTrain.Assets.Asset.Actions.Finalize do
           asset =
             asset
             |> Ash.Changeset.for_update(:claim_operation, %{
-              operation_claim_id: claim_id,
               operation_claim_expires_at: claim_expires_at
             })
             |> Ash.update!(authorize?: false)

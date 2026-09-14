@@ -16,7 +16,12 @@ defmodule QuickTrain.Forms.Questions.Constraints.SelectionConstraints do
   alias QuickTrain.Repo
 
   attributes do
-    uuid_primary_key :id, writable?: true
+    attribute :id, :uuid,
+      primary_key?: true,
+      allow_nil?: false,
+      generated?: true,
+      public?: true,
+      writable?: false
 
     attribute :minimum, :integer,
       public?: true,
@@ -78,7 +83,7 @@ defmodule QuickTrain.Forms.Questions.Constraints.SelectionConstraints do
     end
 
     create :create_internal do
-      accept [:id, :minimum, :maximum, :question_id, :version_id]
+      accept [:minimum, :maximum, :question_id, :version_id]
     end
   end
 
@@ -125,6 +130,7 @@ defmodule QuickTrain.Forms.Questions.Constraints.SelectionConstraints do
   end
 
   postgres do
+    migration_defaults id: "fragment(\"gen_random_uuid()\")"
     table "form_selection_constraints"
     repo Repo
 

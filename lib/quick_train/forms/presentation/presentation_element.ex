@@ -16,7 +16,12 @@ defmodule QuickTrain.Forms.Presentation.PresentationElement do
   alias QuickTrain.Repo
 
   attributes do
-    uuid_primary_key :id, writable?: true
+    attribute :id, :uuid,
+      primary_key?: true,
+      allow_nil?: false,
+      generated?: true,
+      public?: true,
+      writable?: false
 
     attribute :kind, PresentationKind,
       public?: true,
@@ -107,7 +112,7 @@ defmodule QuickTrain.Forms.Presentation.PresentationElement do
     end
 
     create :create_internal do
-      accept [:id, :kind, :position, :version_id, :text, :requirement_id, :question_id]
+      accept [:kind, :position, :version_id, :text, :requirement_id, :question_id]
     end
 
     update :update_internal do
@@ -168,6 +173,7 @@ defmodule QuickTrain.Forms.Presentation.PresentationElement do
   end
 
   postgres do
+    migration_defaults id: "fragment(\"gen_random_uuid()\")"
     table "form_presentation_elements"
     repo Repo
 

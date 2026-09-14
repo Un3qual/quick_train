@@ -71,7 +71,12 @@ defmodule QuickTrain.Assets.Asset.Actions.Register do
   end
 
   defp create_pending(arguments) do
-    asset_id = Ecto.UUID.generate()
+    with {:ok, %{rows: [[asset_id]]}} <- QuickTrain.Repo.query("SELECT gen_random_uuid()::text") do
+      create_pending(arguments, asset_id)
+    end
+  end
+
+  defp create_pending(arguments, asset_id) do
     config = Application.fetch_env!(:quick_train, :assets)
     now = DateTime.utc_now()
 

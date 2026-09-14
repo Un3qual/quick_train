@@ -19,7 +19,13 @@ defmodule QuickTrain.Datasets.DatasetRecord do
     authorizers: [Ash.Policy.Authorizer]
 
   attributes do
-    uuid_primary_key :id
+    attribute :id, :uuid,
+      primary_key?: true,
+      allow_nil?: false,
+      generated?: true,
+      public?: true,
+      writable?: false
+
     timestamps()
   end
 
@@ -76,6 +82,7 @@ defmodule QuickTrain.Datasets.DatasetRecord do
   end
 
   postgres do
+    migration_defaults id: "fragment(\"gen_random_uuid()\")"
     table "dataset_records"
     repo QuickTrain.Repo
 

@@ -18,7 +18,12 @@ defmodule QuickTrain.Assets.Asset do
     authorizers: [Ash.Policy.Authorizer]
 
   attributes do
-    uuid_primary_key :id, writable?: true
+    attribute :id, :uuid,
+      primary_key?: true,
+      allow_nil?: false,
+      generated?: true,
+      public?: true,
+      writable?: true
 
     attribute :state, AssetState,
       allow_nil?: false,
@@ -131,8 +136,9 @@ defmodule QuickTrain.Assets.Asset do
     end
 
     update :claim_operation do
-      accept [:operation_claim_id, :operation_claim_expires_at]
+      accept [:operation_claim_expires_at]
       validate attribute_equals(:state, :pending)
+      change atomic_update(:operation_claim_id, expr(fragment("gen_random_uuid()")))
     end
 
     update :start_publication do
@@ -226,6 +232,7 @@ defmodule QuickTrain.Assets.Asset do
   end
 
   postgres do
+    migration_defaults id: "fragment(\"gen_random_uuid()\")"
     table "assets"
     repo QuickTrain.Repo
 

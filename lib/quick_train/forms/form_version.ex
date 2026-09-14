@@ -18,7 +18,12 @@ defmodule QuickTrain.Forms.FormVersion do
   alias QuickTrain.Repo
 
   attributes do
-    uuid_primary_key :id
+    attribute :id, :uuid,
+      primary_key?: true,
+      allow_nil?: false,
+      generated?: true,
+      public?: true,
+      writable?: false
 
     attribute :version, :integer,
       public?: true,
@@ -190,11 +195,16 @@ defmodule QuickTrain.Forms.FormVersion do
   end
 
   postgres do
+    migration_defaults id: "fragment(\"gen_random_uuid()\")"
     table "form_versions"
     repo Repo
 
     references do
       reference :form, on_delete: :restrict
+    end
+
+    custom_indexes do
+      index [:id, :form_id], unique: true
     end
 
     check_constraints do

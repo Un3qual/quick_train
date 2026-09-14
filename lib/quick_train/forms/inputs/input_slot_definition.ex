@@ -14,7 +14,12 @@ defmodule QuickTrain.Forms.Inputs.InputSlotDefinition do
   alias QuickTrain.Repo
 
   attributes do
-    uuid_primary_key :id, writable?: true
+    attribute :id, :uuid,
+      primary_key?: true,
+      allow_nil?: false,
+      generated?: true,
+      public?: true,
+      writable?: false
 
     attribute :key, :string,
       public?: true,
@@ -105,7 +110,7 @@ defmodule QuickTrain.Forms.Inputs.InputSlotDefinition do
     end
 
     create :create_internal do
-      accept [:id, :key, :minimum, :maximum, :version_id]
+      accept [:key, :minimum, :maximum, :version_id]
     end
   end
 
@@ -159,6 +164,7 @@ defmodule QuickTrain.Forms.Inputs.InputSlotDefinition do
   end
 
   postgres do
+    migration_defaults id: "fragment(\"gen_random_uuid()\")"
     table "form_input_slot_definitions"
     repo Repo
 

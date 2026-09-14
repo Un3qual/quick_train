@@ -6,6 +6,7 @@ defmodule QuickTrain.Accounts.OidcLoginTransaction do
     data_layer: AshPostgres.DataLayer
 
   postgres do
+    migration_defaults id: "fragment(\"gen_random_uuid()\")"
     table "oidc_login_transactions"
     repo QuickTrain.Repo
     identity_index_names state_hash: "oidc_login_transactions_state_hash_index"
@@ -16,7 +17,13 @@ defmodule QuickTrain.Accounts.OidcLoginTransaction do
   end
 
   attributes do
-    uuid_primary_key :id
+    attribute :id, :uuid,
+      primary_key?: true,
+      allow_nil?: false,
+      generated?: true,
+      public?: true,
+      writable?: false
+
     attribute :state_hash, :binary, allow_nil?: false, sensitive?: true
     attribute :nonce_hash, :binary, allow_nil?: false, sensitive?: true
     attribute :code_verifier, :string, allow_nil?: false, sensitive?: true

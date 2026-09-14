@@ -9,12 +9,19 @@ defmodule QuickTrain.Accounts.AuthenticationEvent do
   alias QuickTrain.Organizations.Organization
 
   postgres do
+    migration_defaults id: "fragment(\"gen_random_uuid()\")"
     table "authentication_events"
     repo QuickTrain.Repo
   end
 
   attributes do
-    uuid_primary_key :id
+    attribute :id, :uuid,
+      primary_key?: true,
+      allow_nil?: false,
+      generated?: true,
+      public?: true,
+      writable?: false
+
     attribute :event, :string, allow_nil?: false, public?: true
     attribute :result, :string, allow_nil?: false, public?: true
     attribute :reason, :string, public?: true

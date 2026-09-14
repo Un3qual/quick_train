@@ -10,6 +10,7 @@ defmodule QuickTrain.Authorization.Role do
   alias QuickTrain.Organizations.Organization
 
   postgres do
+    migration_defaults id: "fragment(\"gen_random_uuid()\")"
     table "roles"
     repo QuickTrain.Repo
     identity_index_names organization_key: "roles_organization_key_index"
@@ -20,7 +21,12 @@ defmodule QuickTrain.Authorization.Role do
   end
 
   attributes do
-    uuid_primary_key :id
+    attribute :id, :uuid,
+      primary_key?: true,
+      allow_nil?: false,
+      generated?: true,
+      public?: true,
+      writable?: false
 
     attribute :key, :string, allow_nil?: false, public?: true
     attribute :name, :string, allow_nil?: false, public?: true

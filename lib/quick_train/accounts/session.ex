@@ -8,13 +8,19 @@ defmodule QuickTrain.Accounts.Session do
   alias QuickTrain.Accounts.User
 
   postgres do
+    migration_defaults id: "fragment(\"gen_random_uuid()\")"
     table "sessions"
     repo QuickTrain.Repo
     identity_index_names token_hash: "sessions_token_hash_index"
   end
 
   attributes do
-    uuid_primary_key :id
+    attribute :id, :uuid,
+      primary_key?: true,
+      allow_nil?: false,
+      generated?: true,
+      public?: true,
+      writable?: false
 
     attribute :authentication_method, :string, allow_nil?: false, default: "oidc"
     attribute :token_hash, :binary, allow_nil?: false, sensitive?: true
