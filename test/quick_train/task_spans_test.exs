@@ -112,6 +112,23 @@ defmodule QuickTrain.Tasks.TextSpansTest do
       Ash.create!(TextSpan, attrs, action: :create_internal, authorize?: false)
     end
 
+    assert_raise Ash.Error.Invalid, ~r/response_submitted/, fn ->
+      Ash.bulk_create!([attrs], TextSpan, :create_internal,
+        authorize?: false,
+        transaction: :all,
+        stop_on_error?: true
+      )
+    end
+
+    assert_raise Ash.Error.Invalid, ~r/response_submitted/, fn ->
+      Ash.bulk_destroy!(original, :destroy_internal, %{},
+        strategy: [:stream],
+        authorize?: false,
+        transaction: :all,
+        stop_on_error?: true
+      )
+    end
+
     assert MapSet.new(Ash.read!(TextSpan, authorize?: false, page: false), & &1.id) ==
              MapSet.new(original, & &1.id)
 

@@ -1,6 +1,5 @@
 defmodule QuickTrain.Tasks.Exports.Snapshot do
   use Ash.Resource.Actions.Implementation
-  alias QuickTrain.Datasets.DatasetItemRevision
   alias QuickTrain.Datasets.DatasetValue
   alias QuickTrain.Forms.Labels.Label
   alias QuickTrain.Forms.Presentation.PresentationElement
@@ -227,59 +226,80 @@ defmodule QuickTrain.Tasks.Exports.Snapshot do
     end)
   end
 
-  defp context!(export, kind) do
+  defp context!(export, :project_input_binding) do
+    inputs = context_inputs(export).filter
+
+    ProjectInputBinding
+    |> Ash.Query.filter(
+      project_id == ^export.project_id and
+        exists(issued_inputs, ^inputs and input_slot_id == parent(requirement.input_slot_id))
+    )
+    |> range(export)
+    |> stream()
+    |> Stream.map(
+      &%{binding_id: &1.id, field_definition_id: &1.field_definition_id, record_count: 1}
+    )
+    |> pin_all!(export, :project_input_binding)
+  end
+
+  defp context!(export, :dataset_value) do
+    context_inputs(export)
+    |> Ash.Query.load(:revision)
+    |> stream()
+    |> Stream.chunk_every(100)
+    |> Enum.each(&pin_input_values!(export, &1))
+  end
+
+  defp context_inputs(export) do
     evidence = ReadAccess.evidence_filter(Attempt, export.mode)
 
     eligible(TaskInput, export)
     |> Ash.Query.filter(exists(Attempt, task_id == parent(task_id) and ^evidence))
-    |> stream()
-    |> Enum.each(&pin_input_context!(export, kind, &1))
   end
 
-  defp pin_input_context!(export, kind, input) do
+  defp pin_input_values!(export, inputs) do
+    slots = Enum.map(inputs, & &1.input_slot_id) |> Enum.uniq()
+
     ProjectInputBinding
-    |> Ash.Query.filter(
-      project_id == ^export.project_id and requirement.input_slot_id == ^input.input_slot_id
-    )
+    |> Ash.Query.filter(project_id == ^export.project_id and requirement.input_slot_id in ^slots)
+    |> Ash.Query.load(:requirement)
     |> stream()
-    |> Enum.each(&pin_binding!(export, kind, input, &1))
+    |> Stream.chunk_every(100)
+    |> Enum.each(&pin_bound_values!(export, inputs, &1))
   end
 
-  defp pin_binding!(export, :project_input_binding, _input, binding) do
-    if within?(binding.id, export),
-      do:
-        pin!(
-          export,
-          :project_input_binding,
-          %{binding_id: binding.id, field_definition_id: binding.field_definition_id},
-          1
-        )
-  end
+  defp pin_bound_values!(export, inputs, bindings) do
+    sources =
+      for input <- inputs,
+          binding <- bindings,
+          binding.requirement.input_slot_id == input.input_slot_id,
+          into: %{} do
+        {{input.revision.root_record_id, binding.field_definition_id},
+         %{binding_id: binding.id, revision_id: input.revision_id}}
+      end
 
-  defp pin_binding!(export, :dataset_value, input, binding) do
-    revision = Ash.get!(DatasetItemRevision, input.revision_id, authorize?: false)
+    roots = sources |> Map.keys() |> Enum.map(&elem(&1, 0)) |> Enum.uniq()
+    fields = Enum.map(bindings, & &1.field_definition_id) |> Enum.uniq()
 
     DatasetValue
     |> Ash.Query.filter(
-      organization_id == ^export.organization_id and record_id == ^revision.root_record_id and
-        field_definition_id == ^binding.field_definition_id
+      organization_id == ^export.organization_id and record_id in ^roots and
+        field_definition_id in ^fields
     )
     |> range(export)
     |> stream()
-    |> Enum.each(fn value ->
-      pin!(
-        export,
-        :dataset_value,
-        %{
-          binding_id: binding.id,
-          field_definition_id: binding.field_definition_id,
-          dataset_value_id: value.id,
-          revision_id: revision.id,
-          source_record_id: revision.root_record_id
-        },
-        1
-      )
+    |> Stream.filter(&Map.has_key?(sources, {&1.record_id, &1.field_definition_id}))
+    |> Stream.map(fn value ->
+      sources
+      |> Map.fetch!({value.record_id, value.field_definition_id})
+      |> Map.merge(%{
+        dataset_value_id: value.id,
+        field_definition_id: value.field_definition_id,
+        source_record_id: value.record_id,
+        record_count: 1
+      })
     end)
+    |> pin_all!(export, :dataset_value)
   end
 
   defp pin_group!(export, kind, query, attrs) do
@@ -287,20 +307,24 @@ defmodule QuickTrain.Tasks.Exports.Snapshot do
     if count > 0, do: pin!(export, kind, attrs, count)
   end
 
-  defp pin!(export, kind, attrs, count) do
-    attrs =
-      Map.merge(attrs, %{
-        export_id: export.id,
-        organization_id: export.organization_id,
-        project_id: export.project_id,
-        form_version_id: export.form_version_id,
-        kind: kind,
-        record_count: count
-      })
+  defp pin!(export, kind, attrs, count),
+    do: pin_all!([Map.put(attrs, :record_count, count)], export, kind)
 
-    Ash.create!(ExportSelection, attrs,
-      action: :create_internal,
+  defp pin_all!(attributes, export, kind) do
+    scope = %{
+      export_id: export.id,
+      organization_id: export.organization_id,
+      project_id: export.project_id,
+      form_version_id: export.form_version_id,
+      kind: kind
+    }
+
+    attributes
+    |> Stream.map(&Map.merge(&1, scope))
+    |> Ash.bulk_create!(ExportSelection, :create_internal,
       authorize?: false,
+      transaction: :all,
+      stop_on_error?: true,
       upsert?: true,
       upsert_identity: if(kind == :dataset_value, do: :source_value, else: :membership),
       upsert_fields: []
@@ -339,11 +363,6 @@ defmodule QuickTrain.Tasks.Exports.Snapshot do
       do: Ash.Query.filter(query, id <= ^export.evidence_id_to),
       else: query
   end
-
-  defp within?(id, export),
-    do:
-      (is_nil(export.evidence_id_from) or id >= export.evidence_id_from) and
-        (is_nil(export.evidence_id_to) or id <= export.evidence_id_to)
 
   def stream(query),
     do: query |> Ash.Query.sort(id: :asc) |> Ash.stream!(batch_size: 100, authorize?: false)

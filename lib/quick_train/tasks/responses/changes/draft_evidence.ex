@@ -4,25 +4,48 @@ defmodule QuickTrain.Tasks.Responses.Changes.DraftEvidence do
   alias QuickTrain.Tasks.{Access, Error}
   alias QuickTrain.Tasks.Attempts.Leases
   alias QuickTrain.Tasks.Responses.{QuestionResponse, Response}
+  require Ash.Query
 
   @impl true
-  def change(changeset, _opts, _context), do: Ash.Changeset.before_action(changeset, &lock!/1)
+  def batch_change(changesets, _opts, _context), do: changesets
 
-  defp lock!(changeset) do
-    response_id =
-      cond do
-        changeset.resource == Response ->
-          changeset.data.id
+  @impl true
+  def before_batch(changesets, _opts, _context) do
+    ids = response_ids(changesets) |> Enum.uniq()
 
-        changeset.resource == QuestionResponse ->
-          Ash.Changeset.get_attribute(changeset, :response_id)
+    responses =
+      Response
+      |> Ash.Query.filter(id in ^ids)
+      |> Ash.Query.sort(project_id: :asc, task_id: :asc, id: :asc)
+      |> Ash.read!(authorize?: false, page: false)
 
-        true ->
-          id = Ash.Changeset.get_attribute(changeset, :question_response_id)
-          Ash.get!(QuestionResponse, id, authorize?: false).response_id
-      end
+    if length(responses) != length(ids), do: Error.reject!(:forbidden)
+    Enum.each(responses, &lock!/1)
+    changesets
+  end
 
-    initial = Ash.get!(Response, response_id, authorize?: false)
+  defp response_ids([]), do: []
+
+  defp response_ids([%{resource: Response} | _] = changesets),
+    do: Enum.map(changesets, & &1.data.id)
+
+  defp response_ids([%{resource: QuestionResponse} | _] = changesets),
+    do: Enum.map(changesets, &Ash.Changeset.get_attribute(&1, :response_id))
+
+  defp response_ids(changesets) do
+    ids =
+      Enum.map(changesets, &Ash.Changeset.get_attribute(&1, :question_response_id)) |> Enum.uniq()
+
+    outcomes =
+      QuestionResponse
+      |> Ash.Query.filter(id in ^ids)
+      |> Ash.read!(authorize?: false, page: false)
+
+    if length(outcomes) != length(ids), do: Error.reject!(:forbidden)
+    Enum.map(outcomes, & &1.response_id)
+  end
+
+  defp lock!(initial) do
     project = Access.project!(initial.organization_id, initial.project_id)
     {_task, attempt} = Access.lock_attempt!(project, initial.attempt_id)
     response = Access.response!(attempt)
@@ -33,6 +56,6 @@ defmodule QuickTrain.Tasks.Responses.Changes.DraftEvidence do
     if DateTime.compare(attempt.deadline, Leases.now!()) != :gt,
       do: Error.reject!(:attempt_expired)
 
-    changeset
+    :ok
   end
 end

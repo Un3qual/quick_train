@@ -40,7 +40,15 @@ defmodule QuickTrain.Tasks.ResultExportTest do
         "exports-#{System.unique_integer([:positive])}"
       )
 
-    source = if tags[:rich], do: rich_source!(context), else: ProjectsFixture.source!(context)
+    source_opts =
+      if tags[:input_count],
+        do: [item_count: tags.input_count, slot_maximum: tags.inputs_per_task],
+        else: []
+
+    source =
+      if tags[:rich],
+        do: rich_source!(context),
+        else: ProjectsFixture.source!(context, source_opts)
 
     project =
       ProjectsFixture.draft!(context, source, audience: :external_users, external_access: :open)
@@ -69,7 +77,7 @@ defmodule QuickTrain.Tasks.ResultExportTest do
       project.id,
       %{
         input_slot_id: source.form.slot.id,
-        item_count: if(tags[:rich], do: 2, else: 1),
+        item_count: tags[:inputs_per_task] || if(tags[:rich], do: 2, else: 1),
         shuffle: false
       },
       actor: context.actor
@@ -260,6 +268,22 @@ defmodule QuickTrain.Tasks.ResultExportTest do
 
     assert asset.sha256 == :crypto.hash(:sha256, bytes)
     assert asset.byte_size == byte_size(bytes)
+  end
+
+  @tag input_count: 102, inputs_per_task: 51
+  test "source-only exports retain exact revision provenance across input pages", scope do
+    for _ <- 1..2, do: submit!(scope)
+    {:ok, export} = request(scope, %{evidence_kind: "dataset_value"})
+    assert :ok = QuickTrain.Tasks.process_result_export(export.id, authorize?: false)
+    {:ok, bytes} = InMemory.read_sealed(download!(scope, export.id).read_access)
+    [header | rows] = jsonl(bytes)
+
+    assert header["record_count"] == "102"
+    assert length(rows) == length(scope.source.revisions)
+    assert MapSet.size(MapSet.new(rows, & &1["id"])) == 102
+    assert Enum.all?(rows, &(&1["kind"] == "dataset_value"))
+
+    assert MapSet.new(rows, & &1["revision_id"]) == MapSet.new(scope.source.revisions, & &1.id)
   end
 
   test "sealed selection and review provenance survive correction and later submission", scope do

@@ -27,17 +27,7 @@ defmodule QuickTrain.Tasks.Progress do
 
   # Callers hold the Task lock; counts and their evidence commit together.
   def change!(project, task, changes) do
-    updated =
-      Enum.map(rows(task.id), fn row ->
-        case Map.fetch(changes, row.question_id) do
-          {:ok, deltas} ->
-            values = Map.new(deltas, fn {key, delta} -> {key, Map.fetch!(row, key) + delta} end)
-            update_row!(row, values)
-
-          :error ->
-            row
-        end
-      end)
+    updated = Enum.map(rows(task.id), &change_row!(&1, Map.get(changes, &1.question_id, %{})))
 
     update_task!(project, task, updated)
   end
@@ -128,6 +118,13 @@ defmodule QuickTrain.Tasks.Progress do
 
   defp increment(counts, question_id, field) do
     Map.update!(counts, question_id, &Map.update!(&1, field, fn value -> value + 1 end))
+  end
+
+  defp change_row!(row, deltas) when map_size(deltas) == 0, do: row
+
+  defp change_row!(row, deltas) do
+    values = Map.new(deltas, fn {key, delta} -> {key, Map.fetch!(row, key) + delta} end)
+    update_row!(row, values)
   end
 
   defp update_row!(row, values) do

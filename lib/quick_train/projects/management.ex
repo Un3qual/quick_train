@@ -1,7 +1,7 @@
 defmodule QuickTrain.Projects.Management do
   @moduledoc false
   use Ash.Resource.Actions.Implementation
-  alias QuickTrain.Authorization
+  alias QuickTrain.{Authorization, Projects}
 
   alias QuickTrain.Projects.{
     Error,
@@ -35,14 +35,14 @@ defmodule QuickTrain.Projects.Management do
 
   def lock!(organization_id, project_id) do
     project =
-      QuickTrain.Projects.lock_project!(organization_id, project_id, authorize?: false)
+      Projects.lock_project!(organization_id, project_id, authorize?: false)
 
     if is_nil(project), do: Error.reject!(:invalid_project)
     project
   end
 
   defp execute(%{action: %{name: :create_project}, arguments: args}, actor) do
-    QuickTrain.Projects.create_project!(args.organization_id, Map.delete(args, :organization_id),
+    Projects.create_project!(args.organization_id, Map.delete(args, :organization_id),
       actor: actor
     )
   end
@@ -58,7 +58,7 @@ defmodule QuickTrain.Projects.Management do
               :update_draft
             ] do
     project =
-      QuickTrain.Projects.get_project!(args.organization_id, args.project_id,
+      Projects.get_project!(args.organization_id, args.project_id,
         authorize?: false,
         not_found_error?: false
       )
@@ -67,10 +67,10 @@ defmodule QuickTrain.Projects.Management do
 
     case action do
       :update_title ->
-        QuickTrain.Projects.rename_project!(project, %{title: args.title}, actor: actor)
+        Projects.rename_project!(project, %{title: args.title}, actor: actor)
 
       :update_draft ->
-        QuickTrain.Projects.configure_project!(
+        Projects.configure_project!(
           project,
           Map.drop(args, [:organization_id, :project_id]),
           actor: actor
@@ -95,19 +95,19 @@ defmodule QuickTrain.Projects.Management do
   end
 
   defp transition!(project, :activate, actor),
-    do: QuickTrain.Projects.activate_project_record!(project, actor: actor)
+    do: Projects.activate_project_record!(project, actor: actor)
 
   defp transition!(project, :pause, actor),
-    do: QuickTrain.Projects.pause_project_record!(project, actor: actor)
+    do: Projects.pause_project_record!(project, actor: actor)
 
   defp transition!(project, :resume, actor),
-    do: QuickTrain.Projects.resume_project_record!(project, actor: actor)
+    do: Projects.resume_project_record!(project, actor: actor)
 
   defp transition!(project, :complete, actor),
-    do: QuickTrain.Projects.complete_project_record!(project, actor: actor)
+    do: Projects.complete_project_record!(project, actor: actor)
 
   defp transition!(project, :archive, actor),
-    do: QuickTrain.Projects.archive_project_record!(project, actor: actor)
+    do: Projects.archive_project_record!(project, actor: actor)
 
   defp authorize_edit!(project, action, _args, actor) do
     if action in [:enroll_revisions, :set_binding],

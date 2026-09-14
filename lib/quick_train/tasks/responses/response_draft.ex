@@ -56,26 +56,19 @@ defmodule QuickTrain.Tasks.Responses.ResponseDraft do
 
     child_scope = Map.put(scope, :question_response_id, outcome.id)
 
-    for id <- normalized.option_ids,
-        do:
-          Ash.create!(StaticOptionAnswer, Map.put(child_scope, :option_id, id),
-            action: :create_internal,
-            authorize?: false
-          )
-
-    for input <- normalized.inputs,
-        do:
-          Ash.create!(TaskInputAnswer, Map.merge(child_scope, input),
-            action: :create_internal,
-            authorize?: false
-          )
-
-    for span <- normalized.spans,
-        do:
-          Ash.create!(TextSpan, Map.merge(child_scope, span),
-            action: :create_internal,
-            authorize?: false
-          )
+    for {resource, children} <- [
+          {StaticOptionAnswer, Enum.map(normalized.option_ids, &%{option_id: &1})},
+          {TaskInputAnswer, normalized.inputs},
+          {TextSpan, normalized.spans}
+        ] do
+      children
+      |> Enum.map(&Map.merge(child_scope, &1))
+      |> Ash.bulk_create!(resource, :create_internal,
+        authorize?: false,
+        transaction: :all,
+        stop_on_error?: true
+      )
+    end
 
     response =
       QuickTrain.Tasks.revise_response!(response, authorize?: false)
@@ -111,8 +104,12 @@ defmodule QuickTrain.Tasks.Responses.ResponseDraft do
       for child <- @children do
         child
         |> Ash.Query.filter(question_response_id == ^prior.id)
-        |> Ash.stream!(authorize?: false)
-        |> Enum.each(&Ash.destroy!(&1, action: :destroy_internal, authorize?: false))
+        |> Ash.bulk_destroy!(:destroy_internal, %{},
+          strategy: [:stream],
+          authorize?: false,
+          transaction: :all,
+          stop_on_error?: true
+        )
       end
 
       Ash.destroy!(prior, action: :destroy_internal, authorize?: false)

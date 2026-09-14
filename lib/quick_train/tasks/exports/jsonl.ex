@@ -58,20 +58,49 @@ defmodule QuickTrain.Tasks.Exports.Jsonl do
 
   defp write_kind!(file, export, schema_version_id, kind, state) do
     Snapshot.rows(export, kind, loads(kind))
-    |> Enum.reduce(state, fn row, {hash, size, count} ->
-      value =
-        row(export, kind, row)
-        |> Map.merge(%{
-          kind: kind,
-          organization_id: export.organization_id,
-          project_id: export.project_id,
-          form_version_id: export.form_version_id,
-          schema_version_id: schema_version_id
-        })
+    |> Stream.chunk_every(100)
+    |> Enum.reduce(state, fn rows, state ->
+      selections = selections(export, kind, rows)
 
-      write_line!(file, value, {hash, size, count + 1})
+      Enum.reduce(rows, state, fn row, {hash, size, count} ->
+        value =
+          row(selections, kind, row)
+          |> Map.merge(%{
+            kind: kind,
+            organization_id: export.organization_id,
+            project_id: export.project_id,
+            form_version_id: export.form_version_id,
+            schema_version_id: schema_version_id
+          })
+
+        write_line!(file, value, {hash, size, count + 1})
+      end)
     end)
   end
+
+  defp selections(export, kind, rows)
+       when kind in [
+              :question_response,
+              :static_option_answer,
+              :task_input_answer,
+              :text_span,
+              :dataset_value
+            ] do
+    field = if kind == :dataset_value, do: :dataset_value_id, else: :question_response_id
+
+    row_field =
+      if kind in [:question_response, :dataset_value], do: :id, else: :question_response_id
+
+    ids = Enum.map(rows, &Map.fetch!(&1, row_field)) |> Enum.uniq()
+
+    ExportSelection
+    |> Ash.Query.filter(export_id == ^export.id and kind == ^kind)
+    |> Ash.Query.filter(^[{field, [in: ids]}])
+    |> Ash.read!(authorize?: false, page: false)
+    |> Map.new(&{Map.fetch!(&1, field), &1})
+  end
+
+  defp selections(_export, _kind, _rows), do: %{}
 
   defp loads(:question_response), do: [:response]
 
@@ -95,15 +124,10 @@ defmodule QuickTrain.Tasks.Exports.Jsonl do
     {:crypto.hash_update(hash, bytes), size + IO.iodata_length(bytes), count}
   end
 
-  defp row(_export, :task, row), do: row |> fields() |> Map.drop([:state, :updated_at])
+  defp row(_selections, :task, row), do: row |> fields() |> Map.drop([:state, :updated_at])
 
-  defp row(export, :question_response, row) do
-    selection =
-      ExportSelection
-      |> Ash.Query.filter(
-        export_id == ^export.id and kind == :question_response and question_response_id == ^row.id
-      )
-      |> Ash.read_one!(authorize?: false)
+  defp row(selections, :question_response, row) do
+    selection = Map.fetch!(selections, row.id)
 
     row
     |> fields()
@@ -114,17 +138,12 @@ defmodule QuickTrain.Tasks.Exports.Jsonl do
     })
   end
 
-  defp row(_export, :presentation_element, row), do: Map.put(fields(row), :element_kind, row.kind)
+  defp row(_selections, :presentation_element, row),
+    do: Map.put(fields(row), :element_kind, row.kind)
 
-  defp row(export, kind, row)
+  defp row(selections, kind, row)
        when kind in [:static_option_answer, :task_input_answer, :text_span] do
-    selection =
-      ExportSelection
-      |> Ash.Query.filter(
-        export_id == ^export.id and kind == ^kind and
-          question_response_id == ^row.question_response_id
-      )
-      |> Ash.read_one!(authorize?: false)
+    selection = Map.fetch!(selections, row.question_response_id)
 
     response = row.question_response.response
 
@@ -136,7 +155,7 @@ defmodule QuickTrain.Tasks.Exports.Jsonl do
     })
   end
 
-  defp row(_export, :question_definition, row) do
+  defp row(_selections, :question_definition, row) do
     Enum.reduce(@constraints, fields(row), fn key, value ->
       constraint = Map.fetch!(row, key)
 
@@ -151,7 +170,7 @@ defmodule QuickTrain.Tasks.Exports.Jsonl do
     end)
   end
 
-  defp row(_export, :project_input_binding, row) do
+  defp row(_selections, :project_input_binding, row) do
     fields(row)
     |> Map.merge(%{
       input_slot_id: row.requirement.input_slot_id,
@@ -162,13 +181,8 @@ defmodule QuickTrain.Tasks.Exports.Jsonl do
     })
   end
 
-  defp row(export, :dataset_value, row) do
-    selected =
-      ExportSelection
-      |> Ash.Query.filter(
-        export_id == ^export.id and kind == :dataset_value and dataset_value_id == ^row.id
-      )
-      |> Ash.read_one!(authorize?: false)
+  defp row(selections, :dataset_value, row) do
+    selected = Map.fetch!(selections, row.id)
 
     value =
       Enum.reduce(@typed_values, fields(row), fn key, result ->
@@ -206,7 +220,7 @@ defmodule QuickTrain.Tasks.Exports.Jsonl do
     })
   end
 
-  defp row(_export, _kind, row), do: fields(row)
+  defp row(_selections, _kind, row), do: fields(row)
 
   defp fields(%resource{} = row) do
     resource
