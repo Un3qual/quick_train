@@ -313,26 +313,25 @@ defmodule QuickTrain.Tasks.AttemptAllocation do
   end
 
   defp select_group(%{selection_mode: :explicit} = project, _coverage) do
-    ExplicitGroup
-    |> Ash.Query.filter(project_id == ^project.id)
-    |> Ash.Query.sort(position: :asc, id: :asc)
-    |> Ash.stream!(authorize?: false)
-    |> Enum.find_value(fn group ->
-      issued? =
-        Task
-        |> Ash.Query.filter(project_id == ^project.id and explicit_group_id == ^group.id)
-        |> Ash.exists?(authorize?: false)
+    group =
+      ExplicitGroup
+      |> Ash.Query.filter(
+        project_id == ^project.id and
+          not exists(Task, project_id == parent(project_id) and explicit_group_id == parent(id))
+      )
+      |> Ash.Query.sort(position: :asc, id: :asc)
+      |> Ash.Query.limit(1)
+      |> Ash.read_one!(authorize?: false)
 
-      unless issued? do
-        inputs =
-          ExplicitGroupInput
-          |> Ash.Query.filter(group_id == ^group.id)
-          |> Ash.Query.sort(position: :asc, id: :asc)
-          |> Ash.read!(authorize?: false, page: false)
+    if group do
+      inputs =
+        ExplicitGroupInput
+        |> Ash.Query.filter(group_id == ^group.id)
+        |> Ash.Query.sort(position: :asc, id: :asc)
+        |> Ash.read!(authorize?: false, page: false)
 
-        {inputs, group.id}
-      end
-    end)
+      {inputs, group.id}
+    end
   end
 
   defp create_inputs!(project, task, inputs) do
@@ -414,6 +413,7 @@ defmodule QuickTrain.Tasks.AttemptAllocation do
       |> Ash.Query.filter(task_id == ^task.id)
       |> Ash.Query.sort(id: :asc)
       |> Ash.read!(authorize?: false, page: false)
+      |> authored_order(task)
       |> Enum.group_by(& &1.input_slot_id)
 
     ProjectSlotPolicy
@@ -438,6 +438,18 @@ defmodule QuickTrain.Tasks.AttemptAllocation do
         )
       end)
     end)
+  end
+
+  defp authored_order(inputs, %{explicit_group_id: nil}), do: inputs
+
+  defp authored_order(inputs, task) do
+    positions =
+      ExplicitGroupInput
+      |> Ash.Query.filter(group_id == ^task.explicit_group_id)
+      |> Ash.read!(authorize?: false, page: false)
+      |> Map.new(&{{&1.input_slot_id, &1.project_item_id}, &1.position})
+
+    Enum.sort_by(inputs, &Map.fetch!(positions, {&1.input_slot_id, &1.project_item_id}))
   end
 
   defp no_work(tasks, worker_id) do

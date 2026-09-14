@@ -1,13 +1,27 @@
 defmodule QuickTrain.Tasks.TaskAllocationTest do
   use QuickTrain.DataCase, async: false
   alias QuickTrain.{Accounts, ProjectsFixture}
-  alias QuickTrain.Projects.Project
-  alias QuickTrain.Tasks.{Attempt, Task, TaskInput, TaskQuestionProgress}
+  alias QuickTrain.Projects.{ExplicitGroup, Project}
+
+  alias QuickTrain.Tasks.{
+    Attempt,
+    AttemptInputPresentation,
+    Task,
+    TaskInput,
+    TaskQuestionProgress
+  }
+
   alias QuickTrain.Tasks.Workers.ExpireAttempt
+  require Ash.Query
 
   setup tags do
     context = ProjectsFixture.context!()
-    source = ProjectsFixture.source!(context, item_count: tags[:item_count] || 2)
+
+    source =
+      ProjectsFixture.source!(context,
+        item_count: tags[:item_count] || 2,
+        slot_maximum: tags[:slot_maximum]
+      )
 
     project =
       ProjectsFixture.active!(context, source, audience: :external_users, external_access: :open)
@@ -46,6 +60,65 @@ defmodule QuickTrain.Tasks.TaskAllocationTest do
 
     assert Ash.count!(Task, authorize?: false) == 0
     assert Ash.count!(Attempt, authorize?: false) == 0
+  end
+
+  @tag item_count: 8, slot_maximum: 4
+  test "explicit groups are consumed in order and retain authored input order on reuse", ctx do
+    project =
+      ProjectsFixture.configured!(ctx.context, ctx.source,
+        audience: :external_users,
+        external_access: :open,
+        selection_mode: :explicit
+      )
+
+    ProjectsFixture.run!(ctx.context, project, :set_slot_policy, %{
+      input_slot_id: ctx.source.form.slot.id,
+      item_count: 4,
+      shuffle: false
+    })
+
+    groups =
+      project
+      |> ProjectsFixture.items()
+      |> Enum.sort_by(& &1.id)
+      |> Enum.chunk_every(4)
+      |> Enum.with_index(fn items, position ->
+        ProjectsFixture.run!(ctx.context, project, :create_explicit_group, %{
+          position: position,
+          inputs:
+            Enum.with_index(items, fn item, position ->
+              %{
+                input_slot_id: ctx.source.form.slot.id,
+                project_item_id: item.id,
+                position: position
+              }
+            end)
+        })
+
+        {position, Enum.map(items, & &1.id)}
+      end)
+
+    project = ProjectsFixture.run!(ctx.context, project, :activate)
+    ctx = %{ctx | project: project}
+
+    for {position, expected} <- groups do
+      attempt = fetch(ctx, Ash.UUID.generate()).attempt
+      group_id = Ash.get!(Task, attempt.task_id, authorize?: false).explicit_group_id
+      assert Ash.get!(ExplicitGroup, group_id, authorize?: false).position == position
+      assert presented_items(attempt) == expected
+
+      QuickTrain.Tasks.release_attempt!(ctx.context.org.id, project.id, attempt.id,
+        actor: ctx.worker
+      )
+    end
+
+    assert fetch(ctx, Ash.UUID.generate()).status == :no_work_for_worker
+    worker = Accounts.register_user!("explicit-reuse@example.test", "Next collector")
+    attempt = fetch(%{ctx | worker: worker}, Ash.UUID.generate()).attempt
+    group_id = Ash.get!(Task, attempt.task_id, authorize?: false).explicit_group_id
+    position = Ash.get!(ExplicitGroup, group_id, authorize?: false).position
+    assert presented_items(attempt) == Map.fetch!(Map.new(groups), position)
+    assert Ash.count!(Task, authorize?: false) == 2
   end
 
   test "blocking the owner denies allocation retries", ctx do
@@ -224,5 +297,14 @@ defmodule QuickTrain.Tasks.TaskAllocationTest do
       actor: ctx.worker
     )
     |> Ash.run_action!()
+  end
+
+  defp presented_items(attempt) do
+    AttemptInputPresentation
+    |> Ash.Query.filter(attempt_id == ^attempt.id)
+    |> Ash.Query.sort(position: :asc)
+    |> Ash.Query.load(:task_input)
+    |> Ash.read!(authorize?: false, page: false)
+    |> Enum.map(& &1.task_input.project_item_id)
   end
 end

@@ -47,6 +47,10 @@ Allocation SHALL first prefer an existing non-escalated task with available ques
 - **WHEN** two attempts display the same inputs in different orders
 - **THEN** each order is persisted, while both answers still identify the same stable TaskInputs
 
+#### Scenario: Explicit groups retain authored order without shuffling
+- **WHEN** an explicit group is issued with slot shuffling disabled, including a later attempt on the same task
+- **THEN** its inputs follow the frozen explicit-group positions within each slot, independent of generated TaskInput IDs
+
 ### Requirement: Question capacity is reserved atomically
 Each task question SHALL track its accepted target separately. Available capacity SHALL exclude effectively accepted answers, pending submitted answers, and unexpired live reservations. Before checking capacity and escalation on an existing candidate task, allocation SHALL expire all physically live attempts on that task whose deadlines are at or before a database wall-clock cutoff taken after locking its task/progress rows, regardless of worker. In the same transaction it SHALL update their offered-question reservations, expiry failure contributions, derived attention, and task state exactly once. These updates SHALL remain committed on a successful no-work result, and later cleanup SHALL not count the failures again. Allocation SHALL atomically reserve one unit for each currently available non-escalated question and persist exactly that offered question set on the attempt. At least one question SHALL be offered. Skips, rejections, expiration, release, and cancellation SHALL release capacity as applicable; submitted answered outcomes SHALL replace live reservations with pending/accepted evidence. Concurrent operations SHALL never exceed capacity when issuing attempts. Later review corrections SHALL preserve all accepted evidence even when it exceeds the target.
 

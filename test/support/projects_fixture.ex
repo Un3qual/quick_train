@@ -15,6 +15,18 @@ defmodule QuickTrain.ProjectsFixture do
     form = FormsFixture.rating!(context)
 
     form =
+      if maximum = opts[:slot_maximum] do
+        {:ok, slot} =
+          FormsFixture.edit(QuickTrain.Forms.Inputs.InputSlotDefinition, context, form.slot, %{
+            maximum: maximum
+          })
+
+        %{form | slot: slot}
+      else
+        form
+      end
+
+    form =
       if opts[:image_requirement] do
         FormsFixture.add!(QuickTrain.Forms.Inputs.InputFieldRequirement, context, form.version, %{
           input_slot_id: form.slot.id,
