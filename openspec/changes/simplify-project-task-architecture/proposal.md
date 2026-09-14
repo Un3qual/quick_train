@@ -1,6 +1,6 @@
 ## Why
 
-The collection architecture stores a second response lifecycle for each attempt, maintains derivable status fields, snapshots already immutable form membership, and couples explicit issuance to balanced selection. Task-specific read authorization also leaks into foundational resources. The user approved fixing all five findings from the branch architecture review.
+The collection architecture stores a second response lifecycle for each attempt, maintains derivable status fields, snapshots already immutable form membership, and couples explicit issuance to balanced selection. Collection authorization needs an explicit integration with the existing domain resources, without duplicating their schemas. The user approved fixing all five findings from the branch architecture review.
 
 ## What Changes
 
@@ -8,7 +8,7 @@ The collection architecture stores a second response lifecycle for each attempt,
 - Calculate question attention and task status from transactional progress counters and project state.
 - Pin immutable form context once per export, retaining committed membership for changing evidence and deterministic JSONL serialization across runtime restarts.
 - Initialize coverage at activation and separate explicit group locking from balanced selection.
-- Own collection context reads and authorization inside Tasks; keep ordinary Forms and Datasets authority in their domains.
+- Keep collection entry points in Tasks, reuse canonical domain resources, and centralize cross-domain collection/source checks in Authorization through native Ash policies and a scoped-read fragment.
 - Preserve collected evidence, historical export provenance, leases, pagination, and organization boundaries.
 
 ## Capabilities

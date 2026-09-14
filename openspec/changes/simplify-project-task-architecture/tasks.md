@@ -21,8 +21,9 @@
 
 ## 5. Collection authorization boundary
 
-- [x] 5.1 Move collection context reads/authorization into Tasks and restore foundation domain ownership.
+- [x] 5.1 Keep collection entry points in Tasks and reuse canonical resources with shared Authorization checks and the native scoped-read fragment.
 - [x] 5.2 Verify paginated worker/result context and denied cross-scope/reverse traversal.
+- [x] 5.3 Remove the mirrored Context resources and schema-copying macro; preserve canonical metadata reads with native private-field policies.
 
 ## 6. Closeout
 
@@ -33,5 +34,6 @@
 
 - `mise run verify` passed: 354 tests, codegen/format/compile checks, no compile cycles, static analysis, Dialyzer, dependency audit, and production compilation.
 - Strict OpenSpec validation passed for all 15 specifications and changes.
+- The canonical-resource correction also passed the full 354-test gate, including scoped definition/binding reads, source metadata, revocation, reverse-traversal denial, native private-field redaction, and export restart reproducibility. Ash codegen reported no database changes.
 - A disposable database seeded from `5dca6dd` retained draft revisions, submitted outcome ownership, historical response IDs, and accepted/audit/empty export records through migration.
 - Rollback and reapplication succeeded in that disposable database. Forward verification covered idle-project coverage backfill, published asset identity/hash preservation, pending-publication restart, and identical regenerated hashes in separate runtime launches.

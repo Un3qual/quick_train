@@ -38,7 +38,7 @@ defmodule QuickTrain.Tasks.Task do
 
     belongs_to :project, QuickTrain.Projects.Project, allow_nil?: false, attribute_public?: true
 
-    belongs_to :form_version, QuickTrain.Tasks.Context.FormVersion,
+    belongs_to :form_version, QuickTrain.Forms.FormVersion,
       allow_nil?: false,
       attribute_public?: true,
       public?: true

@@ -190,7 +190,20 @@ defmodule QuickTrain.Assets.Asset do
     validate compare(:height, greater_than: 0)
   end
 
+  field_policies do
+    private_fields :hide
+
+    field_policy :* do
+      authorize_if always()
+    end
+  end
+
   policies do
+    policy action(:read) do
+      authorize_if Module.concat(["QuickTrain.Authorization.Checks.CollectionContext"])
+      authorize_if Module.concat(["QuickTrain.Authorization.Checks.SourceRead"])
+    end
+
     policy action([:read, :get_scoped]) do
       authorize_if expr(
                      is_nil(result_export_id) or

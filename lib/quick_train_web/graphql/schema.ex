@@ -26,7 +26,6 @@ defmodule QuickTrainWeb.GraphQL.Schema do
       when {object, field} in [
              {:asset, :sha256},
              {:asset_summary, :sha256},
-             {:task_asset, :sha256},
              {:dataset_item_revision, :fingerprint}
            ] do
     middleware ++ [{{__MODULE__, :encode_digest}, []}]

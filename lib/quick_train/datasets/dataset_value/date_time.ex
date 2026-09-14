@@ -32,10 +32,13 @@ defmodule QuickTrain.Datasets.DatasetValue.DateTime do
 
   policies do
     policy action(:read) do
-      authorize_if Module.concat(["QuickTrain.Datasets.ReadAuthority"])
+      authorize_if Module.concat(["QuickTrain.Authorization.Checks.CollectionContext"])
+      authorize_if Module.concat(["QuickTrain.Authorization.Checks.SourceRead"])
     end
 
     policy action(:read) do
+      authorize_if Module.concat(["QuickTrain.Authorization.Checks.CollectionContext"])
+
       authorize_if accessing_from(
                      Module.concat(["QuickTrain.Datasets.DatasetValue"]),
                      :date_time_value

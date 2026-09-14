@@ -1,4 +1,4 @@
-defmodule QuickTrain.Tasks.Access.ContractAccess.DefinitionRead do
+defmodule QuickTrain.Authorization.CollectionRead.Scope do
   @moduledoc false
   use Ash.Resource.Preparation
   alias QuickTrain.Tasks.{Access, Error}
@@ -26,7 +26,7 @@ defmodule QuickTrain.Tasks.Access.ContractAccess.DefinitionRead do
       Access.manager!(project, actor, "tasks.results.read")
     end
 
-    case query.resource.source_resource() do
+    case query.resource do
       QuickTrain.Forms.FormVersion ->
         Ash.Query.filter(query, id == ^project.form_version_id)
 

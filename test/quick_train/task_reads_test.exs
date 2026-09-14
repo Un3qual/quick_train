@@ -2,10 +2,10 @@ defmodule QuickTrain.Tasks.TaskReadsTest do
   use QuickTrain.DataCase, async: false
   alias QuickTrain.{Accounts, Authorization, Forms, Organizations, ProjectsFixture}
   alias QuickTrain.Datasets.DatasetValue
+  alias QuickTrain.Forms.FormVersion
   alias QuickTrain.Projects.Management
-  alias QuickTrain.Tasks.{Access, Context, TaskInput}
+  alias QuickTrain.Tasks.{Access, TaskInput}
   alias QuickTrain.Tasks.Attempts.Attempt
-  alias QuickTrain.Tasks.Context.FormVersion
   alias QuickTrain.Tasks.Responses.QuestionResponse
   require Ash.Query
 
@@ -107,7 +107,9 @@ defmodule QuickTrain.Tasks.TaskReadsTest do
     args = Map.put(scope(ctx), :id, ctx.source.form.version.id)
 
     for inputs <- [%{}, Map.delete(args, :project_id), Map.put(args, :organization_id, "invalid")] do
-      query = Ash.Query.for_read(FormVersion, :get_task_definition, inputs, actor: ctx.worker)
+      query =
+        Ash.Query.for_read(FormVersion, :get_collection_definition, inputs, actor: ctx.worker)
+
       refute query.valid?
       assert {:error, %Ash.Error.Invalid{}} = Ash.read_one(query)
     end
@@ -136,7 +138,7 @@ defmodule QuickTrain.Tasks.TaskReadsTest do
     assert {:error, _} =
              FormVersion
              |> Ash.Query.for_read(
-               :get_task_definition,
+               :get_collection_definition,
                Map.merge(scope(ctx), %{id: ctx.source.form.version.id}),
                actor: ctx.worker
              )
@@ -353,7 +355,7 @@ defmodule QuickTrain.Tasks.TaskReadsTest do
     assert absent.revision_id == input.revision_id
 
     bindings =
-      rows(QuickTrain.Tasks.Context.ProjectInputBinding, :list_result_bindings, ctx, reader)
+      rows(QuickTrain.Projects.ProjectInputBinding, :list_result_bindings, ctx, reader)
 
     assert [_, _, _] = bindings
     bindings = Ash.load!(bindings, [:requirement, :field_definition], actor: reader)
@@ -364,7 +366,7 @@ defmodule QuickTrain.Tasks.TaskReadsTest do
            )
 
     assert {:error, _} =
-             QuickTrain.Tasks.Context.ProjectInputBinding
+             QuickTrain.Projects.ProjectInputBinding
              |> Ash.Query.for_read(:list_result_bindings, Map.drop(scope(ctx), [:attempt_id]),
                actor: ctx.worker
              )
@@ -401,18 +403,6 @@ defmodule QuickTrain.Tasks.TaskReadsTest do
       assert_empty_read(QuickTrain.Datasets.DatasetRecordType, [ctx.source.root.id], actor, %{
         source: QuickTrain.Datasets.DatasetFieldDefinition,
         name: :record_type
-      })
-    end
-
-    for actor <- [ctx.worker, reader] do
-      assert_empty_read(Context.DatasetValue, secret_ids, actor, %{
-        source: Context.ProjectInputBinding,
-        name: :value
-      })
-
-      assert_empty_read(Context.DatasetFieldDefinition, [ctx.source.secret.id], actor, %{
-        source: Context.DatasetValue,
-        name: :field_definition
       })
     end
 
@@ -513,11 +503,6 @@ defmodule QuickTrain.Tasks.TaskReadsTest do
       source: QuickTrain.Datasets.DatasetRecord,
       name: :values
     })
-
-    assert_empty_read(Context.DatasetValue, [body.value.id], ctx.worker, %{
-      source: Context.DatasetValue,
-      name: :text_value
-    })
   end
 
   @tag :rich_source
@@ -538,7 +523,8 @@ defmodule QuickTrain.Tasks.TaskReadsTest do
     assert bound.asset.sha256 == :crypto.hash(:sha256, "Source attachment")
     value = Ash.load!(bound.value, [asset_value: :asset], actor: ctx.worker)
     assert value.asset_value.asset.id == ctx.source.asset.id
-    refute Map.has_key?(value.asset_value.asset, :sealed_key)
+    assert %Ash.ForbiddenField{} = value.asset_value.asset.sealed_key
+    assert %Ash.ForbiddenField{} = value.asset_value.asset.staging_key
 
     access = action!(TaskInput, :source_download, args, ctx.worker)
     assert access.read_access.cache_control == "no-store"
@@ -562,7 +548,16 @@ defmodule QuickTrain.Tasks.TaskReadsTest do
 
     action!(Attempt, :release, scope(ctx), ctx.worker)
     assert {:error, _} = action(TaskInput, :source_download, args, ctx.worker)
+
+    assert_empty_read(QuickTrain.Assets.Asset, [ctx.source.asset.id], ctx.worker, %{
+      source: DatasetValue.Asset,
+      name: :asset
+    })
+
     reader = result_reader!(ctx)
+    value = Ash.load!(bound.value, [asset_value: :asset], actor: reader)
+    assert value.asset_value.asset.id == ctx.source.asset.id
+    assert %Ash.ForbiddenField{} = value.asset_value.asset.sealed_key
 
     assert action!(TaskInput, :source_download, Map.delete(args, :attempt_id), reader).asset.id ==
              ctx.source.asset.id

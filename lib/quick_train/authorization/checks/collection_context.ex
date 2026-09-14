@@ -1,4 +1,4 @@
-defmodule QuickTrain.Tasks.Access.ContractAccess do
+defmodule QuickTrain.Authorization.Checks.CollectionContext do
   @moduledoc false
   use Ash.Policy.FilterCheck
   alias QuickTrain.Datasets.{DatasetFieldDefinition, DatasetValue}
@@ -12,22 +12,13 @@ defmodule QuickTrain.Tasks.Access.ContractAccess do
     do: "an exact published definition or bound value of currently authorized issued work"
 
   def filter(%{id: _} = actor, %{resource: resource, query: query}, _opts) do
-    if query.action.name in [:get_task_definition, :list_result_bindings, :get_result_binding] or
+    if query.action.name == :get_collection_definition or
          is_map(query.context[:accessing_from]),
-       do: definition_filter(resource.source_resource(), actor),
+       do: definition_filter(resource, actor),
        else: false
   end
 
   def filter(_, _, _), do: false
-
-  defp definition_filter(QuickTrain.Projects.ProjectInputBinding, actor) do
-    results = ReadAccess.result_authority(actor)
-
-    expr(
-      exists(Task, project_id == parent(project_id) and ^results) and
-        exists(issued_inputs, input_slot_id == parent(requirement.input_slot_id))
-    )
-  end
 
   defp definition_filter(FormVersion, actor) do
     live = ReadAccess.live_attempt(actor)

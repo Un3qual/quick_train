@@ -3,6 +3,7 @@
 defmodule QuickTrain.Forms.Questions.QuestionOption do
   @moduledoc "Organization-scoped question option definition."
   use Ash.Resource,
+    fragments: [QuickTrain.Authorization.CollectionRead],
     primary_read_warning?: false,
     otp_app: :quick_train,
     domain: QuickTrain.Forms,
@@ -148,11 +149,14 @@ defmodule QuickTrain.Forms.Questions.QuestionOption do
     end
 
     policy action(:read) do
+      authorize_if Module.concat(["QuickTrain.Authorization.Checks.CollectionContext"])
       forbid_unless actor_attribute_equals(:status, "active")
       authorize_if relates_to_actor_via([:version, :form, :reader_role_assignments, :user])
     end
 
     policy action(:read) do
+      authorize_if Module.concat(["QuickTrain.Authorization.Checks.CollectionContext"])
+
       authorize_if accessing_from(
                      Module.concat(["QuickTrain.Forms.Questions.QuestionDefinition"]),
                      :options

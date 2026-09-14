@@ -37,7 +37,7 @@ defmodule QuickTrain.Tasks.Attempts.AttemptInputPresentation do
       attribute_public?: true,
       public?: true
 
-    belongs_to :input_slot, QuickTrain.Tasks.Context.InputSlotDefinition,
+    belongs_to :input_slot, QuickTrain.Forms.Inputs.InputSlotDefinition,
       allow_nil?: false,
       attribute_public?: true,
       public?: true

@@ -2,32 +2,38 @@ defmodule QuickTrain.Tasks do
   @moduledoc "Scoped collection work, immutable outcomes, review, and result exports."
   use Ash.Domain, otp_app: :quick_train, extensions: [AshGraphql.Domain]
 
-  alias QuickTrain.Tasks.Context
+  alias QuickTrain.Datasets.DatasetFieldDefinition
+  alias QuickTrain.Forms.FormVersion
+  alias QuickTrain.Forms.Inputs.InputFieldRequirement
+  alias QuickTrain.Forms.Inputs.InputSlotDefinition
+  alias QuickTrain.Forms.Labels.Label
+  alias QuickTrain.Forms.Labels.LabelSet
+  alias QuickTrain.Forms.Presentation.PresentationElement
+  alias QuickTrain.Forms.Questions.Constraints.AnnotationConstraints
+  alias QuickTrain.Forms.Questions.Constraints.DecimalConstraints
+  alias QuickTrain.Forms.Questions.Constraints.IntegerConstraints
+  alias QuickTrain.Forms.Questions.Constraints.SelectionConstraints
+  alias QuickTrain.Forms.Questions.Constraints.TextConstraints
+  alias QuickTrain.Forms.Questions.QuestionDefinition
+  alias QuickTrain.Forms.Questions.QuestionOption
+  alias QuickTrain.Projects.ProjectInputBinding
 
   resources do
-    resource Context.ProjectInputBinding
-    resource Context.FormVersion
-    resource Context.InputSlotDefinition
-    resource Context.InputFieldRequirement
-    resource Context.PresentationElement
-    resource Context.QuestionDefinition
-    resource Context.QuestionOption
-    resource Context.LabelSet
-    resource Context.Label
-    resource Context.TextConstraints
-    resource Context.IntegerConstraints
-    resource Context.DecimalConstraints
-    resource Context.SelectionConstraints
-    resource Context.AnnotationConstraints
-    resource Context.DatasetFieldDefinition
-    resource Context.DatasetValue
-    resource Context.DatasetValue.Text
-    resource Context.DatasetValue.Integer
-    resource Context.DatasetValue.Decimal
-    resource Context.DatasetValue.Boolean
-    resource Context.DatasetValue.DateTime
-    resource Context.DatasetValue.Asset
-    resource Context.Asset
+    resource DatasetFieldDefinition
+    resource FormVersion
+    resource InputFieldRequirement
+    resource InputSlotDefinition
+    resource Label
+    resource LabelSet
+    resource PresentationElement
+    resource AnnotationConstraints
+    resource DecimalConstraints
+    resource IntegerConstraints
+    resource SelectionConstraints
+    resource TextConstraints
+    resource QuestionDefinition
+    resource QuestionOption
+    resource ProjectInputBinding
 
     resource QuickTrain.Tasks.Task do
       define :reconcile_task, action: :reconcile, args: [:organization_id, :project_id, :task_id]
@@ -130,26 +136,26 @@ defmodule QuickTrain.Tasks do
 
   graphql do
     queries do
-      list Context.ProjectInputBinding, :result_input_bindings, :list_result_bindings,
+      list ProjectInputBinding, :result_input_bindings, :list_result_bindings,
         relay?: true,
         paginate_with: :keyset
 
-      read_one Context.ProjectInputBinding, :result_input_binding, :get_result_binding
+      read_one ProjectInputBinding, :result_input_binding, :get_result_binding
 
-      read_one Context.FormVersion, :task_form_version, :get_task_definition
-      read_one Context.InputSlotDefinition, :task_input_slot_definition, :get_task_definition
-      read_one Context.InputFieldRequirement, :task_input_field_requirement, :get_task_definition
-      read_one Context.PresentationElement, :task_presentation_element, :get_task_definition
-      read_one Context.QuestionDefinition, :task_question_definition, :get_task_definition
-      read_one Context.QuestionOption, :task_question_option, :get_task_definition
-      read_one Context.LabelSet, :task_label_set, :get_task_definition
-      read_one Context.Label, :task_label, :get_task_definition
-      read_one Context.TextConstraints, :task_text_constraints, :get_task_definition
-      read_one Context.IntegerConstraints, :task_integer_constraints, :get_task_definition
-      read_one Context.DecimalConstraints, :task_decimal_constraints, :get_task_definition
-      read_one Context.SelectionConstraints, :task_selection_constraints, :get_task_definition
-      read_one Context.AnnotationConstraints, :task_annotation_constraints, :get_task_definition
-      read_one Context.DatasetFieldDefinition, :task_field_definition, :get_task_definition
+      read_one FormVersion, :task_form_version, :get_collection_definition
+      read_one InputSlotDefinition, :task_input_slot_definition, :get_collection_definition
+      read_one InputFieldRequirement, :task_input_field_requirement, :get_collection_definition
+      read_one PresentationElement, :task_presentation_element, :get_collection_definition
+      read_one QuestionDefinition, :task_question_definition, :get_collection_definition
+      read_one QuestionOption, :task_question_option, :get_collection_definition
+      read_one LabelSet, :task_label_set, :get_collection_definition
+      read_one Label, :task_label, :get_collection_definition
+      read_one TextConstraints, :task_text_constraints, :get_collection_definition
+      read_one IntegerConstraints, :task_integer_constraints, :get_collection_definition
+      read_one DecimalConstraints, :task_decimal_constraints, :get_collection_definition
+      read_one SelectionConstraints, :task_selection_constraints, :get_collection_definition
+      read_one AnnotationConstraints, :task_annotation_constraints, :get_collection_definition
+      read_one DatasetFieldDefinition, :task_field_definition, :get_collection_definition
 
       for {resource, singular, plural} <- [
             {QuickTrain.Tasks.Task, :task, :tasks},
