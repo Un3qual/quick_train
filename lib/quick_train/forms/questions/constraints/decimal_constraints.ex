@@ -18,7 +18,6 @@ defmodule QuickTrain.Forms.Questions.Constraints.DecimalConstraints do
 
   attributes do
     uuid_primary_key :id
-
     attribute :minimum, :decimal, public?: true
     attribute :maximum, :decimal, public?: true
     timestamps()

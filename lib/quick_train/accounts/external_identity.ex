@@ -17,7 +17,6 @@ defmodule QuickTrain.Accounts.ExternalIdentity do
 
   attributes do
     uuid_primary_key :id
-
     attribute :issuer, :string, allow_nil?: false, sensitive?: true
     attribute :subject, :string, allow_nil?: false, sensitive?: true
     attribute :status, :string, allow_nil?: false, default: "active"

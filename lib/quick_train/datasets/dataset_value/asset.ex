@@ -14,7 +14,6 @@ defmodule QuickTrain.Datasets.DatasetValue.Asset do
 
   attributes do
     uuid_primary_key :id
-
     timestamps()
   end
 

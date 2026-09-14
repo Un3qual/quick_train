@@ -17,7 +17,6 @@ defmodule QuickTrain.Accounts.OidcLoginTransaction do
 
   attributes do
     uuid_primary_key :id
-
     attribute :state_hash, :binary, allow_nil?: false, sensitive?: true
     attribute :nonce_hash, :binary, allow_nil?: false, sensitive?: true
     attribute :code_verifier, :string, allow_nil?: false, sensitive?: true

@@ -12,7 +12,6 @@ defmodule QuickTrain.Datasets.DatasetValue.DateTime do
 
   attributes do
     uuid_primary_key :id
-
     attribute :value, :utc_datetime_usec, allow_nil?: false, public?: true
     timestamps()
   end

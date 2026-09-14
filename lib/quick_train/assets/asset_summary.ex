@@ -10,12 +10,7 @@ defmodule QuickTrain.Assets.AssetSummary do
     extensions: [AshGraphql.Resource]
 
   attributes do
-    attribute :id, :uuid,
-      primary_key?: true,
-      allow_nil?: false,
-      public?: true,
-      writable?: true
-
+    uuid_primary_key :id, writable?: true
     attribute :organization_id, :uuid, allow_nil?: false, public?: true
     attribute :state, AssetState, allow_nil?: false, public?: true
     attribute :sha256, :binary, allow_nil?: false, public?: true

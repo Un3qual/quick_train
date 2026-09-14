@@ -12,7 +12,6 @@ defmodule QuickTrain.Datasets.DatasetValue.Decimal do
 
   attributes do
     uuid_primary_key :id
-
     attribute :value, :decimal, allow_nil?: false, public?: true
     timestamps()
   end

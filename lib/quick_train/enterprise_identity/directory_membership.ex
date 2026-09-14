@@ -21,7 +21,6 @@ defmodule QuickTrain.EnterpriseIdentity.DirectoryMembership do
 
   attributes do
     uuid_primary_key :id
-
     create_timestamp :inserted_at, public?: true
   end
 

@@ -18,7 +18,6 @@ defmodule QuickTrain.Forms.Questions.Constraints.TextConstraints do
 
   attributes do
     uuid_primary_key :id
-
     attribute :minimum, :integer, public?: true, constraints: [min: 0, max: 2_147_483_647]
     attribute :maximum, :integer, public?: true, constraints: [min: 0, max: 2_147_483_647]
     timestamps()

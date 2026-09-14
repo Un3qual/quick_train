@@ -20,7 +20,6 @@ defmodule QuickTrain.Datasets.DatasetRecord do
 
   attributes do
     uuid_primary_key :id
-
     timestamps()
   end
 

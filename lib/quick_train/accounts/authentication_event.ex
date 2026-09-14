@@ -15,7 +15,6 @@ defmodule QuickTrain.Accounts.AuthenticationEvent do
 
   attributes do
     uuid_primary_key :id
-
     attribute :event, :string, allow_nil?: false, public?: true
     attribute :result, :string, allow_nil?: false, public?: true
     attribute :reason, :string, public?: true

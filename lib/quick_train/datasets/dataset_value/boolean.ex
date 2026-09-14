@@ -12,7 +12,6 @@ defmodule QuickTrain.Datasets.DatasetValue.Boolean do
 
   attributes do
     uuid_primary_key :id
-
     attribute :value, :boolean, allow_nil?: false, public?: true
     timestamps()
   end

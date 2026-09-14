@@ -18,7 +18,6 @@ defmodule QuickTrain.Authorization.Capability do
 
   attributes do
     uuid_primary_key :id
-
     attribute :key, :string, allow_nil?: false, public?: true
     attribute :description, :string, allow_nil?: false, public?: true
     create_timestamp :inserted_at, public?: true

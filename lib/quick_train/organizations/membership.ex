@@ -25,7 +25,6 @@ defmodule QuickTrain.Organizations.Membership do
 
   attributes do
     uuid_primary_key :id
-
     attribute :status, :string, allow_nil?: false, public?: true, default: "active"
     create_timestamp :inserted_at, public?: true
     update_timestamp :updated_at, public?: true
