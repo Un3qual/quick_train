@@ -8,12 +8,7 @@ defmodule QuickTrain.Tasks.Exports.ResultExport do
     authorizers: [Ash.Policy.Authorizer]
 
   attributes do
-    attribute :id, :uuid,
-      primary_key?: true,
-      allow_nil?: false,
-      public?: true,
-      generated?: true,
-      writable?: false
+    uuid_primary_key :id
 
     attribute :state, :atom,
       public?: true,
@@ -160,7 +155,6 @@ defmodule QuickTrain.Tasks.Exports.ResultExport do
   postgres do
     table "result_exports"
     repo QuickTrain.Repo
-    migration_defaults id: "fragment(\"gen_random_uuid()\")"
     migration_types record_count: :bigint
 
     references do

@@ -9,12 +9,7 @@ defmodule QuickTrain.Tasks.Responses.TaskInputAnswer do
     authorizers: [Ash.Policy.Authorizer]
 
   attributes do
-    attribute :id, :uuid,
-      primary_key?: true,
-      allow_nil?: false,
-      public?: true,
-      generated?: true,
-      writable?: false
+    uuid_primary_key :id
 
     attribute :position, :integer, public?: true, allow_nil?: true, constraints: [min: 0]
     timestamps()
@@ -134,7 +129,6 @@ defmodule QuickTrain.Tasks.Responses.TaskInputAnswer do
   postgres do
     table "task_input_answers"
     repo QuickTrain.Repo
-    migration_defaults id: "fragment(\"gen_random_uuid()\")"
     migration_types position: :bigint
 
     references do

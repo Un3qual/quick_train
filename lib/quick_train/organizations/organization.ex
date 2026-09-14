@@ -11,7 +11,6 @@ defmodule QuickTrain.Organizations.Organization do
   alias QuickTrain.Organizations.Membership
 
   postgres do
-    migration_defaults id: "fragment(\"gen_random_uuid()\")"
     table "organizations"
     repo QuickTrain.Repo
     identity_index_names slug: "organizations_slug_index"
@@ -22,12 +21,7 @@ defmodule QuickTrain.Organizations.Organization do
   end
 
   attributes do
-    attribute :id, :uuid,
-      primary_key?: true,
-      allow_nil?: false,
-      generated?: true,
-      public?: true,
-      writable?: false
+    uuid_primary_key :id
 
     attribute :name, :string, allow_nil?: false, public?: true
     attribute :slug, :string, allow_nil?: false, public?: true

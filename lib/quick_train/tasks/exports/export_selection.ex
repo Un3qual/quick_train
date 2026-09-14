@@ -7,11 +7,7 @@ defmodule QuickTrain.Tasks.Exports.ExportSelection do
     authorizers: [Ash.Policy.Authorizer]
 
   attributes do
-    attribute :id, :uuid,
-      primary_key?: true,
-      allow_nil?: false,
-      generated?: true,
-      writable?: false
+    uuid_primary_key :id, public?: false
 
     attribute :kind, :atom,
       allow_nil?: false,
@@ -105,7 +101,6 @@ defmodule QuickTrain.Tasks.Exports.ExportSelection do
     identity_wheres_to_sql source_value: "kind = 'dataset_value'"
     table "export_selections"
     repo QuickTrain.Repo
-    migration_defaults id: "fragment(\"gen_random_uuid()\")"
     migration_types record_count: :bigint
 
     references do

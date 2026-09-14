@@ -9,12 +9,7 @@ defmodule QuickTrain.Tasks.Progress.TaskQuestionProgress do
     authorizers: [Ash.Policy.Authorizer]
 
   attributes do
-    attribute :id, :uuid,
-      primary_key?: true,
-      allow_nil?: false,
-      public?: true,
-      generated?: true,
-      writable?: false
+    uuid_primary_key :id
 
     attribute :target, :integer,
       public?: true,
@@ -178,7 +173,6 @@ defmodule QuickTrain.Tasks.Progress.TaskQuestionProgress do
   postgres do
     table "task_question_progress"
     repo QuickTrain.Repo
-    migration_defaults id: "fragment(\"gen_random_uuid()\")"
 
     migration_types target: :bigint,
                     failure_threshold: :bigint,

@@ -11,12 +11,7 @@ defmodule QuickTrain.Datasets.DatasetSchemaVersion do
     authorizers: [Ash.Policy.Authorizer]
 
   attributes do
-    attribute :id, :uuid,
-      primary_key?: true,
-      allow_nil?: false,
-      generated?: true,
-      public?: true,
-      writable?: false
+    uuid_primary_key :id
 
     attribute :version, :integer,
       allow_nil?: false,
@@ -175,7 +170,6 @@ defmodule QuickTrain.Datasets.DatasetSchemaVersion do
   end
 
   postgres do
-    migration_defaults id: "fragment(\"gen_random_uuid()\")"
     table "dataset_schema_versions"
     repo QuickTrain.Repo
     identity_index_names dataset_version: "dataset_schema_versions_dataset_version_index"

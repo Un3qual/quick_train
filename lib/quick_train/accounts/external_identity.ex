@@ -8,7 +8,6 @@ defmodule QuickTrain.Accounts.ExternalIdentity do
     data_layer: AshPostgres.DataLayer
 
   postgres do
-    migration_defaults id: "fragment(\"gen_random_uuid()\")"
     table "external_identities"
     repo QuickTrain.Repo
 
@@ -17,12 +16,7 @@ defmodule QuickTrain.Accounts.ExternalIdentity do
   end
 
   attributes do
-    attribute :id, :uuid,
-      primary_key?: true,
-      allow_nil?: false,
-      generated?: true,
-      public?: true,
-      writable?: false
+    uuid_primary_key :id
 
     attribute :issuer, :string, allow_nil?: false, sensitive?: true
     attribute :subject, :string, allow_nil?: false, sensitive?: true

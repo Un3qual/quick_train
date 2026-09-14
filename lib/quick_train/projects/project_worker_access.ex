@@ -8,12 +8,7 @@ defmodule QuickTrain.Projects.ProjectWorkerAccess do
     authorizers: [Ash.Policy.Authorizer]
 
   attributes do
-    attribute :id, :uuid,
-      primary_key?: true,
-      allow_nil?: false,
-      generated?: true,
-      public?: true,
-      writable?: false
+    uuid_primary_key :id
 
     attribute :disposition, :atom,
       public?: true,
@@ -92,7 +87,6 @@ defmodule QuickTrain.Projects.ProjectWorkerAccess do
   postgres do
     table "project_worker_access"
     repo QuickTrain.Repo
-    migration_defaults id: "fragment(\"gen_random_uuid()\")"
 
     references do
       reference :project, on_delete: :restrict

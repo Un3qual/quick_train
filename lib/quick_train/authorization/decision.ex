@@ -10,7 +10,6 @@ defmodule QuickTrain.Authorization.Decision do
   alias QuickTrain.Organizations.Organization
 
   postgres do
-    migration_defaults id: "fragment(\"gen_random_uuid()\")"
     table "authorization_decisions"
     repo QuickTrain.Repo
   end
@@ -20,12 +19,7 @@ defmodule QuickTrain.Authorization.Decision do
   end
 
   attributes do
-    attribute :id, :uuid,
-      primary_key?: true,
-      allow_nil?: false,
-      generated?: true,
-      public?: true,
-      writable?: false
+    uuid_primary_key :id
 
     attribute :capability, :string, allow_nil?: false, public?: true
     attribute :allowed, :boolean, allow_nil?: false, public?: true

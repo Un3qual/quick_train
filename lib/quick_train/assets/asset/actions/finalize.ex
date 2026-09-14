@@ -63,6 +63,7 @@ defmodule QuickTrain.Assets.Asset.Actions.Finalize do
           asset =
             asset
             |> Ash.Changeset.for_update(:claim_operation, %{
+              operation_claim_id: Ash.UUID.generate(),
               operation_claim_expires_at: claim_expires_at
             })
             |> Ash.update!(authorize?: false)

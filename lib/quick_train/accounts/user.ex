@@ -18,7 +18,6 @@ defmodule QuickTrain.Accounts.User do
   alias QuickTrain.Organizations.{Membership, Organization}
 
   postgres do
-    migration_defaults id: "fragment(\"gen_random_uuid()\")"
     table "users"
     repo QuickTrain.Repo
     identity_index_names email: "users_email_index"
@@ -30,12 +29,7 @@ defmodule QuickTrain.Accounts.User do
   end
 
   attributes do
-    attribute :id, :uuid,
-      primary_key?: true,
-      allow_nil?: false,
-      generated?: true,
-      public?: true,
-      writable?: false
+    uuid_primary_key :id
 
     attribute :email, :string, allow_nil?: false, public?: true
     attribute :display_name, :string, allow_nil?: false, public?: true

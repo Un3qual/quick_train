@@ -17,12 +17,7 @@ defmodule QuickTrain.Forms.Questions.Constraints.TextConstraints do
   alias QuickTrain.Repo
 
   attributes do
-    attribute :id, :uuid,
-      primary_key?: true,
-      allow_nil?: false,
-      generated?: true,
-      public?: true,
-      writable?: false
+    uuid_primary_key :id
 
     attribute :minimum, :integer, public?: true, constraints: [min: 0, max: 2_147_483_647]
     attribute :maximum, :integer, public?: true, constraints: [min: 0, max: 2_147_483_647]
@@ -143,7 +138,6 @@ defmodule QuickTrain.Forms.Questions.Constraints.TextConstraints do
   end
 
   postgres do
-    migration_defaults id: "fragment(\"gen_random_uuid()\")"
     table "form_text_constraints"
     repo Repo
 

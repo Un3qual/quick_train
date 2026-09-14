@@ -8,12 +8,7 @@ defmodule QuickTrain.Projects.ExplicitGroup do
     authorizers: [Ash.Policy.Authorizer]
 
   attributes do
-    attribute :id, :uuid,
-      primary_key?: true,
-      allow_nil?: false,
-      generated?: true,
-      public?: true,
-      writable?: false
+    uuid_primary_key :id
 
     attribute :position, :integer,
       public?: true,
@@ -100,7 +95,6 @@ defmodule QuickTrain.Projects.ExplicitGroup do
   postgres do
     table "project_explicit_groups"
     repo QuickTrain.Repo
-    migration_defaults id: "fragment(\"gen_random_uuid()\")"
 
     references do
       reference :project, on_delete: :restrict, match_with: [form_version_id: :form_version_id]

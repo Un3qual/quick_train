@@ -9,12 +9,7 @@ defmodule QuickTrain.Tasks.Progress.TaskItemCoverage do
     authorizers: [Ash.Policy.Authorizer]
 
   attributes do
-    attribute :id, :uuid,
-      primary_key?: true,
-      allow_nil?: false,
-      public?: true,
-      generated?: true,
-      writable?: false
+    uuid_primary_key :id
 
     attribute :exposures, :integer,
       public?: true,
@@ -121,7 +116,6 @@ defmodule QuickTrain.Tasks.Progress.TaskItemCoverage do
   postgres do
     table "task_item_coverage"
     repo QuickTrain.Repo
-    migration_defaults id: "fragment(\"gen_random_uuid()\")"
     migration_types exposures: :bigint
 
     references do

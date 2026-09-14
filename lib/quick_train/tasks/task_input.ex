@@ -9,12 +9,7 @@ defmodule QuickTrain.Tasks.TaskInput do
     authorizers: [Ash.Policy.Authorizer]
 
   attributes do
-    attribute :id, :uuid,
-      primary_key?: true,
-      allow_nil?: false,
-      public?: true,
-      generated?: true,
-      writable?: false
+    uuid_primary_key :id
 
     timestamps()
   end
@@ -153,7 +148,6 @@ defmodule QuickTrain.Tasks.TaskInput do
   postgres do
     table "task_inputs"
     repo QuickTrain.Repo
-    migration_defaults id: "fragment(\"gen_random_uuid()\")"
 
     references do
       reference :organization, on_delete: :restrict, name: "task_inputs_organization_scope_fkey"

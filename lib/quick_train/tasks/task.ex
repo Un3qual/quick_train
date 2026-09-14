@@ -9,12 +9,7 @@ defmodule QuickTrain.Tasks.Task do
     authorizers: [Ash.Policy.Authorizer]
 
   attributes do
-    attribute :id, :uuid,
-      primary_key?: true,
-      allow_nil?: false,
-      public?: true,
-      generated?: true,
-      writable?: false
+    uuid_primary_key :id
 
     attribute :canonical_key, :binary, public?: false, allow_nil?: false
     attribute :canonical_membership, :binary, public?: false, allow_nil?: false
@@ -148,7 +143,6 @@ defmodule QuickTrain.Tasks.Task do
   postgres do
     table "tasks"
     repo QuickTrain.Repo
-    migration_defaults id: "fragment(\"gen_random_uuid()\")"
 
     references do
       reference :organization, on_delete: :restrict, name: "tasks_organization_scope_fkey"

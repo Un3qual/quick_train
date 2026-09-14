@@ -9,12 +9,7 @@ defmodule QuickTrain.Tasks.Attempts.AttemptInputPresentation do
     authorizers: [Ash.Policy.Authorizer]
 
   attributes do
-    attribute :id, :uuid,
-      primary_key?: true,
-      allow_nil?: false,
-      public?: true,
-      generated?: true,
-      writable?: false
+    uuid_primary_key :id
 
     attribute :position, :integer, public?: true, allow_nil?: false, constraints: [min: 0]
     timestamps()
@@ -128,7 +123,6 @@ defmodule QuickTrain.Tasks.Attempts.AttemptInputPresentation do
   postgres do
     table "attempt_input_presentations"
     repo QuickTrain.Repo
-    migration_defaults id: "fragment(\"gen_random_uuid()\")"
     migration_types position: :bigint
 
     references do

@@ -9,12 +9,7 @@ defmodule QuickTrain.Tasks.Reviews.ReviewDecision do
     authorizers: [Ash.Policy.Authorizer]
 
   attributes do
-    attribute :id, :uuid,
-      primary_key?: true,
-      allow_nil?: false,
-      public?: true,
-      generated?: true,
-      writable?: false
+    uuid_primary_key :id
 
     attribute :origin, :atom,
       public?: true,
@@ -180,7 +175,6 @@ defmodule QuickTrain.Tasks.Reviews.ReviewDecision do
   postgres do
     table "review_decisions"
     repo QuickTrain.Repo
-    migration_defaults id: "fragment(\"gen_random_uuid()\")"
     migration_types number: :bigint
 
     references do

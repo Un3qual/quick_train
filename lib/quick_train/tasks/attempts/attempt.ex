@@ -9,12 +9,7 @@ defmodule QuickTrain.Tasks.Attempts.Attempt do
     authorizers: [Ash.Policy.Authorizer]
 
   attributes do
-    attribute :id, :uuid,
-      primary_key?: true,
-      allow_nil?: false,
-      public?: true,
-      generated?: true,
-      writable?: false
+    uuid_primary_key :id
 
     attribute :request_key, :uuid, public?: true, allow_nil?: false
 
@@ -248,7 +243,6 @@ defmodule QuickTrain.Tasks.Attempts.Attempt do
   postgres do
     table "attempts"
     repo QuickTrain.Repo
-    migration_defaults id: "fragment(\"gen_random_uuid()\")"
 
     references do
       reference :organization, on_delete: :restrict, name: "attempts_organization_scope_fkey"

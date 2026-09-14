@@ -11,12 +11,7 @@ defmodule QuickTrain.Datasets.DatasetValue.Decimal do
     authorizers: [Ash.Policy.Authorizer]
 
   attributes do
-    attribute :id, :uuid,
-      primary_key?: true,
-      allow_nil?: false,
-      generated?: true,
-      public?: true,
-      writable?: false
+    uuid_primary_key :id
 
     attribute :value, :decimal, allow_nil?: false, public?: true
     timestamps()
@@ -60,7 +55,6 @@ defmodule QuickTrain.Datasets.DatasetValue.Decimal do
   end
 
   postgres do
-    migration_defaults id: "fragment(\"gen_random_uuid()\")"
     table "dataset_decimal_values"
     repo QuickTrain.Repo
     identity_index_names dataset_value: "dataset_decimal_values_dataset_value_index"

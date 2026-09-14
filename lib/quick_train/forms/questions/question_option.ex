@@ -17,12 +17,7 @@ defmodule QuickTrain.Forms.Questions.QuestionOption do
   alias QuickTrain.Repo
 
   attributes do
-    attribute :id, :uuid,
-      primary_key?: true,
-      allow_nil?: false,
-      generated?: true,
-      public?: true,
-      writable?: false
+    uuid_primary_key :id
 
     attribute :key, :string,
       public?: true,
@@ -204,8 +199,6 @@ defmodule QuickTrain.Forms.Questions.QuestionOption do
   end
 
   postgres do
-    migration_defaults id: "fragment(\"gen_random_uuid()\")"
-
     custom_indexes do
       index [:id, :question_id, :version_id], unique: true
     end

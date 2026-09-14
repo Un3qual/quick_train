@@ -11,12 +11,7 @@ defmodule QuickTrain.Datasets.DatasetValue.DateTime do
     authorizers: [Ash.Policy.Authorizer]
 
   attributes do
-    attribute :id, :uuid,
-      primary_key?: true,
-      allow_nil?: false,
-      generated?: true,
-      public?: true,
-      writable?: false
+    uuid_primary_key :id
 
     attribute :value, :utc_datetime_usec, allow_nil?: false, public?: true
     timestamps()
@@ -60,7 +55,6 @@ defmodule QuickTrain.Datasets.DatasetValue.DateTime do
   end
 
   postgres do
-    migration_defaults id: "fragment(\"gen_random_uuid()\")"
     table "dataset_date_time_values"
     repo QuickTrain.Repo
     identity_index_names dataset_value: "dataset_date_time_values_dataset_value_index"

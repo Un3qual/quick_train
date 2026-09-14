@@ -9,7 +9,6 @@ defmodule QuickTrain.Authorization.RoleCapability do
   alias QuickTrain.Authorization.{Capability, Role}
 
   postgres do
-    migration_defaults id: "fragment(\"gen_random_uuid()\")"
     table "role_capabilities"
     repo QuickTrain.Repo
     identity_index_names role_capability: "role_capabilities_role_capability_index"
@@ -20,12 +19,7 @@ defmodule QuickTrain.Authorization.RoleCapability do
   end
 
   attributes do
-    attribute :id, :uuid,
-      primary_key?: true,
-      allow_nil?: false,
-      generated?: true,
-      public?: true,
-      writable?: false
+    uuid_primary_key :id
 
     create_timestamp :inserted_at, public?: true
   end

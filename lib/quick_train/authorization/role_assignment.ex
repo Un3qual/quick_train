@@ -12,7 +12,6 @@ defmodule QuickTrain.Authorization.RoleAssignment do
   alias QuickTrain.Organizations.{Membership, Organization}
 
   postgres do
-    migration_defaults id: "fragment(\"gen_random_uuid()\")"
     table "role_assignments"
     repo QuickTrain.Repo
 
@@ -24,12 +23,7 @@ defmodule QuickTrain.Authorization.RoleAssignment do
   end
 
   attributes do
-    attribute :id, :uuid,
-      primary_key?: true,
-      allow_nil?: false,
-      generated?: true,
-      public?: true,
-      writable?: false
+    uuid_primary_key :id
 
     create_timestamp :inserted_at, public?: true
   end

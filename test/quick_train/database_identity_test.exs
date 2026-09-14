@@ -11,8 +11,6 @@ defmodule QuickTrain.DatabaseIdentityTest do
   alias QuickTrain.Forms.{FormVersion, Graph}
   alias QuickTrain.Forms.Inputs.{InputFieldRequirement, InputSlotDefinition}
 
-  @prefix "00000000-0000-4000-8000-"
-
   defmodule ObservedStorage do
     defdelegate approved_hosts(), to: InMemory
     defdelegate enforces_byte_cap?(), to: InMemory
@@ -30,28 +28,11 @@ defmodule QuickTrain.DatabaseIdentityTest do
     end
   end
 
-  setup do
-    # A controlled PostgreSQL generator proves the application uses the database's value.
-    # The sandbox rolls back this schema and each altered table default after the test.
-    Repo.query!("CREATE SCHEMA identity_test")
-    Repo.query!("CREATE SEQUENCE identity_test.identities")
-
-    Repo.query!("""
-    CREATE FUNCTION identity_test.gen_random_uuid() RETURNS uuid LANGUAGE SQL AS $$
-      SELECT ('#{@prefix}' || lpad(nextval('identity_test.identities')::text, 12, '0'))::uuid
-    $$
-    """)
-
-    :ok
-  end
-
-  test "direct and bulk creates return stored database identities and retain existing records" do
+  test "direct and bulk creates return stored identities and retain existing records" do
     existing = Accounts.register_user!("existing@example.test", "Existing")
-    database_default!("users")
-    database_default!("capabilities")
 
     created = Accounts.register_user!("new@example.test", "New")
-    assert created.id == @prefix <> "000000000001"
+    assert created.id != existing.id
     assert Ash.get!(User, created.id).email == "new@example.test"
 
     result =
@@ -62,8 +43,8 @@ defmodule QuickTrain.DatabaseIdentityTest do
         return_records?: true
       )
 
-    assert MapSet.new(result.records, & &1.id) ==
-             MapSet.new([@prefix <> "000000000002", @prefix <> "000000000003"])
+    assert Enum.sort(Enum.map(result.records, & &1.key)) == ["first", "second"]
+    assert MapSet.size(MapSet.new(result.records, & &1.id)) == 2
 
     for record <- result.records, do: assert(Ash.get!(Capability, record.id).key == record.key)
     assert Accounts.register_user!(existing.email, "Updated").id == existing.id
@@ -73,7 +54,7 @@ defmodule QuickTrain.DatabaseIdentityTest do
              Authorization.create_capability("chosen", "Chosen", %{id: existing.id})
   end
 
-  test "copied graph rows use returned database identities and preserve their source" do
+  test "copied graph rows use returned identities and preserve their source" do
     context = context!()
     source = rating!(context)
 
@@ -94,19 +75,17 @@ defmodule QuickTrain.DatabaseIdentityTest do
     published = run!(FormVersion, :publish, context, %{version_id: source.version.id})
     original = Graph.load!(published.id)
 
-    for resource <- [FormVersion | Graph.resources()] do
-      database_default!(AshPostgres.DataLayer.Info.table(resource))
-    end
-
     copied =
       run!(FormVersion, :copy_published, context, %{
         form_id: source.form.id,
         source_version_id: published.id
       })
 
-    assert copied.id == @prefix <> "000000000001"
+    assert copied.id != published.id
     graph = Graph.load!(copied.id)
-    assert Enum.all?(List.flatten(Map.values(graph)), &String.starts_with?(&1.id, @prefix))
+    original_ids = original |> Map.values() |> List.flatten() |> MapSet.new(& &1.id)
+    copied_ids = graph |> Map.values() |> List.flatten() |> MapSet.new(& &1.id)
+    assert MapSet.disjoint?(original_ids, copied_ids)
     slots = Map.new(graph[InputSlotDefinition], &{&1.key, &1.id})
     fields = Map.new(graph[InputFieldRequirement], &{&1.key, &1.input_slot_id})
     assert fields == %{"body" => slots["item"], "summary" => slots["other"]}
@@ -121,7 +100,7 @@ defmodule QuickTrain.DatabaseIdentityTest do
     assert {:error, %Ash.Error.Invalid{}} =
              InputSlotDefinition
              |> Ash.Changeset.for_create(:create_internal, %{
-               id: @prefix <> "000000000001",
+               id: Ash.UUID.generate(),
                version_id: version.id,
                key: "chosen",
                minimum: 1,
@@ -132,7 +111,7 @@ defmodule QuickTrain.DatabaseIdentityTest do
     assert Ash.count!(InputSlotDefinition, authorize?: false) == 0
   end
 
-  test "ordinary asset registration and claim retain PostgreSQL-issued UUIDs outside storage I/O" do
+  test "asset registration preserves its staging identity and keeps storage I/O outside transactions" do
     context = context!(~w(assets.read assets.manage))
     :ok = InMemory.reset()
     config = Application.fetch_env!(:quick_train, :assets)
@@ -144,8 +123,7 @@ defmodule QuickTrain.DatabaseIdentityTest do
       Keyword.put(config, :storage_adapter, ObservedStorage)
     )
 
-    Repo.query!("SET LOCAL search_path TO identity_test, public, pg_catalog")
-    content = "database-issued asset"
+    content = "registered asset"
 
     registration =
       Assets.register_asset!(
@@ -156,39 +134,16 @@ defmodule QuickTrain.DatabaseIdentityTest do
         actor: context.actor
       )
 
-    assert registration.asset.id == @prefix <> "000000000001"
     stored = Ash.get!(Asset, registration.asset.id, authorize?: false)
     assert stored.staging_key == "assets/staging/#{context.org.id}/#{registration.asset.id}"
     assert_received {:upload_state, false, 0}
     assert :ok = InMemory.put_staging(registration.upload_access, content)
 
     final = Assets.finalize_asset!(stored.id, context.org.id, actor: context.actor)
-    assert_received {:publication_claim, @prefix <> "000000000002", false}
+    assert_received {:publication_claim, claim_id, false}
+    assert {:ok, ^claim_id} = Ash.Type.cast_input(:uuid, claim_id)
+    assert claim_id != stored.id
     assert final.asset.id == stored.id
     assert final.asset.state == :ready
-
-    Repo.query!("""
-    CREATE OR REPLACE FUNCTION identity_test.gen_random_uuid() RETURNS uuid LANGUAGE plpgsql AS $$
-      BEGIN RAISE EXCEPTION 'injected_uuid_failure'; END;
-    $$
-    """)
-
-    assert {:error, _error} =
-             Assets.register_asset(
-               context.org.id,
-               Base.encode16(:crypto.hash(:sha256, "different"), case: :lower),
-               9,
-               "text/plain",
-               actor: context.actor
-             )
-
-    refute_received {:upload_state, _, _}
-    assert Ash.count!(Asset, authorize?: false) == 1
-  end
-
-  defp database_default!(table) do
-    Repo.query!(
-      "ALTER TABLE #{table} ALTER COLUMN id SET DEFAULT identity_test.gen_random_uuid()"
-    )
   end
 end

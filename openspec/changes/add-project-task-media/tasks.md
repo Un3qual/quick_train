@@ -2,7 +2,7 @@
 
 - [ ] 1.1 Confirm `add-project-task-collection` is implemented and archived, read its main specs plus this proposal/design/deltas, and record the implemented detailed-media/storage change and spec paths. Verify the design's exact source/hash/dimension, mask-compatibility, serving-policy, and real-transfer contract; keep this follow-up blocked if it is absent, without reopening core collection.
 - [ ] 1.2 Rebase these dependent deltas on the actual archived Projects, Tasks, and Assets contracts. Check installed generators with `mise exec -- mix help ash.gen.resource`, then generate BoundingBox, PolygonRegion/PolygonPoint, MaskRegion, and attempt/question mask-attachment resources within `lib/quick_train/tasks/`.
-- [ ] 1.3 Add same-task/form/source/label references, ordered polygon points, finite coordinates and published annotation checks, and immutable verification provenance. Apply the core `database-identities` contract to new spatial/attachment resources using PostgreSQL-generated UUIDs and returned parent IDs. Generate/review AshPostgres migrations and snapshots, preserving every existing core identity and introducing no JSONB answer content.
+- [ ] 1.3 Add same-task/form/source/label references, ordered polygon points, finite coordinates and published annotation checks, and immutable verification provenance. Apply the core `database-identities` contract to new spatial/attachment resources using Ash `uuid_primary_key` declarations and returned parent IDs. Generate/review AshPostgres migrations and snapshots, preserving every existing core identity and introducing no JSONB answer content.
 
 ## 2. Activate Image Contracts and Present Verified Inputs
 

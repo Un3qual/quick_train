@@ -20,12 +20,7 @@ defmodule QuickTrain.Datasets.DatasetItemRevision do
     authorizers: [Ash.Policy.Authorizer]
 
   attributes do
-    attribute :id, :uuid,
-      primary_key?: true,
-      allow_nil?: false,
-      generated?: true,
-      public?: true,
-      writable?: false
+    uuid_primary_key :id
 
     attribute :revision_number, :integer,
       allow_nil?: false,
@@ -178,7 +173,6 @@ defmodule QuickTrain.Datasets.DatasetItemRevision do
   end
 
   postgres do
-    migration_defaults id: "fragment(\"gen_random_uuid()\")"
     table "dataset_item_revisions"
     repo QuickTrain.Repo
     identity_index_names item_revision: "dataset_item_revisions_item_revision_index"

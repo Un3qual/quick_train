@@ -13,12 +13,7 @@ defmodule QuickTrain.Datasets.DatasetValue.Asset do
     authorizers: [Ash.Policy.Authorizer]
 
   attributes do
-    attribute :id, :uuid,
-      primary_key?: true,
-      allow_nil?: false,
-      generated?: true,
-      public?: true,
-      writable?: false
+    uuid_primary_key :id
 
     timestamps()
   end
@@ -70,7 +65,6 @@ defmodule QuickTrain.Datasets.DatasetValue.Asset do
   end
 
   postgres do
-    migration_defaults id: "fragment(\"gen_random_uuid()\")"
     table "dataset_asset_values"
     repo QuickTrain.Repo
     identity_index_names dataset_value: "dataset_asset_values_dataset_value_index"

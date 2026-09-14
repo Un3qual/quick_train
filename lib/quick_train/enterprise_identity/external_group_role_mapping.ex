@@ -10,7 +10,6 @@ defmodule QuickTrain.EnterpriseIdentity.ExternalGroupRoleMapping do
   alias QuickTrain.EnterpriseIdentity.DirectoryGroup
 
   postgres do
-    migration_defaults id: "fragment(\"gen_random_uuid()\")"
     table "external_group_role_mappings"
     repo QuickTrain.Repo
 
@@ -22,12 +21,7 @@ defmodule QuickTrain.EnterpriseIdentity.ExternalGroupRoleMapping do
   end
 
   attributes do
-    attribute :id, :uuid,
-      primary_key?: true,
-      allow_nil?: false,
-      generated?: true,
-      public?: true,
-      writable?: false
+    uuid_primary_key :id
 
     create_timestamp :inserted_at, public?: true
   end

@@ -9,7 +9,6 @@ defmodule QuickTrain.EnterpriseIdentity.DirectoryMembership do
   alias QuickTrain.EnterpriseIdentity.{DirectoryGroup, DirectoryUser}
 
   postgres do
-    migration_defaults id: "fragment(\"gen_random_uuid()\")"
     table "directory_memberships"
     repo QuickTrain.Repo
 
@@ -21,12 +20,7 @@ defmodule QuickTrain.EnterpriseIdentity.DirectoryMembership do
   end
 
   attributes do
-    attribute :id, :uuid,
-      primary_key?: true,
-      allow_nil?: false,
-      generated?: true,
-      public?: true,
-      writable?: false
+    uuid_primary_key :id
 
     create_timestamp :inserted_at, public?: true
   end

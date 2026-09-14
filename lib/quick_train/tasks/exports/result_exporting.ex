@@ -5,7 +5,6 @@ defmodule QuickTrain.Tasks.Exports.ResultExporting do
   alias QuickTrain.Assets.AssetAccessResult
   alias QuickTrain.Assets.Storage
   alias QuickTrain.DatasetAssetError
-  alias QuickTrain.Repo
   alias QuickTrain.Tasks.{Access, Error}
   alias QuickTrain.Tasks.Exports.{Jsonl, ResultExport, Snapshot}
   alias QuickTrain.Tasks.Workers.ExportResults
@@ -216,7 +215,7 @@ defmodule QuickTrain.Tasks.Exports.ResultExporting do
 
       asset
     else
-      %{rows: [[id]]} = Repo.query!("SELECT gen_random_uuid()::text")
+      id = Ash.UUID.generate()
 
       asset =
         Ash.create!(

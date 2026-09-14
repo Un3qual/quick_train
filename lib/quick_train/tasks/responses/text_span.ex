@@ -9,12 +9,7 @@ defmodule QuickTrain.Tasks.Responses.TextSpan do
     authorizers: [Ash.Policy.Authorizer]
 
   attributes do
-    attribute :id, :uuid,
-      primary_key?: true,
-      allow_nil?: false,
-      public?: true,
-      generated?: true,
-      writable?: false
+    uuid_primary_key :id
 
     attribute :start, :integer, public?: true, allow_nil?: false, constraints: [min: 0]
     attribute :end, :integer, public?: true, allow_nil?: false, constraints: [min: 1]
@@ -148,7 +143,6 @@ defmodule QuickTrain.Tasks.Responses.TextSpan do
   postgres do
     table "text_spans"
     repo QuickTrain.Repo
-    migration_defaults id: "fragment(\"gen_random_uuid()\")"
     migration_types start: :bigint, end: :bigint
 
     references do

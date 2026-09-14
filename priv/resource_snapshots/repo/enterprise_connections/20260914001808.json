@@ -3,7 +3,7 @@
     {
       "allow_nil?": false,
       "default": "fragment(\"gen_random_uuid()\")",
-      "generated?": true,
+      "generated?": false,
       "precision": null,
       "primary_key?": true,
       "references": null,
@@ -124,7 +124,7 @@
   "custom_indexes": [],
   "custom_statements": [],
   "has_create_action": true,
-  "hash": "3DBBAEEBF320368A53C511C13DA11F7362B97AC04DDD008874E053BFFE1E40AE",
+  "hash": "274924FC68686686CE7D4374028AF1E5E5AAB76BBA358419F1E305F62634C807",
   "identities": [
     {
       "all_tenants?": false,

@@ -9,12 +9,7 @@ defmodule QuickTrain.Projects.ProjectInputBinding do
     authorizers: [Ash.Policy.Authorizer]
 
   attributes do
-    attribute :id, :uuid,
-      primary_key?: true,
-      allow_nil?: false,
-      generated?: true,
-      public?: true,
-      writable?: false
+    uuid_primary_key :id
 
     timestamps()
   end
@@ -163,7 +158,6 @@ defmodule QuickTrain.Projects.ProjectInputBinding do
   postgres do
     table "project_input_bindings"
     repo QuickTrain.Repo
-    migration_defaults id: "fragment(\"gen_random_uuid()\")"
 
     references do
       reference :project,

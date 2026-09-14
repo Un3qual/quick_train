@@ -9,12 +9,7 @@ defmodule QuickTrain.Tasks.Responses.Response do
     authorizers: [Ash.Policy.Authorizer]
 
   attributes do
-    attribute :id, :uuid,
-      primary_key?: true,
-      allow_nil?: false,
-      public?: true,
-      generated?: true,
-      writable?: false
+    uuid_primary_key :id
 
     attribute :state, :atom,
       public?: true,
@@ -165,7 +160,6 @@ defmodule QuickTrain.Tasks.Responses.Response do
   postgres do
     table "responses"
     repo QuickTrain.Repo
-    migration_defaults id: "fragment(\"gen_random_uuid()\")"
     migration_types revision: :bigint
 
     references do

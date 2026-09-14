@@ -17,12 +17,7 @@ defmodule QuickTrain.Forms.Questions.Constraints.DecimalConstraints do
   alias QuickTrain.Repo
 
   attributes do
-    attribute :id, :uuid,
-      primary_key?: true,
-      allow_nil?: false,
-      generated?: true,
-      public?: true,
-      writable?: false
+    uuid_primary_key :id
 
     attribute :minimum, :decimal, public?: true
     attribute :maximum, :decimal, public?: true
@@ -143,7 +138,6 @@ defmodule QuickTrain.Forms.Questions.Constraints.DecimalConstraints do
   end
 
   postgres do
-    migration_defaults id: "fragment(\"gen_random_uuid()\")"
     table "form_decimal_constraints"
     repo Repo
 

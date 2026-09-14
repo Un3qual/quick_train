@@ -9,12 +9,7 @@ defmodule QuickTrain.Tasks.Responses.StaticOptionAnswer do
     authorizers: [Ash.Policy.Authorizer]
 
   attributes do
-    attribute :id, :uuid,
-      primary_key?: true,
-      allow_nil?: false,
-      public?: true,
-      generated?: true,
-      writable?: false
+    uuid_primary_key :id
 
     timestamps()
   end
@@ -132,7 +127,6 @@ defmodule QuickTrain.Tasks.Responses.StaticOptionAnswer do
   postgres do
     table "static_option_answers"
     repo QuickTrain.Repo
-    migration_defaults id: "fragment(\"gen_random_uuid()\")"
 
     references do
       reference :organization,

@@ -12,12 +12,7 @@ defmodule QuickTrain.Datasets.Dataset do
     authorizers: [Ash.Policy.Authorizer]
 
   attributes do
-    attribute :id, :uuid,
-      primary_key?: true,
-      allow_nil?: false,
-      generated?: true,
-      public?: true,
-      writable?: false
+    uuid_primary_key :id
 
     attribute :key, :string,
       allow_nil?: false,
@@ -90,7 +85,6 @@ defmodule QuickTrain.Datasets.Dataset do
   end
 
   postgres do
-    migration_defaults id: "fragment(\"gen_random_uuid()\")"
     table "datasets"
     repo QuickTrain.Repo
     identity_index_names organization_key: "datasets_organization_key_index"
