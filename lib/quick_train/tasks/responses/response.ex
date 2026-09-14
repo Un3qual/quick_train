@@ -129,7 +129,7 @@ defmodule QuickTrain.Tasks.Responses.Response do
       accept []
       require_atomic? false
       change Module.concat(["QuickTrain.Tasks.Responses.Changes.DraftEvidence"])
-      change increment(:revision)
+      change atomic_update(:revision, expr(revision + 1))
     end
 
     update :update_internal do

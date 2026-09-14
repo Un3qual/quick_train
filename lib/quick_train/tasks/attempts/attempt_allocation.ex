@@ -281,15 +281,15 @@ defmodule QuickTrain.Tasks.Attempts.AttemptAllocation do
     |> Ash.Query.sort(id: :asc)
     |> Ash.stream!(authorize?: false)
     |> Stream.reject(&MapSet.member?(covered, &1.id))
-    |> Enum.each(fn item ->
-      Ash.create!(TaskItemCoverage, Map.put(Access.scope(project), :project_item_id, item.id),
-        action: :create_internal,
-        authorize?: false,
-        upsert?: true,
-        upsert_identity: :project_item,
-        upsert_fields: []
-      )
-    end)
+    |> Stream.map(&Map.put(Access.scope(project), :project_item_id, &1.id))
+    |> Ash.bulk_create!(TaskItemCoverage, :create_internal,
+      authorize?: false,
+      transaction: :all,
+      stop_on_error?: true,
+      upsert?: true,
+      upsert_identity: :project_item,
+      upsert_fields: []
+    )
   end
 
   defp select_group(%{selection_mode: :balanced} = project, coverage) do

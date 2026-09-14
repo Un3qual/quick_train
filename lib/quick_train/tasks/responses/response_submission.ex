@@ -72,9 +72,11 @@ defmodule QuickTrain.Tasks.Responses.ResponseSubmission do
           authorize?: false
         )
 
+      statuses = QuestionReview.initial_decisions!(project, outcomes)
+
       changes =
         Map.new(outcomes, fn outcome ->
-          status = QuestionReview.initial_decision!(project, task, outcome)
+          status = Map.fetch!(statuses, outcome.id)
 
           {outcome.question_id, submission_delta(status)}
         end)

@@ -137,34 +137,49 @@ defmodule QuickTrain.Projects.Management do
     if Enum.uniq(args.revision_ids) != args.revision_ids,
       do: Error.reject!(:invalid_project_configuration)
 
-    for id <- args.revision_ids do
-      revision =
-        DatasetItemRevision
-        |> Ash.Query.filter(
-          id == ^id and organization_id == ^project.organization_id and
-            dataset_id == ^project.dataset_id and schema_version_id == ^project.schema_version_id
-        )
-        |> Ash.read_one!(authorize?: false)
+    revisions =
+      DatasetItemRevision
+      |> Ash.Query.filter(
+        id in ^args.revision_ids and organization_id == ^project.organization_id and
+          dataset_id == ^project.dataset_id and schema_version_id == ^project.schema_version_id
+      )
+      |> Ash.read!(authorize?: false, page: false)
 
-      if is_nil(revision), do: Error.reject!(:invalid_project_configuration)
+    if length(revisions) != length(args.revision_ids),
+      do: Error.reject!(:invalid_project_configuration)
 
-      create!(ProjectItem, %{
+    revisions
+    |> Enum.map(fn revision ->
+      %{
         project_id: project.id,
         dataset_id: project.dataset_id,
         schema_version_id: project.schema_version_id,
         item_id: revision.item_id,
         revision_id: revision.id
-      })
-    end
+      }
+    end)
+    |> Ash.bulk_create!(ProjectItem, :create_internal,
+      authorize?: false,
+      transaction: :all,
+      stop_on_error?: true
+    )
 
     project
   end
 
   defp edit!(project, :remove_project_items, args) do
-    for id <- Enum.uniq(args.project_item_ids) do
-      row = scoped!(ProjectItem, project, id)
-      Ash.destroy!(row, action: :destroy_internal, authorize?: false)
-    end
+    ids = Enum.uniq(args.project_item_ids)
+    query = Ash.Query.filter(ProjectItem, project_id == ^project.id and id in ^ids)
+
+    if Ash.count!(query, authorize?: false) != length(ids),
+      do: Error.reject!(:invalid_project_configuration)
+
+    Ash.bulk_destroy!(query, :destroy_internal, %{},
+      strategy: [:atomic],
+      authorize?: false,
+      transaction: :all,
+      stop_on_error?: true
+    )
 
     project
   end
@@ -247,18 +262,21 @@ defmodule QuickTrain.Projects.Management do
         canonical_key: key
       })
 
-    for input <- args.inputs do
-      create!(
-        ExplicitGroupInput,
-        input
-        |> Map.take([:project_item_id, :input_slot_id, :position])
-        |> Map.merge(%{
-          project_id: project.id,
-          group_id: group.id,
-          form_version_id: project.form_version_id
-        })
-      )
-    end
+    args.inputs
+    |> Enum.map(fn input ->
+      input
+      |> Map.take([:project_item_id, :input_slot_id, :position])
+      |> Map.merge(%{
+        project_id: project.id,
+        group_id: group.id,
+        form_version_id: project.form_version_id
+      })
+    end)
+    |> Ash.bulk_create!(ExplicitGroupInput, :create_internal,
+      authorize?: false,
+      transaction: :all,
+      stop_on_error?: true
+    )
 
     project
   end

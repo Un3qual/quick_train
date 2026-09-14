@@ -132,12 +132,25 @@ defmodule QuickTrain.Tasks.TaskReviewTest do
     first_request = %{request(first, :accept) | request_key: key}
     second_request = %{request(second, :accept) | request_key: key}
     assert {:ok, [first_decision, second_decision]} = batch(ctx, [first_request, second_request])
+    assert first_decision.question_response_id == first.id
+    assert second_decision.question_response_id == second.id
+
     assert first_decision.id != second_decision.id
     assert counts(ctx).accepted == 2
     assert {:ok, first_retry} = decide(ctx, first_request)
     assert {:ok, second_retry} = decide(ctx, second_request)
     assert first_retry.id != second_retry.id
     assert Ash.count!(ReviewDecision, authorize?: false) == 2
+
+    correction = request(first, :reject, first_decision.id, "Corrected")
+    assert {:ok, [second_retry, corrected]} = batch(ctx, [second_request, correction])
+    assert second_retry.id == second_decision.id
+    assert corrected.question_response_id == first.id
+    assert corrected.predecessor_id == first_decision.id
+    assert corrected.number == 2
+    assert counts(ctx).accepted == 1
+    assert counts(ctx).rejected == 1
+    assert Ash.count!(ReviewDecision, authorize?: false) == 3
   end
 
   test "inactive organizations deny new decisions, retries, corrections, and batches", ctx do
@@ -237,10 +250,15 @@ defmodule QuickTrain.Tasks.TaskReviewTest do
     answered = outcome!(ctx, project_counts: false)
     skipped = outcome!(ctx, outcome: :skipped, project_counts: false)
     automatic = %{ctx.project | review_mode: :automatic}
-    assert QuestionReview.initial_decision!(ctx.project, ctx.task, answered) == :pending
-    assert QuestionReview.initial_decision!(automatic, ctx.task, skipped) == :skipped
+
+    assert QuestionReview.initial_decisions!(ctx.project, [answered, skipped]) ==
+             %{answered.id => :pending, skipped.id => :skipped}
+
     assert Ash.count!(ReviewDecision, authorize?: false) == 0
-    assert QuestionReview.initial_decision!(automatic, ctx.task, answered) == :accepted
+
+    assert QuestionReview.initial_decisions!(automatic, [answered, skipped]) ==
+             %{answered.id => :accepted, skipped.id => :skipped}
+
     [decision] = Ash.read!(ReviewDecision, authorize?: false, page: false)
     assert decision.origin == :system
     assert decision.request_key == nil

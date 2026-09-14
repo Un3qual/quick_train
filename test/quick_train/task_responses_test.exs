@@ -77,6 +77,22 @@ defmodule QuickTrain.Tasks.TaskResponsesTest do
     assert submit!(ctx).state == :submitted
   end
 
+  test "revision increments use stored values even when the supplied response is stale" do
+    response = Ash.read_one!(Response, authorize?: false)
+    assert QuickTrain.Tasks.revise_response!(response, authorize?: false).revision == 1
+    assert QuickTrain.Tasks.revise_response!(response, authorize?: false).revision == 2
+
+    result =
+      Ash.bulk_update!([response], :revise, %{},
+        strategy: [:stream],
+        authorize?: false,
+        transaction: :all,
+        return_records?: true
+      )
+
+    assert [%{revision: 3}] = result.records
+  end
+
   defp save!(ctx, revision, answer) do
     action!(
       Response,

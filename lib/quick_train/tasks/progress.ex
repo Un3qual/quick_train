@@ -24,7 +24,11 @@ defmodule QuickTrain.Tasks.Progress do
 
   # Callers hold the Task lock; counts and their evidence commit together.
   def change!(project, task, changes) do
-    updated = Enum.map(rows(task.id), &change_row!(&1, Map.get(changes, &1.question_id, %{})))
+    updated =
+      task.id
+      |> rows()
+      |> Enum.map(&change_row(&1, Map.get(changes, &1.question_id, %{})))
+      |> update_rows!()
 
     update_task!(project, task, updated)
   end
@@ -43,7 +47,12 @@ defmodule QuickTrain.Tasks.Progress do
     counts = Map.new(rows, &{&1.question_id, Map.new(@counts, fn key -> {key, 0} end)})
     counts = count_outcomes(task, counts)
     counts = count_attempts(task, counts)
-    updated = Enum.map(rows, &update_row!(&1, Map.fetch!(counts, &1.question_id)))
+
+    updated =
+      rows
+      |> Enum.map(&row_update(&1, Map.fetch!(counts, &1.question_id)))
+      |> update_rows!()
+
     update_task!(project, task, updated)
   end
 
@@ -113,24 +122,36 @@ defmodule QuickTrain.Tasks.Progress do
     Map.update!(counts, question_id, &Map.update!(&1, field, fn value -> value + 1 end))
   end
 
-  defp change_row!(row, deltas) when map_size(deltas) == 0, do: row
+  defp change_row(row, deltas) when map_size(deltas) == 0, do: {row, %{}}
 
-  defp change_row!(row, deltas) do
+  defp change_row(row, deltas) do
     values = Map.new(deltas, fn {key, delta} -> {key, Map.fetch!(row, key) + delta} end)
-    update_row!(row, values)
+    row_update(row, values)
   end
 
-  defp update_row!(row, values) do
+  defp row_update(row, values) do
     current = Map.merge(row, values)
 
     attention =
       current.accepted < current.target and current.failures >= current.failure_threshold
 
-    values = Map.put(values, :attention, attention)
+    {row, Map.put(values, :attention, attention)}
+  end
 
-    if Enum.all?(values, fn {key, value} -> Map.fetch!(row, key) == value end),
-      do: row,
-      else: Ash.update!(row, values, action: :update_internal, authorize?: false)
+  defp update_rows!(updates) do
+    {unchanged, changed} =
+      Enum.split_with(updates, fn {row, values} ->
+        Enum.all?(values, fn {key, value} -> Map.fetch!(row, key) == value end)
+      end)
+
+    result =
+      Ash.update_many!(changed, TaskQuestionProgress, :update_internal,
+        strategy: [:atomic],
+        authorize?: false,
+        return_records?: true
+      )
+
+    Enum.map(unchanged, &elem(&1, 0)) ++ result.records
   end
 
   defp update_task!(project, task, rows) do

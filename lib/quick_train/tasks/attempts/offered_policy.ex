@@ -1,9 +1,10 @@
 defmodule QuickTrain.Tasks.Attempts.OfferedPolicy do
   @moduledoc false
   use Ash.Resource.Calculation
-  alias QuickTrain.Authorization
   alias QuickTrain.Projects.ProjectQuestionPolicy
-  alias QuickTrain.Tasks.{Access, Error}
+  alias QuickTrain.Tasks.Access.ReadAccess
+  alias QuickTrain.Tasks.Attempts.Attempt
+  alias QuickTrain.Tasks.Error
   alias QuickTrain.Tasks.Responses.QuestionResponse
   require Ash.Query
 
@@ -11,13 +12,7 @@ defmodule QuickTrain.Tasks.Attempts.OfferedPolicy do
     do: [:attempt_id, :project_id, :organization_id, :question_id]
 
   def calculate(records, opts, context) do
-    records = Ash.load!(records, [:project, :attempt], authorize?: false)
-
-    records
-    |> Enum.uniq_by(& &1.attempt_id)
-    |> Enum.each(
-      &authorize!(&1.project, &1.attempt, context.actor, opts[:field] != :review_status)
-    )
+    authorize!(records, context.actor, opts[:field] != :review_status)
 
     values = values(records, opts[:field])
 
@@ -57,16 +52,21 @@ defmodule QuickTrain.Tasks.Attempts.OfferedPolicy do
   defp review_status(%{effective_verdict: :accept}), do: :accepted
   defp review_status(%{effective_verdict: :reject}), do: :rejected
 
-  defp authorize!(project, attempt, actor, live?) do
-    cond do
-      actor && Authorization.allowed?(actor.id, project.organization_id, "tasks.results.read") ->
-        Access.manager!(project, actor, "tasks.results.read")
+  defp authorize!(records, %{id: _} = actor, live?) do
+    ids = Enum.map(records, & &1.attempt_id) |> Enum.uniq()
+    manager = ReadAccess.result_authority(actor)
 
-      actor && actor.id == attempt.worker_id ->
-        Access.owner!(project, attempt, actor, live?)
+    worker =
+      if live?, do: ReadAccess.live_attempt(actor), else: ReadAccess.eligible_attempt(actor)
 
-      true ->
-        Error.reject!(:forbidden)
-    end
+    allowed =
+      Attempt
+      |> Ash.Query.filter(id in ^ids and (^manager or ^worker))
+      |> Ash.count!(authorize?: false)
+
+    if allowed != length(ids), do: Error.reject!(:forbidden)
+    :ok
   end
+
+  defp authorize!(_records, _actor, _live?), do: Error.reject!(:forbidden)
 end

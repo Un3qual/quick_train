@@ -182,7 +182,26 @@ defmodule QuickTrain.ProjectsTest do
                authorize?: false
              )
 
+    assert [first, second] = ProjectsFixture.items(project)
+
+    assert {:error, _} =
+             Projects.remove_project_items(
+               context.org.id,
+               project.id,
+               %{project_item_ids: [first.id, invalid_id]},
+               actor: context.actor
+             )
+
     assert [_, _] = ProjectsFixture.items(project)
+
+    Projects.remove_project_items!(
+      context.org.id,
+      project.id,
+      %{project_item_ids: [first.id, second.id]},
+      actor: context.actor
+    )
+
+    assert ProjectsFixture.items(project) == []
   end
 
   test "draft repinning, mixed schemas, and binding family/requiredness fail atomically",
