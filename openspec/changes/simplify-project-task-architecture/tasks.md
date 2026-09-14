@@ -15,8 +15,8 @@
 
 ## 4. Explicit allocation
 
-- [ ] 4.1 Initialize coverage at activation and isolate explicit group/coverage locks.
-- [ ] 4.2 Verify ordering, concurrency, and coverage preservation.
+- [x] 4.1 Initialize coverage at activation and isolate explicit group/coverage locks.
+- [x] 4.2 Verify ordering, concurrency, and coverage preservation.
 
 ## 5. Collection authorization boundary
 

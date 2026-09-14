@@ -34,6 +34,7 @@ defmodule QuickTrain.Tasks.Attempts.AttemptAllocation do
     Ash.transact([Project, Task, Attempt], fn ->
       allocate(input.arguments, input.action.name, context.actor)
     end)
+    |> allocation_result()
   rescue
     error in Postgrex.Error ->
       if error.postgres[:code] in [:lock_not_available, :query_canceled, :deadlock_detected],
@@ -41,10 +42,20 @@ defmodule QuickTrain.Tasks.Attempts.AttemptAllocation do
         else: reraise(error, __STACKTRACE__)
 
     error in Ash.Error.Invalid ->
-      if Enum.any?(error.errors, &match?(%Error{category: :retry_later}, &1)),
-        do: {:ok, %AllocationResult{status: :retry_later}},
-        else: {:error, error}
+      allocation_result({:error, error})
   end
+
+  defp allocation_result({:error, %Ash.Error.Invalid{errors: errors}} = result) do
+    if Enum.any?(
+         errors,
+         &(match?(%Error{category: :retry_later}, &1) or
+             match?(%Ash.Error.Invalid.Unavailable{}, &1))
+       ),
+       do: {:ok, %AllocationResult{status: :retry_later}},
+       else: result
+  end
+
+  defp allocation_result(result), do: result
 
   defp allocate(args, operation, actor) do
     project = Access.project!(args.organization_id, args.project_id)
@@ -198,36 +209,59 @@ defmodule QuickTrain.Tasks.Attempts.AttemptAllocation do
   end
 
   defp new_selection(project, remaining, args, operation, actor, worker_id) do
-    case lock_coverage(project, remaining) do
-      {:ok, coverage} ->
-        case select_group(project, coverage) do
-          nil -> no_work(project, worker_id)
-          group -> issue_group!(project, group, coverage, args, operation, actor, worker_id)
-        end
+    if Ash.exists?(remaining, authorize?: false) do
+      %AllocationResult{status: :retry_later}
+    else
+      {group, coverage} = select_new_group(project)
 
-      :contended ->
-        %AllocationResult{status: :retry_later}
+      if group,
+        do: issue_group!(project, group, coverage, args, operation, actor, worker_id),
+        else: no_work(project, worker_id)
     end
   end
 
-  defp lock_coverage(project, remaining) do
-    if Ash.exists?(remaining, authorize?: false) do
-      :contended
-    else
-      ensure_coverage!(project)
+  defp select_new_group(%{selection_mode: :explicit} = project) do
+    case select_group(project, nil) do
+      nil ->
+        {nil, []}
 
-      coverage =
-        TaskItemCoverage
-        |> Ash.Query.filter(project_id == ^project.id)
-        |> Ash.Query.sort(project_item_id: :asc)
-        |> Ash.Query.lock("FOR UPDATE SKIP LOCKED")
-        |> Ash.read!(authorize?: false, page: false)
+      {inputs, group_id} = group ->
+        # Recheck after the group lock: another issuer may have committed after
+        # the selection statement took its snapshot. Never skip an authored group.
+        if Ash.exists?(Task,
+             query: [filter: [project_id: project.id, explicit_group_id: group_id]],
+             authorize?: false
+           ),
+           do: Error.reject!(:retry_later)
 
-      total =
-        Ash.count!(ProjectItem, query: [filter: [project_id: project.id]], authorize?: false)
+        ids = Enum.map(inputs, & &1.project_item_id)
 
-      if length(coverage) == total, do: {:ok, coverage}, else: :contended
+        query =
+          Ash.Query.filter(
+            TaskItemCoverage,
+            project_id == ^project.id and project_item_id in ^ids
+          )
+
+        {group, lock_coverage(query, length(ids))}
     end
+  end
+
+  defp select_new_group(project) do
+    query = Ash.Query.filter(TaskItemCoverage, project_id == ^project.id)
+    total = Ash.count!(ProjectItem, query: [filter: [project_id: project.id]], authorize?: false)
+    coverage = lock_coverage(query, total)
+    {select_group(project, coverage), coverage}
+  end
+
+  defp lock_coverage(query, expected) do
+    coverage =
+      query
+      |> Ash.Query.sort(project_item_id: :asc)
+      |> Ash.Query.lock("FOR UPDATE SKIP LOCKED")
+      |> Ash.read!(authorize?: false, page: false)
+
+    if length(coverage) != expected, do: Error.reject!(:retry_later)
+    coverage
   end
 
   defp issue_group!(
@@ -266,29 +300,6 @@ defmodule QuickTrain.Tasks.Attempts.AttemptAllocation do
     end
 
     result
-  end
-
-  defp ensure_coverage!(project) do
-    covered =
-      TaskItemCoverage
-      |> Ash.Query.filter(project_id == ^project.id)
-      |> Ash.read!(authorize?: false, page: false)
-      |> MapSet.new(& &1.project_item_id)
-
-    ProjectItem
-    |> Ash.Query.filter(project_id == ^project.id)
-    |> Ash.Query.sort(id: :asc)
-    |> Ash.stream!(authorize?: false)
-    |> Stream.reject(&MapSet.member?(covered, &1.id))
-    |> Stream.map(&Map.put(Access.scope(project), :project_item_id, &1.id))
-    |> Ash.bulk_create!(TaskItemCoverage, :create_internal,
-      authorize?: false,
-      transaction: :all,
-      stop_on_error?: true,
-      upsert?: true,
-      upsert_identity: :project_item,
-      upsert_fields: []
-    )
   end
 
   defp select_group(%{selection_mode: :balanced} = project, coverage) do
@@ -330,6 +341,7 @@ defmodule QuickTrain.Tasks.Attempts.AttemptAllocation do
       )
       |> Ash.Query.sort(position: :asc, id: :asc)
       |> Ash.Query.limit(1)
+      |> Ash.Query.lock("FOR UPDATE NOWAIT")
       |> Ash.read_one!(authorize?: false)
 
     if group do

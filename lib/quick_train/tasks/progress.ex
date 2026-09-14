@@ -52,6 +52,20 @@ defmodule QuickTrain.Tasks.Progress do
     Ash.load!(task, :state, authorize?: false)
   end
 
+  def initialize_coverage!(project) do
+    ProjectItem
+    |> Ash.Query.filter(project_id == ^project.id)
+    |> Ash.stream!(authorize?: false, batch_size: 100)
+    |> Stream.map(&Map.put(Access.scope(project), :project_item_id, &1.id))
+    |> Ash.bulk_create!(TaskItemCoverage, :create_internal,
+      authorize?: false,
+      transaction: :all,
+      stop_on_error?: true
+    )
+
+    :ok
+  end
+
   defp reconcile_coverage!(organization_id, project_id) do
     project = Access.project!(organization_id, project_id)
 

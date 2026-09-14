@@ -2,6 +2,7 @@ defmodule QuickTrain.Projects.Project.Changes.Transition do
   @moduledoc false
   use Ash.Resource.Change
   alias QuickTrain.Projects.{Error, Management, ProjectActivation}
+  alias QuickTrain.Tasks.Progress
   alias QuickTrain.Tasks.Attempts.Leases
   alias QuickTrain.Tasks.Progress.ProjectCompletion
 
@@ -24,6 +25,7 @@ defmodule QuickTrain.Projects.Project.Changes.Transition do
 
   defp prepare_transition!(%{action: %{name: :activate_record}} = changeset) do
     ProjectActivation.validate!(changeset.data)
+    Progress.initialize_coverage!(changeset.data)
     Ash.Changeset.force_change_attribute(changeset, :activated_at, DateTime.utc_now())
   end
 

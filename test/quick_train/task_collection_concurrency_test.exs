@@ -4,7 +4,7 @@ defmodule QuickTrain.Tasks.CollectionConcurrencyTest do
   alias Ecto.Adapters.SQL.Sandbox
   alias Elixir.Task, as: AsyncTask
   alias QuickTrain.{Accounts, ProjectsFixture}
-  alias QuickTrain.Projects.Project
+  alias QuickTrain.Projects.{ExplicitGroup, Project}
   alias QuickTrain.Tasks.{Access, Task, TaskInput}
   alias QuickTrain.Tasks.Attempts.Attempt
   alias QuickTrain.Tasks.Progress.{TaskItemCoverage, TaskQuestionProgress}
@@ -30,19 +30,19 @@ defmodule QuickTrain.Tasks.CollectionConcurrencyTest do
       )
 
     if tags[:selection_mode] == :explicit do
-      [item] = ProjectsFixture.items(project)
-
-      QuickTrain.Projects.create_explicit_group!(
-        context.org.id,
-        project.id,
-        %{
-          position: 0,
-          inputs: [
-            %{input_slot_id: source.form.slot.id, project_item_id: item.id, position: 0}
-          ]
-        },
-        actor: context.actor
-      )
+      for {item, position} <- Enum.with_index(ProjectsFixture.items(project)) do
+        QuickTrain.Projects.create_explicit_group!(
+          context.org.id,
+          project.id,
+          %{
+            position: position,
+            inputs: [
+              %{input_slot_id: source.form.slot.id, project_item_id: item.id, position: 0}
+            ]
+          },
+          actor: context.actor
+        )
+      end
     end
 
     if tags[:accepted_target] do
@@ -113,6 +113,62 @@ defmodule QuickTrain.Tasks.CollectionConcurrencyTest do
       send(holder.pid, :release)
       AsyncTask.await(holder, 5_000)
     end
+  end
+
+  @tag selection_mode: :explicit, item_count: 2
+  test "explicit issuance does not lock coverage belonging only to a later group", ctx do
+    [first, second] = Ash.read!(ExplicitGroup, authorize?: false, page: false, load: [:inputs])
+    later_item = hd(second.inputs).project_item_id
+    coverage = Ash.read!(TaskItemCoverage, authorize?: false, page: false)
+    later_coverage = Enum.find(coverage, &(&1.project_item_id == later_item))
+    parent = self()
+
+    holder =
+      on_connection(fn ->
+        Ash.transact(TaskItemCoverage, fn ->
+          Ash.get!(TaskItemCoverage, later_coverage.id, authorize?: false, lock: :for_update)
+          send(parent, :later_coverage_locked)
+          receive do: (:release -> :ok)
+        end)
+      end)
+
+    try do
+      assert_receive :later_coverage_locked, 5_000
+      assert {:ok, %{status: :issued, attempt: attempt}} = fetch(ctx, Ash.UUID.generate())
+      assert Ash.get!(Task, attempt.task_id, authorize?: false).explicit_group_id == first.id
+    after
+      send(holder.pid, :release)
+      AsyncTask.await(holder, 5_000)
+    end
+  end
+
+  @tag selection_mode: :explicit, item_count: 2
+  test "a contended first explicit group is retried rather than skipped", ctx do
+    [first, _second] = Ash.read!(ExplicitGroup, authorize?: false, page: false)
+    parent = self()
+
+    holder =
+      on_connection(fn ->
+        Ash.transact(ExplicitGroup, fn ->
+          Ash.get!(ExplicitGroup, first.id, authorize?: false, lock: :for_update)
+          send(parent, :first_group_locked)
+          receive do: (:release -> :ok)
+        end)
+      end)
+
+    key = Ash.UUID.generate()
+
+    try do
+      assert_receive :first_group_locked, 5_000
+      assert {:ok, %{status: :retry_later}} = fetch(ctx, key)
+      refute Ash.exists?(Task, authorize?: false)
+    after
+      send(holder.pid, :release)
+      AsyncTask.await(holder, 5_000)
+    end
+
+    assert {:ok, %{status: :issued, attempt: attempt}} = fetch(ctx, key)
+    assert Ash.get!(Task, attempt.task_id, authorize?: false).explicit_group_id == first.id
   end
 
   test "simultaneous identical request keys return one fixed attempt", ctx do
@@ -356,9 +412,10 @@ defmodule QuickTrain.Tasks.CollectionConcurrencyTest do
 
       assert Exception.message(error) =~ "injected_failure"
 
-      for resource <- [Task, TaskInput, Attempt, TaskQuestionProgress, TaskItemCoverage],
+      for resource <- [Task, TaskInput, Attempt, TaskQuestionProgress],
           do: assert(Ash.count!(resource, authorize?: false) == 0)
 
+      assert Ash.read_one!(TaskItemCoverage, authorize?: false).exposures == 0
       assert %{rows: [[0]]} = Repo.query!("SELECT count(*) FROM oban_jobs")
       assert {:ok, %{status: :issued}} = fetch(ctx, key)
       assert Ash.count!(Task, authorize?: false) == 1
