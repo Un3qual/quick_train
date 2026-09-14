@@ -33,11 +33,11 @@ defmodule QuickTrain.Tasks.Attempts.Changes.Transition do
             started_at: cutoff
           })
     else
-      terminate(changeset, project, task, cutoff)
+      terminate(changeset, task, cutoff)
     end
   end
 
-  defp terminate(changeset, project, task, cutoff) do
+  defp terminate(changeset, task, cutoff) do
     attempt = changeset.data
     expired? = DateTime.compare(attempt.deadline, cutoff) != :gt
 
@@ -64,7 +64,7 @@ defmodule QuickTrain.Tasks.Attempts.Changes.Transition do
              %{live: -1, failures: if(state in [:expired, :released], do: 1, else: 0)}}
           )
 
-        Progress.change!(project, task, changes)
+        Progress.change!(task, changes)
         {:ok, result}
       end)
     end

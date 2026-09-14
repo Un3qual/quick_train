@@ -137,7 +137,7 @@ defmodule QuickTrain.Tasks.Reviews.QuestionReview do
       {{_task_id, question_id}, delta} -> {question_id, delta}
     end)
     |> Enum.each(fn {task_id, deltas} ->
-      Progress.change!(project, Map.fetch!(tasks, task_id), Map.new(deltas))
+      Progress.change!(Map.fetch!(tasks, task_id), Map.new(deltas))
     end)
 
     decisions

@@ -2,7 +2,6 @@ defmodule QuickTrain.Tasks.Progress.ProjectCompletion do
   @moduledoc false
   alias QuickTrain.Tasks.Attempts.{Attempt, AttemptQuestion, Leases}
   alias QuickTrain.Tasks.Progress.TaskQuestionProgress
-  alias QuickTrain.Tasks.Task
   import Ash.Expr
   require Ash.Query
 
@@ -22,8 +21,7 @@ defmodule QuickTrain.Tasks.Progress.ProjectCompletion do
       authorize?: false,
       atomic_update: %{
         live: expr(live - ^released),
-        failures: expr(failures + ^expired),
-        attention: expr(accepted < target and failures + ^expired >= failure_threshold)
+        failures: expr(failures + ^expired)
       }
     )
 
@@ -37,13 +35,6 @@ defmodule QuickTrain.Tasks.Progress.ProjectCompletion do
     Attempt
     |> Ash.Query.filter(project_id == ^project.id and state in ^live)
     |> Ash.bulk_update!(:update_internal, %{state: :cancelled, terminal_at: cutoff},
-      strategy: [:atomic],
-      authorize?: false
-    )
-
-    Task
-    |> Ash.Query.filter(project_id == ^project.id and state != :satisfied)
-    |> Ash.bulk_update!(:update_internal, %{state: :cancelled},
       strategy: [:atomic],
       authorize?: false
     )

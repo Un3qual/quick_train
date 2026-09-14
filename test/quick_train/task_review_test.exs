@@ -317,7 +317,7 @@ defmodule QuickTrain.Tasks.TaskReviewTest do
     assert counts(ctx).failures == 4
     assert Ash.get!(Task, ctx.task.id, authorize?: false).state == :open
     expected = counts(ctx)
-    Ash.Seed.update!(current_progress(ctx), %{accepted: 0, failures: 99, attention: true})
+    Ash.Seed.update!(current_progress(ctx), %{accepted: 0, failures: 99})
 
     assert {:ok, _} =
              QuickTrain.Tasks.reconcile_task(ctx.org.id, ctx.project.id, ctx.task.id,
@@ -539,7 +539,7 @@ defmodule QuickTrain.Tasks.TaskReviewTest do
     if Keyword.get(opts, :project_counts, true) do
       delta = if outcome == :answered, do: %{pending: 1}, else: %{skipped: 1, failures: 1}
 
-      Progress.change!(ctx.project, Ash.get!(Task, ctx.task.id, authorize?: false), %{
+      Progress.change!(Ash.get!(Task, ctx.task.id, authorize?: false), %{
         ctx.progress.question_id => delta
       })
     end

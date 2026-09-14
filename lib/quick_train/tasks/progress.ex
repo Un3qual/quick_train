@@ -23,14 +23,11 @@ defmodule QuickTrain.Tasks.Progress do
   end
 
   # Callers hold the Task lock; counts and their evidence commit together.
-  def change!(project, task, changes) do
-    updated =
-      task.id
-      |> rows()
-      |> Enum.map(&change_row(&1, Map.get(changes, &1.question_id, %{})))
-      |> update_rows!()
-
-    update_task!(project, task, updated)
+  def change!(task, changes) do
+    task.id
+    |> rows()
+    |> Enum.map(&change_row(&1, Map.get(changes, &1.question_id, %{})))
+    |> update_rows!()
   end
 
   defp reconcile!(organization_id, project_id, task_id) do
@@ -48,12 +45,11 @@ defmodule QuickTrain.Tasks.Progress do
     counts = count_outcomes(task, counts)
     counts = count_attempts(task, counts)
 
-    updated =
-      rows
-      |> Enum.map(&row_update(&1, Map.fetch!(counts, &1.question_id)))
-      |> update_rows!()
+    rows
+    |> Enum.map(&{&1, Map.fetch!(counts, &1.question_id)})
+    |> update_rows!()
 
-    update_task!(project, task, updated)
+    Ash.load!(task, :state, authorize?: false)
   end
 
   defp reconcile_coverage!(organization_id, project_id) do
@@ -71,17 +67,6 @@ defmodule QuickTrain.Tasks.Progress do
     |> Ash.Query.filter(task_id == ^task_id)
     |> Ash.Query.sort(id: :asc)
     |> Ash.read!(authorize?: false, page: false)
-  end
-
-  def state(project, rows) do
-    unmet = Enum.reject(rows, &(&1.accepted >= &1.target))
-
-    cond do
-      unmet == [] -> :satisfied
-      project.state in [:completed, :archived] -> :cancelled
-      Enum.all?(unmet, & &1.attention) -> :needs_attention
-      true -> :open
-    end
   end
 
   defp count_outcomes(task, counts) do
@@ -126,42 +111,21 @@ defmodule QuickTrain.Tasks.Progress do
 
   defp change_row(row, deltas) do
     values = Map.new(deltas, fn {key, delta} -> {key, Map.fetch!(row, key) + delta} end)
-    row_update(row, values)
-  end
-
-  defp row_update(row, values) do
-    current = Map.merge(row, values)
-
-    attention =
-      current.accepted < current.target and current.failures >= current.failure_threshold
-
-    {row, Map.put(values, :attention, attention)}
+    {row, values}
   end
 
   defp update_rows!(updates) do
-    {unchanged, changed} =
-      Enum.split_with(updates, fn {row, values} ->
-        Enum.all?(values, fn {key, value} -> Map.fetch!(row, key) == value end)
-      end)
+    updates
+    |> Enum.reject(fn {row, values} ->
+      Enum.all?(values, fn {key, value} -> Map.fetch!(row, key) == value end)
+    end)
+    |> Ash.update_many!(TaskQuestionProgress, :update_internal,
+      strategy: [:atomic],
+      authorize?: false,
+      return_records?: false
+    )
 
-    result =
-      Ash.update_many!(changed, TaskQuestionProgress, :update_internal,
-        strategy: [:atomic],
-        authorize?: false,
-        return_records?: true
-      )
-
-    Enum.map(unchanged, &elem(&1, 0)) ++ result.records
-  end
-
-  defp update_task!(project, task, rows) do
-    # A caller may have already changed the task earlier in the same locked transaction.
-    task = Ash.get!(Task, task.id, authorize?: false)
-    target = state(project, rows)
-
-    if task.state == target,
-      do: task,
-      else: Ash.update!(task, %{state: target}, action: :update_internal, authorize?: false)
+    :ok
   end
 
   defp reconcile_item!(project, item) do

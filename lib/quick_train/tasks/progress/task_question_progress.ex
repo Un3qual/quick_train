@@ -53,7 +53,6 @@ defmodule QuickTrain.Tasks.Progress.TaskQuestionProgress do
       default: 0,
       constraints: [min: 0]
 
-    attribute :attention, :boolean, public?: true, allow_nil?: false, default: false
     timestamps()
   end
 
@@ -73,6 +72,15 @@ defmodule QuickTrain.Tasks.Progress.TaskQuestionProgress do
     belongs_to :question, QuickTrain.Forms.Questions.QuestionDefinition,
       allow_nil?: false,
       attribute_public?: true
+  end
+
+  calculations do
+    calculate :attention, :boolean, expr(accepted < target and failures >= failure_threshold),
+      public?: true
+  end
+
+  preparations do
+    prepare build(load: [:attention])
   end
 
   actions do
@@ -126,7 +134,6 @@ defmodule QuickTrain.Tasks.Progress.TaskQuestionProgress do
         :rejected,
         :live,
         :failures,
-        :attention,
         :organization_id,
         :project_id,
         :form_version_id,
@@ -136,7 +143,7 @@ defmodule QuickTrain.Tasks.Progress.TaskQuestionProgress do
     end
 
     update :update_internal do
-      accept [:accepted, :pending, :skipped, :rejected, :live, :failures, :attention]
+      accept [:accepted, :pending, :skipped, :rejected, :live, :failures]
     end
   end
 

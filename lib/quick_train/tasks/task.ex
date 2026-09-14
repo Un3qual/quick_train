@@ -14,12 +14,6 @@ defmodule QuickTrain.Tasks.Task do
     attribute :canonical_key, :binary, public?: false, allow_nil?: false
     attribute :canonical_membership, :binary, public?: false, allow_nil?: false
 
-    attribute :state, :atom,
-      public?: true,
-      allow_nil?: false,
-      default: :open,
-      constraints: [one_of: [:open, :satisfied, :needs_attention, :cancelled]]
-
     timestamps()
   end
 
@@ -52,6 +46,37 @@ defmodule QuickTrain.Tasks.Task do
     belongs_to :explicit_group, QuickTrain.Projects.ExplicitGroup,
       allow_nil?: true,
       attribute_public?: true
+  end
+
+  aggregates do
+    exists :unmet_questions, :progress do
+      filter expr(accepted < target)
+      authorize? false
+    end
+
+    exists :unmet_without_attention, :progress do
+      filter expr(accepted < target and not attention)
+      authorize? false
+    end
+  end
+
+  calculations do
+    calculate :state,
+              :atom,
+              expr(
+                cond do
+                  not unmet_questions -> :satisfied
+                  project.state in [:completed, :archived] -> :cancelled
+                  not unmet_without_attention -> :needs_attention
+                  true -> :open
+                end
+              ),
+              public?: true,
+              constraints: [one_of: [:open, :satisfied, :needs_attention, :cancelled]]
+  end
+
+  preparations do
+    prepare build(load: [:state])
   end
 
   actions do
@@ -109,16 +134,11 @@ defmodule QuickTrain.Tasks.Task do
       accept [
         :canonical_key,
         :canonical_membership,
-        :state,
         :organization_id,
         :project_id,
         :form_version_id,
         :explicit_group_id
       ]
-    end
-
-    update :update_internal do
-      accept [:state]
     end
   end
 
@@ -132,7 +152,7 @@ defmodule QuickTrain.Tasks.Task do
                     capability: "tasks.results.read"}
     end
 
-    policy action([:create_internal, :update_internal]) do
+    policy action(:create_internal) do
       forbid_if always()
     end
   end

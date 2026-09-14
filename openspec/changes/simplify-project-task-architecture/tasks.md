@@ -5,8 +5,8 @@
 
 ## 2. Derived progress state
 
-- [ ] 2.1 Replace stored attention/task state with Ash calculations and remove their write paths.
-- [ ] 2.2 Verify allocation, completion, corrections, and reconciliation.
+- [x] 2.1 Replace stored attention/task state with Ash calculations and remove their write paths.
+- [x] 2.2 Verify allocation, completion, corrections, and reconciliation.
 
 ## 3. Version-level form snapshots
 

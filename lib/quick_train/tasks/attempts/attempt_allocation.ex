@@ -417,7 +417,7 @@ defmodule QuickTrain.Tasks.Attempts.AttemptAllocation do
     )
 
     presentation!(project, task, scope)
-    Progress.change!(project, task, Map.new(questions, &{&1.question_id, %{live: 1}}))
+    Progress.change!(task, Map.new(questions, &{&1.question_id, %{live: 1}}))
 
     ExpireAttempt.new(
       Map.take(attempt, [:id, :organization_id, :project_id]),

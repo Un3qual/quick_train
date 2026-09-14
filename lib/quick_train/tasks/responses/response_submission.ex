@@ -100,7 +100,7 @@ defmodule QuickTrain.Tasks.Responses.ResponseSubmission do
           {outcome.question_id, submission_delta(status)}
         end)
 
-      Progress.change!(project, task, changes)
+      Progress.change!(task, changes)
       submitted
     end
   end
