@@ -1,0 +1,579 @@
+defmodule QuickTrain.Projects.Project do
+  @moduledoc "One organization-owned, frozen collection run."
+  use Ash.Resource,
+    otp_app: :quick_train,
+    domain: QuickTrain.Projects,
+    data_layer: AshPostgres.DataLayer,
+    extensions: [AshGraphql.Resource],
+    authorizers: [Ash.Policy.Authorizer]
+
+  attributes do
+    attribute :id, :uuid,
+      primary_key?: true,
+      allow_nil?: false,
+      generated?: true,
+      public?: true,
+      writable?: false
+
+    attribute :title, :string, public?: true, allow_nil?: false, constraints: [match: ~r/\S/u]
+
+    attribute :state, :atom,
+      public?: true,
+      allow_nil?: false,
+      default: :draft,
+      constraints: [one_of: [:draft, :active, :paused, :completed, :archived]]
+
+    attribute :audience, :atom,
+      public?: true,
+      allow_nil?: false,
+      default: :organization_members,
+      constraints: [one_of: [:organization_members, :external_users, :both]]
+
+    attribute :external_access, :atom,
+      public?: true,
+      allow_nil?: false,
+      default: :allowlisted,
+      constraints: [one_of: [:open, :allowlisted]]
+
+    attribute :selection_mode, :atom,
+      public?: true,
+      allow_nil?: false,
+      default: :balanced,
+      constraints: [one_of: [:balanced, :explicit]]
+
+    attribute :review_mode, :atom,
+      public?: true,
+      allow_nil?: false,
+      default: :automatic,
+      constraints: [one_of: [:automatic, :manual]]
+
+    attribute :coverage_target, :integer,
+      public?: true,
+      allow_nil?: false,
+      default: 1,
+      constraints: [min: 1, max: 2_147_483_647]
+
+    attribute :lease_minutes, :integer,
+      public?: true,
+      allow_nil?: false,
+      default: 30,
+      constraints: [min: 1, max: 120]
+
+    attribute :activated_at, :utc_datetime_usec, public?: true
+    attribute :completed_at, :utc_datetime_usec, public?: true
+    attribute :archived_at, :utc_datetime_usec, public?: true
+    timestamps()
+  end
+
+  relationships do
+    belongs_to :organization, QuickTrain.Organizations.Organization,
+      allow_nil?: false,
+      attribute_public?: true
+
+    belongs_to :dataset, QuickTrain.Datasets.Dataset, allow_nil?: false, attribute_public?: true
+
+    belongs_to :schema_version, QuickTrain.Datasets.DatasetSchemaVersion,
+      allow_nil?: false,
+      attribute_public?: true
+
+    belongs_to :root_record_type, QuickTrain.Datasets.DatasetRecordType,
+      allow_nil?: false,
+      attribute_public?: true
+
+    belongs_to :form, QuickTrain.Forms.Form, allow_nil?: false, attribute_public?: true
+
+    belongs_to :form_version, QuickTrain.Forms.FormVersion,
+      allow_nil?: false,
+      attribute_public?: true
+
+    has_many :items, QuickTrain.Projects.ProjectItem,
+      destination_attribute: :project_id,
+      public?: true
+
+    has_many :bindings, QuickTrain.Projects.ProjectInputBinding,
+      destination_attribute: :project_id,
+      public?: true
+
+    has_many :slot_policies, QuickTrain.Projects.ProjectSlotPolicy,
+      destination_attribute: :project_id,
+      public?: true
+
+    has_many :question_policies, QuickTrain.Projects.ProjectQuestionPolicy,
+      destination_attribute: :project_id,
+      public?: true
+
+    has_many :worker_access, QuickTrain.Projects.ProjectWorkerAccess,
+      destination_attribute: :project_id,
+      public?: true
+
+    has_many :explicit_groups, QuickTrain.Projects.ExplicitGroup,
+      destination_attribute: :project_id,
+      public?: true
+
+    has_many :group_inputs, QuickTrain.Projects.ExplicitGroupInput,
+      destination_attribute: :project_id,
+      public?: true
+
+    has_many :reader_role_assignments, QuickTrain.Authorization.RoleAssignment do
+      source_attribute :organization_id
+      destination_attribute :organization_id
+
+      filter expr(
+               user.status == "active" and organization.status == "active" and
+                 exists(
+                   role.role_capabilities,
+                   capability.key in ["projects.read", "projects.manage"]
+                 ) and
+                 exists(organization.memberships, user_id == ^actor(:id) and status == "active")
+             )
+    end
+  end
+
+  actions do
+    read :read do
+      primary? true
+
+      pagination keyset?: true,
+                 required?: false,
+                 default_limit: 50,
+                 max_page_size: 100,
+                 stable_sort: [inserted_at: :asc, id: :asc]
+    end
+
+    read :list_scoped do
+      argument :organization_id, :uuid, allow_nil?: false
+      filter expr(organization_id == ^arg(:organization_id))
+
+      pagination keyset?: true,
+                 required?: true,
+                 default_limit: 50,
+                 max_page_size: 100,
+                 stable_sort: [inserted_at: :asc, id: :asc]
+    end
+
+    read :get_scoped do
+      get? true
+      argument :organization_id, :uuid, allow_nil?: false
+      argument :id, :uuid, allow_nil?: false
+      filter expr(id == ^arg(:id) and organization_id == ^arg(:organization_id))
+    end
+
+    read :lock do
+      get? true
+      argument :organization_id, :uuid, allow_nil?: false
+      argument :project_id, :uuid, allow_nil?: false
+      filter expr(id == ^arg(:project_id) and organization_id == ^arg(:organization_id))
+      prepare build(lock: :for_update)
+    end
+
+    action :create_project, :struct do
+      transaction? true
+      allow_nil? false
+      constraints instance_of: __MODULE__
+      argument :organization_id, :uuid, allow_nil?: false
+      argument :dataset_id, :uuid, allow_nil?: false
+      argument :schema_version_id, :uuid, allow_nil?: false
+      argument :form_version_id, :uuid, allow_nil?: false
+      argument :title, :string, allow_nil?: false, constraints: [match: ~r/\S/u]
+
+      argument :audience, :atom,
+        constraints: [one_of: [:organization_members, :external_users, :both]],
+        default: :organization_members,
+        allow_nil?: false
+
+      argument :external_access, :atom,
+        constraints: [one_of: [:open, :allowlisted]],
+        default: :allowlisted,
+        allow_nil?: false
+
+      argument :selection_mode, :atom,
+        constraints: [one_of: [:balanced, :explicit]],
+        default: :balanced,
+        allow_nil?: false
+
+      argument :review_mode, :atom,
+        constraints: [one_of: [:automatic, :manual]],
+        default: :automatic,
+        allow_nil?: false
+
+      argument :coverage_target, :integer,
+        constraints: [min: 1, max: 2_147_483_647],
+        default: 1,
+        allow_nil?: false
+
+      argument :lease_minutes, :integer,
+        constraints: [min: 1, max: 120],
+        default: 30,
+        allow_nil?: false
+
+      run QuickTrain.Projects.Management
+    end
+
+    action :update_draft, :struct do
+      transaction? true
+      allow_nil? false
+      constraints instance_of: __MODULE__
+      argument :organization_id, :uuid, allow_nil?: false
+      argument :project_id, :uuid, allow_nil?: false
+      argument :title, :string, constraints: [match: ~r/\S/u]
+
+      argument :audience, :atom,
+        constraints: [one_of: [:organization_members, :external_users, :both]]
+
+      argument :external_access, :atom, constraints: [one_of: [:open, :allowlisted]]
+      argument :selection_mode, :atom, constraints: [one_of: [:balanced, :explicit]]
+      argument :review_mode, :atom, constraints: [one_of: [:automatic, :manual]]
+      argument :coverage_target, :integer, constraints: [min: 1, max: 2_147_483_647]
+      argument :lease_minutes, :integer, constraints: [min: 1, max: 120]
+      argument :dataset_id, :uuid
+      argument :schema_version_id, :uuid
+      argument :form_version_id, :uuid
+      run QuickTrain.Projects.Management
+    end
+
+    action :update_title, :struct do
+      transaction? true
+      allow_nil? false
+      constraints instance_of: __MODULE__
+      argument :organization_id, :uuid, allow_nil?: false
+      argument :project_id, :uuid, allow_nil?: false
+      argument :title, :string, allow_nil?: false, constraints: [match: ~r/\S/u]
+      run QuickTrain.Projects.Management
+    end
+
+    action :enroll_revisions, :struct do
+      transaction? true
+      allow_nil? false
+      constraints instance_of: __MODULE__
+      argument :organization_id, :uuid, allow_nil?: false
+      argument :project_id, :uuid, allow_nil?: false
+      argument :revision_ids, {:array, :uuid}, allow_nil?: false
+      run QuickTrain.Projects.Management
+    end
+
+    action :remove_project_items, :struct do
+      transaction? true
+      allow_nil? false
+      constraints instance_of: __MODULE__
+      argument :organization_id, :uuid, allow_nil?: false
+      argument :project_id, :uuid, allow_nil?: false
+      argument :project_item_ids, {:array, :uuid}, allow_nil?: false
+      run QuickTrain.Projects.Management
+    end
+
+    action :set_binding, :struct do
+      transaction? true
+      allow_nil? false
+      constraints instance_of: __MODULE__
+      argument :organization_id, :uuid, allow_nil?: false
+      argument :project_id, :uuid, allow_nil?: false
+      argument :requirement_id, :uuid, allow_nil?: false
+      argument :field_definition_id, :uuid, allow_nil?: false
+      run QuickTrain.Projects.Management
+    end
+
+    action :set_slot_policy, :struct do
+      transaction? true
+      allow_nil? false
+      constraints instance_of: __MODULE__
+      argument :organization_id, :uuid, allow_nil?: false
+      argument :project_id, :uuid, allow_nil?: false
+      argument :input_slot_id, :uuid, allow_nil?: false
+      argument :item_count, :integer, allow_nil?: false, constraints: [min: 1, max: 2_147_483_647]
+      argument :shuffle, :boolean, allow_nil?: false
+      run QuickTrain.Projects.Management
+    end
+
+    action :set_question_policy, :struct do
+      transaction? true
+      allow_nil? false
+      constraints instance_of: __MODULE__
+      argument :organization_id, :uuid, allow_nil?: false
+      argument :project_id, :uuid, allow_nil?: false
+      argument :question_id, :uuid, allow_nil?: false
+
+      argument :accepted_target, :integer,
+        allow_nil?: false,
+        constraints: [min: 1, max: 2_147_483_647]
+
+      argument :skip_allowed, :boolean, allow_nil?: false
+      argument :reason_required, :boolean, allow_nil?: false
+
+      argument :failure_threshold, :integer,
+        allow_nil?: false,
+        constraints: [min: 1, max: 2_147_483_647]
+
+      run QuickTrain.Projects.Management
+    end
+
+    action :set_worker_access, :struct do
+      transaction? true
+      allow_nil? false
+      constraints instance_of: __MODULE__
+      argument :organization_id, :uuid, allow_nil?: false
+      argument :project_id, :uuid, allow_nil?: false
+      argument :user_id, :uuid, allow_nil?: false
+      argument :disposition, :atom, allow_nil?: false, constraints: [one_of: [:allow, :block]]
+      run QuickTrain.Projects.Management
+    end
+
+    action :remove_worker_access, :struct do
+      transaction? true
+      allow_nil? false
+      constraints instance_of: __MODULE__
+      argument :organization_id, :uuid, allow_nil?: false
+      argument :project_id, :uuid, allow_nil?: false
+      argument :user_id, :uuid, allow_nil?: false
+      run QuickTrain.Projects.Management
+    end
+
+    action :create_explicit_group, :struct do
+      transaction? true
+      allow_nil? false
+      constraints instance_of: __MODULE__
+      argument :organization_id, :uuid, allow_nil?: false
+      argument :project_id, :uuid, allow_nil?: false
+      argument :position, :integer, allow_nil?: false, constraints: [min: 0, max: 2_147_483_647]
+      argument :inputs, {:array, QuickTrain.Projects.GroupInput}, allow_nil?: false
+      run QuickTrain.Projects.Management
+    end
+
+    action :remove_explicit_group, :struct do
+      transaction? true
+      allow_nil? false
+      constraints instance_of: __MODULE__
+      argument :organization_id, :uuid, allow_nil?: false
+      argument :project_id, :uuid, allow_nil?: false
+      argument :group_id, :uuid, allow_nil?: false
+      run QuickTrain.Projects.Management
+    end
+
+    action :remove_binding, :struct do
+      transaction? true
+      allow_nil? false
+      constraints instance_of: __MODULE__
+      argument :organization_id, :uuid, allow_nil?: false
+      argument :project_id, :uuid, allow_nil?: false
+      argument :requirement_id, :uuid, allow_nil?: false
+      run QuickTrain.Projects.Management
+    end
+
+    action :remove_slot_policy, :struct do
+      transaction? true
+      allow_nil? false
+      constraints instance_of: __MODULE__
+      argument :organization_id, :uuid, allow_nil?: false
+      argument :project_id, :uuid, allow_nil?: false
+      argument :input_slot_id, :uuid, allow_nil?: false
+      run QuickTrain.Projects.Management
+    end
+
+    action :remove_question_policy, :struct do
+      transaction? true
+      allow_nil? false
+      constraints instance_of: __MODULE__
+      argument :organization_id, :uuid, allow_nil?: false
+      argument :project_id, :uuid, allow_nil?: false
+      argument :question_id, :uuid, allow_nil?: false
+      run QuickTrain.Projects.Management
+    end
+
+    action :activate, :struct do
+      transaction? true
+      allow_nil? false
+      constraints instance_of: __MODULE__
+      argument :organization_id, :uuid, allow_nil?: false
+      argument :project_id, :uuid, allow_nil?: false
+      run QuickTrain.Projects.Management
+    end
+
+    action :pause, :struct do
+      transaction? true
+      allow_nil? false
+      constraints instance_of: __MODULE__
+      argument :organization_id, :uuid, allow_nil?: false
+      argument :project_id, :uuid, allow_nil?: false
+      run QuickTrain.Projects.Management
+    end
+
+    action :resume, :struct do
+      transaction? true
+      allow_nil? false
+      constraints instance_of: __MODULE__
+      argument :organization_id, :uuid, allow_nil?: false
+      argument :project_id, :uuid, allow_nil?: false
+      run QuickTrain.Projects.Management
+    end
+
+    action :complete, :struct do
+      transaction? true
+      allow_nil? false
+      constraints instance_of: __MODULE__
+      argument :organization_id, :uuid, allow_nil?: false
+      argument :project_id, :uuid, allow_nil?: false
+      run QuickTrain.Projects.Management
+    end
+
+    action :archive, :struct do
+      transaction? true
+      allow_nil? false
+      constraints instance_of: __MODULE__
+      argument :organization_id, :uuid, allow_nil?: false
+      argument :project_id, :uuid, allow_nil?: false
+      run QuickTrain.Projects.Management
+    end
+
+    create :create_internal do
+      accept [
+        :audience,
+        :external_access,
+        :selection_mode,
+        :review_mode,
+        :coverage_target,
+        :lease_minutes,
+        :title,
+        :organization_id,
+        :dataset_id,
+        :schema_version_id,
+        :root_record_type_id,
+        :form_id,
+        :form_version_id
+      ]
+    end
+
+    update :update_internal do
+      accept [
+        :dataset_id,
+        :schema_version_id,
+        :root_record_type_id,
+        :form_id,
+        :form_version_id,
+        :audience,
+        :external_access,
+        :selection_mode,
+        :review_mode,
+        :coverage_target,
+        :lease_minutes,
+        :title,
+        :state,
+        :activated_at,
+        :completed_at,
+        :archived_at
+      ]
+    end
+  end
+
+  policies do
+    policy action(:read) do
+      forbid_if always()
+    end
+
+    policy action([:get_scoped, :list_scoped]) do
+      authorize_if {QuickTrain.Authorization.Checks.OrganizationCapability,
+                    capability: "projects.read"}
+    end
+
+    policy action([
+             :remove_question_policy,
+             :remove_slot_policy,
+             :remove_binding,
+             :create_project,
+             :update_draft,
+             :update_title,
+             :enroll_revisions,
+             :remove_project_items,
+             :set_binding,
+             :set_slot_policy,
+             :set_question_policy,
+             :set_worker_access,
+             :remove_worker_access,
+             :create_explicit_group,
+             :remove_explicit_group,
+             :activate,
+             :pause,
+             :resume,
+             :complete,
+             :archive
+           ]) do
+      authorize_if {QuickTrain.Authorization.Checks.OrganizationCapability,
+                    capability: "projects.manage"}
+    end
+  end
+
+  graphql do
+    type :project
+    derive_filter? false
+    derive_sort? false
+
+    relationships [
+      :items,
+      :bindings,
+      :slot_policies,
+      :question_policies,
+      :worker_access,
+      :explicit_groups,
+      :group_inputs
+    ]
+
+    paginate_relationship_with items: :relay,
+                               bindings: :relay,
+                               slot_policies: :relay,
+                               question_policies: :relay,
+                               worker_access: :relay,
+                               explicit_groups: :relay,
+                               group_inputs: :relay
+  end
+
+  postgres do
+    table "projects"
+    repo QuickTrain.Repo
+    migration_defaults id: "fragment(\"gen_random_uuid()\")"
+
+    references do
+      reference :organization, on_delete: :restrict
+      reference :dataset, on_delete: :restrict, match_with: [organization_id: :organization_id]
+
+      reference :schema_version,
+        on_delete: :restrict,
+        match_with: [dataset_id: :dataset_id, root_record_type_id: :root_record_type_id]
+
+      reference :root_record_type,
+        on_delete: :restrict,
+        match_with: [schema_version_id: :schema_version_id]
+
+      reference :form, on_delete: :restrict, match_with: [organization_id: :organization_id]
+      reference :form_version, on_delete: :restrict, match_with: [form_id: :form_id]
+    end
+
+    custom_indexes do
+      index [:id, :organization_id], unique: true
+      index [:id, :organization_id, :form_version_id], unique: true
+      index [:id, :dataset_id, :schema_version_id], unique: true
+      index [:id, :schema_version_id, :root_record_type_id, :form_version_id], unique: true
+      index [:id, :form_version_id], unique: true
+    end
+
+    check_constraints do
+      check_constraint :state, "projects_state_check",
+        check: "state IN ('draft', 'active', 'paused', 'completed', 'archived')"
+
+      check_constraint :coverage_target, "projects_coverage_check",
+        check: "coverage_target BETWEEN 1 AND 2147483647"
+
+      check_constraint :lease_minutes, "projects_lease_check",
+        check: "lease_minutes BETWEEN 1 AND 120"
+
+      check_constraint :audience, "projects_audience_check",
+        check: "audience IN ('organization_members', 'external_users', 'both')"
+
+      check_constraint :external_access, "projects_external_access_check",
+        check: "external_access IN ('open', 'allowlisted')"
+
+      check_constraint :selection_mode, "projects_selection_check",
+        check: "selection_mode IN ('balanced', 'explicit')"
+
+      check_constraint :review_mode, "projects_review_check",
+        check: "review_mode IN ('automatic', 'manual')"
+    end
+  end
+end
