@@ -66,6 +66,17 @@ defmodule QuickTrain.Projects.ProjectQuestionPolicy do
     end
 
     create :create_internal do
+      upsert? true
+      upsert_identity :project_question
+
+      upsert_fields [
+        :accepted_target,
+        :skip_allowed,
+        :reason_required,
+        :failure_threshold,
+        :updated_at
+      ]
+
       accept [
         :accepted_target,
         :skip_allowed,

@@ -2,45 +2,52 @@ defmodule QuickTrain.Tasks.Attempts.OfferedPolicy do
   @moduledoc false
   use Ash.Resource.Calculation
   alias QuickTrain.Authorization
-  alias QuickTrain.Projects.{Project, ProjectQuestionPolicy}
+  alias QuickTrain.Projects.ProjectQuestionPolicy
   alias QuickTrain.Tasks.{Access, Error}
-  alias QuickTrain.Tasks.Attempts.Attempt
   alias QuickTrain.Tasks.Responses.QuestionResponse
   require Ash.Query
 
   def load(_query, _opts, _context),
     do: [:attempt_id, :project_id, :organization_id, :question_id]
 
-  def calculate(records, opts, context),
-    do: Enum.map(records, &value!(&1, opts[:field], context.actor))
+  def calculate(records, opts, context) do
+    records = Ash.load!(records, [:project, :attempt], authorize?: false)
 
-  defp value!(row, :review_status, actor) do
-    {project, attempt} = scope!(row)
-    authorize!(project, attempt, actor, false)
+    records
+    |> Enum.uniq_by(& &1.attempt_id)
+    |> Enum.each(
+      &authorize!(&1.project, &1.attempt, context.actor, opts[:field] != :review_status)
+    )
 
+    values = values(records, opts[:field])
+
+    Enum.map(records, fn row ->
+      if opts[:field] == :review_status,
+        do: review_status(Map.get(values, {row.attempt_id, row.question_id})),
+        else: Map.fetch!(values, {row.project_id, row.question_id}) |> Map.fetch!(opts[:field])
+    end)
+  end
+
+  defp values(records, :review_status) do
     QuestionResponse
     |> Ash.Query.filter(
-      response.attempt_id == ^row.attempt_id and question_id == ^row.question_id and
+      response.attempt_id in ^Enum.map(records, & &1.attempt_id) and
+        question_id in ^Enum.map(records, & &1.question_id) and
         response.state == :submitted
     )
-    |> Ash.Query.load(:effective_verdict)
-    |> Ash.read_one!(authorize?: false)
-    |> review_status()
+    |> Ash.Query.load([:effective_verdict, :response])
+    |> Ash.read!(authorize?: false, page: false)
+    |> Map.new(&{{&1.response.attempt_id, &1.question_id}, &1})
   end
 
-  defp value!(row, field, actor) do
-    {project, attempt} = scope!(row)
-    authorize!(project, attempt, actor, true)
-
+  defp values(records, _field) do
     ProjectQuestionPolicy
-    |> Ash.Query.filter(project_id == ^row.project_id and question_id == ^row.question_id)
-    |> Ash.read_one!(authorize?: false)
-    |> Map.fetch!(field)
-  end
-
-  defp scope!(row) do
-    {Ash.get!(Project, row.project_id, authorize?: false),
-     Ash.get!(Attempt, row.attempt_id, authorize?: false)}
+    |> Ash.Query.filter(
+      project_id in ^Enum.map(records, & &1.project_id) and
+        question_id in ^Enum.map(records, & &1.question_id)
+    )
+    |> Ash.read!(authorize?: false, page: false)
+    |> Map.new(&{{&1.project_id, &1.question_id}, &1})
   end
 
   defp review_status(nil), do: :unsubmitted

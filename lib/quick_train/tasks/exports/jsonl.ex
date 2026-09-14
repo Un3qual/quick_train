@@ -1,5 +1,4 @@
 defmodule QuickTrain.Tasks.Exports.Jsonl do
-  alias QuickTrain.Assets.Asset
   alias QuickTrain.Projects.Project
   alias QuickTrain.Tasks.Error
   alias QuickTrain.Tasks.Exports.{ExportSelection, Snapshot}
@@ -84,6 +83,10 @@ defmodule QuickTrain.Tasks.Exports.Jsonl do
       [annotation_constraints: :source_convention] ++ (@constraints -- [:annotation_constraints])
 
   defp loads(:project_input_binding), do: [:requirement, :field_definition]
+
+  defp loads(:dataset_value),
+    do: [:field_definition, asset_value: :asset] ++ (@typed_values -- [:asset_value])
+
   defp loads(_kind), do: []
 
   defp write_line!(file, value, {hash, size, count}) do
@@ -167,8 +170,6 @@ defmodule QuickTrain.Tasks.Exports.Jsonl do
       )
       |> Ash.read_one!(authorize?: false)
 
-    row = Ash.load!(row, [:field_definition | @typed_values], authorize?: false)
-
     value =
       Enum.reduce(@typed_values, fields(row), fn key, result ->
         child = Map.fetch!(row, key)
@@ -179,7 +180,7 @@ defmodule QuickTrain.Tasks.Exports.Jsonl do
               nil
 
             key == :asset_value ->
-              asset = Ash.get!(Asset, child.asset_id, authorize?: false)
+              asset = child.asset
 
               %{
                 id: asset.id,
@@ -209,8 +210,7 @@ defmodule QuickTrain.Tasks.Exports.Jsonl do
 
   defp fields(%resource{} = row) do
     resource
-    |> Ash.Resource.Info.attributes()
-    |> Enum.filter(& &1.public?)
+    |> Ash.Resource.Info.public_attributes()
     |> Enum.map(& &1.name)
     |> then(&Map.take(row, &1))
     |> Map.drop([:updated_at, :request_key])

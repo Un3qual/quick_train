@@ -59,6 +59,9 @@ defmodule QuickTrain.Projects.ProjectSlotPolicy do
     end
 
     create :create_internal do
+      upsert? true
+      upsert_identity :project_slot
+      upsert_fields [:item_count, :shuffle, :updated_at]
       accept [:item_count, :shuffle, :project_id, :form_version_id, :input_slot_id]
     end
 

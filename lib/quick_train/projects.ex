@@ -4,6 +4,11 @@ defmodule QuickTrain.Projects do
 
   resources do
     resource QuickTrain.Projects.Project do
+      define :lock_project,
+        action: :lock,
+        args: [:organization_id, :project_id],
+        not_found_error?: false
+
       define :get_project, action: :get_scoped, args: [:organization_id, :id]
       define :list_projects, action: :list_scoped, args: [:organization_id]
       define :create_project, action: :create_project, args: [:organization_id]

@@ -123,6 +123,13 @@ defmodule QuickTrain.Tasks.Responses.Response do
       ]
     end
 
+    update :revise do
+      accept []
+      require_atomic? false
+      change Module.concat(["QuickTrain.Tasks.Responses.Changes.DraftEvidence"])
+      change increment(:revision)
+    end
+
     update :update_internal do
       change Module.concat(["QuickTrain.Tasks.Responses.Changes.DraftEvidence"])
       require_atomic? false
@@ -144,7 +151,7 @@ defmodule QuickTrain.Tasks.Responses.Response do
       authorize_if actor_present()
     end
 
-    policy action([:create_internal, :update_internal]) do
+    policy action([:create_internal, :update_internal, :revise]) do
       forbid_if always()
     end
   end

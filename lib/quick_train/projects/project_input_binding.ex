@@ -110,6 +110,10 @@ defmodule QuickTrain.Projects.ProjectInputBinding do
     end
 
     create :create_internal do
+      upsert? true
+      upsert_identity :project_requirement
+      upsert_fields [:field_definition_id, :updated_at]
+
       accept [
         :project_id,
         :schema_version_id,

@@ -63,11 +63,7 @@ defmodule QuickTrain.Projects.Management do
 
   def lock!(organization_id, project_id) do
     project =
-      Project
-      |> Ash.Query.for_read(:lock, %{organization_id: organization_id, project_id: project_id},
-        authorize?: false
-      )
-      |> Ash.read_one!()
+      QuickTrain.Projects.lock_project!(organization_id, project_id, authorize?: false)
 
     if is_nil(project), do: Error.reject!(:invalid_project)
     project
@@ -388,15 +384,7 @@ defmodule QuickTrain.Projects.Management do
   end
 
   defp put!(resource, project, identity, attrs) do
-    filter = Keyword.put(identity, :project_id, project.id)
-    existing = resource |> Ash.Query.filter(^filter) |> Ash.read_one!(authorize?: false)
-
-    if existing do
-      accepted = Ash.Resource.Info.action(resource, :update_internal).accept
-      update!(existing, Map.take(attrs, accepted))
-    else
-      create!(resource, Map.merge(Map.new(filter), attrs))
-    end
+    create!(resource, Map.merge(attrs, Map.new([{:project_id, project.id} | identity])))
   end
 
   defp scoped!(resource, project, id) do

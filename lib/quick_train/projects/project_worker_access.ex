@@ -51,6 +51,9 @@ defmodule QuickTrain.Projects.ProjectWorkerAccess do
     end
 
     create :create_internal do
+      upsert? true
+      upsert_identity :project_user
+      upsert_fields [:disposition, :updated_at]
       accept [:disposition, :project_id, :user_id]
     end
 

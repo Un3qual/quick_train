@@ -42,6 +42,8 @@ defmodule QuickTrain.Tasks do
     resource QuickTrain.Tasks.Attempts.AttemptInputPresentation
 
     resource QuickTrain.Tasks.Responses.Response do
+      define :revise_response, action: :revise
+
       define :save_question,
         action: :save_question,
         args: [:organization_id, :project_id, :attempt_id]

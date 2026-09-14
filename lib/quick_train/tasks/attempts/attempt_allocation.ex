@@ -331,36 +331,48 @@ defmodule QuickTrain.Tasks.Attempts.AttemptAllocation do
   end
 
   defp create_inputs!(project, task, inputs) do
-    for input <- inputs do
-      item = Ash.get!(ProjectItem, input.project_item_id, authorize?: false)
+    items =
+      ProjectItem
+      |> Ash.Query.filter(id in ^Enum.map(inputs, & &1.project_item_id))
+      |> Ash.read!(authorize?: false, page: false)
+      |> Map.new(&{&1.id, &1})
 
-      attrs =
+    attributes =
+      Enum.map(inputs, fn input ->
+        item = Map.fetch!(items, input.project_item_id)
+
         Map.merge(Access.scope(project), %{
           task_id: task.id,
           project_item_id: item.id,
           revision_id: item.revision_id,
           input_slot_id: input.input_slot_id
         })
+      end)
 
-      Ash.create!(TaskInput, attrs, action: :create_internal, authorize?: false)
-    end
+    Ash.bulk_create!(attributes, TaskInput, :create_internal,
+      authorize?: false,
+      transaction: :all,
+      stop_on_error?: true
+    )
   end
 
   defp create_progress!(project, task) do
     ProjectQuestionPolicy
     |> Ash.Query.filter(project_id == ^project.id)
     |> Ash.stream!(authorize?: false)
-    |> Enum.each(fn policy ->
-      attrs =
-        Map.merge(Access.scope(project), %{
-          task_id: task.id,
-          question_id: policy.question_id,
-          target: policy.accepted_target,
-          failure_threshold: policy.failure_threshold
-        })
-
-      Ash.create!(TaskQuestionProgress, attrs, action: :create_internal, authorize?: false)
+    |> Stream.map(fn policy ->
+      Map.merge(Access.scope(project), %{
+        task_id: task.id,
+        question_id: policy.question_id,
+        target: policy.accepted_target,
+        failure_threshold: policy.failure_threshold
+      })
     end)
+    |> Ash.bulk_create!(TaskQuestionProgress, :create_internal,
+      authorize?: false,
+      transaction: :all,
+      stop_on_error?: true
+    )
   end
 
   defp issue!(project, task, questions, args, operation, actor, worker_id) do
@@ -384,12 +396,13 @@ defmodule QuickTrain.Tasks.Attempts.AttemptAllocation do
     scope = Map.merge(project_scope, %{task_id: task.id, attempt_id: attempt.id})
     Ash.create!(Response, scope, action: :create_internal, authorize?: false)
 
-    for question <- questions,
-        do:
-          Ash.create!(AttemptQuestion, Map.put(scope, :question_id, question.question_id),
-            action: :create_internal,
-            authorize?: false
-          )
+    questions
+    |> Enum.map(&Map.put(scope, :question_id, &1.question_id))
+    |> Ash.bulk_create!(AttemptQuestion, :create_internal,
+      authorize?: false,
+      transaction: :all,
+      stop_on_error?: true
+    )
 
     presentation!(project, task, scope)
     Progress.change!(project, task, Map.new(questions, &{&1.question_id, %{live: 1}}))
@@ -415,25 +428,25 @@ defmodule QuickTrain.Tasks.Attempts.AttemptAllocation do
     ProjectSlotPolicy
     |> Ash.Query.filter(project_id == ^project.id)
     |> Ash.read!(authorize?: false, page: false)
-    |> Enum.each(fn policy ->
+    |> Enum.flat_map(fn policy ->
       ordered = Map.fetch!(inputs, policy.input_slot_id)
       ordered = if policy.shuffle, do: Enum.shuffle(ordered), else: ordered
 
       ordered
       |> Enum.with_index()
-      |> Enum.each(fn {input, position} ->
-        Ash.create!(
-          AttemptInputPresentation,
-          Map.merge(scope, %{
-            task_input_id: input.id,
-            input_slot_id: policy.input_slot_id,
-            position: position
-          }),
-          action: :create_internal,
-          authorize?: false
-        )
+      |> Enum.map(fn {input, position} ->
+        Map.merge(scope, %{
+          task_input_id: input.id,
+          input_slot_id: policy.input_slot_id,
+          position: position
+        })
       end)
     end)
+    |> Ash.bulk_create!(AttemptInputPresentation, :create_internal,
+      authorize?: false,
+      transaction: :all,
+      stop_on_error?: true
+    )
   end
 
   defp authored_order(inputs, %{explicit_group_id: nil}), do: inputs

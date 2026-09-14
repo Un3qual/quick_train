@@ -1,7 +1,6 @@
 defmodule QuickTrain.Tasks.Responses.ResponseSubmission do
   @moduledoc false
   use Ash.Resource.Actions.Implementation
-  alias QuickTrain.Forms.Questions.QuestionDefinition
   alias QuickTrain.Projects.Project
 
   alias QuickTrain.Tasks.{Access, Error, Progress}
@@ -41,12 +40,13 @@ defmodule QuickTrain.Tasks.Responses.ResponseSubmission do
         |> Ash.Query.sort(id: :asc)
         |> Ash.Query.lock(:for_update)
         |> Ash.read!(authorize?: false, page: false)
+        |> Ash.load!([:question, :static_options, :input_answers, :text_spans], authorize?: false)
 
       unless MapSet.new(outcomes, & &1.question_id) == offered,
         do: Error.reject!(:incomplete_response)
 
       for outcome <- outcomes do
-        question = Ash.get!(QuestionDefinition, outcome.question_id, authorize?: false)
+        question = outcome.question
 
         AnswerValidation.validate!(
           project,

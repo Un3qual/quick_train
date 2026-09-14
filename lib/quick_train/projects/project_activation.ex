@@ -127,7 +127,7 @@ defmodule QuickTrain.Projects.ProjectActivation do
         count + 1
       end)
 
-    required_count = Enum.reduce(policies, 0, &(&1.item_count + &2))
+    required_count = Enum.sum_by(policies, & &1.item_count)
 
     unless item_count > 0 and item_count >= required_count,
       do:

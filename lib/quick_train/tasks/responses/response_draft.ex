@@ -78,10 +78,7 @@ defmodule QuickTrain.Tasks.Responses.ResponseDraft do
           )
 
     response =
-      Ash.update!(response, %{revision: response.revision + 1},
-        action: :update_internal,
-        authorize?: false
-      )
+      QuickTrain.Tasks.revise_response!(response, authorize?: false)
 
     if attempt.state in [:claimed, :assigned],
       do:
@@ -140,21 +137,15 @@ defmodule QuickTrain.Tasks.Responses.ResponseDraft do
       ])
 
     options =
-      StaticOptionAnswer
-      |> Ash.Query.filter(question_response_id == ^outcome.id)
-      |> Ash.read!(authorize?: false, page: false)
+      outcome.static_options
       |> Enum.map(& &1.option_id)
 
     inputs =
-      TaskInputAnswer
-      |> Ash.Query.filter(question_response_id == ^outcome.id)
-      |> Ash.read!(authorize?: false, page: false)
+      outcome.input_answers
       |> Enum.map(&Map.take(&1, [:task_input_id, :position]))
 
     spans =
-      TextSpan
-      |> Ash.Query.filter(question_response_id == ^outcome.id)
-      |> Ash.read!(authorize?: false, page: false)
+      outcome.text_spans
       |> Enum.map(&Map.take(&1, [:task_input_id, :source_value_id, :label_id, :start, :end]))
 
     Map.merge(attrs, %{option_ids: options, inputs: inputs, spans: spans})
