@@ -75,6 +75,7 @@ defmodule QuickTrain.Assets.Storage.InMemory do
       {reversed, _size} -> {:ok, reversed |> Enum.reverse() |> IO.iodata_to_binary()}
     end
   rescue
+    # reach:disable-next-line bare_rescue -- Enumerable failures may expose source bytes in Task crash logs.
     _error -> {:error, :storage_write_failed}
   catch
     _kind, _reason -> {:error, :storage_write_failed}

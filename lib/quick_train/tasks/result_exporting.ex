@@ -157,6 +157,7 @@ defmodule QuickTrain.Tasks.ResultExporting do
       end
     end
   rescue
+    # reach:disable-next-line bare_rescue -- Oban errors must not contain answer or provider exception details.
     _error -> fail(id, :export_failed)
   end
 
@@ -279,6 +280,7 @@ defmodule QuickTrain.Tasks.ResultExporting do
       _unavailable -> {:error, :export_access_unavailable}
     end
   rescue
+    # reach:disable-next-line bare_rescue -- Public downloads must not expose provider exception details.
     _error -> {:error, :export_access_unavailable}
   catch
     _kind, _reason -> {:error, :export_access_unavailable}
@@ -302,6 +304,7 @@ defmodule QuickTrain.Tasks.ResultExporting do
 
     {:error, reason}
   rescue
+    # reach:disable-next-line bare_rescue -- Failure persistence errors must also be sanitized for Oban.
     _error -> {:error, :export_failed}
   end
 

@@ -149,6 +149,7 @@ defmodule QuickTrain.Assets.Storage do
       _unavailable -> {:error, :export_storage_unavailable}
     end
   rescue
+    # reach:disable-next-line bare_rescue -- Provider exceptions must never expose credentials or storage details.
     _error -> {:error, :storage_write_failed}
   catch
     _kind, _reason -> {:error, :storage_write_failed}

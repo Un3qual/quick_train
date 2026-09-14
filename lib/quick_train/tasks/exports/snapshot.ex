@@ -85,14 +85,14 @@ defmodule QuickTrain.Tasks.Exports.Snapshot do
           count =
             ExportSelection
             |> Ash.Query.filter(export_id == ^id)
-            |> Ash.sum!(:record_count, authorize?: false)
+            |> Ash.sum!(:record_count, default: 0, authorize?: false)
 
           Ash.update!(
             export,
             %{
               state: :writing,
               snapshot_at: Leases.now!(),
-              record_count: count || 0,
+              record_count: count,
               error_code: nil
             },
             action: :update_internal,
