@@ -24,27 +24,17 @@ defmodule QuickTrain.Tasks do
 
       define :get_attempt_internal,
         action: :read,
-        get_by: [:id, :project_id, :organization_id],
-        not_found_error?: false
+        get_by: [:id, :project_id, :organization_id]
 
-      define :start_attempt_record, action: :start_record
-      define :release_attempt_record, action: :release_record
-      define :cancel_attempt_record, action: :cancel_record
-      define :expire_attempt_record, action: :expire_record
-      define :expire_attempt, action: :expire, args: [:organization_id, :project_id, :attempt_id]
+      define :start_attempt, action: :start
+      define :release_attempt, action: :release
+      define :cancel_attempt, action: :cancel
+      define :expire_attempt, action: :expire
       define :fetch_work, action: :fetch, args: [:organization_id, :project_id, :request_key]
 
       define :assign_work,
         action: :assign,
         args: [:organization_id, :project_id, :worker_id, :request_key]
-
-      define :start_attempt, action: :start, args: [:organization_id, :project_id, :attempt_id]
-
-      define :release_attempt,
-        action: :release,
-        args: [:organization_id, :project_id, :attempt_id]
-
-      define :cancel_attempt, action: :cancel, args: [:organization_id, :project_id, :attempt_id]
 
       define :work_bundle,
         action: :read_work_bundle,
@@ -131,14 +121,17 @@ defmodule QuickTrain.Tasks do
       action QuickTrain.Tasks.Attempts.Attempt, :assign_work, :assign,
         args: [:organization_id, :project_id, :worker_id, :request_key]
 
-      action QuickTrain.Tasks.Attempts.Attempt, :start_attempt, :start,
-        args: [:organization_id, :project_id, :attempt_id]
+      update QuickTrain.Tasks.Attempts.Attempt, :start_attempt, :start,
+        read_action: :get_for_update,
+        identity: false
 
-      action QuickTrain.Tasks.Attempts.Attempt, :release_attempt, :release,
-        args: [:organization_id, :project_id, :attempt_id]
+      update QuickTrain.Tasks.Attempts.Attempt, :release_attempt, :release,
+        read_action: :get_for_update,
+        identity: false
 
-      action QuickTrain.Tasks.Attempts.Attempt, :cancel_attempt, :cancel,
-        args: [:organization_id, :project_id, :attempt_id]
+      update QuickTrain.Tasks.Attempts.Attempt, :cancel_attempt, :cancel,
+        read_action: :get_for_update,
+        identity: false
 
       action QuickTrain.Tasks.Attempts.Attempt, :save_task_question, :save_question,
         args: [

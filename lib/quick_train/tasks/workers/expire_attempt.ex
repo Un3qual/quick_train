@@ -7,9 +7,10 @@ defmodule QuickTrain.Tasks.Workers.ExpireAttempt do
   def perform(%Oban.Job{
         args: %{"id" => id, "project_id" => project_id, "organization_id" => organization_id}
       }) do
-    case Tasks.expire_attempt(organization_id, project_id, id, authorize?: false) do
-      {:ok, _attempt} -> :ok
-      error -> error
+    with {:ok, attempt} <-
+           Tasks.get_attempt_internal(id, project_id, organization_id, authorize?: false),
+         {:ok, _attempt} <- Tasks.expire_attempt(attempt, authorize?: false) do
+      :ok
     end
   end
 end

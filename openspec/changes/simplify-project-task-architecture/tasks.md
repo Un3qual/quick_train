@@ -24,3 +24,10 @@
 - [x] 5.1 Synchronize canonical/delta/deferred specs and README with the simplified contract.
 - [x] 5.2 Regenerate one final branch migration and snapshots from main; verify fresh database setup.
 - [x] 5.3 Run mise run openspec.validate and mise run verify; review the final diff and commit the work.
+
+## 6. Address architecture review findings
+
+- [x] 6.1 Retry unsealed export snapshots after transient failures, with current authorization and a concurrent-rename regression test.
+- [x] 6.2 Bulk-expire overdue attempts under existing owner locks and validate group coverage without retaining the whole cohort.
+- [x] 6.3 Expose native attempt updates directly and remove redundant task group identity data.
+- [x] 6.4 Regenerate the unreleased branch schema, update callers/specs, run the verification gate, and commit.

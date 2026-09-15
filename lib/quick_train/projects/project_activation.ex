@@ -3,6 +3,7 @@ defmodule QuickTrain.Projects.ProjectActivation do
   alias QuickTrain.Projects.{
     Error,
     ExplicitGroup,
+    ExplicitGroupInput,
     GroupIdentity,
     ProjectInputBinding,
     ProjectItem,
@@ -220,40 +221,32 @@ defmodule QuickTrain.Projects.ProjectActivation do
   defp validate_explicit!(project, policies) do
     expected = Map.new(policies, &{&1.input_slot_id, &1.item_count})
 
-    {coverage, _keys} =
-      ExplicitGroup
-      |> Ash.Query.filter(project_id == ^project.id)
-      |> Ash.Query.load(:inputs)
-      |> Ash.stream!(authorize?: false, batch_size: 100)
-      |> Enum.reduce({%{}, MapSet.new()}, fn group, {coverage, keys} ->
-        # Scoped foreign keys already guarantee each stored input's item and slot.
-        inputs = group.inputs
-        validate_group_shape!(project, inputs, expected)
-        {key, encoded} = GroupIdentity.canonical(inputs)
+    ExplicitGroup
+    |> Ash.Query.filter(project_id == ^project.id)
+    |> Ash.Query.load(:inputs)
+    |> Ash.stream!(authorize?: false, batch_size: 100)
+    |> Enum.each(fn group ->
+      validate_group_shape!(project, group.inputs, expected)
+      key = GroupIdentity.key(group.inputs)
 
-        unless key == group.canonical_key and not MapSet.member?(keys, encoded),
-          do:
-            Error.reject!(:invalid_project_configuration, [
-              "#{group.id}: duplicate or invalid explicit group"
-            ])
+      unless key == group.canonical_key,
+        do: Error.reject!(:invalid_project_configuration, ["#{group.id}: invalid explicit group"])
+    end)
 
-        coverage =
-          Enum.reduce(
-            inputs,
-            coverage,
-            &Map.update(&2, &1.project_item_id, 1, fn count -> count + 1 end)
-          )
+    uncovered =
+      ProjectItem
+      |> Ash.Query.filter(
+        project_id == ^project.id and
+          not exists(ExplicitGroupInput, project_item_id == parent(id))
+      )
+      |> Ash.Query.limit(1)
+      |> Ash.read_one!(authorize?: false)
 
-        {coverage, MapSet.put(keys, encoded)}
-      end)
-
-    for item <- rows(ProjectItem, project_id: project.id) do
-      if Map.get(coverage, item.id, 0) < 1,
-        do:
-          Error.reject!(:invalid_project_configuration, [
-            item.id <> ": insufficient explicit coverage"
-          ])
-    end
+    if uncovered,
+      do:
+        Error.reject!(:invalid_project_configuration, [
+          uncovered.id <> ": insufficient explicit coverage"
+        ])
   end
 
   defp exact!(definitions, rows, key, message) do

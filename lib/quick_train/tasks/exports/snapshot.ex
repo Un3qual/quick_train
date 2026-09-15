@@ -8,7 +8,7 @@ defmodule QuickTrain.Tasks.Exports.Snapshot do
   alias QuickTrain.Forms.Questions.QuestionOption
   alias QuickTrain.Projects.ProjectInputBinding
   alias QuickTrain.Repo
-  alias QuickTrain.Tasks.{Access, Error, Task, TaskInput}
+  alias QuickTrain.Tasks.{Access, Task, TaskInput}
   alias QuickTrain.Tasks.Attempts.{Attempt, AttemptInputPresentation, Leases}
   alias QuickTrain.Tasks.Exports.{ExportSelection, ResultExport}
 
@@ -58,30 +58,25 @@ defmodule QuickTrain.Tasks.Exports.Snapshot do
         |> Ash.read_one!(authorize?: false)
         |> Access.found!()
 
-      cond do
-        export.snapshot_at ->
-          export
+      if export.snapshot_at do
+        export
+      else
+        project = Access.project!(export.organization_id, export.project_id)
+        Access.manager!(project, %{id: export.requester_id}, "tasks.results.read")
+        select!(export)
+        count = Enum.sum_by(kinds(), &Ash.count!(query(export, &1), authorize?: false))
 
-        export.state == :failed ->
-          Error.reject!(:export_snapshot_failed)
-
-        true ->
-          project = Access.project!(export.organization_id, export.project_id)
-          Access.manager!(project, %{id: export.requester_id}, "tasks.results.read")
-          select!(export)
-          count = Enum.sum_by(kinds(), &Ash.count!(query(export, &1), authorize?: false))
-
-          Ash.update!(
-            export,
-            %{
-              state: :writing,
-              snapshot_at: Leases.now!(),
-              record_count: count,
-              error_code: nil
-            },
-            action: :update_internal,
-            authorize?: false
-          )
+        Ash.update!(
+          export,
+          %{
+            state: :writing,
+            snapshot_at: Leases.now!(),
+            record_count: count,
+            error_code: nil
+          },
+          action: :update_internal,
+          authorize?: false
+        )
       end
     end)
   end

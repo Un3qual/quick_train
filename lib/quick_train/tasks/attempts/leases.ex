@@ -11,12 +11,12 @@ defmodule QuickTrain.Tasks.Attempts.Leases do
     now
   end
 
-  def expire_task!(_project, task, cutoff \\ now!()) do
+  def expire_task!(task, cutoff \\ now!()) do
     Attempt
     |> Ash.Query.filter(task_id == ^task.id and state in ^@live and deadline <= ^cutoff)
-    |> Ash.Query.sort(id: :asc)
-    |> Ash.Query.lock(:for_update)
-    |> Ash.read!(authorize?: false, page: false)
-    |> Enum.each(&QuickTrain.Tasks.expire_attempt_record!(&1, authorize?: false))
+    |> Ash.bulk_update!(:update_internal, %{state: :expired, terminal_at: cutoff},
+      strategy: [:atomic],
+      authorize?: false
+    )
   end
 end

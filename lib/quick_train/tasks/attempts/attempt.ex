@@ -126,28 +126,16 @@ defmodule QuickTrain.Tasks.Attempts.Attempt do
       run Module.concat(["QuickTrain.Tasks.Access.ReadActions"])
     end
 
-    action :cancel, :struct do
-      constraints instance_of: __MODULE__
+    read :get_for_update do
+      get? true
       argument :organization_id, :uuid, allow_nil?: false
       argument :project_id, :uuid, allow_nil?: false
       argument :attempt_id, :uuid, allow_nil?: false
-      run Module.concat(["QuickTrain.Tasks.Attempts.AttemptActions"])
-    end
 
-    action :release, :struct do
-      constraints instance_of: __MODULE__
-      argument :organization_id, :uuid, allow_nil?: false
-      argument :project_id, :uuid, allow_nil?: false
-      argument :attempt_id, :uuid, allow_nil?: false
-      run Module.concat(["QuickTrain.Tasks.Attempts.AttemptActions"])
-    end
-
-    action :start, :struct do
-      constraints instance_of: __MODULE__
-      argument :organization_id, :uuid, allow_nil?: false
-      argument :project_id, :uuid, allow_nil?: false
-      argument :attempt_id, :uuid, allow_nil?: false
-      run Module.concat(["QuickTrain.Tasks.Attempts.AttemptActions"])
+      filter expr(
+               id == ^arg(:attempt_id) and project_id == ^arg(:project_id) and
+                 organization_id == ^arg(:organization_id)
+             )
     end
 
     action :fetch, QuickTrain.Tasks.Attempts.AllocationResult do
@@ -194,21 +182,13 @@ defmodule QuickTrain.Tasks.Attempts.Attempt do
       ]
     end
 
-    for action <- [:start_record, :release_record, :cancel_record, :expire_record] do
+    for action <- [:start, :release, :cancel, :expire] do
       update action do
+        public? action != :expire
         accept []
         require_atomic? false
         change Module.concat(["QuickTrain.Tasks.Attempts.Changes.Transition"])
       end
-    end
-
-    action :expire, :struct do
-      public? false
-      constraints instance_of: __MODULE__
-      argument :organization_id, :uuid, allow_nil?: false
-      argument :project_id, :uuid, allow_nil?: false
-      argument :attempt_id, :uuid, allow_nil?: false
-      run Module.concat(["QuickTrain.Tasks.Attempts.AttemptActions"])
     end
 
     update :revise do
@@ -224,6 +204,14 @@ defmodule QuickTrain.Tasks.Attempts.Attempt do
   end
 
   policies do
+    policy action(:get_for_update) do
+      forbid_unless actor_attribute_equals(:status, "active")
+      authorize_if Module.concat(["QuickTrain.Tasks.Access.ReadAccess"])
+
+      authorize_if {QuickTrain.Authorization.Checks.OrganizationCapability,
+                    capability: "tasks.assign"}
+    end
+
     policy action([:work_bundle, :read_work_bundle, :receipt]) do
       authorize_if actor_present()
     end
@@ -236,11 +224,11 @@ defmodule QuickTrain.Tasks.Attempts.Attempt do
       authorize_if Module.concat(["QuickTrain.Tasks.Access.ReadAccess"])
     end
 
-    policy action([:start, :release, :start_record, :release_record]) do
+    policy action([:start, :release]) do
       authorize_if actor_present()
     end
 
-    policy action([:cancel, :cancel_record]) do
+    policy action(:cancel) do
       authorize_if {QuickTrain.Authorization.Checks.OrganizationCapability,
                     capability: "tasks.assign"}
     end

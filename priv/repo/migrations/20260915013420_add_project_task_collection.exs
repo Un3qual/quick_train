@@ -598,8 +598,6 @@ defmodule QuickTrain.Repo.Migrations.AddProjectTaskCollection do
 
     create table(:tasks, primary_key: false) do
       add :id, :uuid, null: false, default: fragment("gen_random_uuid()"), primary_key: true
-      add :canonical_key, :binary, null: false
-      add :canonical_membership, :binary, null: false
 
       add :inserted_at, :utc_datetime_usec,
         null: false,
@@ -621,10 +619,6 @@ defmodule QuickTrain.Repo.Migrations.AddProjectTaskCollection do
 
       add :project_id, :uuid, null: false
     end
-
-    create unique_index(:tasks, [:project_id, :canonical_key],
-             name: "tasks_canonical_group_index"
-           )
 
     alter table(:tasks) do
       add :form_version_id,
@@ -648,6 +642,8 @@ defmodule QuickTrain.Repo.Migrations.AddProjectTaskCollection do
           ),
           null: false
     end
+
+    create unique_index(:tasks, [:explicit_group_id], name: "tasks_explicit_group_index")
 
     create index(:tasks, [:id, :project_id, :form_version_id],
              name: "tasks_scope_0",
@@ -2419,14 +2415,12 @@ defmodule QuickTrain.Repo.Migrations.AddProjectTaskCollection do
 
     drop_if_exists index(:tasks, [:id, :project_id, :form_version_id], name: "tasks_scope_0")
 
+    drop_if_exists unique_index(:tasks, [:explicit_group_id], name: "tasks_explicit_group_index")
+
     alter table(:tasks) do
       remove :explicit_group_id
       remove :form_version_id
     end
-
-    drop_if_exists unique_index(:tasks, [:project_id, :canonical_key],
-                     name: "tasks_canonical_group_index"
-                   )
 
     drop table(:tasks)
 

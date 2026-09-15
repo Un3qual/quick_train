@@ -538,8 +538,6 @@ defmodule QuickTrain.Tasks.AnswerValidationTest do
       organization_id: context.org.id,
       project_id: project.id,
       form_version_id: base.version.id,
-      canonical_key: <<1>>,
-      canonical_membership: <<1>>,
       explicit_group_id:
         create!(QuickTrain.Projects.ExplicitGroup, %{
           project_id: project.id,
@@ -552,7 +550,16 @@ defmodule QuickTrain.Tasks.AnswerValidationTest do
     task = create!(Task, task_attrs)
 
     foreign_task =
-      create!(Task, %{task_attrs | canonical_key: <<2>>, canonical_membership: <<2>>})
+      create!(Task, %{
+        task_attrs
+        | explicit_group_id:
+            create!(QuickTrain.Projects.ExplicitGroup, %{
+              project_id: project.id,
+              form_version_id: base.version.id,
+              position: 1,
+              canonical_key: <<2>>
+            }).id
+      })
 
     inputs =
       for {revision, index} <- Enum.with_index(revisions) do

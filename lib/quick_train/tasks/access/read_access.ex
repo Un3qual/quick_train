@@ -20,6 +20,13 @@ defmodule QuickTrain.Tasks.Access.ReadAccess do
 
   def describe(_), do: "current access to issued task evidence"
 
+  def filter(
+        %{id: _} = actor,
+        %{resource: Attempt, query: %{action: %{name: :get_for_update}}},
+        _opts
+      ),
+      do: eligible_attempt(actor)
+
   def filter(%{id: _} = actor, %{resource: resource, query: query}, _opts) do
     cond do
       not task_relationship?(query) ->

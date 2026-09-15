@@ -379,7 +379,7 @@ defmodule QuickTrain.Tasks.ResultExportTest do
   test "audit excludes terminal drafts and their unused context", scope do
     scope = begin!(scope)
     save!(scope, scope.source.form.question, %{family: :integer, integer_value: 4}, 0)
-    action!(Attempt, :release, attempt_scope(scope), scope.worker)
+    Tasks.release_attempt!(scope.attempt, actor: scope.worker)
     {:ok, export} = request(scope, %{mode: :audit})
     assert :ok = QuickTrain.Tasks.process_result_export(export.id, authorize?: false)
     {:ok, bytes} = InMemory.read_sealed(download!(scope, export.id).read_access)

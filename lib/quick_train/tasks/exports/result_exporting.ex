@@ -106,7 +106,7 @@ defmodule QuickTrain.Tasks.Exports.ResultExporting do
       Ash.transact(ResultExport, fn ->
         export = locked_export!(id)
 
-        if is_nil(export.snapshot_at) and export.state not in [:failed, :ready],
+        if is_nil(export.snapshot_at) and export.state != :ready,
           do:
             Ash.update!(export, %{state: :snapshotting},
               action: :update_internal,

@@ -14,14 +14,14 @@ defmodule QuickTrain.Tasks.Attempts.Changes.Transition do
     changeset = %{changeset | data: attempt}
 
     case changeset.action.name do
-      :cancel_record -> Access.manager!(project, actor, "tasks.assign")
-      :expire_record -> :ok
+      :cancel -> Access.manager!(project, actor, "tasks.assign")
+      :expire -> :ok
       _ -> Access.owner!(project, attempt, actor, false)
     end
 
     cutoff = Leases.now!()
 
-    if changeset.action.name == :start_record do
+    if changeset.action.name == :start do
       Access.owner!(project, attempt, actor)
 
       if attempt.state == :in_progress,
@@ -34,6 +34,8 @@ defmodule QuickTrain.Tasks.Attempts.Changes.Transition do
     else
       terminate(changeset, cutoff)
     end
+  rescue
+    error in [Ash.Error.Invalid, Ash.Error.Forbidden] -> Ash.Changeset.add_error(changeset, error)
   end
 
   defp terminate(changeset, cutoff) do
@@ -41,13 +43,13 @@ defmodule QuickTrain.Tasks.Attempts.Changes.Transition do
     expired? = DateTime.compare(attempt.deadline, cutoff) != :gt
 
     if attempt.state not in Leases.live_states() or
-         (changeset.action.name == :expire_record and not expired?) do
+         (changeset.action.name == :expire and not expired?) do
       Ash.Changeset.set_result(changeset, {:ok, attempt})
     else
       state =
         cond do
           expired? -> :expired
-          changeset.action.name == :release_record -> :released
+          changeset.action.name == :release -> :released
           true -> :cancelled
         end
 

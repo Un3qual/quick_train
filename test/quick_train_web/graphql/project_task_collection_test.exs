@@ -114,7 +114,7 @@ defmodule QuickTrainWeb.ProjectTaskCollectionTest do
         actor: ctx.worker
       ).attempt
 
-    Tasks.release_attempt!(ctx.context.org.id, ctx.project.id, original.id, actor: ctx.worker)
+    Tasks.release_attempt!(original, actor: ctx.worker)
     conn = bearer(ctx.conn, manager)
 
     assert request(
@@ -137,8 +137,8 @@ defmodule QuickTrainWeb.ProjectTaskCollectionTest do
 
     assert graphql!(
              conn,
-             "mutation { cancelAttempt(#{scope(ctx)}, attemptId: \"#{assigned["id"]}\") { state } }"
-           )["cancelAttempt"]["state"] == "cancelled"
+             "mutation { cancelAttempt(#{scope(ctx)}, attemptId: \"#{assigned["id"]}\") { result { state } errors { message } } }"
+           )["cancelAttempt"]["result"]["state"] == "cancelled"
 
     grant!(ctx.context, manager, "tasks.results.read")
 
@@ -150,6 +150,60 @@ defmodule QuickTrainWeb.ProjectTaskCollectionTest do
 
     attempts = Enum.flat_map(tasks, & &1["node"]["attempts"]["edges"])
     assert Enum.any?(attempts, &(&1["node"]["id"] == original.id))
+  end
+
+  test "native attempt updates enforce ownership, scope, and current eligibility", ctx do
+    attempt =
+      Tasks.fetch_work!(ctx.context.org.id, ctx.project.id, Ash.UUID.generate(),
+        actor: ctx.worker
+      ).attempt
+
+    conn = bearer(ctx.conn, ctx.worker)
+
+    assert graphql!(conn, """
+           mutation { startAttempt(#{scope(ctx)}, attemptId: "#{attempt.id}") {
+             result { state } errors { message }
+           } }
+           """)["startAttempt"]["result"]["state"] == "in_progress"
+
+    for {actor, project_id} <- [{ctx.reader, ctx.project.id}, {ctx.worker, Ash.UUID.generate()}] do
+      result =
+        graphql!(bearer(ctx.conn, actor), """
+        mutation { releaseAttempt(organizationId: "#{ctx.context.org.id}",
+          projectId: "#{project_id}", attemptId: "#{attempt.id}") {
+          result { state } errors { message }
+        } }
+        """)["releaseAttempt"]
+
+      assert is_nil(result["result"])
+      assert result["errors"] != []
+    end
+
+    QuickTrain.Projects.set_worker_access!(
+      ctx.context.org.id,
+      ctx.project.id,
+      %{user_id: ctx.worker.id, disposition: :block},
+      actor: ctx.context.actor
+    )
+
+    release = """
+    mutation { releaseAttempt(#{scope(ctx)}, attemptId: "#{attempt.id}") {
+      result { state } errors { message }
+    } }
+    """
+
+    assert graphql!(conn, release)["releaseAttempt"]["result"] == nil
+    assert Ash.get!(Attempt, attempt.id, authorize?: false).state == :in_progress
+
+    QuickTrain.Projects.remove_worker_access!(
+      ctx.context.org.id,
+      ctx.project.id,
+      %{user_id: ctx.worker.id},
+      actor: ctx.context.actor
+    )
+
+    assert graphql!(conn, release)["releaseAttempt"]["result"]["state"] == "released"
+    assert graphql!(conn, release)["releaseAttempt"]["result"]["state"] == "released"
   end
 
   test "invalid keys and revoked eligibility fail closed through the HTTP boundary", ctx do

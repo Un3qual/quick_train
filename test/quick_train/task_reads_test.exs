@@ -202,7 +202,7 @@ defmodule QuickTrain.Tasks.TaskReadsTest do
 
   test "terminal receipts expose status while terminal draft descendants stay unreadable", ctx do
     save!(ctx)
-    released = action!(Attempt, :release, scope(ctx), ctx.worker)
+    released = QuickTrain.Tasks.release_attempt!(ctx.attempt, actor: ctx.worker)
     assert released.state == :released
     assert {:error, _} = action(Attempt, :work_bundle, scope(ctx), ctx.worker)
     receipt = action!(Attempt, :receipt, scope(ctx), ctx.worker)
@@ -524,7 +524,7 @@ defmodule QuickTrain.Tasks.TaskReadsTest do
                ctx.worker
              )
 
-    action!(Attempt, :release, scope(ctx), ctx.worker)
+    QuickTrain.Tasks.release_attempt!(ctx.attempt, actor: ctx.worker)
     assert {:error, _} = action(TaskInput, :source_download, args, ctx.worker)
 
     assert_empty_read(QuickTrain.Assets.Asset, [ctx.source.asset.id], ctx.worker, %{

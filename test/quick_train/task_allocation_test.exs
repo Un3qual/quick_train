@@ -115,7 +115,7 @@ defmodule QuickTrain.Tasks.TaskAllocationTest do
       assert Ash.get!(ExplicitGroup, group_id, authorize?: false).position == position
       assert presented_items(attempt) == expected
 
-      QuickTrain.Tasks.release_attempt!(ctx.context.org.id, project.id, attempt.id,
+      QuickTrain.Tasks.release_attempt!(attempt,
         actor: ctx.worker
       )
     end
@@ -203,7 +203,7 @@ defmodule QuickTrain.Tasks.TaskAllocationTest do
   test "personal exhaustion does not prevent another eligible worker from reusing demand", ctx do
     first = fetch(ctx, Ash.UUID.generate()).attempt
 
-    QuickTrain.Tasks.release_attempt!(ctx.context.org.id, ctx.project.id, first.id,
+    QuickTrain.Tasks.release_attempt!(first,
       actor: ctx.worker
     )
 
@@ -280,20 +280,20 @@ defmodule QuickTrain.Tasks.TaskAllocationTest do
     )
 
     started =
-      QuickTrain.Tasks.start_attempt!(ctx.context.org.id, ctx.project.id, attempt.id,
+      QuickTrain.Tasks.start_attempt!(attempt,
         actor: ctx.worker
       )
 
     assert started.deadline == attempt.deadline
 
-    assert QuickTrain.Tasks.start_attempt!(ctx.context.org.id, ctx.project.id, attempt.id,
+    assert QuickTrain.Tasks.start_attempt!(attempt,
              actor: ctx.worker
            ).started_at == started.started_at
 
     assert_raise Ash.Error.Invalid, ~r/project_closed/, fn -> fetch(ctx, Ash.UUID.generate()) end
     assert fetch(ctx, attempt.request_key).attempt.id == attempt.id
 
-    QuickTrain.Tasks.release_attempt!(ctx.context.org.id, ctx.project.id, attempt.id,
+    QuickTrain.Tasks.release_attempt!(attempt,
       actor: ctx.worker
     )
 

@@ -176,7 +176,7 @@ defmodule QuickTrain.Tasks.TextSpansTest do
     assert {:ok, _} = save(ctx, 0, [span(ctx, 1, 5)])
 
     assert {:ok, %{state: :released}} =
-             action(ctx, Attempt, :release, %{attempt_id: ctx.attempt.id})
+             QuickTrain.Tasks.release_attempt(ctx.attempt, actor: ctx.worker)
 
     assert {:error, _} = bound(ctx)
     assert {:error, _} = save(ctx, 1, [span(ctx, 0, 1)])

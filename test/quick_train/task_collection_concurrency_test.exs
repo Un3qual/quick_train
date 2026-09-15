@@ -7,6 +7,7 @@ defmodule QuickTrain.Tasks.CollectionConcurrencyTest do
   alias QuickTrain.Projects.{ExplicitGroup, Project}
   alias QuickTrain.Tasks.{Access, Task, TaskInput}
   alias QuickTrain.Tasks.Attempts.Attempt
+  alias QuickTrain.Tasks.Exports.ResultExport
   alias QuickTrain.Tasks.Responses.QuestionResponse
   alias QuickTrain.Tasks.Reviews.ReviewDecision
   alias QuickTrain.Tasks.Workers.ExpireAttempt
@@ -33,6 +34,38 @@ defmodule QuickTrain.Tasks.CollectionConcurrencyTest do
 
     worker = Accounts.register_user!("race-worker@example.test", "Worker")
     %{context: context, source: source, project: project, worker: worker}
+  end
+
+  test "an unsealed export retries after a concurrent project rename", ctx do
+    export =
+      QuickTrain.Tasks.request_result_export!(
+        ctx.context.org.id,
+        ctx.project.id,
+        Ash.UUID.generate(),
+        :audit,
+        actor: ctx.context.actor
+      )
+
+    assert {{:ok, _project, notifications}, {:error, _error}} =
+             ordered(
+               ctx,
+               fn ->
+                 QuickTrain.Projects.rename_project(ctx.project, %{title: "Renamed"},
+                   actor: ctx.context.actor,
+                   return_notifications?: true
+                 )
+               end,
+               fn -> QuickTrain.Tasks.process_result_export(export.id, authorize?: false) end,
+               lock: :project
+             )
+
+    Ash.Notifier.notify(notifications)
+    failed = Ash.get!(ResultExport, export.id, authorize?: false)
+    assert failed.state == :failed
+    assert is_nil(failed.snapshot_at)
+
+    assert :ok = QuickTrain.Tasks.process_result_export(export.id, authorize?: false)
+    assert Ash.get!(ResultExport, export.id, authorize?: false).state == :ready
   end
 
   test "independent workers cannot both claim the final reservation", ctx do
@@ -383,7 +416,10 @@ defmodule QuickTrain.Tasks.CollectionConcurrencyTest do
 
   defp terminal(ctx, transition) do
     actor = if transition == :cancel, do: ctx.context.actor, else: ctx.worker
-    action(ctx, Attempt, transition, %{attempt_id: ctx.attempt.id}, actor)
+
+    ctx.attempt
+    |> Ash.Changeset.for_update(transition, %{}, actor: actor)
+    |> Ash.update()
   end
 
   defp action(ctx, resource, name, args, actor) do

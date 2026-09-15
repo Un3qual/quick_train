@@ -14,30 +14,6 @@
     },
     {
       "allow_nil?": false,
-      "default": "nil",
-      "generated?": false,
-      "precision": null,
-      "primary_key?": false,
-      "references": null,
-      "scale": null,
-      "size": null,
-      "source": "canonical_key",
-      "type": "binary"
-    },
-    {
-      "allow_nil?": false,
-      "default": "nil",
-      "generated?": false,
-      "precision": null,
-      "primary_key?": false,
-      "references": null,
-      "scale": null,
-      "size": null,
-      "source": "canonical_membership",
-      "type": "binary"
-    },
-    {
-      "allow_nil?": false,
       "default": "fragment(\"(now() AT TIME ZONE 'utc')\")",
       "generated?": false,
       "precision": null,
@@ -239,23 +215,19 @@
   ],
   "custom_statements": [],
   "has_create_action": true,
-  "hash": "9A85D7D5B4337E5CEEC01F5133FC5EC21BC86664C80EB1BF48127878286E1FC1",
+  "hash": "3D8EA854FBFA69F89382A42511F30472F3AE294DF82BA039AED382373F66F506",
   "identities": [
     {
       "all_tenants?": false,
       "base_filter": null,
-      "index_name": "tasks_canonical_group_index",
+      "index_name": "tasks_explicit_group_index",
       "keys": [
         {
           "type": "atom",
-          "value": "project_id"
-        },
-        {
-          "type": "atom",
-          "value": "canonical_key"
+          "value": "explicit_group_id"
         }
       ],
-      "name": "canonical_group",
+      "name": "explicit_group",
       "nils_distinct?": true,
       "where": null
     }

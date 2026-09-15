@@ -6,7 +6,6 @@ defmodule QuickTrain.Tasks.Attempts.AttemptAllocation do
   alias QuickTrain.Projects.{
     ExplicitGroup,
     ExplicitGroupInput,
-    GroupIdentity,
     Project,
     ProjectItem,
     ProjectSlotPolicy
@@ -148,7 +147,7 @@ defmodule QuickTrain.Tasks.Attempts.AttemptAllocation do
     |> Ash.Query.lock("FOR UPDATE SKIP LOCKED")
     |> Ash.stream!(authorize?: false, batch_size: 1)
     |> Enum.reduce_while({[], nil, is_nil(live)}, fn task, {seen, chosen, stale_cleared?} ->
-      Leases.expire_task!(project, task)
+      Leases.expire_task!(task)
       stale_cleared? = stale_cleared? or (live && live.task_id == task.id)
       counts = Ash.load!(task, [:submitted_count, :live_count], authorize?: false)
 
@@ -203,14 +202,10 @@ defmodule QuickTrain.Tasks.Attempts.AttemptAllocation do
   end
 
   defp issue_group!(project, {inputs, group_id}, args, operation, actor, worker_id) do
-    {key, membership} = GroupIdentity.canonical(inputs)
-
     task =
       Ash.create!(
         Task,
         Map.merge(Access.scope(project), %{
-          canonical_key: key,
-          canonical_membership: membership,
           explicit_group_id: group_id
         }),
         action: :create_internal,

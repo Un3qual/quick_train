@@ -175,7 +175,7 @@ defmodule QuickTrain.Projects.Management do
 
   defp edit!(project, :create_explicit_group, args) do
     ProjectActivation.validate_group!(project, args.inputs)
-    {key, _encoding} = GroupIdentity.canonical(args.inputs)
+    key = GroupIdentity.key(args.inputs)
 
     group =
       create!(ExplicitGroup, %{

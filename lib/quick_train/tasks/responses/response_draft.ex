@@ -66,7 +66,7 @@ defmodule QuickTrain.Tasks.Responses.ResponseDraft do
     attempt = QuickTrain.Tasks.revise_attempt!(attempt, authorize?: false)
 
     if attempt.state in [:claimed, :assigned],
-      do: QuickTrain.Tasks.start_attempt_record!(attempt, actor: actor),
+      do: QuickTrain.Tasks.start_attempt!(attempt, actor: actor),
       else: attempt
   end
 

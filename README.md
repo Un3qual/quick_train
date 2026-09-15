@@ -177,9 +177,10 @@ target per task, and project-wide skip rules. Allocation issues whole-form attem
 leases; review decisions change accepted results without requesting replacement work.
 
 GraphQL exposes scoped `tasks`/`task` and `taskResults`/`taskResult` reads, with paginated nested
-evidence. Workers use `workBundle` and status-only `attemptReceipt`. Project create/update
-mutations use native Ash result/error shapes. Exports select complete accepted or audit results,
-seal submitted-outcome membership, and publish deterministic JSONL through the Assets adapter.
+evidence. Workers use `workBundle` and status-only `attemptReceipt`. Project create/update and
+attempt start/release/cancel mutations use native Ash result/errors shapes. Their domain
+functions accept records for updates. Exports select complete accepted or audit results, seal
+submitted-outcome membership, and publish deterministic JSONL through the Assets adapter.
 
 This feature is unreleased. Its branch migration history is consolidated into one migration;
 recreate local databases that used an earlier version of the branch. No data conversion is provided.

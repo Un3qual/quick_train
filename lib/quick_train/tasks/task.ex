@@ -11,9 +11,6 @@ defmodule QuickTrain.Tasks.Task do
   attributes do
     uuid_primary_key :id
 
-    attribute :canonical_key, :binary, public?: false, allow_nil?: false
-    attribute :canonical_membership, :binary, public?: false, allow_nil?: false
-
     timestamps()
   end
 
@@ -111,8 +108,6 @@ defmodule QuickTrain.Tasks.Task do
 
     create :create_internal do
       accept [
-        :canonical_key,
-        :canonical_membership,
         :organization_id,
         :project_id,
         :form_version_id,
@@ -174,6 +169,6 @@ defmodule QuickTrain.Tasks.Task do
   end
 
   identities do
-    identity :canonical_group, [:project_id, :canonical_key]
+    identity :explicit_group, [:explicit_group_id]
   end
 end

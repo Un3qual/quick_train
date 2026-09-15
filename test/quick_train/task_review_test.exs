@@ -28,8 +28,6 @@ defmodule QuickTrain.Tasks.TaskReviewTest do
       create!(
         Task,
         Map.merge(scope, %{
-          canonical_key: <<1>>,
-          canonical_membership: <<1>>,
           explicit_group_id:
             hd(Ash.read!(QuickTrain.Projects.ExplicitGroup, authorize?: false)).id
         })
