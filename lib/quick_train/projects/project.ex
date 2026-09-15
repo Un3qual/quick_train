@@ -15,16 +15,13 @@ defmodule QuickTrain.Projects.Project do
 
   alias QuickTrain.Projects.{
     Error,
-    ExplicitGroup,
-    ExplicitGroupInput,
-    GroupInput,
     ProjectInputBinding,
-    ProjectItem,
     ProjectSlotPolicy,
     ProjectWorkerAccess
   }
 
   alias QuickTrain.Repo
+  alias QuickTrain.Tasks.Task
 
   attributes do
     uuid_primary_key :id
@@ -97,8 +94,9 @@ defmodule QuickTrain.Projects.Project do
       allow_nil?: false,
       attribute_public?: true
 
-    has_many :items, ProjectItem,
+    has_many :tasks, Task,
       destination_attribute: :project_id,
+      read_action: :read_authored,
       public?: true
 
     has_many :bindings, ProjectInputBinding,
@@ -110,14 +108,6 @@ defmodule QuickTrain.Projects.Project do
       public?: true
 
     has_many :worker_access, ProjectWorkerAccess,
-      destination_attribute: :project_id,
-      public?: true
-
-    has_many :explicit_groups, ExplicitGroup,
-      destination_attribute: :project_id,
-      public?: true
-
-    has_many :group_inputs, ExplicitGroupInput,
       destination_attribute: :project_id,
       public?: true
 
@@ -178,47 +168,6 @@ defmodule QuickTrain.Projects.Project do
       argument :project_id, :uuid, allow_nil?: false
       filter expr(id == ^arg(:project_id) and organization_id == ^arg(:organization_id))
       prepare build(lock: :for_update)
-    end
-
-    action :enroll_revisions, :struct do
-      transaction? true
-      allow_nil? false
-      constraints instance_of: __MODULE__
-      argument :organization_id, :uuid, allow_nil?: false
-      argument :project_id, :uuid, allow_nil?: false
-      argument :revision_ids, {:array, :uuid}, allow_nil?: false, constraints: [min_length: 1]
-      run Module.concat(["QuickTrain.Projects.Management"])
-    end
-
-    action :remove_project_items, :struct do
-      transaction? true
-      allow_nil? false
-      constraints instance_of: __MODULE__
-      argument :organization_id, :uuid, allow_nil?: false
-      argument :project_id, :uuid, allow_nil?: false
-      argument :project_item_ids, {:array, :uuid}, allow_nil?: false, constraints: [min_length: 1]
-      run Module.concat(["QuickTrain.Projects.Management"])
-    end
-
-    action :create_explicit_group, :struct do
-      transaction? true
-      allow_nil? false
-      constraints instance_of: __MODULE__
-      argument :organization_id, :uuid, allow_nil?: false
-      argument :project_id, :uuid, allow_nil?: false
-      argument :position, :integer, allow_nil?: false, constraints: [min: 0, max: 2_147_483_647]
-      argument :inputs, {:array, GroupInput}, allow_nil?: false
-      run Module.concat(["QuickTrain.Projects.Management"])
-    end
-
-    action :remove_explicit_group, :struct do
-      transaction? true
-      allow_nil? false
-      constraints instance_of: __MODULE__
-      argument :organization_id, :uuid, allow_nil?: false
-      argument :project_id, :uuid, allow_nil?: false
-      argument :group_id, :uuid, allow_nil?: false
-      run Module.concat(["QuickTrain.Projects.Management"])
     end
 
     create :create do
@@ -324,11 +273,7 @@ defmodule QuickTrain.Projects.Project do
              :create,
              :configure,
              :activate_record,
-             :complete_record,
-             :enroll_revisions,
-             :remove_project_items,
-             :create_explicit_group,
-             :remove_explicit_group
+             :complete_record
            ]) do
       authorize_if {OrganizationCapability, capability: "projects.manage"}
     end
@@ -356,21 +301,12 @@ defmodule QuickTrain.Projects.Project do
     derive_filter? false
     derive_sort? false
 
-    relationships [
-      :items,
-      :bindings,
-      :slot_policies,
-      :worker_access,
-      :explicit_groups,
-      :group_inputs
-    ]
+    relationships [:tasks, :bindings, :slot_policies, :worker_access]
 
-    paginate_relationship_with items: :relay,
+    paginate_relationship_with tasks: :relay,
                                bindings: :relay,
                                slot_policies: :relay,
-                               worker_access: :relay,
-                               explicit_groups: :relay,
-                               group_inputs: :relay
+                               worker_access: :relay
   end
 
   postgres do
@@ -396,7 +332,6 @@ defmodule QuickTrain.Projects.Project do
     custom_indexes do
       index [:id, :organization_id], unique: true
       index [:id, :organization_id, :form_version_id], unique: true
-      index [:id, :dataset_id, :schema_version_id], unique: true
       index [:id, :schema_version_id, :root_record_type_id, :form_version_id], unique: true
       index [:id, :form_version_id], unique: true
     end

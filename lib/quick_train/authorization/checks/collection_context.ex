@@ -25,7 +25,7 @@ defmodule QuickTrain.Authorization.Checks.CollectionContext do
 
     expr(
       exists(Attempt, form_version_id == parent(id) and ^live) or
-        exists(Task, form_version_id == parent(id) and ^results)
+        exists(Task, form_version_id == parent(id) and exists(attempts, true) and ^results)
     )
   end
 
@@ -78,7 +78,10 @@ defmodule QuickTrain.Authorization.Checks.CollectionContext do
 
     expr(
       exists(Attempt, form_version_id == parent(version_id) and ^live) or
-        exists(Task, form_version_id == parent(version_id) and ^results)
+        exists(
+          Task,
+          form_version_id == parent(version_id) and exists(attempts, true) and ^results
+        )
     )
   end
 

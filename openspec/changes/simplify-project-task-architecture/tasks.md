@@ -47,3 +47,11 @@
 ## 9. Address local CodeRabbit review findings
 
 - [x] 9.1 Remove the policy for deleted review read actions and synchronize the Forms inspection specification with whole-form attempts; run the verification gate.
+
+## 10. Remove duplicate work models and simplify result consumption
+
+- [x] 10.1 Merge authored groups into Task/TaskInput, remove separate enrollment, preserve revision/slot validation and scoped authoring, and update allocation and callers.
+- [x] 10.2 Restrict review serialization to QuestionResponse owners and verify reviews do not wait on allocation locks.
+- [x] 10.3 Replace persistence-kind exports with a shared-context header and streamed result records; preserve exact provenance, immutable selection, and publication retries.
+- [x] 10.4 Synchronize canonical/delta/deferred specifications and README, regenerate the unreleased branch schema from main, and verify on a fresh database.
+- [x] 10.5 Run independent OpenSpec validation and mise run verify, inspect the diff, and commit the completed changes.

@@ -1,15 +1,17 @@
 defmodule QuickTrain.ProjectsTest do
   use QuickTrain.DataCase, async: false
-  alias QuickTrain.{Accounts, Organizations, Projects, ProjectsFixture}
+  alias QuickTrain.{Accounts, Organizations, Projects, ProjectsFixture, Tasks}
 
   alias QuickTrain.Projects.{
-    ExplicitGroup,
     Management,
     Project,
     ProjectInputBinding,
-    ProjectItem,
     ProjectWorkerAccess
   }
+
+  alias QuickTrain.Tasks.Task, as: CollectionTask
+  alias QuickTrain.Tasks.TaskInput
+  require Ash.Query
 
   setup do
     context = ProjectsFixture.context!()
@@ -71,13 +73,21 @@ defmodule QuickTrain.ProjectsTest do
              )
 
     assert {:error, _} =
-             ProjectItem
-             |> Ash.Query.for_read(
-               :list_scoped,
-               %{organization_id: context.org.id, project_id: project.id},
+             Tasks.create_task(
+               context.org.id,
+               project.id,
+               %{
+                 position: 3,
+                 inputs: [
+                   %{
+                     revision_id: hd(context.source.revisions).id,
+                     input_slot_id: context.source.form.slot.id,
+                     position: 0
+                   }
+                 ]
+               },
                actor: stranger
              )
-             |> Ash.read()
   end
 
   test "atomic project batches enforce organization authority and preserve lifecycle retries",
@@ -136,7 +146,7 @@ defmodule QuickTrain.ProjectsTest do
              Absinthe.run(
                """
                mutation { activateProject(organizationId: "#{context.org.id}", id: "#{project.id}") {
-                 result { id state items(first: 5) { edges { node { id revisionId } } } }
+                 result { id state tasks(first: 5) { edges { node { id inputs(first: 5) { edges { node { revisionId } } } } } } }
                  errors { message }
                } }
                """,
@@ -149,102 +159,154 @@ defmodule QuickTrain.ProjectsTest do
     result = result["result"]
     assert result["id"] == project.id
     assert result["state"] == "active"
-    assert [_, _] = result["items"]["edges"]
+    assert [_, _] = result["tasks"]["edges"]
   end
 
-  test "enrollment is atomic and cannot mix foreign or newer schema revisions", context do
-    project = ProjectsFixture.draft!(context, context.source)
-    invalid_id = "00000000-0000-4000-8000-000000000001"
+  test "task authoring pins revisions atomically without a separate enrollment", context do
+    project = ProjectsFixture.configured!(context, context.source, tasks: false)
+    [first, second] = context.source.revisions
+    input = %{revision_id: first.id, input_slot_id: context.source.form.slot.id, position: 0}
+    attrs = %{position: 0, inputs: [input]}
 
     assert {:error, _} =
-             Projects.enroll_revisions(
+             Tasks.create_task(
                context.org.id,
                project.id,
-               %{
-                 revision_ids: [hd(context.source.revisions).id, invalid_id]
-               },
+               %{attrs | inputs: [%{input | revision_id: Ash.UUID.generate()}]},
                actor: context.actor
              )
 
-    assert ProjectsFixture.items(project) == []
+    refute Ash.exists?(CollectionTask, authorize?: false)
+    refute Ash.exists?(TaskInput, authorize?: false)
 
-    Projects.enroll_revisions!(
-      context.org.id,
-      project.id,
-      %{
-        revision_ids: Enum.map(context.source.revisions, & &1.id)
-      },
-      actor: context.actor
-    )
+    task = Tasks.create_task!(context.org.id, project.id, attrs, actor: context.actor)
+    assert [stored] = ProjectsFixture.inputs(project)
+    assert stored.revision_id == first.id
 
-    assert {:error, _} =
-             Projects.enroll_revisions(
+    later =
+      QuickTrain.Datasets.put_item_revision!(
+        context.org.id,
+        context.source.dataset.id,
+        context.source.schema.id,
+        nil,
+        "item-1",
+        [%{field: "body", text: "Later"}],
+        actor: context.actor
+      ).revision
+
+    assert {:error, error} =
+             Tasks.create_task(
                context.org.id,
                project.id,
-               %{
-                 revision_ids: [hd(context.source.revisions).id]
-               },
+               %{position: 1, inputs: [%{input | revision_id: later.id}]},
                actor: context.actor
              )
 
-    assert [_, _] = ProjectsFixture.items(project)
+    assert Exception.message(error) =~ "one revision per item"
 
     other =
       ProjectsFixture.context!(
         ~w(projects.manage forms.read forms.manage datasets.read datasets.manage),
-        "other"
+        "foreign"
       )
 
     foreign = ProjectsFixture.source!(other)
 
     assert {:error, _} =
-             Projects.set_binding(
+             Tasks.create_task(
                context.org.id,
                project.id,
-               %{
-                 requirement_id: context.source.form.field.id,
-                 field_definition_id: foreign.field.id
-               },
+               %{position: 1, inputs: [%{input | revision_id: hd(foreign.revisions).id}]},
                actor: context.actor
              )
 
-    assert Ash.count!(ProjectInputBinding, authorize?: false) == 0
-    revision = hd(foreign.revisions)
+    another =
+      Tasks.create_task!(
+        context.org.id,
+        project.id,
+        %{position: 1, inputs: [%{input | revision_id: second.id}]},
+        actor: context.actor
+      )
 
-    assert {:error, _} =
-             Ash.create(
-               ProjectItem,
-               %{
-                 project_id: project.id,
-                 dataset_id: project.dataset_id,
-                 schema_version_id: project.schema_version_id,
-                 item_id: revision.item_id,
-                 revision_id: revision.id
-               },
-               action: :create_internal,
-               authorize?: false
+    assert :ok = Tasks.remove_task(task, context.org.id, actor: context.actor)
+    assert :ok = Tasks.remove_task(another, context.org.id, actor: context.actor)
+    assert ProjectsFixture.inputs(project) == []
+  end
+
+  @tag :committed_db
+  test "concurrent task authoring cannot pin different revisions of one item", context do
+    project = ProjectsFixture.configured!(context, context.source, tasks: false)
+    earlier = hd(context.source.revisions)
+
+    later =
+      QuickTrain.Datasets.put_item_revision!(
+        context.org.id,
+        context.source.dataset.id,
+        context.source.schema.id,
+        nil,
+        "item-1",
+        [%{field: "body", text: "Later"}],
+        actor: context.actor
+      ).revision
+
+    results =
+      [earlier, later]
+      |> Enum.with_index()
+      |> Enum.map(fn {revision, position} ->
+        fn ->
+          Tasks.create_task(
+            context.org.id,
+            project.id,
+            %{
+              position: position,
+              inputs: [
+                %{
+                  revision_id: revision.id,
+                  input_slot_id: context.source.form.slot.id,
+                  position: 0
+                }
+              ]
+            },
+            actor: context.actor
+          )
+        end
+      end)
+      |> concurrently()
+
+    assert Enum.count(results, &match?({:ok, _}, &1)) == 1
+    assert Enum.count(results, &match?({:error, _}, &1)) == 1
+    assert [_] = ProjectsFixture.inputs(project)
+  end
+
+  test "native task GraphQL mutations return authored inputs and enforce the freeze", context do
+    project = ProjectsFixture.configured!(context, context.source, tasks: false)
+    revision = hd(context.source.revisions)
+
+    mutation = """
+    mutation { createProjectTask(input: { organizationId: "#{context.org.id}",
+      projectId: "#{project.id}", position: 0,
+      inputs: [{revisionId: "#{revision.id}", inputSlotId: "#{context.source.form.slot.id}", position: 0}]
+    }) { result { id inputs { edges { node { revisionId } } } } errors { message } } }
+    """
+
+    assert {:ok, %{data: %{"createProjectTask" => %{"result" => task, "errors" => []}}}} =
+             Absinthe.run(mutation, QuickTrainWeb.GraphQL.Schema,
+               context: %{actor: context.actor}
              )
 
-    assert [first, second] = ProjectsFixture.items(project)
+    assert [%{"node" => %{"revisionId" => revision_id}}] = task["inputs"]["edges"]
+    assert revision_id == revision.id
+    Projects.activate_project!(project, actor: context.actor)
 
-    assert {:error, _} =
-             Projects.remove_project_items(
-               context.org.id,
-               project.id,
-               %{project_item_ids: [first.id, invalid_id]},
-               actor: context.actor
-             )
+    remove = """
+    mutation { removeProjectTask(organizationId: "#{context.org.id}", projectId: "#{project.id}",
+      id: "#{task["id"]}") { errors { message } } }
+    """
 
-    assert [_, _] = ProjectsFixture.items(project)
+    assert {:ok, %{data: %{"removeProjectTask" => %{"errors" => [_ | _]}}}} =
+             Absinthe.run(remove, QuickTrainWeb.GraphQL.Schema, context: %{actor: context.actor})
 
-    Projects.remove_project_items!(
-      context.org.id,
-      project.id,
-      %{project_item_ids: [first.id, second.id]},
-      actor: context.actor
-    )
-
-    assert ProjectsFixture.items(project) == []
+    assert [_] = ProjectsFixture.inputs(project)
   end
 
   test "source identities are fixed at creation and incompatible bindings fail atomically",
@@ -299,11 +361,18 @@ defmodule QuickTrain.ProjectsTest do
       ).revision
 
     assert {:error, _} =
-             Projects.enroll_revisions(
+             Tasks.create_task(
                context.org.id,
                project.id,
                %{
-                 revision_ids: [revision.id]
+                 position: 10,
+                 inputs: [
+                   %{
+                     revision_id: revision.id,
+                     input_slot_id: context.source.form.slot.id,
+                     position: 0
+                   }
+                 ]
                },
                actor: context.actor
              )
@@ -316,7 +385,7 @@ defmodule QuickTrain.ProjectsTest do
     assert Projects.get_project!(context.org.id, project.id, actor: context.actor).schema_version_id ==
              context.source.schema.id
 
-    assert [_, _] = ProjectsFixture.items(project)
+    assert [_, _] = ProjectsFixture.inputs(project)
 
     empty = ProjectsFixture.draft!(context, context.source)
 
@@ -370,9 +439,9 @@ defmodule QuickTrain.ProjectsTest do
         actor: context.actor
       ).revision
 
-    refute later.id in Enum.map(ProjectsFixture.items(project), & &1.revision_id)
+    refute later.id in Enum.map(ProjectsFixture.inputs(project), & &1.revision_id)
 
-    assert MapSet.new(ProjectsFixture.items(project), & &1.revision_id) ==
+    assert MapSet.new(ProjectsFixture.inputs(project), & &1.revision_id) ==
              MapSet.new(context.source.revisions, & &1.id)
 
     assert persisted(Projects.activate_project!(project, actor: context.actor)) ==
@@ -391,11 +460,18 @@ defmodule QuickTrain.ProjectsTest do
              )
 
     assert {:error, _} =
-             Projects.enroll_revisions(
+             Tasks.create_task(
                context.org.id,
                project.id,
                %{
-                 revision_ids: [hd(context.source.revisions).id]
+                 position: 10,
+                 inputs: [
+                   %{
+                     revision_id: hd(context.source.revisions).id,
+                     input_slot_id: context.source.form.slot.id,
+                     position: 0
+                   }
+                 ]
                },
                actor: context.actor
              )
@@ -496,58 +572,38 @@ defmodule QuickTrain.ProjectsTest do
     assert Projects.get_project!(context.org.id, project.id, actor: context.actor).state == :draft
   end
 
-  test "explicit groups ignore display order and require coverage of every cohort item",
+  test "tasks own canonical membership and activation requires only their derived cohort",
        context do
-    project = ProjectsFixture.configured!(context, context.source, groups: false)
-    [first, second] = ProjectsFixture.items(project)
-    input = %{input_slot_id: context.source.form.slot.id, project_item_id: first.id, position: 0}
+    project = ProjectsFixture.configured!(context, context.source, tasks: false)
+    first = hd(context.source.revisions)
+    input = %{input_slot_id: context.source.form.slot.id, revision_id: first.id, position: 0}
+    assert {:error, _} = Projects.activate_project(project, actor: context.actor)
 
-    project =
-      Projects.create_explicit_group!(context.org.id, project.id, %{position: 0, inputs: [input]},
+    task =
+      Tasks.create_task!(context.org.id, project.id, %{position: 0, inputs: [input]},
         actor: context.actor
       )
 
-    [group] = Ash.load!(project, :explicit_groups, authorize?: false).explicit_groups
+    assert :ok = Tasks.remove_task(task, context.org.id, actor: context.actor)
+    refute Ash.exists?(CollectionTask, authorize?: false)
+    refute Ash.exists?(TaskInput, authorize?: false)
 
-    Projects.remove_explicit_group!(context.org.id, project.id, %{group_id: group.id},
-      actor: context.actor
-    )
-
-    refute Ash.exists?(ExplicitGroup, authorize?: false)
-    refute Ash.exists?(QuickTrain.Projects.ExplicitGroupInput, authorize?: false)
-
-    Projects.create_explicit_group!(context.org.id, project.id, %{position: 0, inputs: [input]},
-      actor: context.actor
-    )
+    task =
+      Tasks.create_task!(context.org.id, project.id, %{position: 0, inputs: [input]},
+        actor: context.actor
+      )
 
     assert {:error, _} =
-             Projects.create_explicit_group(
+             Tasks.create_task(
                context.org.id,
                project.id,
-               %{
-                 position: 1,
-                 inputs: [%{input | position: 99}]
-               },
+               %{position: 1, inputs: [%{input | position: 99}]},
                actor: context.actor
              )
 
-    assert Ash.count!(ExplicitGroup, authorize?: false) == 1
-
-    assert {:error, _} =
-             Projects.activate_project(project, actor: context.actor)
-
-    Projects.create_explicit_group!(
-      context.org.id,
-      project.id,
-      %{
-        position: 1,
-        inputs: [%{input | project_item_id: second.id}]
-      },
-      actor: context.actor
-    )
-
-    assert Projects.activate_project!(project, actor: context.actor).state ==
-             :active
+    assert Ash.count!(CollectionTask, authorize?: false) == 1
+    assert Projects.activate_project!(project, actor: context.actor).state == :active
+    assert {:error, _} = Tasks.remove_task(task, context.org.id, actor: context.actor)
   end
 
   @tag :committed_db
@@ -642,7 +698,7 @@ defmodule QuickTrain.ProjectsTest do
     refute policy.shuffle
   end
 
-  test "activation and cohort inspection traverse beyond one page", _context do
+  test "activation and authored task inspection traverse beyond one page", _context do
     context =
       ProjectsFixture.context!(
         ~w(projects.read projects.manage forms.read forms.manage datasets.read datasets.manage),
@@ -653,10 +709,11 @@ defmodule QuickTrain.ProjectsTest do
     project = ProjectsFixture.active!(context, source)
 
     query =
-      ProjectItem
+      CollectionTask
+      |> Ash.Query.filter(project_id == ^project.id)
       |> Ash.Query.for_read(
-        :list_scoped,
-        %{organization_id: context.org.id, project_id: project.id},
+        :read_authored,
+        %{},
         actor: context.actor
       )
 
@@ -665,8 +722,7 @@ defmodule QuickTrain.ProjectsTest do
     second = Ash.page!(first, :next)
     assert [_, _, _, _, _] = second.results
 
-    assert MapSet.new(first.results ++ second.results, & &1.revision_id) ==
-             MapSet.new(source.revisions, & &1.id)
+    assert MapSet.new(first.results ++ second.results, & &1.position) == MapSet.new(0..104)
   end
 
   defp persisted(record),

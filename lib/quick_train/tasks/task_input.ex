@@ -9,11 +9,11 @@ defmodule QuickTrain.Tasks.TaskInput do
     authorizers: [Ash.Policy.Authorizer]
 
   alias QuickTrain.Assets.AssetAccessResult
-  alias QuickTrain.Datasets.DatasetItemRevision
+  alias QuickTrain.Datasets.{Dataset, DatasetItem, DatasetItemRevision, DatasetSchemaVersion}
   alias QuickTrain.Forms.FormVersion
   alias QuickTrain.Forms.Inputs.{InputFieldRequirement, InputSlotDefinition}
   alias QuickTrain.Organizations.Organization
-  alias QuickTrain.Projects.{Project, ProjectItem}
+  alias QuickTrain.Projects.Project
   alias QuickTrain.Repo
   alias QuickTrain.Tasks.Access.BoundValue
   alias QuickTrain.Tasks.Access.ReadAccess
@@ -21,6 +21,11 @@ defmodule QuickTrain.Tasks.TaskInput do
 
   attributes do
     uuid_primary_key :id
+
+    attribute :position, :integer,
+      public?: true,
+      allow_nil?: false,
+      constraints: [min: 0, max: 2_147_483_647]
 
     timestamps()
   end
@@ -43,9 +48,9 @@ defmodule QuickTrain.Tasks.TaskInput do
 
     belongs_to :task, Task, allow_nil?: false, attribute_public?: true
 
-    belongs_to :project_item, ProjectItem,
-      allow_nil?: false,
-      attribute_public?: true
+    belongs_to :dataset, Dataset, allow_nil?: false, attribute_public?: true
+    belongs_to :schema_version, DatasetSchemaVersion, allow_nil?: false, attribute_public?: true
+    belongs_to :item, DatasetItem, allow_nil?: false, attribute_public?: true
 
     belongs_to :revision, DatasetItemRevision,
       allow_nil?: false,
@@ -95,7 +100,10 @@ defmodule QuickTrain.Tasks.TaskInput do
         :project_id,
         :form_version_id,
         :task_id,
-        :project_item_id,
+        :position,
+        :dataset_id,
+        :schema_version_id,
+        :item_id,
         :revision_id,
         :input_slot_id
       ]
@@ -109,6 +117,7 @@ defmodule QuickTrain.Tasks.TaskInput do
 
     policy action(:read) do
       authorize_if ReadAccess
+      authorize_if relates_to_actor_via([:project, :reader_role_assignments, :user])
     end
 
     policy action([:create_internal]) do
@@ -139,16 +148,21 @@ defmodule QuickTrain.Tasks.TaskInput do
       reference :form_version, on_delete: :restrict, name: "task_inputs_form_version_scope_fkey"
 
       reference :task,
-        on_delete: :restrict,
+        on_delete: :delete,
         name: "task_inputs_task_scope_fkey",
         match_with: [project_id: :project_id, form_version_id: :form_version_id]
 
-      reference :project_item,
-        on_delete: :restrict,
-        name: "task_inputs_project_item_scope_fkey",
-        match_with: [project_id: :project_id, revision_id: :revision_id]
+      reference :dataset, on_delete: :restrict
+      reference :schema_version, on_delete: :restrict, match_with: [dataset_id: :dataset_id]
+      reference :item, on_delete: :restrict
 
-      reference :revision, on_delete: :restrict, name: "task_inputs_revision_scope_fkey"
+      reference :revision,
+        on_delete: :restrict,
+        match_with: [
+          item_id: :item_id,
+          dataset_id: :dataset_id,
+          schema_version_id: :schema_version_id
+        ]
 
       reference :input_slot,
         on_delete: :restrict,
@@ -166,6 +180,7 @@ defmodule QuickTrain.Tasks.TaskInput do
   end
 
   identities do
-    identity :task_item, [:task_id, :project_item_id]
+    identity :task_item, [:task_id, :item_id]
+    identity :slot_position, [:task_id, :input_slot_id, :position]
   end
 end

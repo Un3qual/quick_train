@@ -110,7 +110,8 @@ defmodule QuickTrain.Tasks.Access.ReadAccess do
   defp live_worker_filter(resource, _live)
        when resource in [ReviewDecision], do: false
 
-  def evidence_filter(resource) when resource in [Task, TaskInput], do: true
+  def evidence_filter(Task), do: expr(exists(attempts, true))
+  def evidence_filter(TaskInput), do: expr(exists(Attempt, task_id == parent(task_id)))
   def evidence_filter(Attempt), do: expr(state in [:submitted, :expired, :released, :cancelled])
 
   def evidence_filter(resource) when resource in [AttemptInputPresentation],

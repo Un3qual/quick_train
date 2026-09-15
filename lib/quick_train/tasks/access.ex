@@ -30,7 +30,7 @@ defmodule QuickTrain.Tasks.Access do
 
     task =
       Tasks.get_task_internal!(initial.task_id, project.id, project.organization_id,
-        query: [lock: :for_update],
+        query: [lock: "FOR NO KEY UPDATE"],
         authorize?: false
       )
       |> found!()

@@ -1,7 +1,7 @@
 defmodule QuickTrain.Tasks.TaskAllocationTest do
   use QuickTrain.DataCase, async: false
   alias QuickTrain.{Accounts, ProjectsFixture}
-  alias QuickTrain.Projects.{ExplicitGroup, Project}
+  alias QuickTrain.Projects.Project
 
   alias QuickTrain.Tasks.Attempts.{Attempt, AttemptInputPresentation}
   alias QuickTrain.Tasks.{Task, TaskInput}
@@ -30,8 +30,8 @@ defmodule QuickTrain.Tasks.TaskAllocationTest do
     assert first.status == :issued
     assert first.attempt.worker_id == ctx.worker.id
     assert first.attempt.state == :claimed
-    assert Ash.count!(Task, authorize?: false) == 1
-    assert Ash.count!(TaskInput, authorize?: false) == 1
+    assert Ash.count!(Task, authorize?: false) == 2
+    assert Ash.count!(TaskInput, authorize?: false) == 2
     again = fetch(ctx, key)
     assert again.attempt.id == first.attempt.id
     assert again.attempt.deadline == first.attempt.deadline
@@ -52,7 +52,7 @@ defmodule QuickTrain.Tasks.TaskAllocationTest do
              )
              |> Ash.run_action()
 
-    assert Ash.count!(Task, authorize?: false) == 0
+    assert Ash.count!(Task, authorize?: false) == 2
     assert Ash.count!(Attempt, authorize?: false) == 0
   end
 
@@ -62,7 +62,7 @@ defmodule QuickTrain.Tasks.TaskAllocationTest do
       ProjectsFixture.configured!(ctx.context, ctx.source,
         audience: :external_users,
         external_access: :open,
-        groups: false
+        tasks: false
       )
 
     QuickTrain.Projects.set_slot_policy!(
@@ -77,12 +77,11 @@ defmodule QuickTrain.Tasks.TaskAllocationTest do
     )
 
     groups =
-      project
-      |> ProjectsFixture.items()
+      ctx.source.revisions
       |> Enum.sort_by(& &1.id)
       |> Enum.chunk_every(4)
       |> Enum.with_index(fn items, position ->
-        QuickTrain.Projects.create_explicit_group!(
+        QuickTrain.Tasks.create_task!(
           ctx.context.org.id,
           project.id,
           %{
@@ -91,7 +90,7 @@ defmodule QuickTrain.Tasks.TaskAllocationTest do
               Enum.with_index(items, fn item, position ->
                 %{
                   input_slot_id: ctx.source.form.slot.id,
-                  project_item_id: item.id,
+                  revision_id: item.id,
                   position: position
                 }
               end)
@@ -111,8 +110,7 @@ defmodule QuickTrain.Tasks.TaskAllocationTest do
 
     for {position, expected} <- groups do
       attempt = fetch(ctx, Ash.UUID.generate()).attempt
-      group_id = Ash.get!(Task, attempt.task_id, authorize?: false).explicit_group_id
-      assert Ash.get!(ExplicitGroup, group_id, authorize?: false).position == position
+      assert Ash.get!(Task, attempt.task_id, authorize?: false).position == position
       assert presented_items(attempt) == expected
 
       QuickTrain.Tasks.release_attempt!(attempt,
@@ -123,10 +121,9 @@ defmodule QuickTrain.Tasks.TaskAllocationTest do
     assert fetch(ctx, Ash.UUID.generate()).status == :no_work_for_worker
     worker = Accounts.register_user!("explicit-reuse@example.test", "Next collector")
     attempt = fetch(%{ctx | worker: worker}, Ash.UUID.generate()).attempt
-    group_id = Ash.get!(Task, attempt.task_id, authorize?: false).explicit_group_id
-    position = Ash.get!(ExplicitGroup, group_id, authorize?: false).position
+    position = Ash.get!(Task, attempt.task_id, authorize?: false).position
     assert presented_items(attempt) == Map.fetch!(Map.new(groups), position)
-    assert Ash.count!(Task, authorize?: false) == 2
+    assert Ash.count!(Ash.Query.filter(Task, project_id == ^project.id), authorize?: false) == 2
   end
 
   test "blocking the owner denies allocation retries", ctx do
@@ -316,6 +313,6 @@ defmodule QuickTrain.Tasks.TaskAllocationTest do
     |> Ash.Query.sort(position: :asc)
     |> Ash.Query.load(:task_input)
     |> Ash.read!(authorize?: false, page: false)
-    |> Enum.map(& &1.task_input.project_item_id)
+    |> Enum.map(& &1.task_input.revision_id)
   end
 end

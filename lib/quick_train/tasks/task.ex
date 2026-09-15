@@ -11,15 +11,23 @@ defmodule QuickTrain.Tasks.Task do
   alias QuickTrain.Authorization.Checks.OrganizationCapability
   alias QuickTrain.Forms.FormVersion
   alias QuickTrain.Organizations.Organization
-  alias QuickTrain.Projects.{ExplicitGroup, Project}
+  alias QuickTrain.Projects.Project
   alias QuickTrain.Repo
   alias QuickTrain.Tasks.Access.ReadAccess
   alias QuickTrain.Tasks.Attempts.Attempt
   alias QuickTrain.Tasks.Responses.QuestionResponse
+  alias QuickTrain.Tasks.Task.Input
   alias QuickTrain.Tasks.TaskInput
 
   attributes do
     uuid_primary_key :id
+
+    attribute :position, :integer,
+      public?: true,
+      allow_nil?: false,
+      constraints: [min: 0, max: 2_147_483_647]
+
+    attribute :canonical_key, :binary, allow_nil?: false
 
     timestamps()
   end
@@ -45,10 +53,6 @@ defmodule QuickTrain.Tasks.Task do
       allow_nil?: false,
       attribute_public?: true,
       public?: true
-
-    belongs_to :explicit_group, ExplicitGroup,
-      allow_nil?: false,
-      attribute_public?: true
   end
 
   aggregates do
@@ -80,8 +84,29 @@ defmodule QuickTrain.Tasks.Task do
   end
 
   actions do
+    read :read_authored do
+      pagination keyset?: true,
+                 required?: false,
+                 default_limit: 50,
+                 max_page_size: 100,
+                 stable_sort: [position: :asc, id: :asc]
+    end
+
+    read :get_for_remove do
+      get? true
+      argument :organization_id, :uuid, allow_nil?: false
+      argument :project_id, :uuid, allow_nil?: false
+      argument :id, :uuid, allow_nil?: false
+
+      filter expr(
+               id == ^arg(:id) and project_id == ^arg(:project_id) and
+                 organization_id == ^arg(:organization_id)
+             )
+    end
+
     read :list_scoped do
       prepare build(context: %{shared: %{task_results: true}})
+      filter expr(exists(attempts, true))
       argument :organization_id, :uuid, allow_nil?: false
       argument :project_id, :uuid, allow_nil?: false
       filter expr(organization_id == ^arg(:organization_id) and project_id == ^arg(:project_id))
@@ -96,6 +121,7 @@ defmodule QuickTrain.Tasks.Task do
 
     read :get_scoped do
       prepare build(context: %{shared: %{task_results: true}})
+      filter expr(exists(attempts, true))
       get? true
       argument :id, :uuid, allow_nil?: false
       filter expr(id == ^arg(:id))
@@ -116,13 +142,16 @@ defmodule QuickTrain.Tasks.Task do
                  stable_sort: [id: :asc]
     end
 
-    create :create_internal do
-      accept [
-        :organization_id,
-        :project_id,
-        :form_version_id,
-        :explicit_group_id
-      ]
+    create :create do
+      accept [:organization_id, :project_id, :position]
+      argument :inputs, {:array, Input}, allow_nil?: false, constraints: [min_length: 1]
+      change Module.concat(["QuickTrain.Tasks.Task.Changes.Configure"])
+    end
+
+    destroy :remove do
+      argument :organization_id, :uuid, allow_nil?: false
+      require_atomic? false
+      change Module.concat(["QuickTrain.Tasks.Task.Changes.Configure"])
     end
   end
 
@@ -135,8 +164,13 @@ defmodule QuickTrain.Tasks.Task do
       authorize_if {OrganizationCapability, capability: "tasks.results.read"}
     end
 
-    policy action(:create_internal) do
-      forbid_if always()
+    policy action([:create, :get_for_remove, :remove]) do
+      authorize_if {OrganizationCapability, capability: "projects.manage"}
+    end
+
+    policy action(:read_authored) do
+      forbid_unless actor_attribute_equals(:status, "active")
+      authorize_if relates_to_actor_via([:project, :reader_role_assignments, :user])
     end
   end
 
@@ -165,11 +199,6 @@ defmodule QuickTrain.Tasks.Task do
         match_with: [organization_id: :organization_id, form_version_id: :form_version_id]
 
       reference :form_version, on_delete: :restrict, name: "tasks_form_version_scope_fkey"
-
-      reference :explicit_group,
-        on_delete: :restrict,
-        name: "tasks_explicit_group_scope_fkey",
-        match_with: [project_id: :project_id, form_version_id: :form_version_id]
     end
 
     custom_indexes do
@@ -178,6 +207,7 @@ defmodule QuickTrain.Tasks.Task do
   end
 
   identities do
-    identity :explicit_group, [:explicit_group_id]
+    identity :project_position, [:project_id, :position]
+    identity :project_membership, [:project_id, :canonical_key]
   end
 end

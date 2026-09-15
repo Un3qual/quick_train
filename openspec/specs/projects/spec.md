@@ -18,10 +18,10 @@ Project operations SHALL resolve targets within an explicit organization and req
 - **THEN** no unauthorized record is disclosed or changed
 
 ### Requirement: One explicit immutable cohort and contract
-A project SHALL fix its source identities at creation: one dataset, one published schema version of that dataset, one published form version of the same organization. Before activation it SHALL define an explicit nonempty cohort containing at most one revision per stable dataset item. All revisions SHALL use the pinned schema version. Every slot SHALL have an exact positive group size within its published bounds, and every requirement SHALL bind to one root field of the pinned schema with identical family/cardinality. Required requirements SHALL bind required fields. Each cohort revision SHALL be compatible with every slot's bindings; present assets SHALL be ready. Task groups SHALL contain distinct items across all slots. No form/question copy per item SHALL be created.
+A project SHALL fix its source identities at creation: one dataset, one published schema version of that dataset, one published form version of the same organization. Before activation it SHALL author a nonempty collection of Tasks with exact revision-and-slot inputs. The cohort SHALL be derived from the distinct revisions used by these inputs, without separate enrollment or ProjectItem records. All task inputs in a project SHALL use at most one revision per stable dataset item, validated under the Project lock. All revisions SHALL use the pinned schema version. Every slot SHALL have an exact positive group size within its published bounds, and every requirement SHALL bind to one root field of the pinned schema with identical family/cardinality. Required requirements SHALL bind required fields. Each cohort revision SHALL be compatible with every slot's bindings; present assets SHALL be ready. Task groups SHALL contain distinct items across all slots. No form/question copy per item SHALL be created.
 
 #### Scenario: A pairwise project uses reusable definitions
-- **WHEN** a project binds a two-item candidate slot to compatible text fields and enrolls explicit revisions
+- **WHEN** a project binds a two-item candidate slot to compatible text fields and authors task inputs using explicit revisions
 - **THEN** its tasks can compare pairs while retaining one published form and the same question identities
 
 #### Scenario: Invalid bindings leave the project editable
@@ -29,10 +29,10 @@ A project SHALL fix its source identities at creation: one dataset, one publishe
 - **THEN** activation fails atomically with scoped issues and leaves the project draft
 
 ### Requirement: Activation freezes collection configuration
-Activation SHALL atomically validate and freeze the cohort, bindings, explicit groups, slot counts/order policy, audience/external-access mode, review mode, submission target, project-wide skip rules, and lease duration. Dataset/schema/form identities SHALL be immutable from creation, including in draft. Each task SHALL require the project's positive `submission_target` (default 1, maximum 2,147,483,647). `skip_allowed` and `reason_required` SHALL default to false and apply to the whole form. Review SHALL be automatic or manual; leases SHALL be 1–120 minutes with a 30-minute default. Activation SHALL create no tasks, coverage rows, or progress projections. Child edits and activation SHALL serialize under the Project lock. After activation only title, lifecycle, and per-user allow/block overrides SHALL be editable.
+Activation SHALL atomically validate and freeze authored tasks and inputs, bindings, slot counts/order policy, audience/external-access mode, review mode, submission target, project-wide skip rules, and lease duration. Dataset/schema/form identities SHALL be immutable from creation, including in draft. Each task SHALL require the project's positive `submission_target` (default 1, maximum 2,147,483,647). `skip_allowed` and `reason_required` SHALL default to false and apply to the whole form. Review SHALL be automatic or manual; leases SHALL be 1–120 minutes with a 30-minute default. Tasks and TaskInputs SHALL exist as draft configuration before activation. Activation SHALL create no attempts, coverage rows, or progress projections. Child edits and activation SHALL serialize under the Project lock. After activation only title, lifecycle, and per-user allow/block overrides SHALL be editable.
 
 #### Scenario: A draft edit races activation
-- **WHEN** enrollment, grouping, or policy editing competes with activation
+- **WHEN** task authoring or policy editing competes with activation
 - **THEN** the complete edit is either included in activation validation or rejected after freezing
 
 #### Scenario: An import arrives after activation
@@ -44,15 +44,15 @@ Activation SHALL atomically validate and freeze the cohort, bindings, explicit g
 - **THEN** the edit rechecks current management authority under the Project lock without reopening configuration
 
 ### Requirement: Explicit groups are validated before use
-Every project SHALL define a finite ordered collection of nonempty groups whose inputs use its cohort and exact slot counts. Group identity SHALL ignore display order but preserve slot membership. Duplicate canonical groups and duplicate items within a group SHALL be rejected. Every enrolled item SHALL appear in at least one group before activation. Unissued groups SHALL remain configuration rather than allocated tasks or worker evidence. Automatic/balanced grouping and coverage targets SHALL not be part of this contract.
+Every project SHALL define a finite ordered collection of nonempty Tasks whose revision inputs match its exact slot counts. Task SHALL own canonical membership uniqueness, ignoring display order but preserving slot membership. Duplicate canonical tasks and duplicate stable items within a task SHALL be rejected. No separate ExplicitGroup or ExplicitGroupInput resource, cohort enrollment, or coverage reconciliation SHALL exist. Unissued tasks SHALL remain manager-readable configuration and SHALL not grant worker/result/source access. Automatic/balanced grouping and coverage targets SHALL not be part of this contract.
 
 #### Scenario: Equivalent authored groups are rejected
 - **WHEN** two groups contain the same items in the same slots but reverse display order
 - **THEN** the duplicate is rejected
 
-#### Scenario: An enrolled item is absent from the groups
-- **WHEN** activation finds an item absent from every authored group
-- **THEN** activation fails and the project remains draft
+#### Scenario: The cohort follows authored work
+- **WHEN** a manager creates or removes a draft task
+- **THEN** the cohort is the revisions still referenced by task inputs, with no separate enrollment to synchronize
 
 ### Requirement: Deliberate project lifecycle and retention
 Projects SHALL allow state changes `draft -> active`, `active <-> paused`, `active|paused -> completed`, and `completed -> archived`. After current management authorization and under the project lock, activation, pause, resume, completion, and archive SHALL return the unchanged project successfully when it is already in that operation's target state. Such no-op retries SHALL not repeat freezing, expiration, cancellation, or timestamp updates. Other state-changing transitions SHALL be rejected. When the current state differs from the requested target, the action SHALL follow the normal transition rules rather than replaying an earlier result. Pause SHALL stop new allocations while allowing otherwise authorized unexpired attempts to finish. Completion SHALL take one database wall-clock cutoff after acquiring the exclusive project lock. In the same transaction it SHALL first mark physically live attempts whose deadlines are at or before that cutoff expired, then cancel remaining unexpired live attempts and unsatisfied tasks. It SHALL preserve submitted and satisfied evidence and prevent later allocation/submission. Overdue attempts SHALL retain expiry provenance rather than becoming deliberate cancellations. Completion SHALL be permitted before all submissions are collected and without pausing first. Completed/archived projects SHALL retain authorized result inspection, review corrections, and exports. No project deletion or implicit completion on empty fetch SHALL be exposed.
@@ -93,7 +93,7 @@ Activation SHALL support scalar answers, non-image static/task-input choices, ra
 - **THEN** it can proceed through allocation, submission, review, and results without a media lookup
 
 ### Requirement: Project authoring and paginated inspection
-Project creation, draft configuration, renaming, and lifecycle changes SHALL use native Ash create/update actions and domain interfaces. GraphQL SHALL use native mutations returning result/errors, with explicit organization-scoped manager-authorized lookups for updates. Dataset/schema/form references SHALL be chosen only on create. Bindings, slot policies, and worker-access overrides SHALL use native child-resource create/upsert and destroy actions returning the affected child through result/errors mutations. Destroy actions SHALL require explicit organization/project scope, use manager-authorized child lookups, and recheck the requested organization under the Project lock; domain destroy interfaces SHALL take the child record and organization scope. Child editing operations SHALL retain complete transaction and Project-lock validation. Project, cohort, binding, slot-policy, worker-access, and group collections SHALL use bounded Relay keyset pagination. This change SHALL add no application-level cohort, group, or enrollment-batch ceiling. Configured submission targets and scalar answer integers SHALL retain signed 32-bit GraphQL Int bounds.
+Project creation, draft configuration, renaming, and lifecycle changes SHALL use native Ash create/update actions and domain interfaces. GraphQL SHALL use native mutations returning result/errors, with explicit organization-scoped manager-authorized lookups for updates. Dataset/schema/form references SHALL be chosen only on create. Bindings, slot policies, and worker-access overrides SHALL use native child-resource create/upsert and destroy actions returning the affected child through result/errors mutations. Destroy actions SHALL require explicit organization/project scope, use manager-authorized child lookups, and recheck the requested organization under the Project lock; domain destroy interfaces SHALL take the child record and organization scope. Child editing operations SHALL retain complete transaction and Project-lock validation. Task authoring SHALL use native Ash create/destroy actions returning the affected task through result/errors mutations and domain interfaces. Task creation SHALL accept revision IDs, slot IDs, and positions; it SHALL validate source authority, schema, stable-item revision consistency, and group shape under the Project lock. Task deletion SHALL be restricted to drafts and remove its inputs. Project.tasks and nested inputs SHALL use bounded Relay keyset pagination under project inspection authority. Result roots SHALL expose issued tasks only. This change SHALL add no application-level task or input-count ceiling. Configured submission targets and scalar answer integers SHALL retain signed 32-bit GraphQL Int bounds.
 
 #### Scenario: A manage-only actor changes a title
 - **WHEN** an active member with projects.manage but no projects.read updates a project through its scoped mutation
@@ -103,6 +103,6 @@ Project creation, draft configuration, renaming, and lifecycle changes SHALL use
 - **WHEN** a caller attempts to change its dataset, schema, or form after creation
 - **THEN** the input is rejected; a different contract requires a new project
 
-#### Scenario: A cohort spans pages
-- **WHEN** a manager traverses more than one page of frozen cohort items
-- **THEN** every item is reachable in stable order
+#### Scenario: Authored tasks span pages
+- **WHEN** a manager traverses more than one page of authored tasks and their inputs
+- **THEN** every task and input is reachable in stable order

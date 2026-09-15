@@ -4,7 +4,7 @@ defmodule QuickTrain.Tasks.CollectionConcurrencyTest do
   alias Ecto.Adapters.SQL.Sandbox
   alias Elixir.Task, as: AsyncTask
   alias QuickTrain.{Accounts, ProjectsFixture}
-  alias QuickTrain.Projects.{ExplicitGroup, Project}
+  alias QuickTrain.Projects.Project
   alias QuickTrain.Tasks.{Access, Task, TaskInput}
   alias QuickTrain.Tasks.Attempts.Attempt
   alias QuickTrain.Tasks.Exports.ResultExport
@@ -115,15 +115,21 @@ defmodule QuickTrain.Tasks.CollectionConcurrencyTest do
     end
   end
 
-  @tag groups: false, item_count: 2
+  @tag tasks: false, item_count: 2
   test "explicit issuance does not lock a later authored group", ctx do
-    [first, second] = Ash.read!(ExplicitGroup, authorize?: false, page: false, load: [:inputs])
+    [first, second] =
+      Ash.read!(Ash.Query.sort(Task, position: :asc),
+        authorize?: false,
+        page: false,
+        load: [:inputs]
+      )
+
     parent = self()
 
     holder =
       on_connection(fn ->
-        Ash.transact(ExplicitGroup, fn ->
-          Ash.get!(ExplicitGroup, second.id, authorize?: false, lock: :for_update)
+        Ash.transact(Task, fn ->
+          Ash.get!(Task, second.id, authorize?: false, lock: :for_update)
           send(parent, :later_group_locked)
           receive do: (:release -> :ok)
         end)
@@ -132,22 +138,24 @@ defmodule QuickTrain.Tasks.CollectionConcurrencyTest do
     try do
       assert_receive :later_group_locked, 5_000
       assert {:ok, %{status: :issued, attempt: attempt}} = fetch(ctx, Ash.UUID.generate())
-      assert Ash.get!(Task, attempt.task_id, authorize?: false).explicit_group_id == first.id
+      assert attempt.task_id == first.id
     after
       send(holder.pid, :release)
       AsyncTask.await(holder, 5_000)
     end
   end
 
-  @tag groups: false, item_count: 2
+  @tag tasks: false, item_count: 2
   test "a contended first explicit group is retried rather than skipped", ctx do
-    [first, _second] = Ash.read!(ExplicitGroup, authorize?: false, page: false)
+    [first, _second] =
+      Ash.read!(Ash.Query.sort(Task, position: :asc), authorize?: false, page: false)
+
     parent = self()
 
     holder =
       on_connection(fn ->
-        Ash.transact(ExplicitGroup, fn ->
-          Ash.get!(ExplicitGroup, first.id, authorize?: false, lock: :for_update)
+        Ash.transact(Task, fn ->
+          Ash.get!(Task, first.id, authorize?: false, lock: :for_update)
           send(parent, :first_group_locked)
           receive do: (:release -> :ok)
         end)
@@ -158,14 +166,14 @@ defmodule QuickTrain.Tasks.CollectionConcurrencyTest do
     try do
       assert_receive :first_group_locked, 5_000
       assert {:ok, %{status: :retry_later}} = fetch(ctx, key)
-      refute Ash.exists?(Task, authorize?: false)
+      refute Ash.exists?(Attempt, authorize?: false)
     after
       send(holder.pid, :release)
       AsyncTask.await(holder, 5_000)
     end
 
     assert {:ok, %{status: :issued, attempt: attempt}} = fetch(ctx, key)
-    assert Ash.get!(Task, attempt.task_id, authorize?: false).explicit_group_id == first.id
+    assert attempt.task_id == first.id
   end
 
   test "simultaneous identical request keys return one fixed attempt", ctx do
@@ -351,7 +359,7 @@ defmodule QuickTrain.Tasks.CollectionConcurrencyTest do
     assert Ash.read_one!(Task, authorize?: false, load: :live_count).live_count == 0
   end
 
-  test "rolled-back issuance leaves no task, attempt, or consumed group",
+  test "rolled-back issuance preserves authored work and leaves no attempt",
        ctx do
     key = Ash.UUID.generate()
 
@@ -364,8 +372,9 @@ defmodule QuickTrain.Tasks.CollectionConcurrencyTest do
 
     assert Exception.message(error) =~ "injected_failure"
 
-    for resource <- [Task, TaskInput, Attempt],
-        do: assert(Ash.count!(resource, authorize?: false) == 0)
+    assert Ash.count!(Attempt, authorize?: false) == 0
+    assert Ash.count!(Task, authorize?: false) == 1
+    assert Ash.count!(TaskInput, authorize?: false) == 1
 
     assert %{rows: [[0]]} = Repo.query!("SELECT count(*) FROM oban_jobs")
     assert {:ok, %{status: :issued}} = fetch(ctx, key)

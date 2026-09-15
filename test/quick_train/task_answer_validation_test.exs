@@ -67,7 +67,7 @@ defmodule QuickTrain.Tasks.AnswerValidationTest do
   }
 
   alias QuickTrain.Tasks.Responses.AnswerValidation
-  alias QuickTrain.Tasks.{Task, TaskInput}
+  alias QuickTrain.Tasks.TaskInput
   require Ash.Query
 
   setup do
@@ -535,63 +535,56 @@ defmodule QuickTrain.Tasks.AnswerValidationTest do
       actor: context.actor
     )
 
-    task_attrs = %{
-      organization_id: context.org.id,
-      project_id: project.id,
-      form_version_id: base.version.id,
-      explicit_group_id:
-        create!(QuickTrain.Projects.ExplicitGroup, %{
-          project_id: project.id,
-          form_version_id: base.version.id,
-          position: 0,
-          canonical_key: <<1>>
-        }).id
-    }
-
-    task = create!(Task, task_attrs)
-
-    foreign_task =
-      create!(Task, %{
-        task_attrs
-        | explicit_group_id:
-            create!(QuickTrain.Projects.ExplicitGroup, %{
-              project_id: project.id,
-              form_version_id: base.version.id,
-              position: 1,
-              canonical_key: <<2>>
-            }).id
-      })
+    for {slot, count} <- [{base.slot, 2}, {base.other_slot, 1}] do
+      Projects.set_slot_policy!(
+        context.org.id,
+        project.id,
+        %{input_slot_id: slot.id, item_count: count, shuffle: false},
+        actor: context.actor
+      )
+    end
 
     inputs =
-      for {revision, index} <- Enum.with_index(revisions) do
-        item =
-          create!(QuickTrain.Projects.ProjectItem, %{
-            project_id: project.id,
-            dataset_id: dataset.id,
-            schema_version_id: schema.id,
-            item_id: revision.item_id,
-            revision_id: revision.id
-          })
-
-        attrs = %{
-          organization_id: context.org.id,
-          project_id: project.id,
-          form_version_id: base.version.id,
-          task_id: task.id,
-          project_item_id: item.id,
+      Enum.with_index(revisions, fn revision, index ->
+        %{
           revision_id: revision.id,
+          position: index,
           input_slot_id: if(index < 2, do: base.slot.id, else: base.other_slot.id)
         }
+      end)
 
-        input = create!(TaskInput, attrs)
+    task =
+      QuickTrain.Tasks.create_task!(context.org.id, project.id, %{position: 0, inputs: inputs},
+        actor: context.actor
+      )
 
-        foreign =
-          if index == 0, do: create!(TaskInput, %{attrs | task_id: foreign_task.id}), else: nil
+    [a, b, c] = inputs
 
-        {input, foreign}
-      end
+    foreign_task =
+      QuickTrain.Tasks.create_task!(
+        context.org.id,
+        project.id,
+        %{
+          position: 1,
+          inputs: [
+            a,
+            %{c | input_slot_id: base.slot.id},
+            %{b | input_slot_id: base.other_slot.id}
+          ]
+        },
+        actor: context.actor
+      )
 
-    [{one, foreign}, {two, _}, {other_input, _}] = inputs
+    [one, two, other_input] =
+      TaskInput
+      |> Ash.Query.filter(task_id == ^task.id)
+      |> Ash.Query.sort(position: :asc)
+      |> Ash.read!(authorize?: false, page: false)
+
+    foreign =
+      TaskInput
+      |> Ash.Query.filter(task_id == ^foreign_task.id and revision_id == ^hd(revisions).id)
+      |> Ash.read_one!(authorize?: false)
 
     value = fn field ->
       QuickTrain.Datasets.DatasetValue
@@ -611,12 +604,6 @@ defmodule QuickTrain.Tasks.AnswerValidationTest do
       other_value: value.(other)
     })
   end
-
-  defp create!(resource, attrs),
-    do:
-      resource
-      |> Ash.Changeset.for_create(:create_internal, attrs)
-      |> Ash.create!(authorize?: false)
 
   defp options(question),
     do:

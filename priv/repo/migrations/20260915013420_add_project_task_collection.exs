@@ -8,63 +8,6 @@ defmodule QuickTrain.Repo.Migrations.AddProjectTaskCollection do
   use Ecto.Migration
 
   def up do
-    create table(:project_items, primary_key: false) do
-      add :id, :uuid, null: false, default: fragment("gen_random_uuid()"), primary_key: true
-
-      add :inserted_at, :utc_datetime_usec,
-        null: false,
-        default: fragment("(now() AT TIME ZONE 'utc')")
-
-      add :updated_at, :utc_datetime_usec,
-        null: false,
-        default: fragment("(now() AT TIME ZONE 'utc')")
-
-      add :project_id, :uuid, null: false
-
-      add :dataset_id,
-          references(:datasets,
-            column: :id,
-            name: "project_items_dataset_id_fkey",
-            type: :uuid,
-            prefix: "public",
-            on_delete: :restrict
-          ),
-          null: false
-
-      add :schema_version_id,
-          references(:dataset_schema_versions,
-            column: :id,
-            with: [dataset_id: :dataset_id],
-            name: "project_items_schema_version_id_fkey",
-            type: :uuid,
-            prefix: "public",
-            on_delete: :restrict
-          ),
-          null: false
-
-      add :item_id,
-          references(:dataset_items,
-            column: :id,
-            name: "project_items_item_id_fkey",
-            type: :uuid,
-            prefix: "public",
-            on_delete: :restrict
-          ),
-          null: false
-    end
-
-    create unique_index(:project_items, [:project_id, :item_id],
-             name: "project_items_project_item_index"
-           )
-
-    alter table(:project_items) do
-      add :revision_id, :uuid, null: false
-    end
-
-    create index(:project_items, [:id, :project_id], unique: true)
-
-    create index(:project_items, [:id, :project_id, :revision_id], unique: true)
-
     create table(:project_input_bindings, primary_key: false) do
       add :id, :uuid, null: false, default: fragment("gen_random_uuid()"), primary_key: true
 
@@ -287,44 +230,6 @@ defmodule QuickTrain.Repo.Migrations.AddProjectTaskCollection do
              name: "task_input_answers_input_index"
            )
 
-    create table(:project_explicit_groups, primary_key: false) do
-      add :id, :uuid, null: false, default: fragment("gen_random_uuid()"), primary_key: true
-      add :position, :bigint, null: false
-      add :canonical_key, :binary, null: false
-
-      add :inserted_at, :utc_datetime_usec,
-        null: false,
-        default: fragment("(now() AT TIME ZONE 'utc')")
-
-      add :updated_at, :utc_datetime_usec,
-        null: false,
-        default: fragment("(now() AT TIME ZONE 'utc')")
-
-      add :project_id, :uuid, null: false
-    end
-
-    create unique_index(:project_explicit_groups, [:project_id, :canonical_key],
-             name: "project_explicit_groups_project_group_index"
-           )
-
-    create unique_index(:project_explicit_groups, [:project_id, :position],
-             name: "project_explicit_groups_project_position_index"
-           )
-
-    alter table(:project_explicit_groups) do
-      add :form_version_id,
-          references(:form_versions,
-            column: :id,
-            name: "project_explicit_groups_form_version_id_fkey",
-            type: :uuid,
-            prefix: "public",
-            on_delete: :restrict
-          ),
-          null: false
-    end
-
-    create index(:project_explicit_groups, [:id, :project_id, :form_version_id], unique: true)
-
     create table(:text_spans, primary_key: false) do
       add :id, :uuid, null: false, default: fragment("gen_random_uuid()"), primary_key: true
       add :start, :bigint, null: false
@@ -480,6 +385,7 @@ defmodule QuickTrain.Repo.Migrations.AddProjectTaskCollection do
 
     create table(:task_inputs, primary_key: false) do
       add :id, :uuid, null: false, default: fragment("gen_random_uuid()"), primary_key: true
+      add :position, :bigint, null: false
 
       add :inserted_at, :utc_datetime_usec,
         null: false,
@@ -512,33 +418,43 @@ defmodule QuickTrain.Repo.Migrations.AddProjectTaskCollection do
           null: false
 
       add :task_id, :uuid, null: false
-      add :project_item_id, :uuid, null: false
-    end
 
-    create unique_index(:task_inputs, [:task_id, :project_item_id],
-             name: "task_inputs_task_item_index"
-           )
-
-    alter table(:task_inputs) do
-      add :revision_id,
-          references(:dataset_item_revisions,
+      add :dataset_id,
+          references(:datasets,
             column: :id,
-            name: "task_inputs_revision_scope_fkey",
+            name: "task_inputs_dataset_id_fkey",
             type: :uuid,
             prefix: "public",
             on_delete: :restrict
           ),
           null: false
 
-      modify :project_item_id,
-             references(:project_items,
-               column: :id,
-               with: [project_id: :project_id, revision_id: :revision_id],
-               name: "task_inputs_project_item_scope_fkey",
-               type: :uuid,
-               prefix: "public",
-               on_delete: :restrict
-             )
+      add :schema_version_id,
+          references(:dataset_schema_versions,
+            column: :id,
+            with: [dataset_id: :dataset_id],
+            name: "task_inputs_schema_version_id_fkey",
+            type: :uuid,
+            prefix: "public",
+            on_delete: :restrict
+          ),
+          null: false
+
+      add :item_id,
+          references(:dataset_items,
+            column: :id,
+            name: "task_inputs_item_id_fkey",
+            type: :uuid,
+            prefix: "public",
+            on_delete: :restrict
+          ),
+          null: false
+    end
+
+    create unique_index(:task_inputs, [:task_id, :item_id], name: "task_inputs_task_item_index")
+
+    alter table(:task_inputs) do
+      add :revision_id, :uuid, null: false
 
       add :input_slot_id,
           references(:form_input_slot_definitions,
@@ -552,6 +468,10 @@ defmodule QuickTrain.Repo.Migrations.AddProjectTaskCollection do
           null: false
     end
 
+    create unique_index(:task_inputs, [:task_id, :input_slot_id, :position],
+             name: "task_inputs_slot_position_index"
+           )
+
     create index(:task_inputs, [:id, :task_id, :project_id, :form_version_id],
              name: "task_inputs_scope_0",
              unique: true
@@ -562,8 +482,8 @@ defmodule QuickTrain.Repo.Migrations.AddProjectTaskCollection do
              references(:task_inputs,
                column: :id,
                with: [
-                 form_version_id: :form_version_id,
                  project_id: :project_id,
+                 form_version_id: :form_version_id,
                  task_id: :task_id
                ],
                name: "task_input_answers_task_input_scope_fkey",
@@ -578,8 +498,8 @@ defmodule QuickTrain.Repo.Migrations.AddProjectTaskCollection do
              references(:task_inputs,
                column: :id,
                with: [
-                 form_version_id: :form_version_id,
                  project_id: :project_id,
+                 form_version_id: :form_version_id,
                  task_id: :task_id
                ],
                name: "text_spans_task_input_scope_fkey",
@@ -598,6 +518,8 @@ defmodule QuickTrain.Repo.Migrations.AddProjectTaskCollection do
 
     create table(:tasks, primary_key: false) do
       add :id, :uuid, null: false, default: fragment("gen_random_uuid()"), primary_key: true
+      add :position, :bigint, null: false
+      add :canonical_key, :binary, null: false
 
       add :inserted_at, :utc_datetime_usec,
         null: false,
@@ -620,6 +542,12 @@ defmodule QuickTrain.Repo.Migrations.AddProjectTaskCollection do
       add :project_id, :uuid, null: false
     end
 
+    create unique_index(:tasks, [:project_id, :canonical_key],
+             name: "tasks_project_membership_index"
+           )
+
+    create unique_index(:tasks, [:project_id, :position], name: "tasks_project_position_index")
+
     alter table(:tasks) do
       add :form_version_id,
           references(:form_versions,
@@ -630,20 +558,7 @@ defmodule QuickTrain.Repo.Migrations.AddProjectTaskCollection do
             on_delete: :restrict
           ),
           null: false
-
-      add :explicit_group_id,
-          references(:project_explicit_groups,
-            column: :id,
-            with: [form_version_id: :form_version_id, project_id: :project_id],
-            name: "tasks_explicit_group_scope_fkey",
-            type: :uuid,
-            prefix: "public",
-            on_delete: :restrict
-          ),
-          null: false
     end
-
-    create unique_index(:tasks, [:explicit_group_id], name: "tasks_explicit_group_index")
 
     create index(:tasks, [:id, :project_id, :form_version_id],
              name: "tasks_scope_0",
@@ -654,7 +569,7 @@ defmodule QuickTrain.Repo.Migrations.AddProjectTaskCollection do
       modify :task_id,
              references(:tasks,
                column: :id,
-               with: [form_version_id: :form_version_id, project_id: :project_id],
+               with: [project_id: :project_id, form_version_id: :form_version_id],
                name: "attempts_task_scope_fkey",
                type: :uuid,
                prefix: "public",
@@ -666,7 +581,7 @@ defmodule QuickTrain.Repo.Migrations.AddProjectTaskCollection do
       modify :task_id,
              references(:tasks,
                column: :id,
-               with: [form_version_id: :form_version_id, project_id: :project_id],
+               with: [project_id: :project_id, form_version_id: :form_version_id],
                name: "task_input_answers_task_scope_fkey",
                type: :uuid,
                prefix: "public",
@@ -678,7 +593,7 @@ defmodule QuickTrain.Repo.Migrations.AddProjectTaskCollection do
       modify :task_id,
              references(:tasks,
                column: :id,
-               with: [form_version_id: :form_version_id, project_id: :project_id],
+               with: [project_id: :project_id, form_version_id: :form_version_id],
                name: "text_spans_task_scope_fkey",
                type: :uuid,
                prefix: "public",
@@ -690,7 +605,7 @@ defmodule QuickTrain.Repo.Migrations.AddProjectTaskCollection do
       modify :task_id,
              references(:tasks,
                column: :id,
-               with: [form_version_id: :form_version_id, project_id: :project_id],
+               with: [project_id: :project_id, form_version_id: :form_version_id],
                name: "export_selections_task_id_fkey",
                type: :uuid,
                prefix: "public",
@@ -702,81 +617,13 @@ defmodule QuickTrain.Repo.Migrations.AddProjectTaskCollection do
       modify :task_id,
              references(:tasks,
                column: :id,
-               with: [form_version_id: :form_version_id, project_id: :project_id],
+               with: [project_id: :project_id, form_version_id: :form_version_id],
                name: "task_inputs_task_scope_fkey",
                type: :uuid,
                prefix: "public",
-               on_delete: :restrict
+               on_delete: :delete_all
              )
     end
-
-    create table(:project_explicit_group_inputs, primary_key: false) do
-      add :id, :uuid, null: false, default: fragment("gen_random_uuid()"), primary_key: true
-      add :position, :bigint, null: false
-
-      add :inserted_at, :utc_datetime_usec,
-        null: false,
-        default: fragment("(now() AT TIME ZONE 'utc')")
-
-      add :updated_at, :utc_datetime_usec,
-        null: false,
-        default: fragment("(now() AT TIME ZONE 'utc')")
-
-      add :project_id, :uuid, null: false
-
-      add :form_version_id,
-          references(:form_versions,
-            column: :id,
-            name: "project_explicit_group_inputs_form_version_id_fkey",
-            type: :uuid,
-            prefix: "public",
-            on_delete: :restrict
-          ),
-          null: false
-
-      add :group_id,
-          references(:project_explicit_groups,
-            column: :id,
-            with: [form_version_id: :form_version_id, project_id: :project_id],
-            name: "project_explicit_group_inputs_group_id_fkey",
-            type: :uuid,
-            prefix: "public",
-            on_delete: :delete_all
-          ),
-          null: false
-
-      add :project_item_id,
-          references(:project_items,
-            column: :id,
-            with: [project_id: :project_id],
-            name: "project_explicit_group_inputs_project_item_id_fkey",
-            type: :uuid,
-            prefix: "public",
-            on_delete: :restrict
-          ),
-          null: false
-    end
-
-    create unique_index(:project_explicit_group_inputs, [:group_id, :project_item_id],
-             name: "project_explicit_group_inputs_group_item_index"
-           )
-
-    alter table(:project_explicit_group_inputs) do
-      add :input_slot_id,
-          references(:form_input_slot_definitions,
-            column: :id,
-            with: [form_version_id: :version_id],
-            name: "project_explicit_group_inputs_input_slot_id_fkey",
-            type: :uuid,
-            prefix: "public",
-            on_delete: :restrict
-          ),
-          null: false
-    end
-
-    create unique_index(:project_explicit_group_inputs, [:group_id, :input_slot_id, :position],
-             name: "project_explicit_group_inputs_group_slot_position_index"
-           )
 
     alter table(:assets) do
       add :result_export_id, :uuid
@@ -877,7 +724,7 @@ defmodule QuickTrain.Repo.Migrations.AddProjectTaskCollection do
       modify :schema_version_id,
              references(:dataset_schema_versions,
                column: :id,
-               with: [dataset_id: :dataset_id, root_record_type_id: :root_record_type_id],
+               with: [root_record_type_id: :root_record_type_id, dataset_id: :dataset_id],
                name: "projects_schema_version_id_fkey",
                type: :uuid,
                prefix: "public",
@@ -967,20 +814,6 @@ defmodule QuickTrain.Repo.Migrations.AddProjectTaskCollection do
              )
     end
 
-    create index(:projects, [:id, :dataset_id, :schema_version_id], unique: true)
-
-    alter table(:project_items) do
-      modify :project_id,
-             references(:projects,
-               column: :id,
-               with: [dataset_id: :dataset_id, schema_version_id: :schema_version_id],
-               name: "project_items_project_id_fkey",
-               type: :uuid,
-               prefix: "public",
-               on_delete: :restrict
-             )
-    end
-
     create index(:projects, [:id, :schema_version_id, :root_record_type_id, :form_version_id],
              unique: true
            )
@@ -990,9 +823,9 @@ defmodule QuickTrain.Repo.Migrations.AddProjectTaskCollection do
              references(:projects,
                column: :id,
                with: [
-                 schema_version_id: :schema_version_id,
                  form_version_id: :form_version_id,
-                 root_record_type_id: :root_record_type_id
+                 root_record_type_id: :root_record_type_id,
+                 schema_version_id: :schema_version_id
                ],
                name: "project_input_bindings_project_id_fkey",
                type: :uuid,
@@ -1002,44 +835,6 @@ defmodule QuickTrain.Repo.Migrations.AddProjectTaskCollection do
     end
 
     create index(:projects, [:id, :form_version_id], unique: true)
-
-    alter table(:project_explicit_groups) do
-      modify :project_id,
-             references(:projects,
-               column: :id,
-               with: [form_version_id: :form_version_id],
-               name: "project_explicit_groups_project_id_fkey",
-               type: :uuid,
-               prefix: "public",
-               on_delete: :restrict
-             )
-    end
-
-    create constraint(:project_explicit_groups, :project_explicit_groups_position_check,
-             check: """
-               position BETWEEN 0 AND 2147483647
-             """
-           )
-
-    alter table(:project_explicit_group_inputs) do
-      modify :project_id,
-             references(:projects,
-               column: :id,
-               with: [form_version_id: :form_version_id],
-               name: "project_explicit_group_inputs_project_id_fkey",
-               type: :uuid,
-               prefix: "public",
-               on_delete: :restrict
-             )
-    end
-
-    create constraint(
-             :project_explicit_group_inputs,
-             :project_explicit_group_inputs_position_check,
-             check: """
-               position BETWEEN 0 AND 2147483647
-             """
-           )
 
     create table(:review_decisions, primary_key: false) do
       add :id, :uuid, null: false, default: fragment("gen_random_uuid()"), primary_key: true
@@ -1094,7 +889,7 @@ defmodule QuickTrain.Repo.Migrations.AddProjectTaskCollection do
       add :task_id,
           references(:tasks,
             column: :id,
-            with: [form_version_id: :form_version_id, project_id: :project_id],
+            with: [project_id: :project_id, form_version_id: :form_version_id],
             name: "review_decisions_task_scope_fkey",
             type: :uuid,
             prefix: "public",
@@ -1316,8 +1111,8 @@ defmodule QuickTrain.Repo.Migrations.AddProjectTaskCollection do
                column: :id,
                with: [
                  organization_id: :organization_id,
-                 form_version_id: :form_version_id,
-                 project_id: :project_id
+                 project_id: :project_id,
+                 form_version_id: :form_version_id
                ],
                name: "export_selections_export_id_fkey",
                type: :uuid,
@@ -1397,7 +1192,7 @@ defmodule QuickTrain.Repo.Migrations.AddProjectTaskCollection do
       add :task_id,
           references(:tasks,
             column: :id,
-            with: [form_version_id: :form_version_id, project_id: :project_id],
+            with: [project_id: :project_id, form_version_id: :form_version_id],
             name: "question_responses_task_scope_fkey",
             type: :uuid,
             prefix: "public",
@@ -1408,7 +1203,7 @@ defmodule QuickTrain.Repo.Migrations.AddProjectTaskCollection do
       add :attempt_id,
           references(:attempts,
             column: :id,
-            with: [form_version_id: :form_version_id, project_id: :project_id, task_id: :task_id],
+            with: [project_id: :project_id, form_version_id: :form_version_id, task_id: :task_id],
             name: "question_responses_attempt_scope_fkey",
             type: :uuid,
             prefix: "public",
@@ -1444,8 +1239,8 @@ defmodule QuickTrain.Repo.Migrations.AddProjectTaskCollection do
              references(:question_responses,
                column: :id,
                with: [
-                 form_version_id: :form_version_id,
                  project_id: :project_id,
+                 form_version_id: :form_version_id,
                  question_id: :question_id,
                  task_id: :task_id
                ],
@@ -1461,8 +1256,8 @@ defmodule QuickTrain.Repo.Migrations.AddProjectTaskCollection do
              references(:question_responses,
                column: :id,
                with: [
-                 form_version_id: :form_version_id,
                  project_id: :project_id,
+                 form_version_id: :form_version_id,
                  question_id: :question_id,
                  task_id: :task_id
                ],
@@ -1478,8 +1273,8 @@ defmodule QuickTrain.Repo.Migrations.AddProjectTaskCollection do
              references(:question_responses,
                column: :id,
                with: [
-                 form_version_id: :form_version_id,
                  project_id: :project_id,
+                 form_version_id: :form_version_id,
                  question_id: :question_id,
                  task_id: :task_id
                ],
@@ -1495,8 +1290,8 @@ defmodule QuickTrain.Repo.Migrations.AddProjectTaskCollection do
              references(:question_responses,
                column: :id,
                with: [
-                 form_version_id: :form_version_id,
                  project_id: :project_id,
+                 form_version_id: :form_version_id,
                  question_id: :question_id,
                  task_id: :task_id
                ],
@@ -1560,7 +1355,7 @@ defmodule QuickTrain.Repo.Migrations.AddProjectTaskCollection do
       add :task_id,
           references(:tasks,
             column: :id,
-            with: [form_version_id: :form_version_id, project_id: :project_id],
+            with: [project_id: :project_id, form_version_id: :form_version_id],
             name: "static_option_answers_task_scope_fkey",
             type: :uuid,
             prefix: "public",
@@ -1583,8 +1378,8 @@ defmodule QuickTrain.Repo.Migrations.AddProjectTaskCollection do
           references(:question_responses,
             column: :id,
             with: [
-              form_version_id: :form_version_id,
               project_id: :project_id,
+              form_version_id: :form_version_id,
               question_id: :question_id,
               task_id: :task_id
             ],
@@ -1621,16 +1416,16 @@ defmodule QuickTrain.Repo.Migrations.AddProjectTaskCollection do
              unique: true
            )
 
-    alter table(:project_items) do
+    alter table(:task_inputs) do
       modify :revision_id,
              references(:dataset_item_revisions,
                column: :id,
                with: [
-                 dataset_id: :dataset_id,
                  schema_version_id: :schema_version_id,
+                 dataset_id: :dataset_id,
                  item_id: :item_id
                ],
-               name: "project_items_revision_id_fkey",
+               name: "task_inputs_revision_id_fkey",
                type: :uuid,
                prefix: "public",
                on_delete: :restrict
@@ -1691,7 +1486,7 @@ defmodule QuickTrain.Repo.Migrations.AddProjectTaskCollection do
       add :task_id,
           references(:tasks,
             column: :id,
-            with: [form_version_id: :form_version_id, project_id: :project_id],
+            with: [project_id: :project_id, form_version_id: :form_version_id],
             name: "attempt_input_presentations_task_scope_fkey",
             type: :uuid,
             prefix: "public",
@@ -1702,7 +1497,7 @@ defmodule QuickTrain.Repo.Migrations.AddProjectTaskCollection do
       add :attempt_id,
           references(:attempts,
             column: :id,
-            with: [form_version_id: :form_version_id, project_id: :project_id, task_id: :task_id],
+            with: [project_id: :project_id, form_version_id: :form_version_id, task_id: :task_id],
             name: "attempt_input_presentations_attempt_scope_fkey",
             type: :uuid,
             prefix: "public",
@@ -1939,17 +1734,25 @@ defmodule QuickTrain.Repo.Migrations.AddProjectTaskCollection do
                      name: "form_presentation_elements_id_version_index"
                    )
 
-    drop constraint(:project_items, "project_items_revision_id_fkey")
+    drop constraint(:task_inputs, "task_inputs_input_slot_scope_fkey")
 
-    drop constraint(:project_items, "project_items_item_id_fkey")
+    drop constraint(:task_inputs, "task_inputs_revision_id_fkey")
 
-    drop constraint(:project_items, "project_items_schema_version_id_fkey")
+    drop constraint(:task_inputs, "task_inputs_item_id_fkey")
 
-    drop constraint(:project_items, "project_items_dataset_id_fkey")
+    drop constraint(:task_inputs, "task_inputs_schema_version_id_fkey")
 
-    drop constraint(:project_items, "project_items_project_id_fkey")
+    drop constraint(:task_inputs, "task_inputs_dataset_id_fkey")
 
-    alter table(:project_items) do
+    drop constraint(:task_inputs, "task_inputs_task_scope_fkey")
+
+    drop constraint(:task_inputs, "task_inputs_form_version_scope_fkey")
+
+    drop constraint(:task_inputs, "task_inputs_project_scope_fkey")
+
+    drop constraint(:task_inputs, "task_inputs_organization_scope_fkey")
+
+    alter table(:task_inputs) do
       modify :revision_id, :uuid
     end
 
@@ -2201,47 +2004,6 @@ defmodule QuickTrain.Repo.Migrations.AddProjectTaskCollection do
 
     drop table(:review_decisions)
 
-    drop_if_exists constraint(
-                     :project_explicit_group_inputs,
-                     :project_explicit_group_inputs_position_check
-                   )
-
-    drop constraint(
-           :project_explicit_group_inputs,
-           "project_explicit_group_inputs_input_slot_id_fkey"
-         )
-
-    drop constraint(
-           :project_explicit_group_inputs,
-           "project_explicit_group_inputs_project_item_id_fkey"
-         )
-
-    drop constraint(:project_explicit_group_inputs, "project_explicit_group_inputs_group_id_fkey")
-
-    drop constraint(
-           :project_explicit_group_inputs,
-           "project_explicit_group_inputs_form_version_id_fkey"
-         )
-
-    drop constraint(
-           :project_explicit_group_inputs,
-           "project_explicit_group_inputs_project_id_fkey"
-         )
-
-    alter table(:project_explicit_group_inputs) do
-      modify :project_id, :uuid
-    end
-
-    drop_if_exists constraint(:project_explicit_groups, :project_explicit_groups_position_check)
-
-    drop constraint(:project_explicit_groups, "project_explicit_groups_form_version_id_fkey")
-
-    drop constraint(:project_explicit_groups, "project_explicit_groups_project_id_fkey")
-
-    alter table(:project_explicit_groups) do
-      modify :project_id, :uuid
-    end
-
     drop_if_exists index(:projects, [:id, :form_version_id])
 
     drop constraint(:project_input_bindings, "project_input_bindings_field_definition_id_fkey")
@@ -2267,14 +2029,6 @@ defmodule QuickTrain.Repo.Migrations.AddProjectTaskCollection do
                      :form_version_id
                    ])
 
-    alter table(:project_items) do
-      modify :project_id, :uuid
-    end
-
-    drop_if_exists index(:projects, [:id, :dataset_id, :schema_version_id])
-
-    drop constraint(:tasks, "tasks_explicit_group_scope_fkey")
-
     drop constraint(:tasks, "tasks_form_version_scope_fkey")
 
     drop constraint(:tasks, "tasks_project_scope_fkey")
@@ -2284,20 +2038,6 @@ defmodule QuickTrain.Repo.Migrations.AddProjectTaskCollection do
     alter table(:tasks) do
       modify :project_id, :uuid
     end
-
-    drop constraint(:task_inputs, "task_inputs_input_slot_scope_fkey")
-
-    drop constraint(:task_inputs, "task_inputs_revision_scope_fkey")
-
-    drop constraint(:task_inputs, "task_inputs_project_item_scope_fkey")
-
-    drop constraint(:task_inputs, "task_inputs_task_scope_fkey")
-
-    drop constraint(:task_inputs, "task_inputs_form_version_scope_fkey")
-
-    drop constraint(:task_inputs, "task_inputs_project_scope_fkey")
-
-    drop constraint(:task_inputs, "task_inputs_organization_scope_fkey")
 
     alter table(:task_inputs) do
       modify :project_id, :uuid
@@ -2340,7 +2080,6 @@ defmodule QuickTrain.Repo.Migrations.AddProjectTaskCollection do
     alter table(:projects) do
       remove :form_version_id
       remove :form_id
-      modify :schema_version_id, :uuid
       remove :root_record_type_id
       remove :schema_version_id
       remove :dataset_id
@@ -2377,22 +2116,6 @@ defmodule QuickTrain.Repo.Migrations.AddProjectTaskCollection do
       remove :result_export_id
     end
 
-    drop_if_exists unique_index(
-                     :project_explicit_group_inputs,
-                     [:group_id, :input_slot_id, :position],
-                     name: "project_explicit_group_inputs_group_slot_position_index"
-                   )
-
-    alter table(:project_explicit_group_inputs) do
-      remove :input_slot_id
-    end
-
-    drop_if_exists unique_index(:project_explicit_group_inputs, [:group_id, :project_item_id],
-                     name: "project_explicit_group_inputs_group_item_index"
-                   )
-
-    drop table(:project_explicit_group_inputs)
-
     alter table(:task_inputs) do
       modify :task_id, :uuid
     end
@@ -2415,12 +2138,17 @@ defmodule QuickTrain.Repo.Migrations.AddProjectTaskCollection do
 
     drop_if_exists index(:tasks, [:id, :project_id, :form_version_id], name: "tasks_scope_0")
 
-    drop_if_exists unique_index(:tasks, [:explicit_group_id], name: "tasks_explicit_group_index")
-
     alter table(:tasks) do
-      remove :explicit_group_id
       remove :form_version_id
     end
+
+    drop_if_exists unique_index(:tasks, [:project_id, :position],
+                     name: "tasks_project_position_index"
+                   )
+
+    drop_if_exists unique_index(:tasks, [:project_id, :canonical_key],
+                     name: "tasks_project_membership_index"
+                   )
 
     drop table(:tasks)
 
@@ -2442,13 +2170,16 @@ defmodule QuickTrain.Repo.Migrations.AddProjectTaskCollection do
                      name: "task_inputs_scope_0"
                    )
 
+    drop_if_exists unique_index(:task_inputs, [:task_id, :input_slot_id, :position],
+                     name: "task_inputs_slot_position_index"
+                   )
+
     alter table(:task_inputs) do
       remove :input_slot_id
-      modify :project_item_id, :uuid
       remove :revision_id
     end
 
-    drop_if_exists unique_index(:task_inputs, [:task_id, :project_item_id],
+    drop_if_exists unique_index(:task_inputs, [:task_id, :item_id],
                      name: "task_inputs_task_item_index"
                    )
 
@@ -2488,22 +2219,6 @@ defmodule QuickTrain.Repo.Migrations.AddProjectTaskCollection do
                    )
 
     drop table(:text_spans)
-
-    drop_if_exists index(:project_explicit_groups, [:id, :project_id, :form_version_id])
-
-    alter table(:project_explicit_groups) do
-      remove :form_version_id
-    end
-
-    drop_if_exists unique_index(:project_explicit_groups, [:project_id, :position],
-                     name: "project_explicit_groups_project_position_index"
-                   )
-
-    drop_if_exists unique_index(:project_explicit_groups, [:project_id, :canonical_key],
-                     name: "project_explicit_groups_project_group_index"
-                   )
-
-    drop table(:project_explicit_groups)
 
     drop_if_exists unique_index(:task_input_answers, [:question_response_id, :task_input_id],
                      name: "task_input_answers_input_index"
@@ -2552,19 +2267,5 @@ defmodule QuickTrain.Repo.Migrations.AddProjectTaskCollection do
                    )
 
     drop table(:project_input_bindings)
-
-    drop_if_exists index(:project_items, [:id, :project_id, :revision_id])
-
-    drop_if_exists index(:project_items, [:id, :project_id])
-
-    alter table(:project_items) do
-      remove :revision_id
-    end
-
-    drop_if_exists unique_index(:project_items, [:project_id, :item_id],
-                     name: "project_items_project_item_index"
-                   )
-
-    drop table(:project_items)
   end
 end

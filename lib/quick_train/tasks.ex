@@ -17,6 +17,9 @@ defmodule QuickTrain.Tasks do
 
   resources do
     resource Task do
+      define :create_task, action: :create, args: [:organization_id, :project_id]
+      define :remove_task, action: :remove, args: [:organization_id]
+
       define :get_task_internal,
         action: :read,
         get_by: [:id, :project_id, :organization_id],
@@ -135,6 +138,13 @@ defmodule QuickTrain.Tasks do
     end
 
     mutations do
+      create Task, :create_project_task, :create
+
+      destroy Task, :remove_project_task, :remove,
+        read_action: :get_for_remove,
+        args: [:organization_id],
+        identity: false
+
       action Attempt, :fetch_work, :fetch, args: [:organization_id, :project_id, :request_key]
 
       action Attempt, :assign_work, :assign,

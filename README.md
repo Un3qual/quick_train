@@ -33,7 +33,7 @@ datasets, assets, versioned form definitions, and project-based task collection.
 - `QuickTrain.Forms`: reusable typed input and question contracts, editable drafts, immutable
   publication, and copying to new numbered drafts. See the versioned-forms OpenSpec change for
   capability provisioning and authoring limits. Forms do not access dataset content or storage.
-- `QuickTrain.Projects`: frozen cohorts, published form bindings, worker admission, and project lifecycle.
+- `QuickTrain.Projects`: authored tasks, published form bindings, worker admission, and project lifecycle.
 - `QuickTrain.Tasks`: leased work, typed drafts and immutable submissions, per-question review,
   scoped result reads, and immutable JSONL exports.
 - `QuickTrainWeb.GraphQL.Schema`: an explicit allowlist of authentication, dataset, asset,
@@ -171,18 +171,21 @@ are documented in `.env.example`.
 
 ## Project task collection
 
-A project fixes its dataset/schema/form at creation. In draft, enroll immutable revisions,
-bind inputs, and author explicit groups. Activation freezes that configuration, one submission
+A project fixes its dataset/schema/form at creation. In draft, bind source fields and author
+tasks using immutable revision IDs and ordered input slots. The cohort is derived from those
+task inputs; there is no separate enrollment or group copy. Activation freezes that configuration, one submission
 target per task, and project-wide skip rules. Allocation issues whole-form attempts with fixed
 leases; review decisions change accepted results without requesting replacement work.
 
 GraphQL exposes scoped `tasks`/`task` and `taskResults`/`taskResult` reads, with paginated nested
 evidence. Workers use the native `workBundle` read and status-only `attemptReceipt`. Project create/update,
-binding/slot-policy/worker-access upserts and removals, and attempt start/release/cancel/submit
+task create/remove, binding/slot-policy/worker-access upserts and removals, and attempt start/release/cancel/submit
 mutations use native Ash result/errors shapes. Child upserts take an `input` object and return
 the affected child. Domain updates accept records; child removals accept the child record and
 organization ID. Exports select complete accepted or audit results, seal
-submitted-outcome membership, and publish deterministic JSONL through the Assets adapter.
+submitted-outcome membership, and publish deterministic JSONL through the Assets adapter. The header
+contains shared form context; each subsequent record contains one result with its inputs, typed
+answers, and pinned review history. Counts refer to results. Nested collections stream in pages.
 
 This feature is unreleased. Its branch migration history is consolidated into one migration;
 recreate local databases that used an earlier version of the branch. No data conversion is provided.

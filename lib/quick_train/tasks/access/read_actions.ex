@@ -65,7 +65,10 @@ defmodule QuickTrain.Tasks.Access.ReadActions do
 
     input =
       TaskInput
-      |> Ash.Query.filter(id == ^args.task_input_id and project_id == ^project.id)
+      |> Ash.Query.filter(
+        id == ^args.task_input_id and project_id == ^project.id and
+          exists(Attempt, task_id == parent(task_id))
+      )
       |> Ash.read_one!(authorize?: false)
       |> Access.found!()
 

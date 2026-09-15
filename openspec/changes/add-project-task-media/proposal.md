@@ -31,7 +31,7 @@ Explicit non-goals:
 
 - `projects`: extend the core supported-contract requirement to image execution with verified prerequisites.
 - `task-responses`: add exact spatial annotation provenance, bounding boxes, polygons, and masks under existing atomic response semantics, without adding region/point ceilings or registration quotas.
-- `task-results`: extend the existing export record kinds to spatial evidence under the same selection and snapshot semantics.
+- `task-results`: extend the nested result export answers with spatial evidence under the same selection and snapshot semantics.
 - `assets`: add attempt-scoped mask registration and protected mask-result access while preserving core source/download/export authority.
 
 ## Impact

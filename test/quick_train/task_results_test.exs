@@ -53,15 +53,6 @@ defmodule QuickTrain.Tasks.ResultExportTest do
     project =
       ProjectsFixture.draft!(context, source, audience: :external_users, external_access: :open)
 
-    QuickTrain.Projects.enroll_revisions!(
-      context.org.id,
-      project.id,
-      %{
-        revision_ids: Enum.map(source.revisions, & &1.id)
-      },
-      actor: context.actor
-    )
-
     QuickTrain.Projects.set_binding!(
       context.org.id,
       project.id,
@@ -86,15 +77,15 @@ defmodule QuickTrain.Tasks.ResultExportTest do
     count = tags[:inputs_per_task] || if(tags[:rich], do: 2, else: 1)
 
     for {items, position} <-
-          ProjectsFixture.items(project) |> Enum.chunk_every(count) |> Enum.with_index() do
-      QuickTrain.Projects.create_explicit_group!(
+          source.revisions |> Enum.chunk_every(count) |> Enum.with_index() do
+      Tasks.create_task!(
         context.org.id,
         project.id,
         %{
           position: position,
           inputs:
             Enum.with_index(items, fn item, index ->
-              %{input_slot_id: source.form.slot.id, project_item_id: item.id, position: index}
+              %{input_slot_id: source.form.slot.id, revision_id: item.id, position: index}
             end)
         },
         actor: context.actor
@@ -213,12 +204,12 @@ defmodule QuickTrain.Tasks.ResultExportTest do
   end
 
   @tag rich: true
-  test "default JSONL streams every typed kind with exact constraints and source context",
+  test "result JSONL streams nested answers with exact constraints and source context",
        scope do
     scope = submit!(scope)
     {:ok, export} = request(scope)
     sealed = QuickTrain.Tasks.seal_export_snapshot!(export.id, authorize?: false)
-    assert sealed.record_count > 150
+    assert sealed.record_count == Ash.count!(QuestionResponse, authorize?: false)
     assert :ok = QuickTrain.Tasks.process_result_export(export.id, authorize?: false)
     {:ok, bytes} = InMemory.read_sealed(download!(scope, export.id).read_access)
     [header | rows] = jsonl(bytes)
@@ -227,22 +218,19 @@ defmodule QuickTrain.Tasks.ResultExportTest do
     assert Enum.map(rows, &{&1["kind"], &1["id"]}) ==
              Enum.sort(Enum.map(rows, &{&1["kind"], &1["id"]}))
 
-    assert MapSet.new(rows, & &1["kind"]) ==
-             MapSet.new(~w(
-               task task_input attempt attempt_input_presentation question_response
-               static_option_answer task_input_answer text_span review_decision presentation_element
-               question_definition question_option label project_input_binding dataset_value
-             ))
-
-    assert Enum.count(rows, &(&1["kind"] == "text_span")) == 150
+    assert Enum.all?(rows, &(&1["kind"] == "result"))
+    assert Enum.sum_by(rows, &length(&1["text_spans"])) == 150
+    assert Enum.any?(rows, &(&1["static_options"] != []))
+    assert Enum.any?(rows, &(&1["input_answers"] != []))
+    assert Enum.all?(rows, &(&1["review_decisions"] != []))
 
     [decimal] =
-      Enum.filter(rows, &(&1["kind"] == "question_response" and &1["family"] == "decimal"))
+      Enum.filter(rows, &(&1["kind"] == "result" and &1["family"] == "decimal"))
 
     assert decimal["decimal_value"] == "0.123456789123456789"
 
     definitions =
-      rows |> Enum.filter(&(&1["kind"] == "question_definition")) |> Map.new(&{&1["id"], &1})
+      Map.new(header["questions"], &{&1["id"], &1})
 
     rating = definitions[scope.source.form.question.id]
     assert rating["renderer"] == "stars"
@@ -257,12 +245,12 @@ defmodule QuickTrain.Tasks.ResultExportTest do
              "unicode_codepoints_zero_based_end_exclusive"
 
     assert Enum.any?(
-             rows,
-             &(&1["kind"] == "presentation_element" and &1["text"] == "Read all instructions")
+             header["presentation"],
+             &(&1["text"] == "Read all instructions")
            )
 
-    assert Enum.count(rows, &(&1["kind"] == "dataset_value")) == 2
-    [value | _] = Enum.filter(rows, &(&1["kind"] == "dataset_value"))
+    values = hd(rows)["inputs"] |> Enum.flat_map(& &1["values"])
+    assert [value, _] = values
     assert value["text_value"] == String.duplicate("x", 200)
     refute String.contains?(bytes, "secret unbound")
 
@@ -286,10 +274,10 @@ defmodule QuickTrain.Tasks.ResultExportTest do
     [header | rows] = jsonl(bytes)
 
     assert header["record_count"] == Integer.to_string(length(rows))
-    rows = Enum.filter(rows, &(&1["kind"] == "dataset_value"))
+    rows = Enum.flat_map(rows, & &1["inputs"])
     assert length(rows) == length(scope.source.revisions)
     assert MapSet.size(MapSet.new(rows, & &1["id"])) == 102
-    assert Enum.all?(rows, &(&1["kind"] == "dataset_value"))
+    assert Enum.all?(rows, &match?([_], &1["values"]))
 
     assert MapSet.new(rows, & &1["revision_id"]) == MapSet.new(scope.source.revisions, & &1.id)
   end
@@ -337,10 +325,10 @@ defmodule QuickTrain.Tasks.ResultExportTest do
 
     assert Enum.any?(
              rows,
-             &(&1["kind"] == "question_response" and &1["effective_decision_id"] == decision.id)
+             &(&1["kind"] == "result" and &1["effective_decision_id"] == decision.id)
            )
 
-    assert Enum.any?(rows, &(&1["kind"] == "review_decision" and &1["id"] == decision.id))
+    assert Enum.any?(Enum.flat_map(rows, & &1["review_decisions"]), &(&1["id"] == decision.id))
     {:ok, new_export} = request(scope)
 
     assert QuickTrain.Tasks.seal_export_snapshot!(new_export.id, authorize?: false).record_count ==
@@ -373,7 +361,8 @@ defmodule QuickTrain.Tasks.ResultExportTest do
 
     assert :ok = QuickTrain.Tasks.process_result_export(audit.id, authorize?: false)
     {:ok, audit_bytes} = InMemory.read_sealed(download!(scope, audit.id).read_access)
-    assert Enum.count(jsonl(audit_bytes), &(&1["kind"] == "review_decision")) == 2
+    [_header, result] = jsonl(audit_bytes)
+    assert [_, _] = result["review_decisions"]
   end
 
   test "audit excludes terminal drafts and their unused context", scope do

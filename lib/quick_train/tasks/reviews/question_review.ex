@@ -2,8 +2,7 @@ defmodule QuickTrain.Tasks.Reviews.QuestionReview do
   @moduledoc false
   use Ash.Resource.Actions.Implementation
 
-  alias QuickTrain.Tasks.{Access, Error, Task}
-  alias QuickTrain.Tasks.Attempts.Attempt
+  alias QuickTrain.Tasks.{Access, Error}
   alias QuickTrain.Tasks.Responses.QuestionResponse
   alias QuickTrain.Tasks.Reviews.ReviewDecision
 
@@ -53,22 +52,18 @@ defmodule QuickTrain.Tasks.Reviews.QuestionReview do
     if length(Enum.uniq(ids)) != length(ids),
       do: Error.reject!(:invalid_review_batch)
 
-    initial =
+    outcomes =
       QuestionResponse
       |> Ash.Query.filter(project_id == ^project.id and id in ^ids)
+      |> Ash.Query.sort(id: :asc)
+      |> Ash.Query.lock(:for_update)
       |> Ash.read!(authorize?: false, page: false)
 
-    if length(initial) != length(ids), do: Error.reject!(:invalid_question_response)
-
-    lock_records(Task, project.id, Enum.map(initial, & &1.task_id))
-
-    attempts =
-      lock_records(Attempt, project.id, Enum.map(initial, & &1.attempt_id))
-      |> Map.new(&{&1.id, &1})
+    if length(outcomes) != length(ids), do: Error.reject!(:invalid_question_response)
 
     outcomes =
-      lock_records(QuestionResponse, project.id, ids)
-      |> Ash.load!(:effective_decision, authorize?: false)
+      outcomes
+      |> Ash.load!([:effective_decision, :attempt], authorize?: false)
       |> Map.new(&{&1.id, &1})
 
     Access.manager!(project, actor, "tasks.review")
@@ -93,7 +88,7 @@ defmodule QuickTrain.Tasks.Reviews.QuestionReview do
     plans =
       Enum.map(requests, fn request ->
         outcome = Map.fetch!(outcomes, request.question_response_id)
-        attempt = Map.fetch!(attempts, outcome.attempt_id)
+        attempt = outcome.attempt
         if attempt.state != :submitted, do: Error.reject!(:response_not_submitted)
         if outcome.outcome == :skipped, do: Error.reject!(:skip_not_reviewable)
         if attempt.worker_id == actor.id, do: Error.reject!(:self_review)
@@ -159,14 +154,6 @@ defmodule QuickTrain.Tasks.Reviews.QuestionReview do
   defp decision_status(nil), do: :pending
   defp decision_status(%{verdict: :accept}), do: :accepted
   defp decision_status(%{verdict: :reject}), do: :rejected
-
-  defp lock_records(resource, project_id, ids) do
-    resource
-    |> Ash.Query.filter(project_id == ^project_id and id in ^ids)
-    |> Ash.Query.sort(id: :asc)
-    |> Ash.Query.lock(:for_update)
-    |> Ash.read!(authorize?: false, page: false)
-  end
 
   defp decision_attributes(outcome, attributes) do
     scope =

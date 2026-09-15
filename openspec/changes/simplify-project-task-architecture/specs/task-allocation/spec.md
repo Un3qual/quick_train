@@ -12,23 +12,23 @@ Pool fetch SHALL create claimed attempts; direct assignment SHALL require `tasks
 - **THEN** at most one live attempt is issued and expired prior leases cannot permanently occupy that slot
 
 ### Requirement: Select at fetch time and persist exact issued inputs
-Allocation SHALL first prefer an existing task with available submission capacity and no prior attempt by that worker. Otherwise it SHALL consume the next authored explicit group, create one Task and its exact immutable TaskInputs, and record per-attempt display positions. ExplicitGroup SHALL own canonical membership uniqueness within its project, independent of shuffled display order. Each Task SHALL uniquely reference one explicit group without storing another canonical hash or encoded membership. New tasks SHALL exist only when an attempt is actually issued. Inputs SHALL reference exact enrolled revisions and slots; answers SHALL use TaskInput IDs rather than display labels.
+Allocation SHALL first prefer an already-issued task with available submission capacity and no prior attempt by that worker. Otherwise it SHALL select the next unissued authored Task by position. It SHALL create only the Attempt and its input presentation, reusing the immutable TaskInputs authored before activation. Task SHALL own canonical membership uniqueness, independent of display order. No group-to-task copying or consumption record SHALL exist. Answers SHALL use TaskInput IDs rather than display labels.
 
-#### Scenario: An unused pair is never materialized
+#### Scenario: Activation issues no work
 - **WHEN** a project is activated but no worker has fetched work
-- **THEN** it contains no generated Tasks or random pair schedule
+- **THEN** its authored tasks and inputs exist, but there are no attempts, presentations, or worker/result access to unissued work
 
 #### Scenario: Concurrent selectors choose the same group
 - **WHEN** two allocation requests select an equivalent canonical group
-- **THEN** at most one Task exists for it, each committed attempt respects capacity, and a failed allocation leaves no orphan issued group or consumed explicit entry
+- **THEN** both requests refer to the same authored Task, each committed attempt respects capacity, and a failed allocation leaves its task unissued with no attempt or presentation
 
 #### Scenario: Presentation shuffling retains meaning
 - **WHEN** two attempts display the same inputs in different orders
 - **THEN** each order is persisted, while both answers still identify the same stable TaskInputs
 
 #### Scenario: Explicit groups retain authored order without shuffling
-- **WHEN** an explicit group is issued with slot shuffling disabled, including a later attempt on the same task
-- **THEN** its inputs follow the frozen explicit-group positions within each slot, independent of generated TaskInput IDs
+- **WHEN** an authored task is issued with slot shuffling disabled, including a later attempt on the same task
+- **THEN** its inputs follow the frozen TaskInput positions within each slot, independent of generated TaskInput IDs
 
 ### Requirement: Question capacity is reserved atomically
 Every attempt SHALL cover all questions in the pinned published form. Each task SHALL use its frozen project's submission target. Native counts of submitted attempts and physically live attempts SHALL determine remaining capacity under the Task lock; no per-question reservations or progress counters SHALL be persisted. Before checking capacity, allocation SHALL atomically bulk-expire every overdue live attempt on that task using one post-lock database wall-clock cutoff. Those expirations SHALL commit even when the caller receives a successful no-work response. Concurrent issuance SHALL never exceed the target after accounting for submitted and live attempts. A valid submission SHALL count once, including an allowed all-skipped submission. Review decisions and corrections SHALL never change allocation demand. Release, expiry, and cancellation SHALL free live capacity without altering submitted evidence.
@@ -81,11 +81,11 @@ Attempts SHALL transition from claimed/assigned to in-progress on start or first
 ## ADDED Requirements
 
 ### Requirement: Authored groups are consumed in order
-Allocation SHALL lock only the next unissued group when existing tasks offer no capacity. It SHALL not skip an earlier locked group or lock unrelated later groups. Task creation, input creation, attempt issuance, and group consumption SHALL commit together. A failed transaction SHALL leave the group unconsumed. Reusing an existing task SHALL not create another group.
+Allocation SHALL lock only the next unissued authored Task when already-issued tasks offer no capacity. It SHALL not skip an earlier locked unissued task or lock unrelated later tasks. Attempt issuance and presentation creation SHALL commit together. A failed transaction SHALL leave the task available for its first issuance. Task capacity SHALL use FOR NO KEY UPDATE locks, preserving exclusive capacity coordination while allowing foreign-key checks from independent review inserts.
 
 #### Scenario: The next group is locked
 - **WHEN** another transaction holds the earliest unissued group's lock
-- **THEN** allocation returns retry_later without consuming a later group
+- **THEN** allocation returns retry_later without issuing a later task
 
 #### Scenario: A later group is locked
 - **WHEN** only a later authored group is locked

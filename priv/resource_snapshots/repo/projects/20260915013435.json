@@ -509,39 +509,6 @@
       "concurrently": false,
       "error_fields": [
         "id",
-        "dataset_id",
-        "schema_version_id"
-      ],
-      "fields": [
-        {
-          "type": "atom",
-          "value": "id"
-        },
-        {
-          "type": "atom",
-          "value": "dataset_id"
-        },
-        {
-          "type": "atom",
-          "value": "schema_version_id"
-        }
-      ],
-      "include": null,
-      "include_base_filter?": true,
-      "message": null,
-      "name": null,
-      "nulls_distinct": true,
-      "prefix": null,
-      "table": null,
-      "unique": true,
-      "using": null,
-      "where": null
-    },
-    {
-      "all_tenants?": false,
-      "concurrently": false,
-      "error_fields": [
-        "id",
         "schema_version_id",
         "root_record_type_id",
         "form_version_id"
@@ -606,7 +573,7 @@
   ],
   "custom_statements": [],
   "has_create_action": true,
-  "hash": "B3EF45B64342AF6EAA16FB7FB6B03A5E969C0E4A13F10E770BB5B45683D52389",
+  "hash": "D5F2E0D125BCD6DBB44C1328E70CCBE023B8AFFF43EEA78A8134C091A963ADE7",
   "identities": [],
   "multitenancy": {
     "attribute": null,

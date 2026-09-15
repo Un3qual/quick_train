@@ -24,14 +24,7 @@ defmodule QuickTrain.Tasks.TaskReviewTest do
       form_version_id: project.form_version_id
     }
 
-    task =
-      create!(
-        Task,
-        Map.merge(scope, %{
-          explicit_group_id:
-            hd(Ash.read!(QuickTrain.Projects.ExplicitGroup, authorize?: false)).id
-        })
-      )
+    task = hd(Ash.read!(Task, authorize?: false, page: false))
 
     Map.merge(context, %{
       project: project,
@@ -333,6 +326,33 @@ defmodule QuickTrain.Tasks.TaskReviewTest do
     assert counts(ctx).accepted == 1
 
     assert Ash.count!(ReviewDecision, authorize?: false) == 2
+  end
+
+  @tag :committed_db
+  test "review completes while allocation holds its task and attempt locks", ctx do
+    outcome = outcome!(ctx)
+    parent = self()
+
+    {:ok, reviewer} =
+      Ash.transact(Task, fn ->
+        project = QuickTrain.Tasks.Access.project!(ctx.org.id, ctx.project.id)
+        QuickTrain.Tasks.Access.lock_attempt!(project, outcome.attempt_id)
+
+        reviewer =
+          Elixir.Task.async(fn ->
+            result =
+              Ecto.Adapters.SQL.Sandbox.unboxed_run(Repo, fn ->
+                decide(ctx, request(outcome, :accept))
+              end)
+
+            send(parent, {:reviewed, result})
+          end)
+
+        assert_receive {:reviewed, {:ok, %{verdict: :accept}}}, 5_000
+        reviewer
+      end)
+
+    Elixir.Task.await(reviewer)
   end
 
   defp outcome!(ctx, opts \\ []) do

@@ -14,6 +14,30 @@
     },
     {
       "allow_nil?": false,
+      "default": "nil",
+      "generated?": false,
+      "precision": null,
+      "primary_key?": false,
+      "references": null,
+      "scale": null,
+      "size": null,
+      "source": "position",
+      "type": "bigint"
+    },
+    {
+      "allow_nil?": false,
+      "default": "nil",
+      "generated?": false,
+      "precision": null,
+      "primary_key?": false,
+      "references": null,
+      "scale": null,
+      "size": null,
+      "source": "canonical_key",
+      "type": "binary"
+    },
+    {
+      "allow_nil?": false,
       "default": "fragment(\"(now() AT TIME ZONE 'utc')\")",
       "generated?": false,
       "precision": null,
@@ -137,42 +161,6 @@
       "size": null,
       "source": "form_version_id",
       "type": "uuid"
-    },
-    {
-      "allow_nil?": false,
-      "default": "nil",
-      "generated?": false,
-      "precision": null,
-      "primary_key?": false,
-      "references": {
-        "deferrable": false,
-        "destination_attribute": "id",
-        "destination_attribute_default": null,
-        "destination_attribute_generated": null,
-        "index?": false,
-        "index_where": null,
-        "match_tenant?": false,
-        "match_type": null,
-        "match_with": {
-          "form_version_id": "form_version_id",
-          "project_id": "project_id"
-        },
-        "multitenancy": {
-          "attribute": null,
-          "global": null,
-          "strategy": null
-        },
-        "name": "tasks_explicit_group_scope_fkey",
-        "on_delete": "restrict",
-        "on_update": null,
-        "primary_key?": true,
-        "schema": "public",
-        "table": "project_explicit_groups"
-      },
-      "scale": null,
-      "size": null,
-      "source": "explicit_group_id",
-      "type": "uuid"
     }
   ],
   "base_filter": null,
@@ -215,19 +203,41 @@
   ],
   "custom_statements": [],
   "has_create_action": true,
-  "hash": "3D8EA854FBFA69F89382A42511F30472F3AE294DF82BA039AED382373F66F506",
+  "hash": "CD65742951202F113D4FE7716E4119D97DF1129B2E0E414D4944E874C287DCC5",
   "identities": [
     {
       "all_tenants?": false,
       "base_filter": null,
-      "index_name": "tasks_explicit_group_index",
+      "index_name": "tasks_project_membership_index",
       "keys": [
         {
           "type": "atom",
-          "value": "explicit_group_id"
+          "value": "project_id"
+        },
+        {
+          "type": "atom",
+          "value": "canonical_key"
         }
       ],
-      "name": "explicit_group",
+      "name": "project_membership",
+      "nils_distinct?": true,
+      "where": null
+    },
+    {
+      "all_tenants?": false,
+      "base_filter": null,
+      "index_name": "tasks_project_position_index",
+      "keys": [
+        {
+          "type": "atom",
+          "value": "project_id"
+        },
+        {
+          "type": "atom",
+          "value": "position"
+        }
+      ],
+      "name": "project_position",
       "nils_distinct?": true,
       "where": null
     }

@@ -1,7 +1,7 @@
 defmodule QuickTrain.ProjectsFixture do
   @moduledoc false
-  alias QuickTrain.{Datasets, Forms, FormsFixture, Projects}
-  alias QuickTrain.Projects.ProjectItem
+  alias QuickTrain.{Datasets, Forms, FormsFixture, Projects, Tasks}
+  alias QuickTrain.Tasks.TaskInput
   require Ash.Query
 
   def context!(
@@ -109,15 +109,8 @@ defmodule QuickTrain.ProjectsFixture do
   end
 
   def configured!(context, source, opts \\ []) do
-    {groups?, opts} = Keyword.pop(opts, :groups, true)
+    {tasks?, opts} = Keyword.pop(opts, :tasks, true)
     project = draft!(context, source, opts)
-
-    Projects.enroll_revisions!(
-      context.org.id,
-      project.id,
-      %{revision_ids: Enum.map(source.revisions, & &1.id)},
-      actor: context.actor
-    )
 
     Projects.set_binding!(
       context.org.id,
@@ -140,7 +133,7 @@ defmodule QuickTrain.ProjectsFixture do
       actor: context.actor
     )
 
-    if groups?, do: groups!(context, source, project)
+    if tasks?, do: tasks!(context, source, project)
 
     project
   end
@@ -150,22 +143,22 @@ defmodule QuickTrain.ProjectsFixture do
     Projects.activate_project!(project, actor: context.actor)
   end
 
-  def groups!(context, source, project) do
-    for {item, position} <- Enum.with_index(items(project)) do
-      Projects.create_explicit_group!(
+  def tasks!(context, source, project) do
+    for {item, position} <- Enum.with_index(source.revisions) do
+      Tasks.create_task!(
         context.org.id,
         project.id,
         %{
           position: position,
-          inputs: [%{input_slot_id: source.form.slot.id, project_item_id: item.id, position: 0}]
+          inputs: [%{input_slot_id: source.form.slot.id, revision_id: item.id, position: 0}]
         },
         actor: context.actor
       )
     end
   end
 
-  def items(project) do
-    ProjectItem
+  def inputs(project) do
+    TaskInput
     |> Ash.Query.filter(project_id == ^project.id)
     |> Ash.read!(authorize?: false, page: false)
   end

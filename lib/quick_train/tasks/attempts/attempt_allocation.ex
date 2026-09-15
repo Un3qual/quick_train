@@ -3,13 +3,7 @@ defmodule QuickTrain.Tasks.Attempts.AttemptAllocation do
   use Ash.Resource.Actions.Implementation
   alias QuickTrain.Accounts.User
 
-  alias QuickTrain.Projects.{
-    ExplicitGroup,
-    ExplicitGroupInput,
-    Project,
-    ProjectItem,
-    ProjectSlotPolicy
-  }
+  alias QuickTrain.Projects.{Project, ProjectSlotPolicy}
 
   alias QuickTrain.Tasks.{Access, Error, Task, TaskInput}
   alias QuickTrain.Tasks.Access.WorkerEligibility
@@ -129,7 +123,7 @@ defmodule QuickTrain.Tasks.Attempts.AttemptAllocation do
 
     Task
     |> Ash.Query.filter(
-      project_id == ^project.id and
+      project_id == ^project.id and exists(attempts, true) and
         (id in ^stale_ids or
            (not exists(attempts, worker_id == ^worker_id) and
               submitted_count < ^project.submission_target and
@@ -144,7 +138,7 @@ defmodule QuickTrain.Tasks.Attempts.AttemptAllocation do
   defp scan_tasks(project, query, live) do
     query
     |> Ash.Query.sort(id: :asc)
-    |> Ash.Query.lock("FOR UPDATE SKIP LOCKED")
+    |> Ash.Query.lock("FOR NO KEY UPDATE SKIP LOCKED")
     |> Ash.stream!(authorize?: false, batch_size: 1)
     |> Enum.reduce_while({[], nil, is_nil(live)}, fn task, {seen, chosen, stale_cleared?} ->
       Leases.expire_task!(task)
@@ -166,80 +160,27 @@ defmodule QuickTrain.Tasks.Attempts.AttemptAllocation do
     if Ash.exists?(remaining, authorize?: false) do
       %AllocationResult{status: :retry_later}
     else
-      group = select_new_group(project)
+      task = select_unissued_task(project)
 
-      if group,
-        do: issue_group!(project, group, args, operation, actor, worker_id),
+      if task,
+        do: issue!(project, task, args, operation, actor, worker_id),
         else: no_work(project, worker_id)
     end
   end
 
-  defp select_new_group(project) do
-    group =
-      ExplicitGroup
-      |> Ash.Query.filter(
-        project_id == ^project.id and
-          not exists(Task, project_id == parent(project_id) and explicit_group_id == parent(id))
-      )
+  defp select_unissued_task(project) do
+    task =
+      Task
+      |> Ash.Query.filter(project_id == ^project.id and not exists(attempts, true))
       |> Ash.Query.sort(position: :asc, id: :asc)
       |> Ash.Query.limit(1)
-      |> Ash.Query.lock("FOR UPDATE NOWAIT")
+      |> Ash.Query.lock("FOR NO KEY UPDATE NOWAIT")
       |> Ash.read_one!(authorize?: false)
 
-    if group do
-      # Recheck after the lock in case an issuer committed after this statement's snapshot.
-      if Ash.exists?(Task, query: [filter: [explicit_group_id: group.id]], authorize?: false),
-        do: Error.reject!(:retry_later)
+    if task && Ash.exists?(Attempt, query: [filter: [task_id: task.id]], authorize?: false),
+      do: Error.reject!(:retry_later)
 
-      inputs =
-        ExplicitGroupInput
-        |> Ash.Query.filter(group_id == ^group.id)
-        |> Ash.Query.sort(position: :asc, id: :asc)
-        |> Ash.read!(authorize?: false, page: false)
-
-      {inputs, group.id}
-    end
-  end
-
-  defp issue_group!(project, {inputs, group_id}, args, operation, actor, worker_id) do
-    task =
-      Ash.create!(
-        Task,
-        Map.merge(Access.scope(project), %{
-          explicit_group_id: group_id
-        }),
-        action: :create_internal,
-        authorize?: false
-      )
-
-    create_inputs!(project, task, inputs)
-    issue!(project, task, args, operation, actor, worker_id)
-  end
-
-  defp create_inputs!(project, task, inputs) do
-    items =
-      ProjectItem
-      |> Ash.Query.filter(id in ^Enum.map(inputs, & &1.project_item_id))
-      |> Ash.read!(authorize?: false, page: false)
-      |> Map.new(&{&1.id, &1})
-
-    attributes =
-      Enum.map(inputs, fn input ->
-        item = Map.fetch!(items, input.project_item_id)
-
-        Map.merge(Access.scope(project), %{
-          task_id: task.id,
-          project_item_id: item.id,
-          revision_id: item.revision_id,
-          input_slot_id: input.input_slot_id
-        })
-      end)
-
-    Ash.bulk_create!(attributes, TaskInput, :create_internal,
-      authorize?: false,
-      transaction: :all,
-      stop_on_error?: true
-    )
+    task
   end
 
   defp issue!(project, task, args, operation, actor, worker_id) do
@@ -275,9 +216,8 @@ defmodule QuickTrain.Tasks.Attempts.AttemptAllocation do
     inputs =
       TaskInput
       |> Ash.Query.filter(task_id == ^task.id)
-      |> Ash.Query.sort(id: :asc)
+      |> Ash.Query.sort(position: :asc, id: :asc)
       |> Ash.read!(authorize?: false, page: false)
-      |> authored_order(task)
       |> Enum.group_by(& &1.input_slot_id)
 
     ProjectSlotPolicy
@@ -302,16 +242,6 @@ defmodule QuickTrain.Tasks.Attempts.AttemptAllocation do
       transaction: :all,
       stop_on_error?: true
     )
-  end
-
-  defp authored_order(inputs, task) do
-    positions =
-      ExplicitGroupInput
-      |> Ash.Query.filter(group_id == ^task.explicit_group_id)
-      |> Ash.read!(authorize?: false, page: false)
-      |> Map.new(&{{&1.input_slot_id, &1.project_item_id}, &1.position})
-
-    Enum.sort_by(inputs, &Map.fetch!(positions, {&1.input_slot_id, &1.project_item_id}))
   end
 
   defp no_work(project, worker_id) do

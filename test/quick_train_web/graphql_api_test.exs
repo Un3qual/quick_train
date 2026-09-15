@@ -347,8 +347,7 @@ defmodule QuickTrainWeb.GraphqlApiTest do
   defp project_queries do
     collections =
       Map.new(
-        ~w(projectItems projectInputBindings projectSlotPolicies
-           projectWorkerAccessEntries explicitGroups explicitGroupInputs),
+        ~w(projectInputBindings projectSlotPolicies projectWorkerAccessEntries),
         &{&1, MapSet.new(~w(after before first last organizationId projectId))}
       )
 
@@ -388,16 +387,14 @@ defmodule QuickTrainWeb.GraphqlApiTest do
       "createProject" => MapSet.new(~w(input)),
       "updateProjectDraft" => MapSet.new(~w(id organizationId input)),
       "updateProjectTitle" => MapSet.new(~w(id organizationId input)),
-      "enrollProjectRevisions" => MapSet.new(~w(organizationId projectId revisionIds)),
-      "removeProjectItems" => MapSet.new(~w(organizationId projectId projectItemIds)),
       "setProjectInputBinding" => MapSet.new(~w(input)),
       "removeProjectInputBinding" => MapSet.new(~w(organizationId projectId requirementId)),
       "setProjectSlotPolicy" => MapSet.new(~w(input)),
       "removeProjectSlotPolicy" => MapSet.new(~w(inputSlotId organizationId projectId)),
       "setProjectWorkerAccess" => MapSet.new(~w(input)),
       "removeProjectWorkerAccess" => MapSet.new(~w(organizationId projectId userId)),
-      "createProjectExplicitGroup" => MapSet.new(~w(inputs organizationId position projectId)),
-      "removeProjectExplicitGroup" => MapSet.new(~w(groupId organizationId projectId))
+      "createProjectTask" => MapSet.new(~w(input)),
+      "removeProjectTask" => MapSet.new(~w(id organizationId projectId))
     })
   end
 
