@@ -231,6 +231,17 @@ defmodule QuickTrain.ProjectsTest do
     assert :ok = Tasks.remove_task(task, context.org.id, actor: context.actor)
     assert :ok = Tasks.remove_task(another, context.org.id, actor: context.actor)
     assert ProjectsFixture.inputs(project) == []
+
+    Tasks.create_task!(
+      context.org.id,
+      project.id,
+      %{position: 0, inputs: [%{input | revision_id: later.id}]},
+      actor: context.actor
+    )
+
+    assert [replacement] = ProjectsFixture.inputs(project)
+    assert replacement.revision_id == later.id
+    assert Projects.activate_project!(project, actor: context.actor).state == :active
   end
 
   @tag :committed_db
@@ -296,16 +307,55 @@ defmodule QuickTrain.ProjectsTest do
 
     assert [%{"node" => %{"revisionId" => revision_id}}] = task["inputs"]["edges"]
     assert revision_id == revision.id
-    Projects.activate_project!(project, actor: context.actor)
 
     remove = """
-    mutation { removeProjectTask(organizationId: "#{context.org.id}", projectId: "#{project.id}",
-      id: "#{task["id"]}") { errors { message } } }
+    mutation($organization: ID!, $project: ID!, $id: ID!) {
+      removeProjectTask(organizationId: $organization, projectId: $project, id: $id) {
+        errors { message }
+      }
+    }
     """
 
-    assert {:ok, %{data: %{"removeProjectTask" => %{"errors" => [_ | _]}}}} =
-             Absinthe.run(remove, QuickTrainWeb.GraphQL.Schema, context: %{actor: context.actor})
+    variables = %{"organization" => context.org.id, "project" => project.id, "id" => task["id"]}
+    stranger = Accounts.register_user!("task-removal-stranger@example.test", "Stranger")
 
+    for {actor, scope} <- [
+          {stranger, variables},
+          {context.actor, %{variables | "organization" => Ash.UUID.generate()}},
+          {context.actor, %{variables | "project" => Ash.UUID.generate()}}
+        ] do
+      assert {:ok, %{data: %{"removeProjectTask" => %{"errors" => [_ | _]}}}} =
+               Absinthe.run(remove, QuickTrainWeb.GraphQL.Schema,
+                 variables: scope,
+                 context: %{actor: actor}
+               )
+
+      assert [_] = ProjectsFixture.inputs(project)
+    end
+
+    assert {:ok, %{data: %{"removeProjectTask" => %{"errors" => []}}}} =
+             Absinthe.run(remove, QuickTrainWeb.GraphQL.Schema,
+               variables: variables,
+               context: %{actor: context.actor}
+             )
+
+    refute Ash.exists?(CollectionTask, authorize?: false)
+    assert ProjectsFixture.inputs(project) == []
+
+    assert {:ok, %{data: %{"createProjectTask" => %{"result" => task, "errors" => []}}}} =
+             Absinthe.run(mutation, QuickTrainWeb.GraphQL.Schema,
+               context: %{actor: context.actor}
+             )
+
+    Projects.activate_project!(project, actor: context.actor)
+
+    assert {:ok, %{data: %{"removeProjectTask" => %{"errors" => errors}}}} =
+             Absinthe.run(remove, QuickTrainWeb.GraphQL.Schema,
+               variables: %{variables | "id" => task["id"]},
+               context: %{actor: context.actor}
+             )
+
+    assert Enum.any?(errors, &String.contains?(&1["message"], "project_not_draft"))
     assert [_] = ProjectsFixture.inputs(project)
   end
 

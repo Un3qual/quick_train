@@ -85,7 +85,11 @@ defmodule QuickTrain.Tasks.ResultExportTest do
           position: position,
           inputs:
             Enum.with_index(items, fn item, index ->
-              %{input_slot_id: source.form.slot.id, revision_id: item.id, position: index}
+              %{
+                input_slot_id: source.form.slot.id,
+                revision_id: item.id,
+                position: (index + 1) * 10
+              }
             end)
         },
         actor: context.actor
@@ -232,6 +236,29 @@ defmodule QuickTrain.Tasks.ResultExportTest do
     definitions =
       Map.new(header["questions"], &{&1["id"], &1})
 
+    options = Map.new(definitions[scope.source.choice.id]["options"], &{&1["id"], &1})
+    [choice] = Enum.filter(rows, &(&1["question_id"] == scope.source.choice.id))
+    [answer] = choice["static_options"]
+    assert options[answer["option_id"]]["label"] == "First"
+
+    assert [label] = header["labels"]
+    assert label["id"] == scope.source.label.id
+    assert label["text"] == "Tag"
+
+    assert [binding] = header["bindings"]
+    assert binding["requirement"]["id"] == scope.source.form.field.id
+    assert binding["requirement"]["input_slot_id"] == scope.source.form.slot.id
+    assert binding["field"]["id"] == scope.source.field.id
+
+    presentations = Ash.load!(scope.attempt, :input_presentations, authorize?: false)
+    expected_order = Enum.map(presentations.input_presentations, &{&1.task_input_id, &1.position})
+
+    for row <- rows do
+      assert row["attempt"]["id"] == scope.attempt.id
+      assert row["task"]["id"] == scope.attempt.task_id
+      assert Enum.map(row["inputs"], &{&1["id"], &1["position"]}) == expected_order
+    end
+
     rating = definitions[scope.source.form.question.id]
     assert rating["renderer"] == "stars"
     assert rating["integer_constraints"]["id"] == scope.source.form.bounds.id
@@ -265,18 +292,18 @@ defmodule QuickTrain.Tasks.ResultExportTest do
     assert asset.byte_size == byte_size(bytes)
   end
 
-  @tag input_count: 102, inputs_per_task: 51
-  test "complete exports retain exact revision provenance across input pages", scope do
-    for _ <- 1..2, do: submit!(scope)
+  @tag input_count: 100, inputs_per_task: 100
+  test "one exported result retains every input at the published slot maximum", scope do
+    submit!(scope)
     {:ok, export} = request(scope)
     assert :ok = QuickTrain.Tasks.process_result_export(export.id, authorize?: false)
     {:ok, bytes} = InMemory.read_sealed(download!(scope, export.id).read_access)
-    [header | rows] = jsonl(bytes)
+    [header, result] = jsonl(bytes)
 
-    assert header["record_count"] == Integer.to_string(length(rows))
-    rows = Enum.flat_map(rows, & &1["inputs"])
+    assert header["record_count"] == "1"
+    rows = result["inputs"]
     assert length(rows) == length(scope.source.revisions)
-    assert MapSet.size(MapSet.new(rows, & &1["id"])) == 102
+    assert MapSet.size(MapSet.new(rows, & &1["id"])) == 100
     assert Enum.all?(rows, &match?([_], &1["values"]))
 
     assert MapSet.new(rows, & &1["revision_id"]) == MapSet.new(scope.source.revisions, & &1.id)

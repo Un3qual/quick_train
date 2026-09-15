@@ -94,14 +94,10 @@ defmodule QuickTrain.Tasks.Task do
 
     read :get_for_remove do
       get? true
-      argument :organization_id, :uuid, allow_nil?: false
       argument :project_id, :uuid, allow_nil?: false
       argument :id, :uuid, allow_nil?: false
 
-      filter expr(
-               id == ^arg(:id) and project_id == ^arg(:project_id) and
-                 organization_id == ^arg(:organization_id)
-             )
+      filter expr(id == ^arg(:id) and project_id == ^arg(:project_id))
     end
 
     read :list_scoped do
@@ -164,7 +160,17 @@ defmodule QuickTrain.Tasks.Task do
       authorize_if {OrganizationCapability, capability: "tasks.results.read"}
     end
 
-    policy action([:create, :get_for_remove, :remove]) do
+    policy action(:get_for_remove) do
+      authorize_if expr(
+                     exists(
+                       project.reader_role_assignments,
+                       user_id == ^actor(:id) and
+                         exists(role.role_capabilities, capability.key == "projects.manage")
+                     )
+                   )
+    end
+
+    policy action([:create, :remove]) do
       authorize_if {OrganizationCapability, capability: "projects.manage"}
     end
 

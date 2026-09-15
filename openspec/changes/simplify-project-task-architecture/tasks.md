@@ -55,3 +55,7 @@
 - [x] 10.3 Replace persistence-kind exports with a shared-context header and streamed result records; preserve exact provenance, immutable selection, and publication retries.
 - [x] 10.4 Synchronize canonical/delta/deferred specifications and README, regenerate the unreleased branch schema from main, and verify on a fresh database.
 - [x] 10.5 Run independent OpenSpec validation and mise run verify, inspect the diff, and commit the completed changes.
+
+## 11. Verify feature preservation
+
+- [x] 11.1 Compare the four fixes against their preceding behavior, fix the GraphQL task-removal lookup regression while retaining scoped authorization, strengthen draft replacement and export interpretation/pagination coverage, and run the verification gate.
