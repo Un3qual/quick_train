@@ -23,6 +23,7 @@ The unreleased collection feature combines adaptive grouping, question-level ful
 - `task-responses`: Attempts own all form outcomes; project settings govern skips.
 - `task-review`: Review history classifies submitted answers without driving allocation.
 - `task-results`: Curated read roots and complete project exports with one membership per outcome.
+- `versioned-forms`: Inspect the complete pinned form without an attempt-specific offered-question set.
 
 ## Impact
 

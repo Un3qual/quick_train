@@ -43,3 +43,7 @@
 ## 8. Recover expired export staging
 
 - [x] 8.1 Replace expired unpublished export assets under the export lock, preserve sealed content, add expiry retry coverage, synchronize specifications, and run the verification gate.
+
+## 9. Address local CodeRabbit review findings
+
+- [x] 9.1 Remove the policy for deleted review read actions and synchronize the Forms inspection specification with whole-form attempts; run the verification gate.

@@ -138,10 +138,6 @@ defmodule QuickTrain.Tasks.Reviews.ReviewDecision do
       authorize_if ReadAccess
     end
 
-    policy action([:list_audit, :list_accepted, :get_audit, :get_accepted]) do
-      authorize_if {OrganizationCapability, capability: "tasks.results.read"}
-    end
-
     policy action([:decide, :review_batch]) do
       authorize_if {OrganizationCapability, capability: "tasks.review"}
     end
