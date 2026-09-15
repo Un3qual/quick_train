@@ -39,3 +39,7 @@
 - [x] 7.3 Make submission a native Attempt update with transactional validation and automatic decisions.
 - [x] 7.4 Centralize scoped locked lookups and pending-asset setup behind domain interfaces.
 - [x] 7.5 Update API callers and specifications, verify authorization/concurrency/retries, run the full gate, and commit.
+
+## 8. Recover expired export staging
+
+- [x] 8.1 Replace expired unpublished export assets under the export lock, preserve sealed content, add expiry retry coverage, synchronize specifications, and run the verification gate.

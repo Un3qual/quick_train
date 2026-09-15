@@ -106,6 +106,11 @@ Export requests SHALL require caller-supplied UUID request keys. Invalid UUID in
 - **WHEN** the export worker crashes after sealing content but before recording completion
 - **THEN** its retry verifies/reuses the same snapshot's canonical content and completes one export
 
+#### Scenario: An unpublished export upload expires
+- **WHEN** a sealed export retries after its unpublished asset's staging deadline, including an asset already marked failed due to expiry
+- **THEN** it replaces that asset under the export lock while retaining the export identity, sealed membership, snapshot timestamp, record count, and content facts; superseded assets retain export ownership, and later submissions do not enter the export
+- **AND** unexpired pending uploads and already published assets continue to be reused
+
 #### Scenario: The requester's permission is revoked
 - **WHEN** a ready export's requester or another reader lacks the current results capability
 - **THEN** new export inspection/download access is denied even though the artifact already exists

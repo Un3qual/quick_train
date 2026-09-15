@@ -188,21 +188,28 @@ defmodule QuickTrain.Tasks.Exports.ResultExporting do
       unless Map.take(asset, [:sha256, :byte_size, :media_type]) == facts,
         do: Error.reject!(:export_snapshot_mismatch)
 
-      asset
+      if asset.state in [:pending, :failed] and
+           DateTime.compare(asset.staging_expires_at, DateTime.utc_now()) != :gt,
+         do: create_pending_asset!(export, facts),
+         else: asset
     else
-      asset =
-        Assets.create_pending_asset!(
-          Map.merge(facts, %{organization_id: export.organization_id, result_export_id: export.id}),
-          authorize?: false
-        )
+      create_pending_asset!(export, facts)
+    end
+  end
 
-      Ash.update!(export, %{pending_asset_id: asset.id},
-        action: :update_internal,
+  defp create_pending_asset!(export, facts) do
+    asset =
+      Assets.create_pending_asset!(
+        Map.merge(facts, %{organization_id: export.organization_id, result_export_id: export.id}),
         authorize?: false
       )
 
-      asset
-    end
+    Ash.update!(export, %{pending_asset_id: asset.id},
+      action: :update_internal,
+      authorize?: false
+    )
+
+    asset
   end
 
   defp write(%{state: state}, _path) when state in [:ready, :duplicate_content], do: :ok

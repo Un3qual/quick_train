@@ -427,6 +427,50 @@ defmodule QuickTrain.Tasks.ResultExportTest do
              pending.staging_expires_at
   end
 
+  for state <- [:pending, :failed] do
+    @tag expired_asset_state: state
+    test "an expired #{state} upload is replaced without changing the sealed snapshot", scope do
+      {:ok, export} = request(scope)
+      old = Application.fetch_env!(:quick_train, :assets)
+      on_exit(fn -> Application.put_env(:quick_train, :assets, old) end)
+
+      Application.put_env(
+        :quick_train,
+        :assets,
+        Keyword.put(old, :staging_lifetime_seconds, 0)
+      )
+
+      assert {:error, error} = Tasks.process_result_export(export.id, authorize?: false)
+      assert Exception.message(error) =~ "staging_expired"
+      failed = Ash.get!(ResultExport, export.id, authorize?: false)
+      pending = Ash.get!(Asset, failed.pending_asset_id, authorize?: false)
+
+      if scope.expired_asset_state == :failed do
+        finalized = Assets.finalize_asset!(pending.id, pending.organization_id, authorize?: false)
+        assert finalized.asset.state == :failed
+      end
+
+      Application.put_env(:quick_train, :assets, old)
+      submit!(scope)
+
+      assert :ok = Tasks.process_result_export(export.id, authorize?: false)
+      ready = Ash.get!(ResultExport, export.id, authorize?: false)
+      replacement = Ash.get!(Asset, ready.pending_asset_id, authorize?: false)
+      assert ready.state == :ready
+      assert ready.snapshot_at == failed.snapshot_at
+      assert ready.record_count == 0
+      assert replacement.id != pending.id
+      assert replacement.result_export_id == export.id
+      assert replacement.sha256 == pending.sha256
+
+      {:ok, bytes} = InMemory.read_sealed(download!(scope, export.id).read_access)
+      assert [%{"kind" => "header", "record_count" => "0"}] = jsonl(bytes)
+      assert :crypto.hash(:sha256, bytes) == pending.sha256
+      assert :ok = Tasks.process_result_export(export.id, authorize?: false)
+      assert Ash.get!(ResultExport, export.id, authorize?: false).asset_id == ready.asset_id
+    end
+  end
+
   test "export hashes and IDs cannot bypass result authority before independent upload proof",
        scope do
     {:ok, export} = request(scope)

@@ -10,6 +10,7 @@ The unreleased collection feature combines adaptive grouping, question-level ful
 - Export complete project results in accepted or audit mode. Pin each selected submitted outcome and its effective review decision once, deriving immutable related records from those owners. Remove arbitrary record-kind and UUID-range partitioning.
 - Expose native Ash create/update project mutations, native child configuration upsert/destroy actions, native work-bundle reads, and native attempt transitions including submission. Centralize scoped locked reads and pending-asset staging setup through domain interfaces. Remove duplicate task identity data, bulk-expire overdue leases, and check cohort coverage through Ash queries. Unsealed export snapshots may retry after transient failures. Pin source identities at creation; drafts configure their cohort, bindings, slot policies, and project-level submission/skip settings.
 - Regenerate the branch migration from the main baseline and remove intermediate snapshots and historical-response compatibility.
+- Recover expired export uploads without changing the sealed snapshot or its content, retaining ownership of superseded assets.
 
 ## Capabilities
 
