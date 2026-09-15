@@ -33,23 +33,20 @@ defmodule QuickTrain.Projects.Project do
       default: :allowlisted,
       constraints: [one_of: [:open, :allowlisted]]
 
-    attribute :selection_mode, :atom,
-      public?: true,
-      allow_nil?: false,
-      default: :balanced,
-      constraints: [one_of: [:balanced, :explicit]]
-
     attribute :review_mode, :atom,
       public?: true,
       allow_nil?: false,
       default: :automatic,
       constraints: [one_of: [:automatic, :manual]]
 
-    attribute :coverage_target, :integer,
+    attribute :submission_target, :integer,
       public?: true,
       allow_nil?: false,
       default: 1,
       constraints: [min: 1, max: 2_147_483_647]
+
+    attribute :skip_allowed, :boolean, public?: true, allow_nil?: false, default: false
+    attribute :reason_required, :boolean, public?: true, allow_nil?: false, default: false
 
     attribute :lease_minutes, :integer,
       public?: true,
@@ -93,10 +90,6 @@ defmodule QuickTrain.Projects.Project do
       public?: true
 
     has_many :slot_policies, QuickTrain.Projects.ProjectSlotPolicy,
-      destination_attribute: :project_id,
-      public?: true
-
-    has_many :question_policies, QuickTrain.Projects.ProjectQuestionPolicy,
       destination_attribute: :project_id,
       public?: true
 
@@ -156,89 +149,19 @@ defmodule QuickTrain.Projects.Project do
       filter expr(id == ^arg(:id) and organization_id == ^arg(:organization_id))
     end
 
+    read :get_for_update do
+      get? true
+      argument :organization_id, :uuid, allow_nil?: false
+      argument :id, :uuid, allow_nil?: false
+      filter expr(id == ^arg(:id) and organization_id == ^arg(:organization_id))
+    end
+
     read :lock do
       get? true
       argument :organization_id, :uuid, allow_nil?: false
       argument :project_id, :uuid, allow_nil?: false
       filter expr(id == ^arg(:project_id) and organization_id == ^arg(:organization_id))
       prepare build(lock: :for_update)
-    end
-
-    # These generic actions preserve the direct GraphQL mutation results. Record
-    # creation and project updates run through the named create/update actions below.
-    action :create_project, :struct do
-      transaction? true
-      allow_nil? false
-      constraints instance_of: __MODULE__
-      argument :organization_id, :uuid, allow_nil?: false
-      argument :dataset_id, :uuid, allow_nil?: false
-      argument :schema_version_id, :uuid, allow_nil?: false
-      argument :form_version_id, :uuid, allow_nil?: false
-      argument :title, :string, allow_nil?: false, constraints: [match: ~r/\S/u]
-
-      argument :audience, :atom,
-        constraints: [one_of: [:organization_members, :external_users, :both]],
-        default: :organization_members,
-        allow_nil?: false
-
-      argument :external_access, :atom,
-        constraints: [one_of: [:open, :allowlisted]],
-        default: :allowlisted,
-        allow_nil?: false
-
-      argument :selection_mode, :atom,
-        constraints: [one_of: [:balanced, :explicit]],
-        default: :balanced,
-        allow_nil?: false
-
-      argument :review_mode, :atom,
-        constraints: [one_of: [:automatic, :manual]],
-        default: :automatic,
-        allow_nil?: false
-
-      argument :coverage_target, :integer,
-        constraints: [min: 1, max: 2_147_483_647],
-        default: 1,
-        allow_nil?: false
-
-      argument :lease_minutes, :integer,
-        constraints: [min: 1, max: 120],
-        default: 30,
-        allow_nil?: false
-
-      run Module.concat(["QuickTrain.Projects.Management"])
-    end
-
-    action :update_draft, :struct do
-      transaction? true
-      allow_nil? false
-      constraints instance_of: __MODULE__
-      argument :organization_id, :uuid, allow_nil?: false
-      argument :project_id, :uuid, allow_nil?: false
-      argument :title, :string, constraints: [match: ~r/\S/u]
-
-      argument :audience, :atom,
-        constraints: [one_of: [:organization_members, :external_users, :both]]
-
-      argument :external_access, :atom, constraints: [one_of: [:open, :allowlisted]]
-      argument :selection_mode, :atom, constraints: [one_of: [:balanced, :explicit]]
-      argument :review_mode, :atom, constraints: [one_of: [:automatic, :manual]]
-      argument :coverage_target, :integer, constraints: [min: 1, max: 2_147_483_647]
-      argument :lease_minutes, :integer, constraints: [min: 1, max: 120]
-      argument :dataset_id, :uuid
-      argument :schema_version_id, :uuid
-      argument :form_version_id, :uuid
-      run Module.concat(["QuickTrain.Projects.Management"])
-    end
-
-    action :update_title, :struct do
-      transaction? true
-      allow_nil? false
-      constraints instance_of: __MODULE__
-      argument :organization_id, :uuid, allow_nil?: false
-      argument :project_id, :uuid, allow_nil?: false
-      argument :title, :string, allow_nil?: false, constraints: [match: ~r/\S/u]
-      run Module.concat(["QuickTrain.Projects.Management"])
     end
 
     action :enroll_revisions, :struct do
@@ -281,28 +204,6 @@ defmodule QuickTrain.Projects.Project do
       argument :input_slot_id, :uuid, allow_nil?: false
       argument :item_count, :integer, allow_nil?: false, constraints: [min: 1, max: 2_147_483_647]
       argument :shuffle, :boolean, allow_nil?: false
-      run Module.concat(["QuickTrain.Projects.Management"])
-    end
-
-    action :set_question_policy, :struct do
-      transaction? true
-      allow_nil? false
-      constraints instance_of: __MODULE__
-      argument :organization_id, :uuid, allow_nil?: false
-      argument :project_id, :uuid, allow_nil?: false
-      argument :question_id, :uuid, allow_nil?: false
-
-      argument :accepted_target, :integer,
-        allow_nil?: false,
-        constraints: [min: 1, max: 2_147_483_647]
-
-      argument :skip_allowed, :boolean, allow_nil?: false
-      argument :reason_required, :boolean, allow_nil?: false
-
-      argument :failure_threshold, :integer,
-        allow_nil?: false,
-        constraints: [min: 1, max: 2_147_483_647]
-
       run Module.concat(["QuickTrain.Projects.Management"])
     end
 
@@ -368,61 +269,6 @@ defmodule QuickTrain.Projects.Project do
       run Module.concat(["QuickTrain.Projects.Management"])
     end
 
-    action :remove_question_policy, :struct do
-      transaction? true
-      allow_nil? false
-      constraints instance_of: __MODULE__
-      argument :organization_id, :uuid, allow_nil?: false
-      argument :project_id, :uuid, allow_nil?: false
-      argument :question_id, :uuid, allow_nil?: false
-      run Module.concat(["QuickTrain.Projects.Management"])
-    end
-
-    action :activate, :struct do
-      transaction? true
-      allow_nil? false
-      constraints instance_of: __MODULE__
-      argument :organization_id, :uuid, allow_nil?: false
-      argument :project_id, :uuid, allow_nil?: false
-      run Module.concat(["QuickTrain.Projects.Management"])
-    end
-
-    action :pause, :struct do
-      transaction? true
-      allow_nil? false
-      constraints instance_of: __MODULE__
-      argument :organization_id, :uuid, allow_nil?: false
-      argument :project_id, :uuid, allow_nil?: false
-      run Module.concat(["QuickTrain.Projects.Management"])
-    end
-
-    action :resume, :struct do
-      transaction? true
-      allow_nil? false
-      constraints instance_of: __MODULE__
-      argument :organization_id, :uuid, allow_nil?: false
-      argument :project_id, :uuid, allow_nil?: false
-      run Module.concat(["QuickTrain.Projects.Management"])
-    end
-
-    action :complete, :struct do
-      transaction? true
-      allow_nil? false
-      constraints instance_of: __MODULE__
-      argument :organization_id, :uuid, allow_nil?: false
-      argument :project_id, :uuid, allow_nil?: false
-      run Module.concat(["QuickTrain.Projects.Management"])
-    end
-
-    action :archive, :struct do
-      transaction? true
-      allow_nil? false
-      constraints instance_of: __MODULE__
-      argument :organization_id, :uuid, allow_nil?: false
-      argument :project_id, :uuid, allow_nil?: false
-      run Module.concat(["QuickTrain.Projects.Management"])
-    end
-
     create :create do
       accept [
         :title,
@@ -432,9 +278,10 @@ defmodule QuickTrain.Projects.Project do
         :form_version_id,
         :audience,
         :external_access,
-        :selection_mode,
         :review_mode,
-        :coverage_target,
+        :submission_target,
+        :skip_allowed,
+        :reason_required,
         :lease_minutes
       ]
 
@@ -446,14 +293,12 @@ defmodule QuickTrain.Projects.Project do
 
       accept [
         :title,
-        :dataset_id,
-        :schema_version_id,
-        :form_version_id,
         :audience,
         :external_access,
-        :selection_mode,
         :review_mode,
-        :coverage_target,
+        :submission_target,
+        :skip_allowed,
+        :reason_required,
         :lease_minutes
       ]
 
@@ -524,30 +369,21 @@ defmodule QuickTrain.Projects.Project do
     end
 
     policy action([
-             :remove_question_policy,
              :remove_slot_policy,
              :remove_binding,
-             :create_project,
+             :get_for_update,
              :create,
              :configure,
              :activate_record,
              :complete_record,
-             :update_draft,
-             :update_title,
              :enroll_revisions,
              :remove_project_items,
              :set_binding,
              :set_slot_policy,
-             :set_question_policy,
              :set_worker_access,
              :remove_worker_access,
              :create_explicit_group,
-             :remove_explicit_group,
-             :activate,
-             :pause,
-             :resume,
-             :complete,
-             :archive
+             :remove_explicit_group
            ]) do
       authorize_if {QuickTrain.Authorization.Checks.OrganizationCapability,
                     capability: "projects.manage"}
@@ -580,7 +416,6 @@ defmodule QuickTrain.Projects.Project do
       :items,
       :bindings,
       :slot_policies,
-      :question_policies,
       :worker_access,
       :explicit_groups,
       :group_inputs
@@ -589,7 +424,6 @@ defmodule QuickTrain.Projects.Project do
     paginate_relationship_with items: :relay,
                                bindings: :relay,
                                slot_policies: :relay,
-                               question_policies: :relay,
                                worker_access: :relay,
                                explicit_groups: :relay,
                                group_inputs: :relay
@@ -627,8 +461,8 @@ defmodule QuickTrain.Projects.Project do
       check_constraint :state, "projects_state_check",
         check: "state IN ('draft', 'active', 'paused', 'completed', 'archived')"
 
-      check_constraint :coverage_target, "projects_coverage_check",
-        check: "coverage_target BETWEEN 1 AND 2147483647"
+      check_constraint :submission_target, "projects_submission_target_check",
+        check: "submission_target BETWEEN 1 AND 2147483647"
 
       check_constraint :lease_minutes, "projects_lease_check",
         check: "lease_minutes BETWEEN 1 AND 120"
@@ -638,9 +472,6 @@ defmodule QuickTrain.Projects.Project do
 
       check_constraint :external_access, "projects_external_access_check",
         check: "external_access IN ('open', 'allowlisted')"
-
-      check_constraint :selection_mode, "projects_selection_check",
-        check: "selection_mode IN ('balanced', 'explicit')"
 
       check_constraint :review_mode, "projects_review_check",
         check: "review_mode IN ('automatic', 'manual')"

@@ -7,81 +7,58 @@ defmodule QuickTrain.Projects.Project.Changes.Configure do
   require Ash.Query
 
   @impl true
-  def change(changeset, _opts, context) do
-    changeset =
-      if changeset.action.name == :configure do
-        Enum.reduce(changeset.attributes, changeset, fn
-          {key, nil}, changeset -> Ash.Changeset.clear_change(changeset, key)
-          _, changeset -> changeset
-        end)
-      else
-        changeset
-      end
+  def change(changeset, _opts, context),
+    do: Ash.Changeset.before_action(changeset, &configure(&1, context.actor))
 
-    Ash.Changeset.before_action(changeset, fn changeset ->
-      # Reapply explicit inputs to the locked record, including values equal to
-      # the caller's stale copy. Omitted and null draft inputs remain unchanged.
-      changeset =
-        Ash.Changeset.force_change_attributes(
-          changeset,
-          Map.reject(changeset.casted_attributes, fn {_key, value} ->
-            changeset.action.name == :configure and is_nil(value)
-          end)
-        )
+  defp configure(changeset, actor) do
+    organization_id = Ash.Changeset.get_attribute(changeset, :organization_id)
+    Management.authorize!(actor, organization_id)
 
-      organization_id = Ash.Changeset.get_attribute(changeset, :organization_id)
-      Management.authorize!(context.actor, organization_id)
-
-      if changeset.action.name == :configure and changeset.data.state != :draft,
-        do: Error.reject!(:project_not_draft)
-
-      changeset
-      |> schema!(organization_id, context.actor)
-      |> form!(organization_id, context.actor)
-    end)
+    if changeset.action.type == :create do
+      changeset |> schema!(organization_id, actor) |> form!(organization_id, actor)
+    else
+      if changeset.data.state != :draft, do: Error.reject!(:project_not_draft)
+      # Reapply explicit values to the locked record even when equal to the caller's stale copy.
+      Ash.Changeset.force_change_attributes(changeset, changeset.casted_attributes)
+    end
+  rescue
+    error in [Ash.Error.Invalid, Ash.Error.Forbidden] -> Ash.Changeset.add_error(changeset, error)
   end
 
   defp schema!(changeset, organization_id, actor) do
-    if changeset.casted_attributes[:dataset_id] || changeset.casted_attributes[:schema_version_id] do
-      Management.authorize!(actor, organization_id, "datasets.read")
-      dataset_id = Ash.Changeset.get_attribute(changeset, :dataset_id)
-      schema_id = Ash.Changeset.get_attribute(changeset, :schema_version_id)
+    Management.authorize!(actor, organization_id, "datasets.read")
+    dataset_id = Ash.Changeset.get_attribute(changeset, :dataset_id)
+    schema_id = Ash.Changeset.get_attribute(changeset, :schema_version_id)
 
-      schema =
-        DatasetSchemaVersion
-        |> Ash.Query.filter(
-          id == ^schema_id and dataset_id == ^dataset_id and
-            dataset.organization_id == ^organization_id and state == :published
-        )
-        |> Ash.read_one!(authorize?: false)
-
-      if is_nil(schema), do: Error.reject!(:invalid_project_configuration)
-
-      Ash.Changeset.force_change_attribute(
-        changeset,
-        :root_record_type_id,
-        schema.root_record_type_id
+    schema =
+      DatasetSchemaVersion
+      |> Ash.Query.filter(
+        id == ^schema_id and dataset_id == ^dataset_id and
+          dataset.organization_id == ^organization_id and state == :published
       )
-    else
-      changeset
-    end
+      |> Ash.read_one!(authorize?: false)
+
+    if is_nil(schema), do: Error.reject!(:invalid_project_configuration)
+
+    Ash.Changeset.force_change_attribute(
+      changeset,
+      :root_record_type_id,
+      schema.root_record_type_id
+    )
   end
 
   defp form!(changeset, organization_id, actor) do
-    if version_id = changeset.casted_attributes[:form_version_id] do
-      Management.authorize!(actor, organization_id, "forms.read")
+    version_id = Ash.Changeset.get_attribute(changeset, :form_version_id)
+    Management.authorize!(actor, organization_id, "forms.read")
 
-      version =
-        FormVersion
-        |> Ash.Query.filter(
-          id == ^version_id and form.organization_id == ^organization_id and state == :published
-        )
-        |> Ash.read_one!(authorize?: false)
+    version =
+      FormVersion
+      |> Ash.Query.filter(
+        id == ^version_id and form.organization_id == ^organization_id and state == :published
+      )
+      |> Ash.read_one!(authorize?: false)
 
-      if is_nil(version), do: Error.reject!(:invalid_project_configuration)
-      Ash.Changeset.force_change_attribute(changeset, :form_id, version.form_id)
-    else
-      changeset
-    end
+    if is_nil(version), do: Error.reject!(:invalid_project_configuration)
+    Ash.Changeset.force_change_attribute(changeset, :form_id, version.form_id)
   end
 end

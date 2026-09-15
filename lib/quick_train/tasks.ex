@@ -2,41 +2,10 @@ defmodule QuickTrain.Tasks do
   @moduledoc "Scoped collection work, immutable outcomes, review, and result exports."
   use Ash.Domain, otp_app: :quick_train, extensions: [AshGraphql.Domain]
 
-  alias QuickTrain.Datasets.DatasetFieldDefinition
-  alias QuickTrain.Forms.FormVersion
-  alias QuickTrain.Forms.Inputs.InputFieldRequirement
-  alias QuickTrain.Forms.Inputs.InputSlotDefinition
-  alias QuickTrain.Forms.Labels.Label
-  alias QuickTrain.Forms.Labels.LabelSet
-  alias QuickTrain.Forms.Presentation.PresentationElement
-  alias QuickTrain.Forms.Questions.Constraints.AnnotationConstraints
-  alias QuickTrain.Forms.Questions.Constraints.DecimalConstraints
-  alias QuickTrain.Forms.Questions.Constraints.IntegerConstraints
-  alias QuickTrain.Forms.Questions.Constraints.SelectionConstraints
-  alias QuickTrain.Forms.Questions.Constraints.TextConstraints
-  alias QuickTrain.Forms.Questions.QuestionDefinition
-  alias QuickTrain.Forms.Questions.QuestionOption
-  alias QuickTrain.Projects.ProjectInputBinding
-
   resources do
-    resource DatasetFieldDefinition
-    resource FormVersion
-    resource InputFieldRequirement
-    resource InputSlotDefinition
-    resource Label
-    resource LabelSet
-    resource PresentationElement
-    resource AnnotationConstraints
-    resource DecimalConstraints
-    resource IntegerConstraints
-    resource SelectionConstraints
-    resource TextConstraints
-    resource QuestionDefinition
-    resource QuestionOption
-    resource ProjectInputBinding
-
     resource QuickTrain.Tasks.Task do
-      define :reconcile_task, action: :reconcile, args: [:organization_id, :project_id, :task_id]
+      define :list_tasks, action: :list_scoped, args: [:organization_id, :project_id]
+      define :get_task, action: :get_scoped, args: [:organization_id, :project_id, :id]
     end
 
     resource QuickTrain.Tasks.TaskInput do
@@ -69,10 +38,6 @@ defmodule QuickTrain.Tasks do
         action: :assign,
         args: [:organization_id, :project_id, :worker_id, :request_key]
 
-      define :assign_follow_up,
-        action: :follow_up,
-        args: [:organization_id, :project_id, :worker_id, :predecessor_id, :request_key]
-
       define :start_attempt, action: :start, args: [:organization_id, :project_id, :attempt_id]
 
       define :release_attempt,
@@ -90,16 +55,13 @@ defmodule QuickTrain.Tasks do
         args: [:organization_id, :project_id, :attempt_id]
     end
 
-    resource QuickTrain.Tasks.Attempts.AttemptQuestion
     resource QuickTrain.Tasks.Attempts.AttemptInputPresentation
 
-    resource QuickTrain.Tasks.Progress.TaskQuestionProgress
-
-    resource QuickTrain.Tasks.Progress.TaskItemCoverage do
-      define :reconcile_coverage, action: :reconcile, args: [:organization_id, :project_id]
+    resource QuickTrain.Tasks.Responses.QuestionResponse do
+      define :list_task_results, action: :list_scoped, args: [:organization_id, :project_id]
+      define :get_task_result, action: :get_scoped, args: [:organization_id, :project_id, :id]
     end
 
-    resource QuickTrain.Tasks.Responses.QuestionResponse
     resource QuickTrain.Tasks.Responses.StaticOptionAnswer
     resource QuickTrain.Tasks.Responses.TaskInputAnswer
     resource QuickTrain.Tasks.Responses.TextSpan
@@ -136,50 +98,14 @@ defmodule QuickTrain.Tasks do
 
   graphql do
     queries do
-      list ProjectInputBinding, :result_input_bindings, :list_result_bindings,
+      list QuickTrain.Tasks.Task, :tasks, :list_scoped, relay?: true, paginate_with: :keyset
+      read_one QuickTrain.Tasks.Task, :task, :get_scoped
+
+      list QuickTrain.Tasks.Responses.QuestionResponse, :task_results, :list_scoped,
         relay?: true,
         paginate_with: :keyset
 
-      read_one ProjectInputBinding, :result_input_binding, :get_result_binding
-
-      read_one FormVersion, :task_form_version, :get_collection_definition
-      read_one InputSlotDefinition, :task_input_slot_definition, :get_collection_definition
-      read_one InputFieldRequirement, :task_input_field_requirement, :get_collection_definition
-      read_one PresentationElement, :task_presentation_element, :get_collection_definition
-      read_one QuestionDefinition, :task_question_definition, :get_collection_definition
-      read_one QuestionOption, :task_question_option, :get_collection_definition
-      read_one LabelSet, :task_label_set, :get_collection_definition
-      read_one Label, :task_label, :get_collection_definition
-      read_one TextConstraints, :task_text_constraints, :get_collection_definition
-      read_one IntegerConstraints, :task_integer_constraints, :get_collection_definition
-      read_one DecimalConstraints, :task_decimal_constraints, :get_collection_definition
-      read_one SelectionConstraints, :task_selection_constraints, :get_collection_definition
-      read_one AnnotationConstraints, :task_annotation_constraints, :get_collection_definition
-      read_one DatasetFieldDefinition, :task_field_definition, :get_collection_definition
-
-      for {resource, singular, plural} <- [
-            {QuickTrain.Tasks.Task, :task, :tasks},
-            {QuickTrain.Tasks.Progress.TaskQuestionProgress, :task_progress, :task_progress_rows},
-            {QuickTrain.Tasks.Progress.TaskItemCoverage, :task_item_coverage,
-             :task_item_coverage_rows},
-            {QuickTrain.Tasks.TaskInput, :task_input, :task_inputs},
-            {QuickTrain.Tasks.Attempts.Attempt, :attempt, :attempts},
-            {QuickTrain.Tasks.Attempts.AttemptQuestion, :attempt_question, :attempt_questions},
-            {QuickTrain.Tasks.Attempts.AttemptInputPresentation, :attempt_input_presentation,
-             :attempt_input_presentations},
-            {QuickTrain.Tasks.Responses.QuestionResponse, :question_response,
-             :question_responses},
-            {QuickTrain.Tasks.Responses.StaticOptionAnswer, :static_option_answer,
-             :static_option_answers},
-            {QuickTrain.Tasks.Responses.TaskInputAnswer, :task_input_answer, :task_input_answers},
-            {QuickTrain.Tasks.Responses.TextSpan, :text_span, :text_spans},
-            {QuickTrain.Tasks.Reviews.ReviewDecision, :review_decision, :review_decisions}
-          ] do
-        list resource, :"audit_#{plural}", :list_audit, relay?: true, paginate_with: :keyset
-        read_one resource, :"audit_#{singular}", :get_audit
-        list resource, :"accepted_#{plural}", :list_accepted, relay?: true, paginate_with: :keyset
-        read_one resource, :"accepted_#{singular}", :get_accepted
-      end
+      read_one QuickTrain.Tasks.Responses.QuestionResponse, :task_result, :get_scoped
 
       action QuickTrain.Tasks.Attempts.Attempt, :work_bundle, :work_bundle
 
@@ -204,9 +130,6 @@ defmodule QuickTrain.Tasks do
 
       action QuickTrain.Tasks.Attempts.Attempt, :assign_work, :assign,
         args: [:organization_id, :project_id, :worker_id, :request_key]
-
-      action QuickTrain.Tasks.Attempts.Attempt, :assign_follow_up, :follow_up,
-        args: [:organization_id, :project_id, :worker_id, :predecessor_id, :request_key]
 
       action QuickTrain.Tasks.Attempts.Attempt, :start_attempt, :start,
         args: [:organization_id, :project_id, :attempt_id]
@@ -249,12 +172,7 @@ defmodule QuickTrain.Tasks do
           :organization_id,
           :project_id,
           :request_key,
-          :mode,
-          :task_id_from,
-          :task_id_to,
-          :evidence_kind,
-          :evidence_id_from,
-          :evidence_id_to
+          :mode
         ]
     end
   end

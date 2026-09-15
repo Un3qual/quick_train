@@ -7,7 +7,6 @@ defmodule QuickTrain.Tasks.CollectionConcurrencyTest do
   alias QuickTrain.Projects.{ExplicitGroup, Project}
   alias QuickTrain.Tasks.{Access, Task, TaskInput}
   alias QuickTrain.Tasks.Attempts.Attempt
-  alias QuickTrain.Tasks.Progress.{TaskItemCoverage, TaskQuestionProgress}
   alias QuickTrain.Tasks.Responses.QuestionResponse
   alias QuickTrain.Tasks.Reviews.ReviewDecision
   alias QuickTrain.Tasks.Workers.ExpireAttempt
@@ -24,44 +23,13 @@ defmodule QuickTrain.Tasks.CollectionConcurrencyTest do
 
     project =
       ProjectsFixture.configured!(context, source,
-        selection_mode: tags[:selection_mode] || :balanced,
+        submission_target: tags[:submission_target] || 1,
         audience: :external_users,
         external_access: :open
       )
 
-    if tags[:selection_mode] == :explicit do
-      for {item, position} <- Enum.with_index(ProjectsFixture.items(project)) do
-        QuickTrain.Projects.create_explicit_group!(
-          context.org.id,
-          project.id,
-          %{
-            position: position,
-            inputs: [
-              %{input_slot_id: source.form.slot.id, project_item_id: item.id, position: 0}
-            ]
-          },
-          actor: context.actor
-        )
-      end
-    end
-
-    if tags[:accepted_target] do
-      QuickTrain.Projects.set_question_policy!(
-        context.org.id,
-        project.id,
-        %{
-          question_id: source.form.question.id,
-          accepted_target: tags.accepted_target,
-          skip_allowed: true,
-          reason_required: true,
-          failure_threshold: 3
-        },
-        actor: context.actor
-      )
-    end
-
     project =
-      QuickTrain.Projects.activate_project!(context.org.id, project.id, actor: context.actor)
+      QuickTrain.Projects.activate_project!(project, actor: context.actor)
 
     worker = Accounts.register_user!("race-worker@example.test", "Worker")
     %{context: context, source: source, project: project, worker: worker}
@@ -81,8 +49,7 @@ defmodule QuickTrain.Tasks.CollectionConcurrencyTest do
     assert Ash.count!(Task, authorize?: false) == 1
     assert Ash.count!(TaskInput, authorize?: false) == 1
     assert Ash.count!(Attempt, authorize?: false) == 1
-    assert Ash.read_one!(TaskItemCoverage, authorize?: false).exposures == 1
-    assert Ash.read_one!(TaskQuestionProgress, authorize?: false).live == 1
+    assert Ash.read_one!(Task, authorize?: false, load: :live_count).live_count == 1
   end
 
   @tag item_count: 2
@@ -115,25 +82,22 @@ defmodule QuickTrain.Tasks.CollectionConcurrencyTest do
     end
   end
 
-  @tag selection_mode: :explicit, item_count: 2
-  test "explicit issuance does not lock coverage belonging only to a later group", ctx do
+  @tag groups: false, item_count: 2
+  test "explicit issuance does not lock a later authored group", ctx do
     [first, second] = Ash.read!(ExplicitGroup, authorize?: false, page: false, load: [:inputs])
-    later_item = hd(second.inputs).project_item_id
-    coverage = Ash.read!(TaskItemCoverage, authorize?: false, page: false)
-    later_coverage = Enum.find(coverage, &(&1.project_item_id == later_item))
     parent = self()
 
     holder =
       on_connection(fn ->
-        Ash.transact(TaskItemCoverage, fn ->
-          Ash.get!(TaskItemCoverage, later_coverage.id, authorize?: false, lock: :for_update)
-          send(parent, :later_coverage_locked)
+        Ash.transact(ExplicitGroup, fn ->
+          Ash.get!(ExplicitGroup, second.id, authorize?: false, lock: :for_update)
+          send(parent, :later_group_locked)
           receive do: (:release -> :ok)
         end)
       end)
 
     try do
-      assert_receive :later_coverage_locked, 5_000
+      assert_receive :later_group_locked, 5_000
       assert {:ok, %{status: :issued, attempt: attempt}} = fetch(ctx, Ash.UUID.generate())
       assert Ash.get!(Task, attempt.task_id, authorize?: false).explicit_group_id == first.id
     after
@@ -142,7 +106,7 @@ defmodule QuickTrain.Tasks.CollectionConcurrencyTest do
     end
   end
 
-  @tag selection_mode: :explicit, item_count: 2
+  @tag groups: false, item_count: 2
   test "a contended first explicit group is retried rather than skipped", ctx do
     [first, _second] = Ash.read!(ExplicitGroup, authorize?: false, page: false)
     parent = self()
@@ -180,11 +144,10 @@ defmodule QuickTrain.Tasks.CollectionConcurrencyTest do
     assert first.deadline == second.deadline
     assert Ash.count!(Attempt, authorize?: false) == 1
     assert Ash.count!(Task, authorize?: false) == 1
-    assert Ash.read_one!(TaskItemCoverage, authorize?: false).exposures == 1
   end
 
-  @tag accepted_target: 2
-  test "an existing task's last slot is reserved only once without inflating item coverage",
+  @tag submission_target: 2
+  test "an existing task's last slot is reserved only once without creating another task",
        ctx do
     ctx = issue!(ctx)
     first = Accounts.register_user!("next-first@example.test", "Next")
@@ -204,8 +167,7 @@ defmodule QuickTrain.Tasks.CollectionConcurrencyTest do
     assert issued.task_id == ctx.attempt.task_id
     assert Ash.count!(Task, authorize?: false) == 1
     assert Ash.count!(Attempt, authorize?: false) == 2
-    assert Ash.read_one!(TaskQuestionProgress, authorize?: false).live == 2
-    assert Ash.read_one!(TaskItemCoverage, authorize?: false).exposures == 1
+    assert Ash.read_one!(Task, authorize?: false, load: :live_count).live_count == 2
   end
 
   test "concurrent saves with one expected revision preserve only the successful replacement",
@@ -253,10 +215,9 @@ defmodule QuickTrain.Tasks.CollectionConcurrencyTest do
 
       assert Ash.get!(Attempt, ctx.attempt.id, authorize?: false).state == expected_state
       assert Ash.read_one!(QuestionResponse, authorize?: false).integer_value == expected_value
-      progress = Ash.read_one!(TaskQuestionProgress, authorize?: false)
-      assert progress.live == 0
-      assert progress.accepted == if(ctx.terminal == :submit, do: 1, else: 0)
-      assert progress.failures == if(ctx.terminal == :release, do: 1, else: 0)
+      task = Ash.read_one!(Task, authorize?: false, load: [:submitted_count, :live_count])
+      assert task.live_count == 0
+      assert task.submitted_count == if(ctx.terminal == :submit, do: 1, else: 0)
     end
   end
 
@@ -296,12 +257,13 @@ defmodule QuickTrain.Tasks.CollectionConcurrencyTest do
       assert Ash.get!(Attempt, ctx.attempt.id, authorize?: false).state ==
                if(submitted?, do: :submitted, else: :expired)
 
-      progress = Ash.read_one!(TaskQuestionProgress, authorize?: false)
-      assert progress.live == 0
-      assert progress.accepted == if(submitted?, do: 1, else: 0)
-      assert progress.failures == if(submitted?, do: 0, else: 1)
+      task = Ash.read_one!(Task, authorize?: false, load: [:submitted_count, :live_count])
+      assert task.live_count == 0
+      assert task.submitted_count == if(submitted?, do: 1, else: 0)
       assert terminal(ctx, :expire) == :ok
-      assert Ash.read_one!(TaskQuestionProgress, authorize?: false).failures == progress.failures
+
+      assert Ash.read_one!(Task, authorize?: false, load: :submitted_count).submitted_count ==
+               task.submitted_count
 
       assert Ash.read_one!(QuestionResponse, authorize?: false).integer_value ==
                if(ctx.operation == :save and ctx.order == :write_first, do: 4, else: 2)
@@ -335,46 +297,6 @@ defmodule QuickTrain.Tasks.CollectionConcurrencyTest do
       end
 
       assert Ash.get!(Project, ctx.project.id, authorize?: false).state == :completed
-      before = Ash.read_one!(TaskQuestionProgress, authorize?: false)
-
-      assert {:ok, _} =
-               QuickTrain.Tasks.reconcile_task(
-                 ctx.context.org.id,
-                 ctx.project.id,
-                 ctx.attempt.task_id,
-                 authorize?: false
-               )
-
-      after_rebuild = Ash.read_one!(TaskQuestionProgress, authorize?: false)
-
-      assert Map.take(before, [:accepted, :live, :failures]) ==
-               Map.take(after_rebuild, [:accepted, :live, :failures])
-    end
-  end
-
-  for order <- [:submit_first, :reconcile_first] do
-    @tag order: order
-    test "progress rebuilding retains each submitted outcome exactly once when #{order}", ctx do
-      ctx = issue!(ctx)
-      assert {:ok, _} = save(ctx, 0, 4)
-      submit = fn -> terminal(ctx, :submit) end
-
-      rebuild = fn ->
-        QuickTrain.Tasks.reconcile_task(ctx.context.org.id, ctx.project.id, ctx.attempt.task_id,
-          authorize?: false
-        )
-      end
-
-      {first, second} =
-        if ctx.order == :submit_first, do: {submit, rebuild}, else: {rebuild, submit}
-
-      assert {{:ok, _}, {:ok, _}} = ordered(ctx, first, second)
-      progress = Ash.read_one!(TaskQuestionProgress, authorize?: false)
-
-      assert {progress.accepted, progress.pending, progress.live, progress.failures} ==
-               {1, 0, 0, 0}
-
-      assert Ash.count!(ReviewDecision, authorize?: false) == 1
     end
   end
 
@@ -393,35 +315,29 @@ defmodule QuickTrain.Tasks.CollectionConcurrencyTest do
     assert attempt.state == :expired
     assert attempt.terminal_at == completed.completed_at
     assert DateTime.compare(completed.completed_at, deadline) != :lt
-    progress = Ash.read_one!(TaskQuestionProgress, authorize?: false)
-    assert {progress.live, progress.failures} == {0, 1}
+    assert Ash.read_one!(Task, authorize?: false, load: :live_count).live_count == 0
   end
 
-  for selection_mode <- [:balanced, :explicit] do
-    @tag selection_mode: selection_mode
-    test "rolled-back #{selection_mode} issuance leaves no task, reservation, or consumed group",
-         ctx do
-      key = Ash.UUID.generate()
+  test "rolled-back issuance leaves no task, attempt, or consumed group",
+       ctx do
+    key = Ash.UUID.generate()
 
-      assert {:error, error} =
-               Ash.transact(Project, fn ->
-                 assert {:ok, %{status: :issued}} = fetch(ctx, key)
-                 assert Ash.count!(Task, authorize?: false) == 1
-                 Repo.rollback(:injected_failure)
-               end)
+    assert {:error, error} =
+             Ash.transact(Project, fn ->
+               assert {:ok, %{status: :issued}} = fetch(ctx, key)
+               assert Ash.count!(Task, authorize?: false) == 1
+               Repo.rollback(:injected_failure)
+             end)
 
-      assert Exception.message(error) =~ "injected_failure"
+    assert Exception.message(error) =~ "injected_failure"
 
-      for resource <- [Task, TaskInput, Attempt, TaskQuestionProgress],
-          do: assert(Ash.count!(resource, authorize?: false) == 0)
+    for resource <- [Task, TaskInput, Attempt],
+        do: assert(Ash.count!(resource, authorize?: false) == 0)
 
-      assert Ash.read_one!(TaskItemCoverage, authorize?: false).exposures == 0
-      assert %{rows: [[0]]} = Repo.query!("SELECT count(*) FROM oban_jobs")
-      assert {:ok, %{status: :issued}} = fetch(ctx, key)
-      assert Ash.count!(Task, authorize?: false) == 1
-      assert Ash.count!(TaskInput, authorize?: false) == 1
-      assert Ash.read_one!(TaskItemCoverage, authorize?: false).exposures == 1
-    end
+    assert %{rows: [[0]]} = Repo.query!("SELECT count(*) FROM oban_jobs")
+    assert {:ok, %{status: :issued}} = fetch(ctx, key)
+    assert Ash.count!(Task, authorize?: false) == 1
+    assert Ash.count!(TaskInput, authorize?: false) == 1
   end
 
   defp issue!(ctx) do
@@ -448,7 +364,7 @@ defmodule QuickTrain.Tasks.CollectionConcurrencyTest do
 
   defp terminal(ctx, :complete),
     do:
-      QuickTrain.Projects.complete_project(ctx.context.org.id, ctx.project.id,
+      QuickTrain.Projects.complete_project(ctx.project,
         actor: ctx.context.actor
       )
 

@@ -6,7 +6,6 @@ defmodule QuickTrain.Datasets.DatasetFieldDefinition do
   alias QuickTrain.Datasets.SchemaVersionBoundary
 
   use Ash.Resource,
-    fragments: [QuickTrain.Authorization.CollectionRead],
     otp_app: :quick_train,
     domain: QuickTrain.Datasets,
     extensions: [AshGraphql.Resource],

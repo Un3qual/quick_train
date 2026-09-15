@@ -1,58 +1,101 @@
 ## MODIFIED Requirements
 
+### Requirement: Result access is an explicit organization capability
+Result and export operations SHALL require an active account, active owning organization, active membership, explicit organization/project scope, and `tasks.results.read`. Worker eligibility, ownership of one attempt, or another organization's permission SHALL not authorize result browsing. Reads SHALL return all effectively accepted question answers with exact project, form/schema version, task, revision, input, question, worker, and review provenance; they SHALL not select a canonical answer or synthesize consensus. Audit reads SHALL additionally expose submitted skips, pending/rejected outcomes, immutable review history, and expired/released/cancelled attempts with their actual presentation. General results SHALL omit all unsubmitted draft payloads, including terminal drafts, account email/authentication secrets, storage credentials, and compensation fields. Result and export GraphQL responses, including access failures, SHALL inherit `Cache-Control: no-store` from the existing HTTP request-security boundary.
+
+#### Scenario: Several accepted answers disagree
+- **WHEN** a result reader inspects a question with different accepted answers
+- **THEN** every accepted answer is returned with its own evidence and no answer is silently designated truth
+
+#### Scenario: A worker requests the organization's results
+- **WHEN** an external worker possessing an attempt ID queries result collections
+- **THEN** access fails without disclosing other workers or results
+
+#### Scenario: Result operations pass through the HTTP boundary
+- **WHEN** a caller requests result evidence, export status, or export download issuance through GraphQL
+- **THEN** successful responses and authorization failures include `Cache-Control: no-store`
+
 ### Requirement: Result context makes answers interpretable
-Collection context SHALL reuse the canonical Forms, Datasets, Assets, and ProjectInputBinding resources, relationships, and GraphQL types, without mirrored resource definitions or persisted copies. Collection entry points SHALL remain explicitly scoped in Tasks. Canonical resources SHALL integrate shared Authorization checks for collection reads alongside their ordinary domain policies, and a shared native Ash fragment SHALL provide scoped definition reads. Every collection context traversal SHALL recheck live worker or result authority, including exact issued input and bound field membership; caller-supplied traversal context alone SHALL confer no authority. Asset metadata reads SHALL use native field policies to hide private storage keys and operation claims.
+Collection context SHALL reuse canonical Forms, Datasets, Assets, and ProjectInputBinding resources without mirrored definitions or persisted copies. Published definitions SHALL be reached through scoped tasks, submitted outcomes, or owned work bundles; standalone collection-definition roots SHALL not be exposed. Each traversal SHALL recheck current worker or result authority and exact issued-input/bound-field membership. Caller-provided context alone SHALL confer no authority. Assets SHALL hide storage keys and operation claims through native field policies.
 
-Result-scoped reads SHALL expose the immutable question key/prompt/family/renderer and complete published typed constraints, referenced option keys/labels and annotation label keys/text, frozen input bindings, and exact bound dataset values needed to interpret eligible evidence. This authority SHALL require only the existing result-read checks, not additional `forms.read`, `datasets.read`, or `assets.read` grants. Bindings SHALL identify their input slot, requirement key/family/intended use, and bound field identity/key; value records SHALL identify their immutable revision/field and exact typed content. Reads SHALL identify optional absence explicitly. In complete default exports, a bound optional field on an exact revision with no matching value record SHALL denote absence; partial context filters SHALL not imply absence from an omitted record. Asset values SHALL expose immutable asset identity/hash/size/media metadata and permit separately authorized short-lived opaque source downloads through Tasks; exports SHALL not embed asset bytes, storage credentials, or expiring URLs. This access SHALL be confined to definitions and bound values referenced by eligible result evidence, with no general form/dataset/asset browsing or unbound-field traversal.
+Result-only readers SHALL resolve question keys/prompts/families/renderers, complete typed constraints, selected options and labels, pinned presentation elements, input requirements, bound field identities, and exact source values without additional forms/datasets/assets grants. The at-most-one text, integer, decimal, selection, and annotation constraint objects SHALL retain original IDs and fields. Absent constraints SHALL remain distinguishable from present null bounds, and decimals SHALL remain exact. A question_definition export record SHALL embed only its fixed typed constraint objects; options and labels SHALL remain separate records/connections.
 
-Question context SHALL preserve input-slot/source-requirement references and the original identities and all published fields of its at-most-one text, integer, decimal, selection, and annotation constraint records, including minimum/maximum bounds and annotation source/label-set references and source convention. An absent constraint record SHALL remain distinguishable from a present record with null bounds; the published Forms defaults SHALL remain unchanged. Each `question_definition` export record SHALL include this renderer and fixed set of typed constraint fields/objects in the same row. Optional absence and exact decimal bounds SHALL be preserved. Options and labels SHALL remain separately paginated/read and separately exported records; no new constraint export kinds or copied persistence resources SHALL be introduced.
+The complete pinned presentation sequence and per-attempt input order SHALL explain the whole form. Complete exports SHALL include deduplicated presentation_element, question_definition, question_option, label, project_input_binding, and dataset_value records derived from selected outcomes. For an exact revision and binding, absence of a dataset_value record SHALL denote optional absence. Asset context SHALL include immutable identity/hash/size/media facts, never file bytes, credentials, or expiring URLs. New source downloads SHALL be separately authorized and short-lived. No unbound-field or general organization browsing SHALL be authorized.
 
-Result context SHALL include the complete published PresentationElement sequence pinned by each included attempt, retaining each element's original identity, form-version identity, kind, position, plain text, and question/requirement references. Combine that sequence with AttemptQuestions to identify offered questions and AttemptInputPresentations to recover actual input order for bound-value placements. Definitions referenced by these placements SHALL remain available as context even when a question was not offered on that attempt; this SHALL not expose that question's excluded response payloads or change answer selection. No copied presentation resources or additional per-attempt presentation snapshot SHALL be required.
+#### Scenario: A result-only reader interprets an answer
+- **WHEN** a member with tasks.results.read reads choices, rankings, or labeled spans
+- **THEN** its question, typed constraints, labels, exact inputs, and bound sources are available through scoped context while unrelated records remain denied
 
-Default exports without evidence-kind/ID filters SHALL include that referenced context as flat records: `presentation_element`, `question_definition`, `question_option`, `label`, `project_input_binding`, and `dataset_value`, deduplicated by kind/ID. Shared context SHALL retain its original immutable identity without copying product data into new persistence resources. Explicit evidence filters MAY select only part of that graph; callers SHALL be able to retrieve omitted context through the same scoped reads or context-kind exports without additional foundation capabilities. Context records SHALL use the same snapshot guarantees and exact record accounting as answer evidence; this change SHALL impose no context or total-record allowance.
+#### Scenario: A constraint is absent
+- **WHEN** an integer question without a constraint record appears alongside a bounded Likert question
+- **THEN** reads and exports retain their distinct renderers, bounds, and explicit constraint absence
 
-#### Scenario: A result-only reader interprets selected evidence
-- **WHEN** a member with `tasks.results.read` and no form/dataset/asset grants reads or exports choices, rankings, or labeled spans
-- **THEN** they can resolve the original question, selected option labels, annotation label text, input bindings, and bound source content under result scope; unbound fields and unrelated definitions/assets remain denied
+#### Scenario: Instructions explain a response
+- **WHEN** a pinned form includes headings, instructions, and bound-value placements
+- **THEN** results preserve the original sequence and actual input order without substituting a newer form version
 
-#### Scenario: A result-only reader reconstructs a typed question contract
-- **WHEN** a result-only reader reads or exports a Likert integer question bounded 1–5 alongside an ordinary integer-input question with no constraint record
-- **THEN** their question definitions retain distinct renderers, the Likert constraint identity and bounds, and explicit absence of the ordinary integer constraint with the published default semantics, without requiring Forms access
+### Requirement: Evidence traversal is bounded and typed
+GraphQL SHALL expose scoped task/tasks and taskResult/taskResults roots. Outcome roots SHALL select submitted outcomes with an optional acceptedOnly filter; that filter SHALL not create a separate visibility mode for every child resource. Attempts, input presentations, typed answer children, and review history SHALL be nested connections with default 50/max 100 and stable identity tie-breakers. Separate accepted/audit roots for every persistence resource SHALL not exist. Result traversal SHALL exclude unsubmitted drafts even for a reader who also owns a live attempt. Interactive pagination SHALL reflect current decisions, without claiming a multi-request snapshot.
 
-#### Scenario: A caller exports one evidence kind
-- **WHEN** an authorized caller requests only task-input answers in a bounded ID range
-- **THEN** the artifact contains only those records and their provenance references, and the caller can retrieve their immutable meaning through scoped context reads or separately filtered context exports
+#### Scenario: A result contains many spans
+- **WHEN** an outcome contains more than one page of spans
+- **THEN** every child remains reachable through its ordered paginated relationship
 
-#### Scenario: Instructions give a prompt its meaning
-- **WHEN** a worker's pinned form contains instructions, headings, section markers, bound-value placements, and question placements, and its attempt offers only some questions
-- **THEN** result-only reads and default exports include the original element content, references, and sequence plus the offered-question set and actual input order, without substituting a later form version or exposing excluded answer payloads
+#### Scenario: A dual-role reader inspects task results
+- **WHEN** a result reader also owns a live draft in that project
+- **THEN** the result graph excludes that draft; it remains available only through the owned work bundle
+
+#### Scenario: A released attempt is inspected
+- **WHEN** a result reader traverses a task's terminal attempt history
+- **THEN** the terminal state and input presentation remain visible while draft answers stay hidden
 
 ### Requirement: Export selection is a committed immutable snapshot
-Ash create validations SHALL enforce each selection kind's required, optional, and forbidden owner fields for ordinary and bulk writes. These rules SHALL live in Elixir rather than a PostgreSQL business-rule check. The database SHALL retain scoped foreign keys, membership uniqueness, and positive record counts.
+Exports SHALL select complete project results in accepted or audit mode, without task-ID ranges, evidence-kind filters, or evidence-ID ranges. New requests SHALL require an activated project. Selection SHALL recheck the requester's current results capability and organization activity, then atomically seal one ExportSelection per selected submitted QuestionResponse in a repeatable-read transaction. Each membership SHALL pin the outcome and its effective decision ID, with scoped foreign keys and membership uniqueness. The system SHALL derive immutable task/input/attempt metadata, typed children, form context, bindings, and source values from those selected outcomes rather than persist per-kind membership rows.
 
-A new export request SHALL require an activated project in active, paused, completed, or archived state, preserving its frozen source contract. Identical existing request-key retries SHALL still recheck current authority. An export request SHALL choose accepted or audit mode and optionally an immutable inclusive task-ID range, an evidence kind, and an inclusive evidence-ID range within that kind. An evidence-ID range SHALL require an evidence kind; all supplied filters SHALL intersect. Callers SHALL be able to partition outcomes, typed child evidence, and review decisions within a single task using their existing immutable IDs and scoped evidence connections. Each request SHALL create an asynchronous export with visible queued, snapshotting, writing, ready, and failed states. The system SHALL check the requester's current capability and organization activity before materializing its first snapshot. It SHALL atomically pin committed evidence membership, the effective decision identities, and audit review history as of one snapshot, recording its time only when selection is sealed. Accepted mode SHALL select evidence supporting effectively accepted outcomes and their effective decisions at that snapshot; audit mode SHALL additionally include submitted nonaccepted outcomes, terminal attempts, and review history, excluding all unsubmitted draft payloads. Filters SHALL select records from that mode's eligible evidence without implicitly expanding related collections outside the filters. Immutable presentation/question/option/label membership SHALL be determined by the pinned published form version, immutable export filters, and form-context eligibility sealed in the same snapshot. The system SHALL not persist a separate membership row per immutable Forms record. Exports with no eligible attempt at sealing SHALL include no Forms context. Changing evidence and source-value membership SHALL remain explicitly pinned, with exact record counts across both kinds of context. A bare timestamp cutoff SHALL not replace consistent committed membership. JSON object keys, including nested constraint keys, SHALL have deterministic lexical order so retries across runtime restarts reproduce the same bytes. Retries after snapshot sealing SHALL retain the same selection even when later decisions or submissions occur. Separately requested partitions SHALL have independent snapshots and SHALL not claim a shared point in time.
+Accepted exports SHALL include effectively accepted outcomes and their pinned effective decisions. Audit exports SHALL include all submitted outcomes and decision history up to each pinned effective decision's number. Neither SHALL include unsubmitted outcomes or standalone attempts without a selected submission. Empty snapshots SHALL have no context records. Snapshot time and exact total record count SHALL be sealed with membership; a timestamp cutoff SHALL not substitute for transaction-consistent membership. Later submissions or corrections SHALL never change a sealed retry. JSON object keys, including nested constraint keys, SHALL be deterministic across VM restarts. The feature is unreleased; no historical response IDs, migrated membership variants, or old export-byte compatibility SHALL be required.
 
-#### Scenario: A draft project remains editable after an export request
-- **WHEN** a result reader requests a new export for a project that has never been activated
-- **THEN** the request fails before export or job persistence and does not prevent later draft source-contract changes
-- **AND** new exports remain available for active, paused, completed, and archived projects, whose source contracts are frozen
+#### Scenario: A correction arrives after sealing
+- **WHEN** an accepted answer is later rejected
+- **THEN** an existing export retains its selected answer and original decision, while a new export can reflect the correction
 
-#### Scenario: A decision is corrected while export runs
-- **WHEN** an answer accepted in the sealed snapshot is later rejected
-- **THEN** that export retains its selected answer/decision provenance while a newly requested export can reflect the correction
+#### Scenario: A submission commits after selection
+- **WHEN** a submission starts before snapshotting but commits afterward
+- **THEN** the sealed snapshot excludes it consistently
 
-#### Scenario: A transaction commits after snapshot selection
-- **WHEN** a submission starts before export snapshotting but commits after its snapshot
-- **THEN** it is excluded consistently rather than included because its timestamp is earlier
+#### Scenario: Audit history changes after sealing
+- **WHEN** a later correction appends another review decision
+- **THEN** a sealed audit retry still ends at the pinned decision number
 
-#### Scenario: A caller selects part of one task
-- **WHEN** an authorized caller wants only a range of child records or review decisions from a task
-- **THEN** it can select that evidence kind and ID range without exporting the task's entire history
+#### Scenario: An empty export gains work later
+- **WHEN** later work is submitted after a header-only snapshot seals
+- **THEN** retries remain header-only
 
-#### Scenario: A sealed export predates architecture consolidation
-- **WHEN** existing response ownership and immutable form memberships are migrated
-- **THEN** its selected records, historical response identifiers, counts, and already-published artifact bytes remain unchanged; unpublished retries retain their snapshot and regenerate with deterministic JSON key ordering
+### Requirement: Exports stream and publish atomically
+Exports SHALL produce format-versioned JSONL with one header and one line per selected evidence row ordered by kind then immutable ID. Core evidence kinds SHALL be `task`, `task_input`, `attempt`, `attempt_input_presentation`, `question_response`, `static_option_answer`, `task_input_answer`, `text_span`, `review_decision`, `presentation_element`, `question_definition`, `question_option`, `label`, `project_input_binding`, and `dataset_value`. Rows SHALL retain exact owner/provenance IDs and authored/presentation/review order fields as applicable; related collections SHALL be separate records rather than nested expansions. Shared evidence SHALL be deduplicated by kind/ID. Decimals SHALL retain exact precision and hashes SHALL use lowercase hexadecimal. Persistence of project/answer content SHALL remain relational; JSONL is only the output format. Export counts SHALL include every selected evidence row, including typed children, decisions, and shared context, and SHALL serialize as exact nonnegative decimal strings. This change SHALL impose no export record-count or output-byte ceiling. Existing Assets/provider publication constraints SHALL still apply; a publication failure SHALL expose no downloadable partial artifact. Generation SHALL stream records using paged reads and temporary-file cleanup and publish one verified immutable organization asset only after the entire artifact succeeds.
 
-#### Scenario: An empty export gains eligible work later
-- **WHEN** an export seals without an eligible attempt and work is subsequently submitted
-- **THEN** retrying that export still includes no form context or newly eligible evidence
+#### Scenario: Asset publication fails
+- **WHEN** export publication fails under the configured Assets/provider contract
+- **THEN** it returns a sanitized failure with no ready download or partially published artifact
+
+#### Scenario: Backend staging writes exceed their operation deadline
+- **WHEN** streaming generated bytes exceeds the configured Assets publication deadline
+- **THEN** the adapter fails in finite time without partial or late staging commits, the export retains its sealed snapshot and pending-asset identity, temporary output is cleaned up, and no ready download is exposed
+
+#### Scenario: An export contains many child records
+- **WHEN** selected outcomes include extensive typed children and review history
+- **THEN** generation streams every selected record from the sealed snapshot without truncating the evidence or imposing an export-specific count limit
+
+#### Scenario: The output contains a precise decimal
+- **WHEN** an exported answer is a decimal
+- **THEN** JSONL represents it as an exact string rather than an imprecise binary floating-point number
+
+### Requirement: Export retries and downloads preserve authority
+Export requests SHALL require caller-supplied UUID request keys. Invalid UUID input SHALL fail validation before persistence or job enqueue, without creating an export. Repeated requests with the same organization/project/requesting-actor key and identical mode SHALL resolve to one export; conflicting arguments SHALL fail, including a changed mode. Job retries SHALL reuse its sealed membership and converge on one ready immutable artifact, never regenerate a newer snapshot under that identity. Reads and download issuance SHALL recheck current results capability and organization activity. Downloads SHALL use existing short-lived opaque-asset access without disclosing storage credentials. Storage incapable of backend staging writes or compliant access SHALL fail explicitly with no ready download; the in-memory adapter SHALL not be represented as a reachable HTTP service. Failure SHALL expose a sanitized reason without draft values, credentials, or partially published artifacts.
+
+#### Scenario: A job retries after publishing bytes
+- **WHEN** the export worker crashes after sealing content but before recording completion
+- **THEN** its retry verifies/reuses the same snapshot's canonical content and completes one export
+
+#### Scenario: The requester's permission is revoked
+- **WHEN** a ready export's requester or another reader lacks the current results capability
+- **THEN** new export inspection/download access is denied even though the artifact already exists

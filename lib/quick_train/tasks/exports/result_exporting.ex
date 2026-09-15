@@ -6,22 +6,20 @@ defmodule QuickTrain.Tasks.Exports.ResultExporting do
   alias QuickTrain.Assets.Storage
   alias QuickTrain.DatasetAssetError
   alias QuickTrain.Tasks.{Access, Error}
-  alias QuickTrain.Tasks.Exports.{Jsonl, ResultExport, Snapshot}
+  alias QuickTrain.Tasks.Exports.{Jsonl, ResultExport}
   alias QuickTrain.Tasks.Workers.ExportResults
   @moduledoc false
   use Ash.Resource.Actions.Implementation
   require Ash.Query
-  @filters [:mode, :task_id_from, :task_id_to, :evidence_kind, :evidence_id_from, :evidence_id_to]
 
   @impl true
   def run(%{action: %{name: :process}, arguments: %{id: id}}, _opts, _context),
     do: process(id) |> DatasetAssetError.wrap()
 
   def run(%{action: %{name: :request_export}} = input, _opts, context) do
-    args = Map.merge(Map.new(@filters, &{&1, nil}), input.arguments)
+    args = input.arguments
 
     Ash.transact(ResultExport, fn ->
-      validate_filters!(args)
       project = Access.project!(args.organization_id, args.project_id)
       Access.manager!(project, context.actor, "tasks.results.read")
       # A requester row serializes request-key retries before the unique insert;
@@ -94,7 +92,7 @@ defmodule QuickTrain.Tasks.Exports.ResultExporting do
   defp require_activated!(_project), do: Error.reject!(:project_not_activated)
 
   defp same_request!(existing, args) do
-    unless Map.take(existing, @filters) == Map.take(args, @filters),
+    unless existing.mode == args.mode,
       do: Error.reject!(:export_request_conflict)
 
     existing
@@ -102,12 +100,6 @@ defmodule QuickTrain.Tasks.Exports.ResultExporting do
 
   defp ready_asset!(%{state: :ready, asset_id: id}), do: Ash.get!(Asset, id, authorize?: false)
   defp ready_asset!(_export), do: Error.reject!(:export_not_ready)
-
-  defp validate_filters!(args) do
-    if args.evidence_kind &&
-         args.evidence_kind not in Enum.map(Snapshot.kinds(), &Atom.to_string/1),
-       do: Error.reject!(:invalid_export_filter)
-  end
 
   defp process(id) do
     {:ok, export} =

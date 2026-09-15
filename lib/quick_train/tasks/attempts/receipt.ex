@@ -11,18 +11,13 @@ defmodule QuickTrain.Tasks.Attempts.Receipt do
     attribute :started_at, :utc_datetime_usec, public?: true
     attribute :terminal_at, :utc_datetime_usec, public?: true
     attribute :inserted_at, :utc_datetime_usec, public?: true
-  end
-
-  relationships do
-    has_many :questions, QuickTrain.Tasks.Attempts.AttemptQuestion,
-      source_attribute: :id,
-      destination_attribute: :attempt_id,
-      public?: true
+    attribute :accepted, :integer, public?: true, default: 0
+    attribute :pending, :integer, public?: true, default: 0
+    attribute :rejected, :integer, public?: true, default: 0
+    attribute :skipped, :integer, public?: true, default: 0
   end
 
   graphql do
     type :task_receipt
-    relationships [:questions]
-    paginate_relationship_with questions: :relay
   end
 end

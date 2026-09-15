@@ -18,10 +18,6 @@ defmodule QuickTrain.Tasks.Task do
   end
 
   relationships do
-    has_many :progress, QuickTrain.Tasks.Progress.TaskQuestionProgress,
-      destination_attribute: :task_id,
-      public?: true
-
     has_many :inputs, QuickTrain.Tasks.TaskInput, destination_attribute: :task_id, public?: true
 
     has_many :attempts, QuickTrain.Tasks.Attempts.Attempt,
@@ -44,18 +40,18 @@ defmodule QuickTrain.Tasks.Task do
       public?: true
 
     belongs_to :explicit_group, QuickTrain.Projects.ExplicitGroup,
-      allow_nil?: true,
+      allow_nil?: false,
       attribute_public?: true
   end
 
   aggregates do
-    exists :unmet_questions, :progress do
-      filter expr(accepted < target)
+    count :submitted_count, :attempts do
+      filter expr(state == :submitted)
       authorize? false
     end
 
-    exists :unmet_without_attention, :progress do
-      filter expr(accepted < target and not attention)
+    count :live_count, :attempts do
+      filter expr(state in [:claimed, :assigned, :in_progress])
       authorize? false
     end
   end
@@ -65,14 +61,11 @@ defmodule QuickTrain.Tasks.Task do
               :atom,
               expr(
                 cond do
-                  not unmet_questions -> :satisfied
+                  submitted_count >= project.submission_target -> :satisfied
                   project.state in [:completed, :archived] -> :cancelled
-                  not unmet_without_attention -> :needs_attention
                   true -> :open
                 end
-              ),
-              public?: true,
-              constraints: [one_of: [:open, :satisfied, :needs_attention, :cancelled]]
+              ), public?: true, constraints: [one_of: [:open, :satisfied, :cancelled]]
   end
 
   preparations do
@@ -80,42 +73,28 @@ defmodule QuickTrain.Tasks.Task do
   end
 
   actions do
-    action :reconcile, :struct do
-      transaction? true
-      public? false
-      constraints instance_of: __MODULE__
+    read :list_scoped do
+      prepare build(context: %{shared: %{task_results: true}})
       argument :organization_id, :uuid, allow_nil?: false
       argument :project_id, :uuid, allow_nil?: false
-      argument :task_id, :uuid, allow_nil?: false
-      run Module.concat(["QuickTrain.Tasks.Progress"])
+      filter expr(organization_id == ^arg(:organization_id) and project_id == ^arg(:project_id))
+      prepare build(sort: [id: :asc])
+
+      pagination keyset?: true,
+                 required?: true,
+                 default_limit: 50,
+                 max_page_size: 100,
+                 stable_sort: [id: :asc]
     end
 
-    for {mode, list_action, get_action} <- [
-          {:audit, :list_audit, :get_audit},
-          {:accepted, :list_accepted, :get_accepted}
-        ] do
-      read list_action do
-        argument :organization_id, :uuid, allow_nil?: false
-        argument :project_id, :uuid, allow_nil?: false
-        filter expr(organization_id == ^arg(:organization_id) and project_id == ^arg(:project_id))
-        prepare {Module.concat(["QuickTrain.Tasks.Access.ReadAccess.Prepare"]), mode: mode}
-
-        pagination keyset?: true,
-                   required?: true,
-                   default_limit: 50,
-                   max_page_size: 100,
-                   stable_sort: [inserted_at: :asc, id: :asc]
-      end
-
-      read get_action do
-        get? true
-        argument :id, :uuid, allow_nil?: false
-        filter expr(id == ^arg(:id))
-        argument :organization_id, :uuid, allow_nil?: false
-        argument :project_id, :uuid, allow_nil?: false
-        filter expr(organization_id == ^arg(:organization_id) and project_id == ^arg(:project_id))
-        prepare {Module.concat(["QuickTrain.Tasks.Access.ReadAccess.Prepare"]), mode: mode}
-      end
+    read :get_scoped do
+      prepare build(context: %{shared: %{task_results: true}})
+      get? true
+      argument :id, :uuid, allow_nil?: false
+      filter expr(id == ^arg(:id))
+      argument :organization_id, :uuid, allow_nil?: false
+      argument :project_id, :uuid, allow_nil?: false
+      filter expr(organization_id == ^arg(:organization_id) and project_id == ^arg(:project_id))
     end
 
     read :read do
@@ -147,7 +126,7 @@ defmodule QuickTrain.Tasks.Task do
       authorize_if Module.concat(["QuickTrain.Tasks.Access.ReadAccess"])
     end
 
-    policy action([:list_audit, :get_audit, :list_accepted, :get_accepted]) do
+    policy action([:list_scoped, :get_scoped]) do
       authorize_if {QuickTrain.Authorization.Checks.OrganizationCapability,
                     capability: "tasks.results.read"}
     end
@@ -162,12 +141,11 @@ defmodule QuickTrain.Tasks.Task do
     derive_filter? false
     derive_sort? false
 
-    paginate_relationship_with progress: :relay,
-                               inputs: :relay,
+    paginate_relationship_with inputs: :relay,
                                attempts: :relay,
                                outcomes: :relay
 
-    relationships [:inputs, :attempts, :outcomes, :form_version, :progress]
+    relationships [:inputs, :attempts, :outcomes, :form_version]
   end
 
   postgres do

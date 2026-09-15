@@ -12,10 +12,9 @@ defmodule QuickTrain.Authorization.Checks.CollectionContext do
     do: "an exact published definition or bound value of currently authorized issued work"
 
   def filter(%{id: _} = actor, %{resource: resource, query: query}, _opts) do
-    if query.action.name == :get_collection_definition or
-         is_map(query.context[:accessing_from]),
-       do: definition_filter(resource, actor),
-       else: false
+    if is_map(query.context[:accessing_from]),
+      do: definition_filter(resource, actor),
+      else: false
   end
 
   def filter(_, _, _), do: false

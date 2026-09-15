@@ -3,7 +3,6 @@ defmodule QuickTrainWeb.ProjectTaskCollectionTest do
   alias QuickTrain.{Accounts, Authorization, Organizations, ProjectsFixture, Tasks}
   alias QuickTrain.Assets.Storage.InMemory
   alias QuickTrain.Tasks.Attempts.Attempt
-  alias QuickTrain.Tasks.Progress.TaskQuestionProgress
   require Ash.Query
 
   setup do
@@ -37,7 +36,7 @@ defmodule QuickTrainWeb.ProjectTaskCollectionTest do
       graphql!(conn, """
       { workBundle(#{scope}, attemptId: "#{attempt}") {
         id formVersion { id questions(first: 5) { edges { node { id renderer integerConstraints { minimum maximum } } } } }
-        offeredQuestions(first: 5) { edges { node { questionId skipAllowed reasonRequired } } }
+        skipAllowed reasonRequired
         inputPresentations(first: 5) { edges { node { taskInputId position } } }
         revision
       } }
@@ -45,16 +44,9 @@ defmodule QuickTrainWeb.ProjectTaskCollectionTest do
 
     assert bundle["formVersion"]["id"] == ctx.source.form.version.id
 
-    assert [
-             %{
-               "node" => %{
-                 "questionId" => question,
-                 "skipAllowed" => true,
-                 "reasonRequired" => true
-               }
-             }
-           ] = bundle["offeredQuestions"]["edges"]
-
+    assert bundle["skipAllowed"]
+    assert bundle["reasonRequired"]
+    question = hd(bundle["formVersion"]["questions"]["edges"])["node"]["id"]
     assert question == ctx.source.form.question.id
     input = hd(bundle["inputPresentations"]["edges"])["node"]["taskInputId"]
 
@@ -84,15 +76,15 @@ defmodule QuickTrainWeb.ProjectTaskCollectionTest do
 
     receipt =
       graphql!(conn, """
-      { attemptReceipt(#{scope}, attemptId: "#{attempt}") { id state questions(first: 5) { edges { node { reviewStatus } } } } }
+      { attemptReceipt(#{scope}, attemptId: "#{attempt}") { id state accepted pending rejected skipped } }
       """)["attemptReceipt"]
 
     assert receipt["state"] == "submitted"
-    assert hd(receipt["questions"]["edges"])["node"]["reviewStatus"] == "accepted"
+    assert receipt["accepted"] == 1
 
     results =
       request(bearer(ctx.conn, ctx.reader), """
-      { acceptedQuestionResponses(#{scope}, first: 5) { edges { node {
+      { taskResults(#{scope}, acceptedOnly: true, first: 5) { edges { node {
         id integerValue question { renderer integerConstraints { minimum maximum } }
         attempt { workerId inputPresentations(first: 5) { edges { node { position } } } }
       } } } }
@@ -101,7 +93,7 @@ defmodule QuickTrainWeb.ProjectTaskCollectionTest do
     refute results["errors"]
 
     assert [%{"node" => %{"integerValue" => 4}}] =
-             results["data"]["acceptedQuestionResponses"]["edges"]
+             results["data"]["taskResults"]["edges"]
 
     denied =
       request(
@@ -113,7 +105,7 @@ defmodule QuickTrainWeb.ProjectTaskCollectionTest do
     assert request(conn, "{ workBundle(#{scope}, attemptId: \"#{attempt}\") { id } }")["errors"]
   end
 
-  test "assignment and audit grants stay separate and both are required for linked follow-up",
+  test "assignment and result inspection require separate grants",
        ctx do
     manager = member!(ctx.context, "assigner", ~w(tasks.assign))
 
@@ -125,7 +117,10 @@ defmodule QuickTrainWeb.ProjectTaskCollectionTest do
     Tasks.release_attempt!(ctx.context.org.id, ctx.project.id, original.id, actor: ctx.worker)
     conn = bearer(ctx.conn, manager)
 
-    assert request(conn, "{ auditAttempts(#{scope(ctx)}, first: 5) { edges { node { id } } } }")[
+    assert request(
+             conn,
+             "{ tasks(#{scope(ctx)}, first: 5) { edges { node { id attempts(first: 5) { edges { node { id } } } } } } }"
+           )[
              "errors"
            ]
 
@@ -145,51 +140,16 @@ defmodule QuickTrainWeb.ProjectTaskCollectionTest do
              "mutation { cancelAttempt(#{scope(ctx)}, attemptId: \"#{assigned["id"]}\") { state } }"
            )["cancelAttempt"]["state"] == "cancelled"
 
-    follow_up = """
-    mutation { assignFollowUp(#{scope(ctx)}, workerId: "#{ctx.worker.id}", predecessorId: "#{original.id}", requestKey: "#{Ash.UUID.generate()}") { status attempt { id predecessorId } } }
-    """
-
-    assert request(conn, follow_up)["errors"]
     grant!(ctx.context, manager, "tasks.results.read")
-    audit = graphql!(conn, "{ auditAttempts(#{scope(ctx)}, first: 5) { edges { node { id } } } }")
-    assert Enum.any?(audit["auditAttempts"]["edges"], &(&1["node"]["id"] == original.id))
-    issued = graphql!(conn, follow_up)["assignFollowUp"]
-    assert issued["status"] == "issued"
-    assert issued["attempt"]["predecessorId"] == original.id
-  end
 
-  test "projection totals retain decimal string precision beyond GraphQL Int", ctx do
-    attempt =
-      Tasks.fetch_work!(ctx.context.org.id, ctx.project.id, Ash.UUID.generate(),
-        actor: ctx.worker
-      ).attempt
+    tasks =
+      graphql!(
+        conn,
+        "{ tasks(#{scope(ctx)}, first: 5) { edges { node { id attempts(first: 5) { edges { node { id } } } } } } }"
+      )["tasks"]["edges"]
 
-    row = Ash.read_one!(TaskQuestionProgress, authorize?: false)
-
-    for count <- [0, 2_147_483_647, 2_147_483_648] do
-      Ash.update!(
-        row,
-        %{accepted: count, pending: count, skipped: count, rejected: count, failures: count},
-        action: :update_internal,
-        authorize?: false
-      )
-
-      node =
-        graphql!(bearer(ctx.conn, ctx.reader), """
-        { auditTask(#{scope(ctx)}, id: "#{attempt.task_id}") { progress(first: 5) { edges { node {
-          accepted pending skipped rejected failures live target failureThreshold
-        } } } } }
-        """)["auditTask"]["progress"]["edges"]
-        |> hd()
-        |> Map.fetch!("node")
-
-      assert node["accepted"] == Integer.to_string(count)
-      assert node["pending"] == Integer.to_string(count)
-      assert node["failures"] == Integer.to_string(count)
-      assert node["live"] == "1"
-      assert node["target"] == 1
-      assert node["failureThreshold"] == 3
-    end
+    attempts = Enum.flat_map(tasks, & &1["node"]["attempts"]["edges"])
+    assert Enum.any?(attempts, &(&1["node"]["id"] == original.id))
   end
 
   test "invalid keys and revoked eligibility fail closed through the HTTP boundary", ctx do

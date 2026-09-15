@@ -1,7 +1,6 @@
 defmodule QuickTrain.Forms.Inputs.InputSlotDefinition do
   @moduledoc "Organization-scoped input slot definition."
   use Ash.Resource,
-    fragments: [QuickTrain.Authorization.CollectionRead],
     primary_read_warning?: false,
     otp_app: :quick_train,
     domain: QuickTrain.Forms,

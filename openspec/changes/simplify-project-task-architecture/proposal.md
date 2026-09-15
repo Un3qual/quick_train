@@ -1,17 +1,15 @@
 ## Why
 
-The collection architecture stores a second response lifecycle for each attempt, maintains derivable status fields, snapshots already immutable form membership, and couples explicit issuance to balanced selection. Collection authorization needs an explicit integration with the existing domain resources, without duplicating their schemas. The user approved fixing all five findings from the branch architecture review.
+The unreleased collection feature combines adaptive grouping, question-level fulfillment, a broad evidence API, and partitioned historical exports. The user approved simplifying all six architectural cost centers and confirmed there is no existing data or published API to preserve.
 
 ## What Changes
 
-- Make Attempt own draft revisions, submitted answers, and submission state; remove the Response resource and response-specific query roots.
-- Calculate question attention and task status from transactional progress counters and project state.
-- Pin immutable form context once per export, retaining committed membership for changing evidence and deterministic JSONL serialization across runtime restarts.
-- Initialize coverage at activation and separate explicit group locking from balanced selection.
-- Batch explicit-group activation reads and coverage increments, and index project-scoped coverage/progress queries.
-- Keep collection entry points in Tasks, reuse canonical domain resources, and centralize cross-domain collection/source checks in Authorization through native Ash policies and a scoped-read fragment.
-- Resolve bound assets once for metadata and source-download workflows while keeping private storage fields out of public results.
-- Preserve collected evidence, historical export provenance, leases, pagination, and organization boundaries.
+- Use one explicit ordered group model and one project-wide submission target applied to every task. Every attempt answers the full published form. Reviews classify answers without changing allocation demand.
+- Remove balanced combination search, item coverage, question reservations/progress, failure escalation, and linked follow-ups. Count submitted and live attempts using native Ash aggregates while holding the task lock.
+- Center public reads on tasks, submitted outcomes, work bundles, and receipts. Keep canonical Forms/Datasets resources and scoped nested traversal; remove per-child audit/accepted roots and standalone collection-definition roots.
+- Export complete project results in accepted or audit mode. Pin each selected submitted outcome and its effective review decision once, deriving immutable related records from those owners. Remove arbitrary record-kind and UUID-range partitioning.
+- Expose native Ash create/update project mutations. Pin source identities at creation; drafts configure their cohort, bindings, slot policies, and project-level submission/skip settings.
+- Regenerate the branch migration from the main baseline and remove intermediate snapshots and historical-response compatibility.
 
 ## Capabilities
 
@@ -19,12 +17,12 @@ The collection architecture stores a second response lifecycle for each attempt,
 
 ### Modified Capabilities
 
-- `task-responses`: Attempt owns draft revisions and question outcomes.
-- `task-review`: Attention and task state are derived projections.
-- `projects`: Activation initializes frozen cohort coverage.
-- `task-allocation`: Explicit issuance has a narrow locking boundary.
-- `task-results`: Immutable form context uses a version-level snapshot and collection-owned reads.
+- `projects`: A fixed source contract, explicit groups, and project-level collection settings.
+- `task-allocation`: Whole-form attempts fulfill a task submission target independently of review.
+- `task-responses`: Attempts own all form outcomes; project settings govern skips.
+- `task-review`: Review history classifies submitted answers without driving allocation.
+- `task-results`: Curated read roots and complete project exports with one membership per outcome.
 
 ## Impact
 
-Projects/Tasks resources, GraphQL result shapes, authorization integration, migrations, and collection tests change. No dependencies or new external services are required.
+This deliberately changes unreleased GraphQL and domain APIs and removes unused scheduling resources. Authorization, exact immutable source/answer values, lease enforcement, atomic writes, review history, and reproducible verified export publication remain required. No new dependency, service, or framework is introduced.

@@ -3,8 +3,7 @@ defmodule QuickTrain.Projects.Project.Changes.Transition do
   use Ash.Resource.Change
   alias QuickTrain.Projects.{Error, Management, ProjectActivation}
   alias QuickTrain.Tasks.Attempts.Leases
-  alias QuickTrain.Tasks.Progress
-  alias QuickTrain.Tasks.Progress.ProjectCompletion
+  alias QuickTrain.Tasks.Attempts.ProjectCompletion
 
   @impl true
   def change(changeset, opts, context),
@@ -21,11 +20,12 @@ defmodule QuickTrain.Projects.Project.Changes.Transition do
 
       prepare_transition!(changeset)
     end
+  rescue
+    error in [Ash.Error.Invalid, Ash.Error.Forbidden] -> Ash.Changeset.add_error(changeset, error)
   end
 
   defp prepare_transition!(%{action: %{name: :activate_record}} = changeset) do
     ProjectActivation.validate!(changeset.data)
-    Progress.initialize_coverage!(changeset.data)
     Ash.Changeset.force_change_attribute(changeset, :activated_at, DateTime.utc_now())
   end
 

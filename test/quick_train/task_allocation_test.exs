@@ -4,7 +4,6 @@ defmodule QuickTrain.Tasks.TaskAllocationTest do
   alias QuickTrain.Projects.{ExplicitGroup, Project}
 
   alias QuickTrain.Tasks.Attempts.{Attempt, AttemptInputPresentation}
-  alias QuickTrain.Tasks.Progress.TaskQuestionProgress
   alias QuickTrain.Tasks.{Task, TaskInput}
   alias QuickTrain.Tasks.Workers.ExpireAttempt
   require Ash.Query
@@ -39,7 +38,7 @@ defmodule QuickTrain.Tasks.TaskAllocationTest do
     assert Ash.count!(Attempt, authorize?: false) == 1
   end
 
-  test "malformed request keys fail before task or coverage changes", ctx do
+  test "malformed request keys fail before issuing work", ctx do
     assert {:error, _} =
              Attempt
              |> Ash.ActionInput.for_action(
@@ -63,7 +62,7 @@ defmodule QuickTrain.Tasks.TaskAllocationTest do
       ProjectsFixture.configured!(ctx.context, ctx.source,
         audience: :external_users,
         external_access: :open,
-        selection_mode: :explicit
+        groups: false
       )
 
     QuickTrain.Projects.set_slot_policy!(
@@ -104,7 +103,7 @@ defmodule QuickTrain.Tasks.TaskAllocationTest do
       end)
 
     project =
-      QuickTrain.Projects.activate_project!(ctx.context.org.id, project.id,
+      QuickTrain.Projects.activate_project!(project,
         actor: ctx.context.actor
       )
 
@@ -158,25 +157,23 @@ defmodule QuickTrain.Tasks.TaskAllocationTest do
     )
 
     completed =
-      QuickTrain.Projects.complete_project!(ctx.context.org.id, ctx.project.id,
+      QuickTrain.Projects.complete_project!(ctx.project,
         actor: ctx.context.actor
       )
 
     assert completed.state == :completed
     assert Ash.get!(Attempt, first.id, authorize?: false).state == :expired
     assert Ash.get!(Attempt, second.id, authorize?: false).state == :cancelled
-    progress = Ash.read!(TaskQuestionProgress, authorize?: false)
-    assert Enum.sum(Enum.map(progress, & &1.live)) == 0
-    assert Enum.sum(Enum.map(progress, & &1.failures)) == 1
+    assert Enum.all?(Ash.read!(Task, authorize?: false, load: :live_count), &(&1.live_count == 0))
     assert Enum.all?(Ash.read!(Task, authorize?: false), &(&1.state == :cancelled))
 
-    assert QuickTrain.Projects.complete_project!(ctx.context.org.id, ctx.project.id,
+    assert QuickTrain.Projects.complete_project!(ctx.project,
              actor: ctx.context.actor
            ).completed_at ==
              completed.completed_at
   end
 
-  test "another worker's overdue lease contributes failure before capacity is reused", ctx do
+  test "another worker's overdue lease expires before capacity is reused", ctx do
     first = fetch(ctx, Ash.UUID.generate()).attempt
 
     Repo.query!(
@@ -188,9 +185,7 @@ defmodule QuickTrain.Tasks.TaskAllocationTest do
     next = fetch(%{ctx | worker: second_worker}, Ash.UUID.generate()).attempt
     assert next.task_id == first.task_id
     assert Ash.get!(Attempt, first.id, authorize?: false).state == :expired
-    progress = Ash.read_one!(TaskQuestionProgress, authorize?: false)
-    assert progress.live == 1
-    assert progress.failures == 1
+    assert Ash.get!(Task, first.task_id, authorize?: false, load: :live_count).live_count == 1
 
     assert :ok =
              ExpireAttempt.perform(%Oban.Job{
@@ -201,7 +196,7 @@ defmodule QuickTrain.Tasks.TaskAllocationTest do
                }
              })
 
-    assert Ash.read_one!(TaskQuestionProgress, authorize?: false).failures == 1
+    assert Ash.get!(Attempt, first.id, authorize?: false).state == :expired
   end
 
   @tag item_count: 1
@@ -222,32 +217,7 @@ defmodule QuickTrain.Tasks.TaskAllocationTest do
   end
 
   @tag item_count: 1
-  test "delayed expiry reaches attention before allocation and cleanup commits on no-work", ctx do
-    project =
-      ProjectsFixture.configured!(ctx.context, ctx.source,
-        audience: :external_users,
-        external_access: :open
-      )
-
-    QuickTrain.Projects.set_question_policy!(
-      ctx.context.org.id,
-      project.id,
-      %{
-        question_id: ctx.source.form.question.id,
-        accepted_target: 1,
-        failure_threshold: 1,
-        skip_allowed: true,
-        reason_required: false
-      },
-      actor: ctx.context.actor
-    )
-
-    project =
-      QuickTrain.Projects.activate_project!(ctx.context.org.id, project.id,
-        actor: ctx.context.actor
-      )
-
-    ctx = %{ctx | project: project}
+  test "delayed expiry cleanup commits even when this worker has exhausted the task", ctx do
     first = fetch(ctx, Ash.UUID.generate()).attempt
 
     Repo.query!(
@@ -255,12 +225,11 @@ defmodule QuickTrain.Tasks.TaskAllocationTest do
       [Ecto.UUID.dump!(first.id)]
     )
 
-    other = Accounts.register_user!("threshold@example.test", "Threshold")
-    assert fetch(%{ctx | worker: other}, Ash.UUID.generate()).status == :needs_attention
+    assert fetch(ctx, Ash.UUID.generate()).status == :no_work_for_worker
     assert Ash.get!(Attempt, first.id, authorize?: false).state == :expired
-    assert Ash.get!(Task, first.task_id, authorize?: false).state == :needs_attention
-    progress = Ash.read_one!(TaskQuestionProgress, authorize?: false)
-    assert {progress.live, progress.failures, progress.attention} == {0, 1, true}
+    assert Ash.get!(Task, first.task_id, authorize?: false).state == :open
+    other = Accounts.register_user!("replacement@example.test", "Replacement")
+    assert fetch(%{ctx | worker: other}, Ash.UUID.generate()).attempt.task_id == first.task_id
   end
 
   test "member and external routes combine while a block overrides either route", ctx do
@@ -306,7 +275,7 @@ defmodule QuickTrain.Tasks.TaskAllocationTest do
        ctx do
     attempt = fetch(ctx, Ash.UUID.generate()).attempt
 
-    QuickTrain.Projects.pause_project!(ctx.context.org.id, ctx.project.id,
+    QuickTrain.Projects.pause_project!(ctx.project,
       actor: ctx.context.actor
     )
 

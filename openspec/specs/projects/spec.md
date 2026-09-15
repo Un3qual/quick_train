@@ -18,7 +18,7 @@ Project operations SHALL resolve targets within an explicit organization and req
 - **THEN** no unauthorized record is disclosed or changed
 
 ### Requirement: One explicit immutable cohort and contract
-A project SHALL pin one dataset, one published schema version of that dataset, one published form version of the same organization, and an explicit nonempty cohort containing at most one revision per stable dataset item. All revisions SHALL use the pinned schema version. Every slot SHALL have an exact positive group size within its published bounds, and every requirement SHALL bind to one root field of the pinned schema with identical family/cardinality. Required requirements SHALL bind required fields. Each cohort revision SHALL be compatible with every slot's bindings; present assets SHALL be ready. Task groups SHALL contain distinct items across all slots. No form/question copy per item SHALL be created.
+A project SHALL fix its source identities at creation: one dataset, one published schema version of that dataset, one published form version of the same organization. Before activation it SHALL define an explicit nonempty cohort containing at most one revision per stable dataset item. All revisions SHALL use the pinned schema version. Every slot SHALL have an exact positive group size within its published bounds, and every requirement SHALL bind to one root field of the pinned schema with identical family/cardinality. Required requirements SHALL bind required fields. Each cohort revision SHALL be compatible with every slot's bindings; present assets SHALL be ready. Task groups SHALL contain distinct items across all slots. No form/question copy per item SHALL be created.
 
 #### Scenario: A pairwise project uses reusable definitions
 - **WHEN** a project binds a two-item candidate slot to compatible text fields and enrolls explicit revisions
@@ -29,33 +29,33 @@ A project SHALL pin one dataset, one published schema version of that dataset, o
 - **THEN** activation fails atomically with scoped issues and leaves the project draft
 
 ### Requirement: Activation freezes collection configuration
-Activation SHALL atomically validate and freeze the cohort, dataset/schema/form references, bindings, slot counts/order policy, selection mode, audience/external-access mode, review mode, per-question policies, coverage target, and lease duration. Activation SHALL initialize coverage rows for the frozen cohort without issuing tasks; activation retries SHALL not reset existing exposure counts. Each form question SHALL have a positive accepted-answer target, skip permission, reason-required setting, and positive failure threshold. Selection SHALL be `balanced` or `explicit`; review SHALL be `automatic` or `manual`; lease duration SHALL be 1–120 minutes with a 30-minute default. Child edits and activation SHALL serialize so an edit is either included in validation or rejected after freezing. Authorized activation retries SHALL return the existing active project. After activation only title, lifecycle, and explicit per-user allow/block overrides SHALL be editable.
+Activation SHALL atomically validate and freeze the cohort, bindings, explicit groups, slot counts/order policy, audience/external-access mode, review mode, submission target, project-wide skip rules, and lease duration. Dataset/schema/form identities SHALL be immutable from creation, including in draft. Each task SHALL require the project's positive `submission_target` (default 1, maximum 2,147,483,647). `skip_allowed` and `reason_required` SHALL default to false and apply to the whole form. Review SHALL be automatic or manual; leases SHALL be 1–120 minutes with a 30-minute default. Activation SHALL create no tasks, coverage rows, or progress projections. Child edits and activation SHALL serialize under the Project lock. After activation only title, lifecycle, and per-user allow/block overrides SHALL be editable.
 
 #### Scenario: A draft edit races activation
-- **WHEN** enrollment or policy editing competes with activation
-- **THEN** either the complete edit commits first and is validated, or activation commits first and the edit fails without modifying the frozen contract
+- **WHEN** enrollment, grouping, or policy editing competes with activation
+- **THEN** the complete edit is either included in activation validation or rejected after freezing
 
-#### Scenario: New imports do not enter active work
-- **WHEN** another revision or dataset item is imported after activation
-- **THEN** the active project's cohort and every issued input remain unchanged; enrollment requires a new project
+#### Scenario: An import arrives after activation
+- **WHEN** a later revision is imported
+- **THEN** the frozen cohort and all issued inputs remain unchanged
 
-#### Scenario: A manager changes worker access after activation
-- **WHEN** an authorized manager adds, changes, or removes a per-user allow/block override on an active project
-- **THEN** the edit takes the Project lock and rechecks current `projects.manage` authority without requiring draft state; frozen configuration edits still fail
+#### Scenario: A manager changes worker access
+- **WHEN** an authorized manager edits an active project's per-user override
+- **THEN** the edit rechecks current management authority under the Project lock without reopening configuration
 
 ### Requirement: Explicit groups are validated before use
-An explicit-selection project SHALL define a finite ordered collection of groups whose inputs use its cohort and exact slot counts. Group identity SHALL ignore display shuffling but preserve slot membership. Duplicate canonical groups SHALL be rejected. Before activation every cohort item SHALL appear in at least the configured positive coverage target number of distinct groups. Unissued explicit groups SHALL remain configuration, not allocated tasks or worker evidence.
+Every project SHALL define a finite ordered collection of nonempty groups whose inputs use its cohort and exact slot counts. Group identity SHALL ignore display order but preserve slot membership. Duplicate canonical groups and duplicate items within a group SHALL be rejected. Every enrolled item SHALL appear in at least one group before activation. Unissued groups SHALL remain configuration rather than allocated tasks or worker evidence. Automatic/balanced grouping and coverage targets SHALL not be part of this contract.
 
 #### Scenario: Equivalent authored groups are rejected
-- **WHEN** two explicit groups contain the same items in the same slots but reverse display order
-- **THEN** the project rejects the duplicate rather than creating duplicate work
+- **WHEN** two groups contain the same items in the same slots but reverse display order
+- **THEN** the duplicate is rejected
 
-#### Scenario: Explicit coverage is impossible
-- **WHEN** the authored groups do not cover an enrolled item to the configured target
-- **THEN** activation fails with a scoped configuration error
+#### Scenario: An enrolled item is absent from the groups
+- **WHEN** activation finds an item absent from every authored group
+- **THEN** activation fails and the project remains draft
 
 ### Requirement: Deliberate project lifecycle and retention
-Projects SHALL allow state changes `draft -> active`, `active <-> paused`, `active|paused -> completed`, and `completed -> archived`. After current management authorization and under the project lock, activation, pause, resume, completion, and archive SHALL return the unchanged project successfully when it is already in that operation's target state. Such no-op retries SHALL not repeat freezing, expiration, cancellation, or timestamp updates. Other state-changing transitions SHALL be rejected. When the current state differs from the requested target, the action SHALL follow the normal transition rules rather than replaying an earlier result. Pause SHALL stop new allocations while allowing otherwise authorized unexpired attempts to finish. Completion SHALL take one database wall-clock cutoff after acquiring the exclusive project lock. In the same transaction it SHALL first mark physically live attempts whose deadlines are at or before that cutoff expired, then cancel remaining unexpired live attempts and unsatisfied tasks, updating reservations/progress consistently. It SHALL preserve submitted and satisfied evidence and prevent later allocation/submission. Overdue attempts SHALL retain expiry provenance and failure contribution rather than becoming deliberate cancellations. Completion SHALL be permitted before coverage satisfaction and without pausing first. Completed/archived projects SHALL retain authorized result inspection, review corrections, and exports. No project deletion or implicit completion on empty fetch SHALL be exposed.
+Projects SHALL allow state changes `draft -> active`, `active <-> paused`, `active|paused -> completed`, and `completed -> archived`. After current management authorization and under the project lock, activation, pause, resume, completion, and archive SHALL return the unchanged project successfully when it is already in that operation's target state. Such no-op retries SHALL not repeat freezing, expiration, cancellation, or timestamp updates. Other state-changing transitions SHALL be rejected. When the current state differs from the requested target, the action SHALL follow the normal transition rules rather than replaying an earlier result. Pause SHALL stop new allocations while allowing otherwise authorized unexpired attempts to finish. Completion SHALL take one database wall-clock cutoff after acquiring the exclusive project lock. In the same transaction it SHALL first mark physically live attempts whose deadlines are at or before that cutoff expired, then cancel remaining unexpired live attempts and unsatisfied tasks. It SHALL preserve submitted and satisfied evidence and prevent later allocation/submission. Overdue attempts SHALL retain expiry provenance rather than becoming deliberate cancellations. Completion SHALL be permitted before all submissions are collected and without pausing first. Completed/archived projects SHALL retain authorized result inspection, review corrections, and exports. No project deletion or implicit completion on empty fetch SHALL be exposed.
 
 #### Scenario: A lifecycle response is lost
 - **WHEN** a caller repeats activation, pause, resume, completion, or archive while the project is already in that operation's target state
@@ -70,12 +70,12 @@ Projects SHALL allow state changes `draft -> active`, `active <-> paused`, `acti
 - **THEN** either submission commits before completion and its evidence is preserved, or completion commits first and submission fails without a partial response
 
 #### Scenario: Completion fails during cancellation
-- **WHEN** cancellation or its progress update fails within project completion
-- **THEN** the project transition, expirations, and cancellations roll back together; successful completion leaves overdue attempts expired, remaining live attempts and unsatisfied tasks cancelled, and reservations released in direct reads as well as GraphQL
+- **WHEN** cancellation fails within project completion
+- **THEN** the project transition, expirations, and cancellations roll back together; successful completion leaves overdue attempts expired, remaining live attempts and unsatisfied tasks cancelled, and no remaining live capacity in direct reads as well as GraphQL
 
 #### Scenario: Completion precedes delayed expiry cleanup
 - **WHEN** completion obtains the project lock after one live row's lease deadline while another live row remains unexpired
-- **THEN** it records the first as expired with its failure contribution and the second as deliberately cancelled at the completion cutoff; both release reservations and later expiry jobs cannot change either terminal outcome
+- **THEN** it records the first as expired and the second as deliberately cancelled at the completion cutoff; both cease occupying capacity and later expiry jobs cannot change either terminal outcome
 
 ### Requirement: Activation accepts only implemented task contracts
 Activation SHALL support scalar answers, non-image static/task-input choices, rankings, text spans, and asset requirements intended for opaque download. It SHALL reject any form containing an `image` input requirement, a bound-value presentation referencing an image requirement, an `image_choice` renderer, or a bounding-box, polygon-region, or raster-mask question with `unsupported_task_contract`, leaving the project draft. It SHALL validate the whole pinned form rather than silently dropping unsupported elements/questions. Published image-form definitions SHALL remain valid for authoring and inspection. No media service, decoder, verified dimensions, spatial-response tables, or mask-upload operation SHALL be required to implement or complete this release. Adding a media provider alone SHALL not enable the deferred contracts; the later task-media change SHALL explicitly extend execution support.
@@ -93,12 +93,16 @@ Activation SHALL support scalar answers, non-image static/task-input choices, ra
 - **THEN** it can proceed through allocation, submission, review, and results without a media lookup
 
 ### Requirement: Project authoring and paginated inspection
-Project, cohort, binding, policy, worker-access, and explicit-group collections SHALL use stable Relay keyset pagination following the existing API conventions, including nested collections. This change SHALL add no application-level cohort, explicit-group, input-group, or enrollment-batch size ceiling. Published form compatibility and existing foundation request validation SHALL still apply, and invalid writes SHALL fail atomically. Configured answer/coverage targets, failure thresholds, and answer integers SHALL retain signed 32-bit GraphQL Int semantics. Evidence-derived counts, including progress, failures, item coverage, and export record totals, SHALL use GraphQL String containing the exact canonical nonnegative base-10 integer, without sign, leading zeros, fraction, or exponent; zero SHALL be `"0"`. Their storage and arithmetic SHALL support values beyond signed 32-bit range without clamping to targets.
+Project creation, draft configuration, renaming, and lifecycle changes SHALL use native Ash create/update actions and domain interfaces. GraphQL SHALL use native mutations returning result/errors, with explicit organization-scoped manager-authorized lookups for updates. Dataset/schema/form references SHALL be chosen only on create. Child editing operations SHALL retain complete transaction and Project-lock validation. Project, cohort, binding, slot-policy, worker-access, and group collections SHALL use bounded Relay keyset pagination. This change SHALL add no application-level cohort, group, or enrollment-batch ceiling. Configured submission targets and scalar answer integers SHALL retain signed 32-bit GraphQL Int bounds.
 
-#### Scenario: A cohort spans multiple pages
-- **WHEN** a manager traverses a frozen cohort larger than one page
-- **THEN** every enrolled revision is reachable in stable order without an unbounded nested list
+#### Scenario: A manage-only actor changes a title
+- **WHEN** an active member with projects.manage but no projects.read updates a project through its scoped mutation
+- **THEN** the mutation returns the authorized result without granting general project inspection
 
-#### Scenario: An enrollment batch contains an invalid reference
-- **WHEN** an enrollment request mixes valid revisions with a foreign or incompatible revision
-- **THEN** none of that batch is enrolled
+#### Scenario: A draft source reference is changed
+- **WHEN** a caller attempts to change its dataset, schema, or form after creation
+- **THEN** the input is rejected; a different contract requires a new project
+
+#### Scenario: A cohort spans pages
+- **WHEN** a manager traverses more than one page of frozen cohort items
+- **THEN** every item is reachable in stable order

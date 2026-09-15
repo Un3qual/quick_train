@@ -2,7 +2,7 @@ defmodule QuickTrain.Tasks.Reviews.QuestionReview do
   @moduledoc false
   use Ash.Resource.Actions.Implementation
 
-  alias QuickTrain.Tasks.{Access, Error, Progress, Task}
+  alias QuickTrain.Tasks.{Access, Error, Task}
   alias QuickTrain.Tasks.Attempts.Attempt
   alias QuickTrain.Tasks.Responses.QuestionResponse
   alias QuickTrain.Tasks.Reviews.ReviewDecision
@@ -60,8 +60,7 @@ defmodule QuickTrain.Tasks.Reviews.QuestionReview do
 
     if length(initial) != length(ids), do: Error.reject!(:invalid_question_response)
 
-    tasks =
-      lock_records(Task, project.id, Enum.map(initial, & &1.task_id)) |> Map.new(&{&1.id, &1})
+    lock_records(Task, project.id, Enum.map(initial, & &1.task_id))
 
     attempts =
       lock_records(Attempt, project.id, Enum.map(initial, & &1.attempt_id))
@@ -104,7 +103,7 @@ defmodule QuickTrain.Tasks.Reviews.QuestionReview do
     created =
       plans
       |> Enum.flat_map(fn
-        {:create, outcome, attributes, _previous} -> [decision_attributes(outcome, attributes)]
+        {:create, outcome, attributes} -> [decision_attributes(outcome, attributes)]
         {:retry, _decision} -> []
       end)
       |> Ash.bulk_create!(ReviewDecision, :create_internal,
@@ -116,31 +115,10 @@ defmodule QuickTrain.Tasks.Reviews.QuestionReview do
       |> Map.fetch!(:records)
       |> Map.new(&{&1.question_response_id, &1})
 
-    {decisions, changes} =
-      Enum.map_reduce(plans, %{}, fn
-        {:retry, decision}, changes ->
-          {decision, changes}
-
-        {:create, outcome, _attributes, previous}, changes ->
-          decision = Map.fetch!(created, outcome.id)
-          delta = verdict_change(previous, decision_status(decision))
-          key = {outcome.task_id, outcome.question_id}
-
-          changes =
-            Map.update(changes, key, delta, &Map.merge(&1, delta, fn _, a, b -> a + b end))
-
-          {decision, changes}
-      end)
-
-    changes
-    |> Enum.group_by(fn {{task_id, _question_id}, _delta} -> task_id end, fn
-      {{_task_id, question_id}, delta} -> {question_id, delta}
+    Enum.map(plans, fn
+      {:retry, decision} -> decision
+      {:create, outcome, _attributes} -> Map.fetch!(created, outcome.id)
     end)
-    |> Enum.each(fn {task_id, deltas} ->
-      Progress.change!(Map.fetch!(tasks, task_id), Map.new(deltas))
-    end)
-
-    decisions
   end
 
   defp plan!(outcome, request, actor, retry) do
@@ -175,17 +153,9 @@ defmodule QuickTrain.Tasks.Reviews.QuestionReview do
        do: Error.reject!(:review_reason_required)
 
     attributes = Map.put(attributes, :number, if(current, do: current.number + 1, else: 1))
-    {:create, outcome, attributes, decision_status(current)}
+    {:create, outcome, attributes}
   end
 
-  defp verdict_change(previous, current) do
-    %{previous => -1}
-    |> Map.update(current, 1, &(&1 + 1))
-    |> Map.put(:failures, indicator(current == :rejected) - indicator(previous == :rejected))
-  end
-
-  defp indicator(true), do: 1
-  defp indicator(false), do: 0
   defp decision_status(nil), do: :pending
   defp decision_status(%{verdict: :accept}), do: :accepted
   defp decision_status(%{verdict: :reject}), do: :rejected

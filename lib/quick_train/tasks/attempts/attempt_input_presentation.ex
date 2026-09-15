@@ -44,34 +44,6 @@ defmodule QuickTrain.Tasks.Attempts.AttemptInputPresentation do
   end
 
   actions do
-    for {mode, list_action, get_action} <- [
-          {:audit, :list_audit, :get_audit},
-          {:accepted, :list_accepted, :get_accepted}
-        ] do
-      read list_action do
-        argument :organization_id, :uuid, allow_nil?: false
-        argument :project_id, :uuid, allow_nil?: false
-        filter expr(organization_id == ^arg(:organization_id) and project_id == ^arg(:project_id))
-        prepare {Module.concat(["QuickTrain.Tasks.Access.ReadAccess.Prepare"]), mode: mode}
-
-        pagination keyset?: true,
-                   required?: true,
-                   default_limit: 50,
-                   max_page_size: 100,
-                   stable_sort: [inserted_at: :asc, id: :asc]
-      end
-
-      read get_action do
-        get? true
-        argument :id, :uuid, allow_nil?: false
-        filter expr(id == ^arg(:id))
-        argument :organization_id, :uuid, allow_nil?: false
-        argument :project_id, :uuid, allow_nil?: false
-        filter expr(organization_id == ^arg(:organization_id) and project_id == ^arg(:project_id))
-        prepare {Module.concat(["QuickTrain.Tasks.Access.ReadAccess.Prepare"]), mode: mode}
-      end
-    end
-
     read :read do
       primary? true
 
@@ -101,11 +73,6 @@ defmodule QuickTrain.Tasks.Attempts.AttemptInputPresentation do
   policies do
     policy action(:read) do
       authorize_if Module.concat(["QuickTrain.Tasks.Access.ReadAccess"])
-    end
-
-    policy action([:list_audit, :get_audit, :list_accepted, :get_accepted]) do
-      authorize_if {QuickTrain.Authorization.Checks.OrganizationCapability,
-                    capability: "tasks.results.read"}
     end
 
     policy action([:create_internal]) do

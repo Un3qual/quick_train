@@ -3,7 +3,6 @@
 defmodule QuickTrain.Forms.Labels.Label do
   @moduledoc "Organization-scoped label definition."
   use Ash.Resource,
-    fragments: [QuickTrain.Authorization.CollectionRead],
     primary_read_warning?: false,
     otp_app: :quick_train,
     domain: QuickTrain.Forms,

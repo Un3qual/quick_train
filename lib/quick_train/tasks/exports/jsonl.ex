@@ -34,12 +34,7 @@ defmodule QuickTrain.Tasks.Exports.Jsonl do
         project_id: export.project_id,
         form_version_id: export.form_version_id,
         schema_version_id: project.schema_version_id,
-        mode: export.mode,
-        task_id_from: export.task_id_from,
-        task_id_to: export.task_id_to,
-        evidence_kind: export.evidence_kind,
-        evidence_id_from: export.evidence_id_from,
-        evidence_id_to: export.evidence_id_to
+        mode: export.mode
       }
 
       initial = write_line!(file, header, {:crypto.hash_init(:sha256), 0, 0})
@@ -79,25 +74,14 @@ defmodule QuickTrain.Tasks.Exports.Jsonl do
   end
 
   defp selections(export, kind, rows)
-       when kind in [
-              :question_response,
-              :static_option_answer,
-              :task_input_answer,
-              :text_span,
-              :dataset_value
-            ] do
-    field = if kind == :dataset_value, do: :dataset_value_id, else: :question_response_id
-
-    row_field =
-      if kind in [:question_response, :dataset_value], do: :id, else: :question_response_id
-
-    ids = Enum.map(rows, &Map.fetch!(&1, row_field)) |> Enum.uniq()
+       when kind in [:question_response, :static_option_answer, :task_input_answer, :text_span] do
+    field = if kind == :question_response, do: :id, else: :question_response_id
+    ids = Enum.map(rows, &Map.fetch!(&1, field))
 
     ExportSelection
-    |> Ash.Query.filter(export_id == ^export.id and kind == ^kind)
-    |> Ash.Query.filter(^[{field, [in: ids]}])
+    |> Ash.Query.filter(export_id == ^export.id and question_response_id in ^ids)
     |> Ash.read!(authorize?: false, page: false)
-    |> Map.new(&{Map.fetch!(&1, field), &1})
+    |> Map.new(&{&1.question_response_id, &1})
   end
 
   defp selections(_export, _kind, _rows), do: %{}
@@ -114,7 +98,9 @@ defmodule QuickTrain.Tasks.Exports.Jsonl do
   defp loads(:project_input_binding), do: [:requirement, :field_definition]
 
   defp loads(:dataset_value),
-    do: [:field_definition, asset_value: :asset] ++ (@typed_values -- [:asset_value])
+    do:
+      [:field_definition, record: :root_revision, asset_value: :asset] ++
+        (@typed_values -- [:asset_value])
 
   defp loads(_kind), do: []
 
@@ -147,13 +133,12 @@ defmodule QuickTrain.Tasks.Exports.Jsonl do
     |> Map.merge(%{
       effective_decision_id: selection.decision_id,
       attempt_id: row.attempt_id,
-      response_id: row.attempt.legacy_response_id || row.attempt_id,
       submitted_at: row.attempt.terminal_at
     })
   end
 
   defp row(_selections, :attempt, row),
-    do: row |> fields() |> Map.drop([:revision, :legacy_response_id])
+    do: row |> fields() |> Map.drop([:revision])
 
   defp row(_selections, :presentation_element, row),
     do: Map.put(fields(row), :element_kind, row.kind)
@@ -166,7 +151,6 @@ defmodule QuickTrain.Tasks.Exports.Jsonl do
 
     fields(row)
     |> Map.merge(%{
-      response_id: attempt.legacy_response_id || attempt.id,
       attempt_id: attempt.id,
       effective_decision_id: selection.decision_id
     })
@@ -198,9 +182,7 @@ defmodule QuickTrain.Tasks.Exports.Jsonl do
     })
   end
 
-  defp row(selections, :dataset_value, row) do
-    selected = Map.fetch!(selections, row.id)
-
+  defp row(_selections, :dataset_value, row) do
     value =
       Enum.reduce(@typed_values, fields(row), fn key, result ->
         child = Map.fetch!(row, key)
@@ -230,8 +212,8 @@ defmodule QuickTrain.Tasks.Exports.Jsonl do
       end)
 
     Map.merge(value, %{
-      revision_id: selected.revision_id,
-      field_definition_id: selected.field_definition_id,
+      revision_id: row.record.root_revision.id,
+      field_definition_id: row.field_definition_id,
       field_key: row.field_definition.key,
       family: row.field_definition.value_family
     })

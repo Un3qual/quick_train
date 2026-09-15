@@ -2,8 +2,9 @@ defmodule QuickTrain.Tasks.Responses.ResponseSubmission do
   @moduledoc false
   use Ash.Resource.Actions.Implementation
 
-  alias QuickTrain.Tasks.{Access, Error, Progress}
-  alias QuickTrain.Tasks.Attempts.{AttemptQuestion, Leases}
+  alias QuickTrain.Forms.Questions.QuestionDefinition
+  alias QuickTrain.Tasks.{Access, Error}
+  alias QuickTrain.Tasks.Attempts.Leases
   alias QuickTrain.Tasks.Responses.{AnswerValidation, QuestionResponse, ResponseDraft}
   alias QuickTrain.Tasks.Reviews.QuestionReview
 
@@ -27,10 +28,10 @@ defmodule QuickTrain.Tasks.Responses.ResponseSubmission do
       Access.owner!(project, attempt, actor)
 
       offered =
-        AttemptQuestion
-        |> Ash.Query.filter(attempt_id == ^attempt.id)
+        QuestionDefinition
+        |> Ash.Query.filter(version_id == ^project.form_version_id)
         |> Ash.read!(authorize?: false, page: false)
-        |> MapSet.new(& &1.question_id)
+        |> MapSet.new(& &1.id)
 
       outcomes =
         QuestionResponse
@@ -91,21 +92,8 @@ defmodule QuickTrain.Tasks.Responses.ResponseSubmission do
           authorize?: false
         )
 
-      statuses = QuestionReview.initial_decisions!(project, outcomes)
-
-      changes =
-        Map.new(outcomes, fn outcome ->
-          status = Map.fetch!(statuses, outcome.id)
-
-          {outcome.question_id, submission_delta(status)}
-        end)
-
-      Progress.change!(task, changes)
+      QuestionReview.initial_decisions!(project, outcomes)
       submitted
     end
   end
-
-  defp submission_delta(:accepted), do: %{live: -1, accepted: 1}
-  defp submission_delta(:pending), do: %{live: -1, pending: 1}
-  defp submission_delta(:skipped), do: %{live: -1, skipped: 1, failures: 1}
 end

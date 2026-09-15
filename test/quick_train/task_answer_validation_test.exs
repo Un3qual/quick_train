@@ -539,7 +539,14 @@ defmodule QuickTrain.Tasks.AnswerValidationTest do
       project_id: project.id,
       form_version_id: base.version.id,
       canonical_key: <<1>>,
-      canonical_membership: <<1>>
+      canonical_membership: <<1>>,
+      explicit_group_id:
+        create!(QuickTrain.Projects.ExplicitGroup, %{
+          project_id: project.id,
+          form_version_id: base.version.id,
+          position: 0,
+          canonical_key: <<1>>
+        }).id
     }
 
     task = create!(Task, task_attrs)

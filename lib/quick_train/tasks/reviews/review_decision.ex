@@ -98,38 +98,6 @@ defmodule QuickTrain.Tasks.Reviews.ReviewDecision do
                  stable_sort: [number: :asc, id: :asc]
     end
 
-    for {mode, list_action, get_action} <- [
-          {:audit, :list_audit, :get_audit},
-          {:accepted, :list_accepted, :get_accepted}
-        ] do
-      read list_action do
-        argument :organization_id, :uuid, allow_nil?: false
-        argument :project_id, :uuid, allow_nil?: false
-        filter expr(organization_id == ^arg(:organization_id) and project_id == ^arg(:project_id))
-        prepare {Module.concat(["QuickTrain.Tasks.Access.ReadAccess.Prepare"]), mode: mode}
-
-        pagination keyset?: true,
-                   required?: true,
-                   default_limit: 50,
-                   max_page_size: 100,
-                   stable_sort: [number: :asc, id: :asc]
-      end
-
-      read get_action do
-        get? true
-        argument :organization_id, :uuid, allow_nil?: false
-        argument :project_id, :uuid, allow_nil?: false
-        argument :id, :uuid, allow_nil?: false
-
-        filter expr(
-                 id == ^arg(:id) and organization_id == ^arg(:organization_id) and
-                   project_id == ^arg(:project_id)
-               )
-
-        prepare {Module.concat(["QuickTrain.Tasks.Access.ReadAccess.Prepare"]), mode: mode}
-      end
-    end
-
     create :create_internal do
       accept [
         :origin,

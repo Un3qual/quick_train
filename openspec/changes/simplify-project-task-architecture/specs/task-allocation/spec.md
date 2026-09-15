@@ -1,24 +1,98 @@
 ## MODIFIED Requirements
 
+### Requirement: Pool claims and direct assignments share one contract
+Pool fetch SHALL create claimed attempts; direct assignment SHALL require `tasks.assign` under organization-management checks and create assigned attempts for a specified eligible User. Both SHALL enforce identical project, capacity, lease, provenance, and one-live-attempt-per-project/worker constraints. Owners SHALL be able to start or release their own live attempts under current worker authorization; cancelling another worker's live attempt SHALL require organization-scoped `tasks.assign` and SHALL not return that worker's work bundle. A worker who has attempted a task in any state SHALL not receive it again through ordinary allocation. No linked follow-up or same-task exclusion bypass SHALL be exposed.
+
+#### Scenario: Assignment cannot bypass worker eligibility
+- **WHEN** a manager assigns work to a blocked or otherwise ineligible user
+- **THEN** no attempt is created even though the manager has assignment permission
+
+#### Scenario: Two requests race for one worker
+- **WHEN** different allocation requests concurrently target the same project and worker
+- **THEN** at most one live attempt is issued and expired prior leases cannot permanently occupy that slot
+
+### Requirement: Select at fetch time and persist exact issued inputs
+Allocation SHALL first prefer an existing task with available submission capacity and no prior attempt by that worker. Otherwise it SHALL consume the next authored explicit group, create one Task and its exact immutable TaskInputs, and record per-attempt display positions. The canonical group SHALL be unique within its project, independent of shuffled display order. New tasks SHALL exist only when an attempt is actually issued. Inputs SHALL reference exact enrolled revisions and slots; answers SHALL use TaskInput IDs rather than display labels.
+
+#### Scenario: An unused pair is never materialized
+- **WHEN** a project is activated but no worker has fetched work
+- **THEN** it contains no generated Tasks or random pair schedule
+
+#### Scenario: Concurrent selectors choose the same group
+- **WHEN** two allocation requests select an equivalent canonical group
+- **THEN** at most one Task exists for it, each committed attempt respects capacity, and a failed allocation leaves no orphan issued group or consumed explicit entry
+
+#### Scenario: Presentation shuffling retains meaning
+- **WHEN** two attempts display the same inputs in different orders
+- **THEN** each order is persisted, while both answers still identify the same stable TaskInputs
+
+#### Scenario: Explicit groups retain authored order without shuffling
+- **WHEN** an explicit group is issued with slot shuffling disabled, including a later attempt on the same task
+- **THEN** its inputs follow the frozen explicit-group positions within each slot, independent of generated TaskInput IDs
+
+### Requirement: Question capacity is reserved atomically
+Every attempt SHALL cover all questions in the pinned published form. Each task SHALL use its frozen project's submission target. Native counts of submitted attempts and physically live attempts SHALL determine remaining capacity under the Task lock; no per-question reservations or progress counters SHALL be persisted. Before checking capacity, allocation SHALL expire every overdue live attempt on that task using a post-lock database wall-clock cutoff. Those expirations SHALL commit even when the caller receives a successful no-work response. Concurrent issuance SHALL never exceed the target after accounting for submitted and live attempts. A valid submission SHALL count once, including an allowed all-skipped submission. Review decisions and corrections SHALL never change allocation demand. Release, expiry, and cancellation SHALL free live capacity without altering submitted evidence.
+
+#### Scenario: Two workers compete for the last submission
+- **WHEN** two fetches compete for a task's last available unit
+- **THEN** at most one new attempt is issued
+
+#### Scenario: Expiry cleanup is delayed
+- **WHEN** an otherwise full task contains an overdue attempt whose job has not run
+- **THEN** allocation expires it under the task lock before considering replacement work
+
+#### Scenario: Review rejects a submitted answer
+- **WHEN** an answer is rejected or its acceptance corrected
+- **THEN** the original submission still counts toward the task target and no replacement demand is created
+
+### Requirement: No-work outcomes distinguish contention from exhaustion
+Allocation SHALL return typed outcomes for `retry_later`, `waiting_for_answers`, `no_work_for_worker`. An interrupted search or locked candidate SHALL not prove global exhaustion. Contention or an existing operation timeout that prevents a definitive conclusion SHALL return a retryable outcome; allocation SHALL impose no fixed candidate-count ceiling on per-request group search. A worker exhausting their own eligible tasks SHALL not close otherwise usable project work. No-work outcomes SHALL disclose no unallocated input content.
+
+#### Scenario: A candidate is temporarily locked
+- **WHEN** another transaction prevents a selector from inspecting otherwise possible work
+- **THEN** it returns a retryable result rather than completing the project or claiming all submissions are collected
+
+### Requirement: Attempt ownership bounds worker presentation
+Work-bundle reads SHALL require an active eligible owning account, active organization, active/paused project, live attempt, and an unexpired lease. Bundles SHALL expose the pinned form including all published questions, project-wide skip/reason settings, stored input presentation order, typed draft outcomes, and exact bound values from allocated revisions. Optional absence SHALL be explicit. Workers SHALL have no arbitrary task/cohort discovery or reverse traversal into organization data. Terminal worker access SHALL be limited to an owned receipt containing state, timestamps, and accepted/pending/rejected/skipped outcome totals; no answer payloads or source access SHALL be restored. Receipt access SHALL require current account/organization/audience eligibility but no live lease. All nested collections SHALL use bounded Relay keyset pagination, default 50/max 100.
+
+#### Scenario: A worker reads skip settings
+- **WHEN** an eligible owner loads their work bundle without project-management permissions
+- **THEN** the bundle provides the same frozen skip_allowed and reason_required settings for every question
+
+#### Scenario: A worker substitutes another task
+- **WHEN** an owner requests a foreign attempt or unbound source value
+- **THEN** the request fails without revealing that record
+
+#### Scenario: Access is revoked
+- **WHEN** the worker becomes blocked or loses all audience routes
+- **THEN** work reads, writes, receipt reads, and new source access fail
+
+### Requirement: Leases and allocation retries are durable
+Attempts SHALL transition from claimed/assigned to in-progress on start or first save, and from a live state to submitted, expired, released, or cancelled. Terminal attempts SHALL never revive. Lease deadlines SHALL use server time, remain fixed after issuance, and be enforced after lock waits whether cleanup has run or not. Every fetch and assignment SHALL require a caller-supplied UUID request key. Invalid UUID input SHALL fail normal argument validation before selecting work or persisting collection changes. A successful allocation SHALL durably associate the validated request key with project, requesting actor, operation, and worker. An identical retry SHALL return the same attempt's current authorized result without a new lease; changed arguments with the same key SHALL conflict. A no-allocation result SHALL not be required to consume a key.
+
+#### Scenario: A response is lost after allocation commits
+- **WHEN** the caller retries the same allocation key and arguments
+- **THEN** it receives the original attempt without creating another or extending its deadline
+
+#### Scenario: Expiration cleanup is delayed
+- **WHEN** an attempt deadline has passed but its expiration job has not run
+- **THEN** work reads/saves/submission are denied and candidate-task allocation records its expiry and frees its live capacity before deciding whether to issue another attempt
+
+## ADDED Requirements
+
+### Requirement: Authored groups are consumed in order
+Allocation SHALL lock only the next unissued group when existing tasks offer no capacity. It SHALL not skip an earlier locked group or lock unrelated later groups. Task creation, input creation, attempt issuance, and group consumption SHALL commit together. A failed transaction SHALL leave the group unconsumed. Reusing an existing task SHALL not create another group.
+
+#### Scenario: The next group is locked
+- **WHEN** another transaction holds the earliest unissued group's lock
+- **THEN** allocation returns retry_later without consuming a later group
+
+#### Scenario: A later group is locked
+- **WHEN** only a later authored group is locked
+- **THEN** the earlier group can still be issued
+
+## REMOVED Requirements
+
 ### Requirement: Coverage measures issued groups independently of answers
-Activation SHALL initialize one zero-exposure coverage row per frozen cohort item in the same transaction, without issuing tasks. Allocation SHALL not initialize or rewrite the whole cohort on each request. Coverage SHALL count an item's appearances across distinct issued tasks, including tasks later cancelled, independently of per-question answer counts. Existing-task replication and follow-ups SHALL not increase item coverage. Balanced selection SHALL prioritize under-covered items and least-exposed compatible companions; coverage targets SHALL be lower goals rather than hard upper bounds because companions may exceed their own goals while another item remains under-covered. Once every item's coverage goal is met, balanced mode SHALL create no further groups but SHALL continue eligible existing-task work. Answer targets SHALL belong to an exact task/question; answers to a new group SHALL not fulfill another group's demand. Explicit mode SHALL lock and issue the next authored group by position with atomic consumption and lock only that group's coverage rows. It SHALL not lock the whole cohort or skip a locked earlier group; such contention SHALL return `retry_later`. Balanced mode SHALL retain its cohort-wide least-exposure selection and stable lock order. Only `balanced` and `explicit` SHALL be accepted.
-
-#### Scenario: Replication does not invent coverage
-- **WHEN** three workers answer the same issued pair
-- **THEN** each underlying item has one group exposure while question progress contains three attributable answers
-
-#### Scenario: A straggling item needs a companion
-- **WHEN** an under-covered item can only form a valid group with an item already at its coverage target
-- **THEN** balanced selection can issue the group and count the companion's additional exposure
-
-#### Scenario: Covered items still need answers on existing tasks
-- **WHEN** every item meets its coverage goal and a worker has attempted all remaining unsatisfied tasks
-- **THEN** ordinary allocation returns `no_work_for_worker` without creating different groups or closing the project; other eligible workers or deliberate linked follow-ups can fill the existing task targets
-
-#### Scenario: Unrelated explicit-group coverage is locked
-- **WHEN** another transaction locks coverage used only by a later authored group
-- **THEN** issuance of the next group can proceed without waiting for that unrelated row
-
-#### Scenario: The next explicit group is locked
-- **WHEN** the next unissued authored group is locked by another transaction
-- **THEN** allocation returns `retry_later` without consuming a later group or changing coverage
+**Reason**: Replaced by explicit groups and whole-form submission targets.
+**Migration**: Unreleased feature; regenerate the schema on a clean database.

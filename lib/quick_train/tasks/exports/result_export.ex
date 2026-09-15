@@ -22,12 +22,6 @@ defmodule QuickTrain.Tasks.Exports.ResultExport do
       constraints: [one_of: [:accepted, :audit]]
 
     attribute :request_key, :uuid, public?: true, allow_nil?: false
-    attribute :task_id_from, :uuid, public?: true, allow_nil?: true
-    attribute :task_id_to, :uuid, public?: true, allow_nil?: true
-    attribute :evidence_kind, :string, public?: true, allow_nil?: true
-    attribute :evidence_id_from, :uuid, public?: true, allow_nil?: true
-    attribute :evidence_id_to, :uuid, public?: true, allow_nil?: true
-    attribute :include_form_context, :boolean, allow_nil?: false, default: false
     attribute :snapshot_at, :utc_datetime_usec, public?: true, allow_nil?: true
     attribute :record_count, :integer, public?: true, allow_nil?: true, constraints: [min: 0]
     attribute :error_code, :string, public?: true, allow_nil?: true
@@ -70,24 +64,6 @@ defmodule QuickTrain.Tasks.Exports.ResultExport do
       argument :project_id, :uuid, allow_nil?: false
       argument :request_key, :uuid, allow_nil?: false
       argument :mode, :atom, allow_nil?: false, constraints: [one_of: [:accepted, :audit]]
-      argument :task_id_from, :uuid
-      argument :task_id_to, :uuid
-      argument :evidence_kind, :string, constraints: [trim?: false]
-      argument :evidence_id_from, :uuid
-      argument :evidence_id_to, :uuid
-
-      validate present(:evidence_kind),
-        where: [present([:evidence_id_from, :evidence_id_to], at_least: 1)],
-        message: "invalid_export_filter"
-
-      validate compare(:task_id_from, less_than_or_equal_to: :task_id_to),
-        where: [present([:task_id_from, :task_id_to])],
-        message: "invalid_export_filter"
-
-      validate compare(:evidence_id_from, less_than_or_equal_to: :evidence_id_to),
-        where: [present([:evidence_id_from, :evidence_id_to])],
-        message: "invalid_export_filter"
-
       run Module.concat(["QuickTrain.Tasks.Exports.ResultExporting"])
     end
 
@@ -137,13 +113,7 @@ defmodule QuickTrain.Tasks.Exports.ResultExport do
         :state,
         :mode,
         :request_key,
-        :task_id_from,
-        :task_id_to,
-        :evidence_kind,
-        :evidence_id_from,
-        :evidence_id_to,
         :snapshot_at,
-        :include_form_context,
         :record_count,
         :error_code,
         :organization_id,
@@ -159,7 +129,6 @@ defmodule QuickTrain.Tasks.Exports.ResultExport do
       accept [
         :state,
         :snapshot_at,
-        :include_form_context,
         :record_count,
         :error_code,
         :asset_id,

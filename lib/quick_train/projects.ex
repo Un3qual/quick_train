@@ -6,11 +6,6 @@ defmodule QuickTrain.Projects do
     resource QuickTrain.Projects.Project do
       define :configure_project, action: :configure
       define :rename_project, action: :rename
-      define :activate_project_record, action: :activate_record
-      define :pause_project_record, action: :pause_record
-      define :resume_project_record, action: :resume_record
-      define :complete_project_record, action: :complete_record
-      define :archive_project_record, action: :archive_record
 
       define :lock_project,
         action: :lock,
@@ -20,8 +15,7 @@ defmodule QuickTrain.Projects do
       define :get_project, action: :get_scoped, args: [:organization_id, :id]
       define :list_projects, action: :list_scoped, args: [:organization_id]
       define :create_project, action: :create, args: [:organization_id]
-      define :update_draft, action: :update_draft, args: [:organization_id, :project_id]
-      define :update_title, action: :update_title, args: [:organization_id, :project_id]
+
       define :enroll_revisions, action: :enroll_revisions, args: [:organization_id, :project_id]
 
       define :remove_project_items,
@@ -30,10 +24,6 @@ defmodule QuickTrain.Projects do
 
       define :set_binding, action: :set_binding, args: [:organization_id, :project_id]
       define :set_slot_policy, action: :set_slot_policy, args: [:organization_id, :project_id]
-
-      define :set_question_policy,
-        action: :set_question_policy,
-        args: [:organization_id, :project_id]
 
       define :set_worker_access, action: :set_worker_access, args: [:organization_id, :project_id]
 
@@ -55,21 +45,16 @@ defmodule QuickTrain.Projects do
         action: :remove_slot_policy,
         args: [:organization_id, :project_id]
 
-      define :remove_question_policy,
-        action: :remove_question_policy,
-        args: [:organization_id, :project_id]
-
-      define :activate_project, action: :activate, args: [:organization_id, :project_id]
-      define :pause_project, action: :pause, args: [:organization_id, :project_id]
-      define :resume_project, action: :resume, args: [:organization_id, :project_id]
-      define :complete_project, action: :complete, args: [:organization_id, :project_id]
-      define :archive_project, action: :archive, args: [:organization_id, :project_id]
+      define :activate_project, action: :activate_record
+      define :pause_project, action: :pause_record
+      define :resume_project, action: :resume_record
+      define :complete_project, action: :complete_record
+      define :archive_project, action: :archive_record
     end
 
     resource QuickTrain.Projects.ProjectItem
     resource QuickTrain.Projects.ProjectInputBinding
     resource QuickTrain.Projects.ProjectSlotPolicy
-    resource QuickTrain.Projects.ProjectQuestionPolicy
     resource QuickTrain.Projects.ProjectWorkerAccess
     resource QuickTrain.Projects.ExplicitGroup
     resource QuickTrain.Projects.ExplicitGroupInput
@@ -95,10 +80,6 @@ defmodule QuickTrain.Projects do
         relay?: true,
         paginate_with: :keyset
 
-      list QuickTrain.Projects.ProjectQuestionPolicy, :project_question_policies, :list_scoped,
-        relay?: true,
-        paginate_with: :keyset
-
       list QuickTrain.Projects.ProjectWorkerAccess, :project_worker_access_entries, :list_scoped,
         relay?: true,
         paginate_with: :keyset
@@ -113,39 +94,15 @@ defmodule QuickTrain.Projects do
     end
 
     mutations do
-      action QuickTrain.Projects.Project, :create_project, :create_project,
-        args: [
-          :organization_id,
-          :dataset_id,
-          :schema_version_id,
-          :form_version_id,
-          :title,
-          :audience,
-          :external_access,
-          :selection_mode,
-          :review_mode,
-          :coverage_target,
-          :lease_minutes
-        ]
+      create QuickTrain.Projects.Project, :create_project, :create
 
-      action QuickTrain.Projects.Project, :update_project_draft, :update_draft,
-        args: [
-          :organization_id,
-          :project_id,
-          :dataset_id,
-          :schema_version_id,
-          :form_version_id,
-          :title,
-          :audience,
-          :external_access,
-          :selection_mode,
-          :review_mode,
-          :coverage_target,
-          :lease_minutes
-        ]
+      update QuickTrain.Projects.Project, :update_project_draft, :configure,
+        read_action: :get_for_update,
+        identity: false
 
-      action QuickTrain.Projects.Project, :update_project_title, :update_title,
-        args: [:organization_id, :project_id, :title]
+      update QuickTrain.Projects.Project, :update_project_title, :rename,
+        read_action: :get_for_update,
+        identity: false
 
       action QuickTrain.Projects.Project, :enroll_project_revisions, :enroll_revisions,
         args: [:organization_id, :project_id, :revision_ids]
@@ -165,21 +122,6 @@ defmodule QuickTrain.Projects do
       action QuickTrain.Projects.Project, :remove_project_slot_policy, :remove_slot_policy,
         args: [:organization_id, :project_id, :input_slot_id]
 
-      action QuickTrain.Projects.Project, :set_project_question_policy, :set_question_policy,
-        args: [
-          :organization_id,
-          :project_id,
-          :question_id,
-          :accepted_target,
-          :skip_allowed,
-          :reason_required,
-          :failure_threshold
-        ]
-
-      action QuickTrain.Projects.Project,
-             :remove_project_question_policy,
-             :remove_question_policy, args: [:organization_id, :project_id, :question_id]
-
       action QuickTrain.Projects.Project, :set_project_worker_access, :set_worker_access,
         args: [:organization_id, :project_id, :user_id, :disposition]
 
@@ -192,20 +134,25 @@ defmodule QuickTrain.Projects do
       action QuickTrain.Projects.Project, :remove_project_explicit_group, :remove_explicit_group,
         args: [:organization_id, :project_id, :group_id]
 
-      action QuickTrain.Projects.Project, :activate_project, :activate,
-        args: [:organization_id, :project_id]
+      update QuickTrain.Projects.Project, :activate_project, :activate_record,
+        read_action: :get_for_update,
+        identity: false
 
-      action QuickTrain.Projects.Project, :pause_project, :pause,
-        args: [:organization_id, :project_id]
+      update QuickTrain.Projects.Project, :pause_project, :pause_record,
+        read_action: :get_for_update,
+        identity: false
 
-      action QuickTrain.Projects.Project, :resume_project, :resume,
-        args: [:organization_id, :project_id]
+      update QuickTrain.Projects.Project, :resume_project, :resume_record,
+        read_action: :get_for_update,
+        identity: false
 
-      action QuickTrain.Projects.Project, :complete_project, :complete,
-        args: [:organization_id, :project_id]
+      update QuickTrain.Projects.Project, :complete_project, :complete_record,
+        read_action: :get_for_update,
+        identity: false
 
-      action QuickTrain.Projects.Project, :archive_project, :archive,
-        args: [:organization_id, :project_id]
+      update QuickTrain.Projects.Project, :archive_project, :archive_record,
+        read_action: :get_for_update,
+        identity: false
     end
   end
 end

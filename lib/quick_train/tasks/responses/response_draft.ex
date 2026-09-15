@@ -2,10 +2,8 @@ defmodule QuickTrain.Tasks.Responses.ResponseDraft do
   @moduledoc false
   use Ash.Resource.Actions.Implementation
   alias QuickTrain.Forms.Questions.QuestionDefinition
-  alias QuickTrain.Projects.ProjectQuestionPolicy
 
   alias QuickTrain.Tasks.{Access, Error}
-  alias QuickTrain.Tasks.Attempts.AttemptQuestion
 
   alias QuickTrain.Tasks.Responses.{
     AnswerValidation,
@@ -30,13 +28,12 @@ defmodule QuickTrain.Tasks.Responses.ResponseDraft do
     Access.owner!(project, attempt, actor)
     if attempt.revision != args.expected_revision, do: Error.reject!(:stale_response)
 
-    offered =
-      AttemptQuestion
-      |> Ash.Query.filter(attempt_id == ^attempt.id and question_id == ^args.question_id)
-      |> Ash.exists?(authorize?: false)
+    question =
+      QuestionDefinition
+      |> Ash.Query.filter(id == ^args.question_id and version_id == ^project.form_version_id)
+      |> Ash.read_one!(authorize?: false)
 
-    unless offered, do: Error.reject!(:question_not_offered)
-    question = Ash.get!(QuestionDefinition, args.question_id, authorize?: false)
+    unless question, do: Error.reject!(:question_not_offered)
     normalized = AnswerValidation.validate!(project, task, question, args.answer, :draft)
     skip_policies!(project, [Map.put(normalized.attributes, :question_id, question.id)])
     remove_previous!(attempt, question.id)
@@ -76,24 +73,12 @@ defmodule QuickTrain.Tasks.Responses.ResponseDraft do
   def skip_policies!(project, outcomes) do
     skipped = Enum.filter(outcomes, &(&1.outcome == :skipped))
 
-    if skipped != [] do
-      policies =
-        ProjectQuestionPolicy
-        |> Ash.Query.filter(
-          project_id == ^project.id and question_id in ^Enum.map(skipped, & &1.question_id)
-        )
-        |> Ash.read!(authorize?: false, page: false)
-        |> Map.new(&{&1.question_id, &1})
+    Enum.each(skipped, fn attrs ->
+      unless project.skip_allowed, do: Error.reject!(:skip_not_allowed)
 
-      Enum.each(skipped, &skip_policy!(Map.get(policies, &1.question_id), &1))
-    end
-  end
-
-  defp skip_policy!(policy, attrs) do
-    unless policy && policy.skip_allowed, do: Error.reject!(:skip_not_allowed)
-
-    if policy.reason_required and (is_nil(attrs.reason) or String.trim(attrs.reason) == ""),
-      do: Error.reject!(:skip_reason_required)
+      if project.reason_required and (is_nil(attrs.reason) or String.trim(attrs.reason) == ""),
+        do: Error.reject!(:skip_reason_required)
+    end)
   end
 
   defp remove_previous!(attempt, question_id) do

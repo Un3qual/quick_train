@@ -2,12 +2,10 @@ defmodule QuickTrain.Tasks.TaskReviewTest do
   use QuickTrain.DataCase, async: false
 
   alias QuickTrain.{Accounts, ProjectsFixture}
-  alias QuickTrain.Tasks.Attempts.{Attempt, AttemptQuestion}
-  alias QuickTrain.Tasks.{Progress, Task, TaskInput}
-  alias QuickTrain.Tasks.Progress.{TaskItemCoverage, TaskQuestionProgress}
+  alias QuickTrain.Tasks.Attempts.Attempt
   alias QuickTrain.Tasks.Responses.QuestionResponse
   alias QuickTrain.Tasks.Reviews.{QuestionReview, ReviewDecision}
-  alias QuickTrain.Tasks.Workers.{ReconcileCoverage, ReconcileProgress}
+  alias QuickTrain.Tasks.Task
 
   require Ash.Query
 
@@ -27,23 +25,19 @@ defmodule QuickTrain.Tasks.TaskReviewTest do
     }
 
     task =
-      create!(Task, Map.merge(scope, %{canonical_key: <<1>>, canonical_membership: <<1>>}))
-
-    progress =
       create!(
-        TaskQuestionProgress,
+        Task,
         Map.merge(scope, %{
-          task_id: task.id,
-          question_id: source.form.question.id,
-          target: 2,
-          failure_threshold: 3
+          canonical_key: <<1>>,
+          canonical_membership: <<1>>,
+          explicit_group_id:
+            hd(Ash.read!(QuickTrain.Projects.ExplicitGroup, authorize?: false)).id
         })
       )
 
     Map.merge(context, %{
       project: project,
       task: task,
-      progress: progress,
       scope: scope,
       source: source
     })
@@ -62,9 +56,7 @@ defmodule QuickTrain.Tasks.TaskReviewTest do
              accepted: 1,
              pending: 0,
              rejected: 0,
-             skipped: 0,
-             live: 0,
-             failures: 0
+             skipped: 0
            }
 
     assert {:ok, retry} = decide(ctx, request)
@@ -80,9 +72,7 @@ defmodule QuickTrain.Tasks.TaskReviewTest do
              accepted: 0,
              pending: 0,
              rejected: 1,
-             skipped: 0,
-             live: 0,
-             failures: 1
+             skipped: 0
            }
 
     assert {:error, _} = decide(ctx, request(outcome, :accept, first.id, "Stale"))
@@ -139,7 +129,7 @@ defmodule QuickTrain.Tasks.TaskReviewTest do
     refute Ash.exists?(ReviewDecision, authorize?: false)
   end
 
-  test "skip and self review denial preserves all batch evidence and failure counts", ctx do
+  test "skip and self review denial preserves all batch evidence", ctx do
     answered = outcome!(ctx)
     skipped = outcome!(ctx, outcome: :skipped)
     own = outcome!(ctx, worker: ctx.actor)
@@ -152,7 +142,6 @@ defmodule QuickTrain.Tasks.TaskReviewTest do
 
     assert Ash.count!(ReviewDecision, authorize?: false) == 0
     assert counts(ctx).skipped == 1
-    assert counts(ctx).failures == 1
     assert counts(ctx).pending == 2
   end
 
@@ -213,7 +202,7 @@ defmodule QuickTrain.Tasks.TaskReviewTest do
     end
   end
 
-  test "manual submissions reserve capacity until a review makes that work available", ctx do
+  test "review verdicts never reopen a submitted task", ctx do
     project =
       ProjectsFixture.active!(ctx, ctx.source,
         review_mode: :manual,
@@ -246,13 +235,6 @@ defmodule QuickTrain.Tasks.TaskReviewTest do
         assert worker_action!(Attempt, :submit, ctx, worker, %{attempt_id: attempt.id}).state ==
                  :submitted
 
-        progress =
-          TaskQuestionProgress
-          |> Ash.Query.filter(task_id == ^attempt.task_id)
-          |> Ash.read_one!(authorize?: false)
-
-        assert {progress.accepted, progress.pending, progress.live} == {0, 1, 0}
-
         QuestionResponse
         |> Ash.Query.filter(attempt_id == ^response.id)
         |> Ash.read_one!(authorize?: false)
@@ -271,15 +253,14 @@ defmodule QuickTrain.Tasks.TaskReviewTest do
     resumed =
       worker_action!(Attempt, :fetch, ctx, next_worker, %{request_key: Ash.UUID.generate()})
 
-    assert resumed.status == :issued
-    assert resumed.attempt.task_id == rejected.task_id
+    assert resumed.status == :no_work_for_worker
     assert Ash.count!(ReviewDecision, authorize?: false) == 2
   end
 
-  test "automatic acceptance belongs only to answered outcomes and does not change projections",
+  test "automatic acceptance belongs only to answered outcomes",
        ctx do
-    answered = outcome!(ctx, project_counts: false)
-    skipped = outcome!(ctx, outcome: :skipped, project_counts: false)
+    answered = outcome!(ctx)
+    skipped = outcome!(ctx, outcome: :skipped)
     automatic = %{ctx.project | review_mode: :automatic}
 
     assert QuestionReview.initial_decisions!(ctx.project, [answered, skipped]) ==
@@ -295,48 +276,17 @@ defmodule QuickTrain.Tasks.TaskReviewTest do
     assert decision.request_key == nil
     assert decision.requester_id == nil
     assert decision.question_response_id == answered.id
-    assert counts(ctx).accepted == 0
+    assert counts(ctx).accepted == 1
   end
 
-  test "corrections clear attention before satisfaction and rebuilding agrees with evidence",
+  test "closed-project corrections preserve satisfaction and terminal attempts",
        ctx do
-    Ash.Seed.update!(ctx.progress, %{target: 7, failure_threshold: 5})
-
-    decisions =
-      for _ <- 1..5 do
-        outcome = outcome!(ctx)
-        assert {:ok, decision} = decide(ctx, request(outcome, :reject, nil, "Rejected"))
-        {outcome, decision}
-      end
-
-    assert current_progress(ctx).attention
-    assert Ash.get!(Task, ctx.task.id, authorize?: false).state == :needs_attention
-    [{outcome, decision} | _] = decisions
-    assert {:ok, _} = decide(ctx, request(outcome, :accept, decision.id, "Corrected"))
-    refute current_progress(ctx).attention
-    assert counts(ctx).failures == 4
-    assert Ash.get!(Task, ctx.task.id, authorize?: false).state == :open
-    expected = counts(ctx)
-    Ash.Seed.update!(current_progress(ctx), %{accepted: 0, failures: 99})
-
-    assert {:ok, _} =
-             QuickTrain.Tasks.reconcile_task(ctx.org.id, ctx.project.id, ctx.task.id,
-               authorize?: false
-             )
-
-    assert counts(ctx) == expected
-    refute current_progress(ctx).attention
-  end
-
-  test "closed-project corrections move satisfied and cancelled projections without reviving attempts",
-       ctx do
-    Ash.Seed.update!(ctx.progress, %{target: 1})
     outcome = outcome!(ctx)
     assert {:ok, first} = decide(ctx, request(outcome, :accept))
     assert Ash.get!(Task, ctx.task.id, authorize?: false).state == :satisfied
     Ash.Seed.update!(ctx.project, %{state: :completed})
     assert {:ok, second} = decide(ctx, request(outcome, :reject, first.id, "Corrected"))
-    assert Ash.get!(Task, ctx.task.id, authorize?: false).state == :cancelled
+    assert Ash.get!(Task, ctx.task.id, authorize?: false).state == :satisfied
     assert {:ok, third} = decide(ctx, request(outcome, :accept, second.id, "Restored"))
     current = Ash.load!(outcome, [:effective_decision, :effective_verdict], authorize?: false)
     assert current.effective_decision.id == third.id
@@ -347,15 +297,6 @@ defmodule QuickTrain.Tasks.TaskReviewTest do
              Ash.read!(Attempt, authorize?: false, page: false),
              &(&1.state == :submitted)
            )
-  end
-
-  test "accepted evidence can grow beyond the signed 32-bit boundary without clamping", ctx do
-    outcome = outcome!(ctx)
-    assert {:ok, rejected} = decide(ctx, request(outcome, :reject, nil, "Rejected"))
-    Ash.Seed.update!(current_progress(ctx), %{target: 2_147_483_647, accepted: 2_147_483_647})
-    assert {:ok, _} = decide(ctx, request(outcome, :accept, rejected.id, "Corrected"))
-    assert counts(ctx).accepted == 2_147_483_648
-    assert Ash.get!(Task, ctx.task.id, authorize?: false).state == :satisfied
   end
 
   test "rejection and correction reasons are nonblank without a task-specific length ceiling",
@@ -374,83 +315,8 @@ defmodule QuickTrain.Tasks.TaskReviewTest do
     assert correction.reason == long_reason
   end
 
-  test "rebuilding counts terminal failures once and excludes unsubmitted draft payloads", ctx do
-    accepted = outcome!(ctx)
-    assert {:ok, _} = decide(ctx, request(accepted, :accept))
-    rejected = outcome!(ctx)
-    assert {:ok, _} = decide(ctx, request(rejected, :reject, nil, "Rejected"))
-    outcome!(ctx)
-    outcome!(ctx, outcome: :skipped)
-
-    for state <- [:expired, :released, :cancelled, :in_progress] do
-      draft = outcome!(ctx, project_counts: false)
-      attempt = Ash.get!(Attempt, draft.attempt_id, authorize?: false)
-      Ash.Seed.update!(attempt, %{state: state})
-      assert {:error, _} = decide(ctx, request(draft, :accept))
-    end
-
-    Ash.Seed.update!(current_progress(ctx), %{accepted: 99, live: 99, failures: 99})
-
-    job = %Oban.Job{
-      args: %{
-        "organization_id" => ctx.org.id,
-        "project_id" => ctx.project.id,
-        "task_id" => ctx.task.id
-      }
-    }
-
-    assert :ok = ReconcileProgress.perform(job)
-
-    assert counts(ctx) == %{
-             accepted: 1,
-             pending: 1,
-             rejected: 1,
-             skipped: 1,
-             live: 1,
-             failures: 4
-           }
-
-    assert current_progress(ctx).attention
-    assert :ok = ReconcileProgress.perform(job)
-    assert counts(ctx).failures == 4
-    assert Ash.count!(ReviewDecision, authorize?: false) == 2
-  end
-
-  test "coverage rebuilding counts each issued task input once despite repeated attempts", ctx do
-    [item, other] = ProjectsFixture.items(ctx.project)
-
-    create!(
-      TaskInput,
-      Map.merge(ctx.scope, %{
-        task_id: ctx.task.id,
-        project_item_id: item.id,
-        revision_id: item.revision_id,
-        input_slot_id: ctx.source.form.slot.id
-      })
-    )
-
-    outcome!(ctx)
-    outcome!(ctx)
-    job = %Oban.Job{args: %{"organization_id" => ctx.org.id, "project_id" => ctx.project.id}}
-    assert :ok = ReconcileCoverage.perform(job)
-    coverage = Ash.read!(TaskItemCoverage, authorize?: false, page: false)
-
-    assert Map.new(coverage, &{&1.project_item_id, &1.exposures}) == %{
-             item.id => 1,
-             other.id => 0
-           }
-
-    Enum.each(coverage, &Ash.Seed.update!(&1, %{exposures: 99}))
-    assert :ok = ReconcileCoverage.perform(job)
-
-    assert Map.new(
-             Ash.read!(TaskItemCoverage, authorize?: false, page: false),
-             &{&1.project_item_id, &1.exposures}
-           ) == %{item.id => 1, other.id => 0}
-  end
-
   @tag :committed_db
-  test "concurrent reviewers serialize one successor and reconcile with committed decisions",
+  test "concurrent reviewers serialize successors and idempotent corrections",
        ctx do
     outcome = outcome!(ctx)
     first = request(outcome, :accept)
@@ -463,26 +329,10 @@ defmodule QuickTrain.Tasks.TaskReviewTest do
     current = Ash.load!(outcome, :effective_decision, authorize?: false).effective_decision
     correction = request(outcome, :accept, current.id, "Reconciled correction")
 
-    results =
-      concurrently([
-        fn ->
-          QuickTrain.Tasks.reconcile_task(ctx.org.id, ctx.project.id, ctx.task.id,
-            authorize?: false
-          )
-        end,
-        fn -> decide(ctx, correction) end
-      ])
-
-    assert Enum.all?(results, &match?({:ok, _}, &1))
-
-    assert counts(ctx) == %{
-             accepted: 1,
-             pending: 0,
-             rejected: 0,
-             skipped: 0,
-             live: 0,
-             failures: 0
-           }
+    results = concurrently([fn -> decide(ctx, correction) end, fn -> decide(ctx, correction) end])
+    assert [{:ok, first_retry}, {:ok, second_retry}] = results
+    assert first_retry.id == second_retry.id
+    assert counts(ctx).accepted == 1
 
     assert Ash.count!(ReviewDecision, authorize?: false) == 2
   end
@@ -505,15 +355,6 @@ defmodule QuickTrain.Tasks.TaskReviewTest do
         })
       )
 
-    create!(
-      AttemptQuestion,
-      Map.merge(ctx.scope, %{
-        task_id: ctx.task.id,
-        attempt_id: attempt.id,
-        question_id: ctx.progress.question_id
-      })
-    )
-
     outcome = Keyword.get(opts, :outcome, :answered)
 
     result =
@@ -522,7 +363,7 @@ defmodule QuickTrain.Tasks.TaskReviewTest do
         Map.merge(ctx.scope, %{
           task_id: ctx.task.id,
           attempt_id: attempt.id,
-          question_id: ctx.progress.question_id,
+          question_id: ctx.source.form.question.id,
           outcome: outcome,
           family: :integer,
           integer_value: if(outcome == :answered, do: 3),
@@ -535,14 +376,6 @@ defmodule QuickTrain.Tasks.TaskReviewTest do
       action: :update_internal,
       authorize?: false
     )
-
-    if Keyword.get(opts, :project_counts, true) do
-      delta = if outcome == :answered, do: %{pending: 1}, else: %{skipped: 1, failures: 1}
-
-      Progress.change!(Ash.get!(Task, ctx.task.id, authorize?: false), %{
-        ctx.progress.question_id => delta
-      })
-    end
 
     result
   end
@@ -579,12 +412,14 @@ defmodule QuickTrain.Tasks.TaskReviewTest do
     |> Ash.run_action()
   end
 
-  defp current_progress(ctx),
-    do: Ash.get!(TaskQuestionProgress, ctx.progress.id, authorize?: false)
-
-  defp counts(ctx),
-    do:
-      Map.take(current_progress(ctx), [:accepted, :pending, :rejected, :skipped, :live, :failures])
+  defp counts(ctx) do
+    QuestionResponse
+    |> Ash.Query.filter(task_id == ^ctx.task.id)
+    |> Ash.Query.load(:effective_decision)
+    |> Ash.read!(authorize?: false, page: false)
+    |> Enum.frequencies_by(&QuestionReview.effective_status/1)
+    |> then(&Map.merge(%{accepted: 0, pending: 0, rejected: 0, skipped: 0}, &1))
+  end
 
   defp create!(resource, attrs),
     do: Ash.create!(resource, attrs, action: :create_internal, authorize?: false)

@@ -27,7 +27,7 @@ defmodule QuickTrain.Tasks.ResultExportTest do
   alias QuickTrain.Tasks
   alias QuickTrain.Tasks.Attempts.Attempt
   alias QuickTrain.Tasks.Exports.{ExportSelection, Jsonl, ResultExport}
-  alias QuickTrain.Tasks.Responses.{QuestionResponse, TextSpan}
+  alias QuickTrain.Tasks.Responses.QuestionResponse
   alias QuickTrain.Tasks.Reviews.ReviewDecision
   alias QuickTrain.Tasks.TaskInput
 
@@ -83,49 +83,26 @@ defmodule QuickTrain.Tasks.ResultExportTest do
       actor: context.actor
     )
 
-    QuickTrain.Projects.set_question_policy!(
-      context.org.id,
-      project.id,
-      %{
-        question_id: source.form.question.id,
-        accepted_target: 1,
-        skip_allowed: true,
-        reason_required: true,
-        failure_threshold: 3
-      },
-      actor: context.actor
-    )
+    count = tags[:inputs_per_task] || if(tags[:rich], do: 2, else: 1)
 
-    for question <- Map.get(source, :extra_questions, []),
-        do:
-          QuickTrain.Projects.set_question_policy!(
-            context.org.id,
-            project.id,
-            %{
-              question_id: question.id,
-              accepted_target: 1,
-              skip_allowed: true,
-              reason_required: false,
-              failure_threshold: 3
-            },
-            actor: context.actor
-          )
-
-    if tags[:rich],
-      do:
-        QuickTrain.Projects.set_slot_policy!(
-          context.org.id,
-          project.id,
-          %{
-            input_slot_id: source.form.slot.id,
-            item_count: 2,
-            shuffle: false
-          },
-          actor: context.actor
-        )
+    for {items, position} <-
+          ProjectsFixture.items(project) |> Enum.chunk_every(count) |> Enum.with_index() do
+      QuickTrain.Projects.create_explicit_group!(
+        context.org.id,
+        project.id,
+        %{
+          position: position,
+          inputs:
+            Enum.with_index(items, fn item, index ->
+              %{input_slot_id: source.form.slot.id, project_item_id: item.id, position: index}
+            end)
+        },
+        actor: context.actor
+      )
+    end
 
     project =
-      QuickTrain.Projects.activate_project!(context.org.id, project.id, actor: context.actor)
+      QuickTrain.Projects.activate_project!(project, actor: context.actor)
 
     :ok = InMemory.reset()
     %{context: context, project: project, source: source}
@@ -178,38 +155,30 @@ defmodule QuickTrain.Tasks.ResultExportTest do
              Oban.Testing.all_enqueued(Repo, worker: Tasks.Workers.ExportResults)
   end
 
-  test "export selection batches require the owners appropriate to their evidence kind", scope do
+  test "a snapshot stores one membership per outcome and rejects duplicate membership", scope do
     scope = submit!(scope)
     {:ok, export} = request(scope)
+    Tasks.seal_export_snapshot!(export.id, authorize?: false)
+    [selection] = Ash.read!(ExportSelection, authorize?: false, page: false)
+    assert selection.question_response_id == Ash.read_one!(QuestionResponse, authorize?: false).id
+    assert selection.decision_id == Ash.read_one!(ReviewDecision, authorize?: false).id
 
-    attrs = %{
-      export_id: export.id,
-      organization_id: scope.project.organization_id,
-      project_id: scope.project.id,
-      form_version_id: scope.project.form_version_id,
-      record_count: 1
-    }
-
-    for owners <- [
-          %{kind: :task},
-          %{
-            kind: :task,
-            task_id: scope.attempt.task_id,
-            question_id: scope.source.form.question.id
-          },
-          %{kind: :question_option, question_id: scope.source.form.question.id},
-          %{kind: :dataset_value}
-        ] do
-      result =
-        Ash.bulk_create([Map.merge(attrs, owners)], ExportSelection, :create_internal,
-          authorize?: false,
-          return_errors?: true
-        )
-
-      assert result.status == :error
-    end
-
-    refute Ash.exists?(ExportSelection, authorize?: false)
+    assert {:error, _} =
+             Ash.create(
+               ExportSelection,
+               Map.take(selection, [
+                 :export_id,
+                 :organization_id,
+                 :project_id,
+                 :form_version_id,
+                 :task_id,
+                 :question_id,
+                 :question_response_id,
+                 :decision_id
+               ]),
+               action: :create_internal,
+               authorize?: false
+             )
   end
 
   test "new draft exports fail before persistence and leave the source contract editable",
@@ -220,41 +189,13 @@ defmodule QuickTrain.Tasks.ResultExportTest do
     assert Ash.count!(ResultExport, authorize?: false) == 0
     assert Oban.Testing.all_enqueued(Repo, worker: Tasks.Workers.ExportResults) == []
 
-    schema =
-      Datasets.create_schema_version!(scope.context.org.id, scope.source.dataset.id,
+    renamed =
+      QuickTrain.Projects.configure_project!(draft, %{title: "Still draft"},
         actor: scope.context.actor
       )
 
-    root =
-      Datasets.add_record_type!(scope.context.org.id, schema.id, "other", "Other",
-        actor: scope.context.actor
-      )
-
-    Datasets.add_field_definition!(
-      scope.context.org.id,
-      root.id,
-      "body",
-      "Body",
-      "text",
-      "single",
-      true,
-      actor: scope.context.actor
-    )
-
-    schema =
-      Datasets.publish_schema_version!(scope.context.org.id, schema.id, root.id,
-        actor: scope.context.actor
-      )
-
-    repinned =
-      QuickTrain.Projects.update_draft!(
-        scope.context.org.id,
-        draft.id,
-        %{schema_version_id: schema.id},
-        actor: scope.context.actor
-      )
-
-    assert repinned.schema_version_id == schema.id
+    assert renamed.title == "Still draft"
+    assert renamed.state == :draft
   end
 
   test "an empty selection seals and publishes a verified header-only JSONL artifact", scope do
@@ -288,7 +229,7 @@ defmodule QuickTrain.Tasks.ResultExportTest do
 
     assert MapSet.new(rows, & &1["kind"]) ==
              MapSet.new(~w(
-               task task_input attempt attempt_question attempt_input_presentation question_response
+               task task_input attempt attempt_input_presentation question_response
                static_option_answer task_input_answer text_span review_decision presentation_element
                question_definition question_option label project_input_binding dataset_value
              ))
@@ -337,14 +278,15 @@ defmodule QuickTrain.Tasks.ResultExportTest do
   end
 
   @tag input_count: 102, inputs_per_task: 51
-  test "source-only exports retain exact revision provenance across input pages", scope do
+  test "complete exports retain exact revision provenance across input pages", scope do
     for _ <- 1..2, do: submit!(scope)
-    {:ok, export} = request(scope, %{evidence_kind: "dataset_value"})
+    {:ok, export} = request(scope)
     assert :ok = QuickTrain.Tasks.process_result_export(export.id, authorize?: false)
     {:ok, bytes} = InMemory.read_sealed(download!(scope, export.id).read_access)
     [header | rows] = jsonl(bytes)
 
-    assert header["record_count"] == "102"
+    assert header["record_count"] == Integer.to_string(length(rows))
+    rows = Enum.filter(rows, &(&1["kind"] == "dataset_value"))
     assert length(rows) == length(scope.source.revisions)
     assert MapSet.size(MapSet.new(rows, & &1["id"])) == 102
     assert Enum.all?(rows, &(&1["kind"] == "dataset_value"))
@@ -404,63 +346,37 @@ defmodule QuickTrain.Tasks.ResultExportTest do
     assert QuickTrain.Tasks.seal_export_snapshot!(new_export.id, authorize?: false).record_count ==
              0
 
-    {:ok, audit} = request(scope, %{mode: :audit, evidence_kind: "review_decision"})
-    assert QuickTrain.Tasks.seal_export_snapshot!(audit.id, authorize?: false).record_count == 2
+    {:ok, audit} = request(scope, %{mode: :audit})
+    QuickTrain.Tasks.seal_export_snapshot!(audit.id, authorize?: false)
+    current = Ash.load!(outcome, :effective_decision, authorize?: false).effective_decision
+
+    Ash.create!(
+      ReviewDecision,
+      %{
+        organization_id: outcome.organization_id,
+        project_id: outcome.project_id,
+        form_version_id: outcome.form_version_id,
+        task_id: outcome.task_id,
+        question_id: outcome.question_id,
+        question_response_id: outcome.id,
+        origin: :human,
+        verdict: :accept,
+        number: 3,
+        predecessor_id: current.id,
+        requester_id: scope.context.actor.id,
+        request_key: Ash.UUID.generate(),
+        reason: "Later correction"
+      },
+      action: :create_internal,
+      authorize?: false
+    )
+
     assert :ok = QuickTrain.Tasks.process_result_export(audit.id, authorize?: false)
     {:ok, audit_bytes} = InMemory.read_sealed(download!(scope, audit.id).read_access)
-    assert Enum.count(jsonl(audit_bytes)) == 3
+    assert Enum.count(jsonl(audit_bytes), &(&1["kind"] == "review_decision")) == 2
   end
 
-  @tag rich: true
-  test "evidence and task ranges intersect without expanding related collections", scope do
-    scope = submit!(scope)
-
-    spans =
-      TextSpan
-      |> Ash.Query.sort(id: :asc)
-      |> Ash.read!(authorize?: false, page: false)
-
-    low = Enum.at(spans, 10).id
-    high = Enum.at(spans, 120).id
-
-    {:ok, export} =
-      request(scope, %{
-        evidence_kind: "text_span",
-        evidence_id_from: low,
-        evidence_id_to: high,
-        task_id_from: scope.attempt.task_id,
-        task_id_to: scope.attempt.task_id
-      })
-
-    assert QuickTrain.Tasks.seal_export_snapshot!(export.id, authorize?: false).record_count ==
-             111
-
-    assert :ok = QuickTrain.Tasks.process_result_export(export.id, authorize?: false)
-    {:ok, bytes} = InMemory.read_sealed(download!(scope, export.id).read_access)
-    [_header | rows] = jsonl(bytes)
-    assert Enum.count(rows) == 111
-    assert Enum.all?(rows, &(&1["kind"] == "text_span" and &1["id"] >= low and &1["id"] <= high))
-
-    {:ok, missing} =
-      request(scope, %{
-        evidence_kind: "text_span",
-        task_id_from: "ffffffff-ffff-ffff-ffff-ffffffffffff"
-      })
-
-    assert QuickTrain.Tasks.seal_export_snapshot!(missing.id, authorize?: false).record_count == 0
-    assert {:error, _} = request(scope, %{evidence_id_from: low})
-    assert {:error, _} = request(scope, %{evidence_id_to: high})
-    assert {:error, _} = request(scope, %{task_id_from: high, task_id_to: low})
-
-    assert {:error, _} =
-             request(scope, %{
-               evidence_kind: "text_span",
-               evidence_id_from: high,
-               evidence_id_to: low
-             })
-  end
-
-  test "audit includes terminal offers and context while excluding unsent draft values", scope do
+  test "audit excludes terminal drafts and their unused context", scope do
     scope = begin!(scope)
     save!(scope, scope.source.form.question, %{family: :integer, integer_value: 4}, 0)
     action!(Attempt, :release, attempt_scope(scope), scope.worker)
@@ -468,9 +384,7 @@ defmodule QuickTrain.Tasks.ResultExportTest do
     assert :ok = QuickTrain.Tasks.process_result_export(export.id, authorize?: false)
     {:ok, bytes} = InMemory.read_sealed(download!(scope, export.id).read_access)
     [_header | rows] = jsonl(bytes)
-    assert Enum.any?(rows, &(&1["kind"] == "attempt_question"))
-    assert Enum.any?(rows, &(&1["kind"] == "dataset_value"))
-    refute Enum.any?(rows, &(&1["kind"] in ["question_response", "review_decision"]))
+    assert rows == []
   end
 
   defmodule UnavailableStorage do

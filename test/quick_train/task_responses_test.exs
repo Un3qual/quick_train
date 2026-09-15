@@ -2,8 +2,8 @@ defmodule QuickTrain.Tasks.TaskResponsesTest do
   use QuickTrain.DataCase, async: false
   alias QuickTrain.{Accounts, ProjectsFixture}
   alias QuickTrain.Tasks.Attempts.Attempt
-  alias QuickTrain.Tasks.Progress.TaskQuestionProgress
   alias QuickTrain.Tasks.Responses.QuestionResponse
+  alias QuickTrain.Tasks.Task
 
   setup do
     context = ProjectsFixture.context!()
@@ -29,7 +29,7 @@ defmodule QuickTrain.Tasks.TaskResponsesTest do
     %{context: context, source: source, project: project, worker: worker, attempt: attempt}
   end
 
-  test "draft revisions serialize writes and one immutable submission reserves accepted capacity",
+  test "draft revisions serialize writes and one immutable submission counts once",
        ctx do
     response = save!(ctx, 0, %{outcome: :answered, family: :integer, integer_value: 4})
     assert response.revision == 1
@@ -42,8 +42,14 @@ defmodule QuickTrain.Tasks.TaskResponsesTest do
     assert submitted.state == :submitted
     assert submit!(ctx).id == submitted.id
     assert Ash.read_one!(QuestionResponse, authorize?: false).integer_value == 4
-    progress = Ash.read_one!(TaskQuestionProgress, authorize?: false)
-    assert {progress.accepted, progress.pending, progress.live} == {1, 0, 0}
+
+    task =
+      Ash.get!(Task, ctx.attempt.task_id,
+        load: [:submitted_count, :live_count],
+        authorize?: false
+      )
+
+    assert {task.submitted_count, task.live_count, task.state} == {1, 0, :satisfied}
 
     assert_raise Ash.Error.Invalid, fn ->
       save!(ctx, 1, %{outcome: :answered, family: :integer, integer_value: 1})
@@ -56,7 +62,7 @@ defmodule QuickTrain.Tasks.TaskResponsesTest do
     end
   end
 
-  test "an allowed all-skipped submission contributes no target and preserves explicit reason",
+  test "an allowed all-skipped submission counts once and preserves explicit reason",
        ctx do
     save!(ctx, 0, %{outcome: :answered, family: :integer, integer_value: 4})
     save!(ctx, 1, %{outcome: :skipped, family: :integer, reason: "Cannot assess"})
@@ -65,8 +71,14 @@ defmodule QuickTrain.Tasks.TaskResponsesTest do
     assert outcome.outcome == :skipped
     assert is_nil(outcome.integer_value)
     assert outcome.skipped_at
-    progress = Ash.read_one!(TaskQuestionProgress, authorize?: false)
-    assert {progress.accepted, progress.skipped, progress.live, progress.failures} == {0, 1, 0, 1}
+
+    task =
+      Ash.get!(Task, ctx.attempt.task_id,
+        load: [:submitted_count, :live_count],
+        authorize?: false
+      )
+
+    assert {task.submitted_count, task.live_count, task.state} == {1, 0, :satisfied}
   end
 
   test "incomplete draft stays editable after a rejected submission", ctx do

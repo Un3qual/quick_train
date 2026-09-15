@@ -98,7 +98,9 @@ defmodule QuickTrain.ProjectsFixture do
           title: "Collection",
           dataset_id: source.dataset.id,
           schema_version_id: source.schema.id,
-          form_version_id: source.form.version.id
+          form_version_id: source.form.version.id,
+          skip_allowed: true,
+          reason_required: true
         },
         Map.new(opts)
       ),
@@ -107,6 +109,7 @@ defmodule QuickTrain.ProjectsFixture do
   end
 
   def configured!(context, source, opts \\ []) do
+    {groups?, opts} = Keyword.pop(opts, :groups, true)
     project = draft!(context, source, opts)
 
     Projects.enroll_revisions!(
@@ -137,25 +140,28 @@ defmodule QuickTrain.ProjectsFixture do
       actor: context.actor
     )
 
-    Projects.set_question_policy!(
-      context.org.id,
-      project.id,
-      %{
-        question_id: source.form.question.id,
-        accepted_target: 1,
-        skip_allowed: true,
-        reason_required: true,
-        failure_threshold: 3
-      },
-      actor: context.actor
-    )
+    if groups?, do: groups!(context, source, project)
 
     project
   end
 
   def active!(context, source, opts \\ []) do
     project = configured!(context, source, opts)
-    Projects.activate_project!(context.org.id, project.id, actor: context.actor)
+    Projects.activate_project!(project, actor: context.actor)
+  end
+
+  def groups!(context, source, project) do
+    for {item, position} <- Enum.with_index(items(project)) do
+      Projects.create_explicit_group!(
+        context.org.id,
+        project.id,
+        %{
+          position: position,
+          inputs: [%{input_slot_id: source.form.slot.id, project_item_id: item.id, position: 0}]
+        },
+        actor: context.actor
+      )
+    end
   end
 
   def items(project) do

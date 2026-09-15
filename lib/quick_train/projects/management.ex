@@ -11,7 +11,6 @@ defmodule QuickTrain.Projects.Management do
     ProjectActivation,
     ProjectInputBinding,
     ProjectItem,
-    ProjectQuestionPolicy,
     ProjectSlotPolicy,
     ProjectWorkerAccess
   }
@@ -41,46 +40,6 @@ defmodule QuickTrain.Projects.Management do
     project
   end
 
-  defp execute(%{action: %{name: :create_project}, arguments: args}, actor) do
-    Projects.create_project!(args.organization_id, Map.delete(args, :organization_id),
-      actor: actor
-    )
-  end
-
-  defp execute(%{action: %{name: action}, arguments: args}, actor)
-       when action in [
-              :activate,
-              :pause,
-              :resume,
-              :complete,
-              :archive,
-              :update_title,
-              :update_draft
-            ] do
-    project =
-      Projects.get_project!(args.organization_id, args.project_id,
-        authorize?: false,
-        not_found_error?: false
-      )
-
-    if is_nil(project), do: Error.reject!(:invalid_project)
-
-    case action do
-      :update_title ->
-        Projects.rename_project!(project, %{title: args.title}, actor: actor)
-
-      :update_draft ->
-        Projects.configure_project!(
-          project,
-          Map.drop(args, [:organization_id, :project_id]),
-          actor: actor
-        )
-
-      transition ->
-        transition!(project, transition, actor)
-    end
-  end
-
   defp execute(input, actor) do
     args = input.arguments
     project = lock!(args.organization_id, args.project_id)
@@ -94,36 +53,20 @@ defmodule QuickTrain.Projects.Management do
     edit!(project, action, args)
   end
 
-  defp transition!(project, :activate, actor),
-    do: Projects.activate_project_record!(project, actor: actor)
-
-  defp transition!(project, :pause, actor),
-    do: Projects.pause_project_record!(project, actor: actor)
-
-  defp transition!(project, :resume, actor),
-    do: Projects.resume_project_record!(project, actor: actor)
-
-  defp transition!(project, :complete, actor),
-    do: Projects.complete_project_record!(project, actor: actor)
-
-  defp transition!(project, :archive, actor),
-    do: Projects.archive_project_record!(project, actor: actor)
-
   defp authorize_edit!(project, action, _args, actor) do
     if action in [:enroll_revisions, :set_binding],
       do: authorize!(actor, project.organization_id, "datasets.read")
 
-    if action in [:set_binding, :set_slot_policy, :set_question_policy, :create_explicit_group],
+    if action in [:set_binding, :set_slot_policy, :create_explicit_group],
       do: authorize!(actor, project.organization_id, "forms.read")
   end
 
   defp edit!(project, action, args)
-       when action in [:remove_binding, :remove_slot_policy, :remove_question_policy] do
+       when action in [:remove_binding, :remove_slot_policy] do
     {resource, key} =
       case action do
         :remove_binding -> {ProjectInputBinding, :requirement_id}
         :remove_slot_policy -> {ProjectSlotPolicy, :input_slot_id}
-        :remove_question_policy -> {ProjectQuestionPolicy, :question_id}
       end
 
     filter = [project_id: project.id] ++ [{key, Map.fetch!(args, key)}]
@@ -209,25 +152,6 @@ defmodule QuickTrain.Projects.Management do
     project
   end
 
-  defp edit!(project, :set_question_policy, args) do
-    ProjectActivation.definition!(
-      QuickTrain.Forms.Questions.QuestionDefinition,
-      project,
-      args.question_id
-    )
-
-    put!(
-      ProjectQuestionPolicy,
-      project,
-      [question_id: args.question_id],
-      args
-      |> Map.take([:accepted_target, :skip_allowed, :reason_required, :failure_threshold])
-      |> Map.put(:form_version_id, project.form_version_id)
-    )
-
-    project
-  end
-
   defp edit!(project, :set_worker_access, args) do
     unless Ash.exists?(QuickTrain.Accounts.User,
              query: [filter: [id: args.user_id]],
@@ -250,7 +174,6 @@ defmodule QuickTrain.Projects.Management do
   end
 
   defp edit!(project, :create_explicit_group, args) do
-    if project.selection_mode != :explicit, do: Error.reject!(:invalid_project_configuration)
     ProjectActivation.validate_group!(project, args.inputs)
     {key, _encoding} = GroupIdentity.canonical(args.inputs)
 

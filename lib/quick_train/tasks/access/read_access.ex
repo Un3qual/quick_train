@@ -4,8 +4,7 @@ defmodule QuickTrain.Tasks.Access.ReadAccess do
   alias QuickTrain.Authorization.RoleAssignment
   alias QuickTrain.Tasks.Access.WorkerEligibility
 
-  alias QuickTrain.Tasks.Attempts.{Attempt, AttemptInputPresentation, AttemptQuestion}
-  alias QuickTrain.Tasks.Progress.{TaskItemCoverage, TaskQuestionProgress}
+  alias QuickTrain.Tasks.Attempts.{Attempt, AttemptInputPresentation}
 
   alias QuickTrain.Tasks.Responses.{
     QuestionResponse,
@@ -23,16 +22,16 @@ defmodule QuickTrain.Tasks.Access.ReadAccess do
 
   def filter(%{id: _} = actor, %{resource: resource, query: query}, _opts) do
     cond do
-      query.action.name == :read and not task_relationship?(query) ->
+      not task_relationship?(query) ->
         false
 
-      get_in(query.context, [:shared, :task_result_mode]) in [:accepted, :audit] ->
+      get_in(query.context, [:shared, :task_results]) ->
         authority = result_authority(actor)
-        evidence = evidence_filter(resource, query.context.shared.task_result_mode)
+        evidence = evidence_filter(resource)
         expr(^authority and ^evidence)
 
       true ->
-        authorized_filter(resource, actor, :audit, receipt?(query))
+        authorized_filter(resource, actor)
     end
   end
 
@@ -44,13 +43,6 @@ defmodule QuickTrain.Tasks.Access.ReadAccess do
       _ -> false
     end
   end
-
-  defp receipt?(query),
-    do:
-      match?(
-        %{source: QuickTrain.Tasks.Attempts.Receipt, name: :questions},
-        query.context[:accessing_from]
-      )
 
   def eligible_attempt(%{id: id}) do
     eligibility =
@@ -83,20 +75,11 @@ defmodule QuickTrain.Tasks.Access.ReadAccess do
     )
   end
 
-  def authorized_filter(resource, actor, mode \\ :audit, receipt? \\ false) do
-    worker = worker_filter(resource, actor, receipt?)
+  def authorized_filter(resource, actor) do
+    worker = live_worker_filter(resource, live_attempt(actor))
     authority = result_authority(actor)
-    evidence = evidence_filter(resource, mode)
+    evidence = evidence_filter(resource)
     expr(^worker or (^authority and ^evidence))
-  end
-
-  defp worker_filter(AttemptQuestion, actor, true) do
-    eligible = eligible_attempt(actor)
-    expr(exists(attempt, ^eligible))
-  end
-
-  defp worker_filter(resource, actor, _receipt?) do
-    live_worker_filter(resource, live_attempt(actor))
   end
 
   defp live_worker_filter(Task, live), do: expr(exists(Attempt, task_id == parent(id) and ^live))
@@ -107,7 +90,7 @@ defmodule QuickTrain.Tasks.Access.ReadAccess do
   defp live_worker_filter(Attempt, live), do: live
 
   defp live_worker_filter(resource, live)
-       when resource in [AttemptQuestion, AttemptInputPresentation],
+       when resource in [AttemptInputPresentation],
        do: expr(exists(attempt, ^live))
 
   defp live_worker_filter(QuestionResponse, live), do: expr(exists(attempt, ^live))
@@ -117,58 +100,17 @@ defmodule QuickTrain.Tasks.Access.ReadAccess do
        do: expr(exists(question_response.attempt, ^live))
 
   defp live_worker_filter(resource, _live)
-       when resource in [ReviewDecision, TaskQuestionProgress, TaskItemCoverage], do: false
+       when resource in [ReviewDecision], do: false
 
-  def evidence_filter(resource, :accepted) do
-    base = audit_filter(resource)
-    accepted = accepted_filter(resource)
-    expr(^base and ^accepted)
-  end
+  def evidence_filter(resource) when resource in [Task, TaskInput], do: true
+  def evidence_filter(Attempt), do: expr(state in [:submitted, :expired, :released, :cancelled])
 
-  def evidence_filter(resource, _mode), do: audit_filter(resource)
-
-  defp audit_filter(resource) when resource in [Task, TaskInput, TaskQuestionProgress], do: true
-  defp audit_filter(TaskItemCoverage), do: expr(exists(issued_inputs, true))
-  defp audit_filter(Attempt), do: expr(state in [:submitted, :expired, :released, :cancelled])
-
-  defp audit_filter(resource) when resource in [AttemptQuestion, AttemptInputPresentation],
+  def evidence_filter(resource) when resource in [AttemptInputPresentation],
     do: expr(attempt.state in [:submitted, :expired, :released, :cancelled])
 
-  defp audit_filter(QuestionResponse), do: expr(attempt.state == :submitted)
+  def evidence_filter(QuestionResponse), do: expr(attempt.state == :submitted)
 
-  defp audit_filter(resource)
-       when resource in [StaticOptionAnswer, TaskInputAnswer, TextSpan, ReviewDecision],
-       do: expr(question_response.attempt.state == :submitted)
-
-  defp accepted_filter(Task),
-    do: expr(exists(outcomes, attempt.state == :submitted and effective_verdict == :accept))
-
-  defp accepted_filter(resource) when resource in [TaskInput, TaskQuestionProgress],
-    do: expr(exists(task.outcomes, attempt.state == :submitted and effective_verdict == :accept))
-
-  defp accepted_filter(TaskItemCoverage),
-    do:
-      expr(
-        exists(
-          issued_inputs.task.outcomes,
-          attempt.state == :submitted and effective_verdict == :accept
-        )
-      )
-
-  defp accepted_filter(Attempt), do: expr(exists(outcomes, effective_verdict == :accept))
-
-  defp accepted_filter(resource) when resource in [AttemptQuestion, AttemptInputPresentation],
-    do: expr(exists(attempt.outcomes, effective_verdict == :accept))
-
-  defp accepted_filter(QuestionResponse), do: expr(effective_verdict == :accept)
-
-  defp accepted_filter(resource) when resource in [StaticOptionAnswer, TaskInputAnswer, TextSpan],
-    do: expr(question_response.effective_verdict == :accept)
-
-  defp accepted_filter(ReviewDecision),
-    do:
-      expr(
-        question_response.effective_verdict == :accept and
-          number == question_response.effective_decision_number
-      )
+  def evidence_filter(resource)
+      when resource in [StaticOptionAnswer, TaskInputAnswer, TextSpan, ReviewDecision],
+      do: expr(question_response.attempt.state == :submitted)
 end

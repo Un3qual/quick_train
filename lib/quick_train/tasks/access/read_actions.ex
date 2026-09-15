@@ -7,6 +7,8 @@ defmodule QuickTrain.Tasks.Access.ReadActions do
   alias QuickTrain.Tasks.{Access, Error, TaskInput}
   alias QuickTrain.Tasks.Access.BoundValue
   alias QuickTrain.Tasks.Attempts.{Attempt, Leases, Receipt}
+  alias QuickTrain.Tasks.Responses.QuestionResponse
+  alias QuickTrain.Tasks.Reviews.QuestionReview
   require Ash.Query
 
   def run(%{action: %{name: :work_bundle}, arguments: args}, _opts, context) do
@@ -40,7 +42,22 @@ defmodule QuickTrain.Tasks.Access.ReadActions do
     Access.owner!(project, attempt, actor, false)
 
     if attempt.state in Leases.live_states(), do: Error.reject!(:attempt_not_terminal)
-    struct!(Receipt, Map.take(attempt, [:id, :state, :started_at, :terminal_at, :inserted_at]))
+
+    counts =
+      if attempt.state == :submitted do
+        QuestionResponse
+        |> Ash.Query.filter(attempt_id == ^attempt.id)
+        |> Ash.Query.load(:effective_decision)
+        |> Ash.stream!(authorize?: false)
+        |> Enum.frequencies_by(&QuestionReview.effective_status/1)
+      else
+        %{}
+      end
+
+    struct!(
+      Receipt,
+      Map.merge(Map.take(attempt, [:id, :state, :started_at, :terminal_at, :inserted_at]), counts)
+    )
   end
 
   defp execute(%{action: %{name: :bound_value}, arguments: args}, actor) do

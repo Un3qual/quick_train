@@ -7,7 +7,7 @@ Collect attributable typed answers and explicit skips against the exact question
 ## Requirements
 
 ### Requirement: One draft becomes one immutable submission
-Each Attempt SHALL own its draft revision and QuestionResponse outcomes directly. Submission SHALL transition that Attempt to submitted and freeze its outcomes; no separate Response resource or draft/submitted lifecycle SHALL be persisted. Save SHALL require the current eligible owner and unexpired live attempt in an active or paused project. Every question outcome/child write or delete SHALL acquire the shared Project lock, then Task and Attempt locks in that order and retain them through commit. After acquiring those locks it SHALL recheck current eligibility, project state, attempt ownership/live state, database wall-clock lease deadline, and submission state, serializing with release, expiry, cancellation, project completion, and submission. Saves SHALL replace one complete question outcome atomically, require the current `expected_revision`, and increment that revision; stale revisions SHALL fail without overwriting newer work. Submission SHALL atomically validate all and only offered questions, freeze the response and descendants, transition the attempt, and update capacity/review evidence. An authorized submit retry SHALL return the existing submission without duplicating outcomes or automatic reviews. Released/expired/cancelled drafts SHALL never become submitted.
+Each Attempt SHALL own its draft revision and QuestionResponse outcomes directly. Submission SHALL transition that Attempt to submitted and freeze its outcomes; no separate Response resource or draft/submitted lifecycle SHALL be persisted. Save SHALL require the current eligible owner and unexpired live attempt in an active or paused project. Every question outcome/child write or delete SHALL acquire the shared Project lock, then Task and Attempt locks in that order and retain them through commit. After acquiring those locks it SHALL recheck current eligibility, project state, attempt ownership/live state, database wall-clock lease deadline, and submission state, serializing with release, expiry, cancellation, project completion, and submission. Saves SHALL replace one complete question outcome atomically, require the current `expected_revision`, and increment that revision; stale revisions SHALL fail without overwriting newer work. Submission SHALL atomically validate all questions of the pinned published form, freeze the response and descendants, transition the attempt, and update capacity/review evidence. An authorized submit retry SHALL return the existing submission without duplicating outcomes or automatic reviews. Released/expired/cancelled drafts SHALL never become submitted.
 
 #### Scenario: A save races submission
 - **WHEN** a question save and submit run concurrently
@@ -19,26 +19,26 @@ Each Attempt SHALL own its draft revision and QuestionResponse outcomes directly
 
 #### Scenario: Submission fails on one question
 - **WHEN** one offered outcome is missing or invalid
-- **THEN** no attempt, outcome, reservation, or review transition commits and the valid draft remains editable while the lease permits
+- **THEN** no attempt, outcome, or review transition commits and the valid draft remains editable while the lease permits
 
 #### Scenario: A draft save races attempt terminalization
 - **WHEN** a draft replacement or child edit/delete races release, expiry, cancellation, or project completion
 - **THEN** the save either commits first while its attempt remains eligible and live, or observes terminalization after acquiring the required locks and fails without changing the draft
 
 ### Requirement: Missing answered and skipped are distinct
-Every offered question SHALL have exactly one explicit answered or skipped outcome before submission. Questions absent from the offered set SHALL be rejected even when they belong to the same form. A skip SHALL be allowed only by its frozen project-question policy and SHALL contain no answer value, a server timestamp, a nonblank reason when required, and an optional explanation. An all-skipped response SHALL be valid if every offered policy allows it. Skips SHALL satisfy no accepted-answer target and SHALL remain immutable queryable evidence even after a later follow-up answers the question.
+Every question in the pinned published form SHALL have exactly one explicit answered or skipped outcome before submission. Questions outside that form SHALL be rejected. A skip SHALL be permitted only by the frozen project-wide skip setting, contain no answer value, and preserve a server timestamp plus a nonblank reason when required. Optional explanations SHALL remain supported. An all-skipped submission SHALL be valid when skipping is enabled and SHALL count once toward the task's submission target. Skips SHALL remain immutable queryable evidence and SHALL not become accepted answers.
 
 #### Scenario: Absence is not a skip
-- **WHEN** a worker submits without an offered question outcome
-- **THEN** submission fails rather than inferring a skip or empty answer
+- **WHEN** a worker submits without an outcome for a published question
+- **THEN** submission fails rather than inferring an answer or skip
 
 #### Scenario: A draft answer is replaced by a skip
-- **WHEN** an authorized worker skips a previously answered draft question whose policy allows it
-- **THEN** the outcome and removal of all previous answer children commit together
+- **WHEN** the project allows skipping and the owner replaces a draft answer
+- **THEN** the skip and removal of all previous answer children commit together
 
 #### Scenario: A skip requires a reason
-- **WHEN** the project requires reasons and the worker supplies only whitespace
-- **THEN** submission rejects that skip without freezing the response
+- **WHEN** the project requires a reason and only whitespace is supplied
+- **THEN** the write fails without freezing the attempt
 
 ### Requirement: Typed answers retain published form semantics
 Ash create validations SHALL enforce scalar payload compatibility for ordinary and bulk question-response writes: only answered outcomes may contain scalar values, and each populated scalar field SHALL match the answer family. This rule SHALL live in Elixir rather than a PostgreSQL business-rule check; scoped foreign keys, uniqueness, and simple value bounds SHALL remain database integrity constraints.

@@ -35,16 +35,15 @@ datasets, assets, versioned form definitions, and project-based task collection.
   capability provisioning and authoring limits. Forms do not access dataset content or storage.
 - `QuickTrain.Projects`: frozen cohorts, published form bindings, worker admission, and project lifecycle.
 - `QuickTrain.Tasks`: leased work, typed drafts and immutable submissions, per-question review,
-  progress reconciliation, scoped result reads, and immutable JSONL exports.
+  scoped result reads, and immutable JSONL exports.
 - `QuickTrainWeb.GraphQL.Schema`: an explicit allowlist of authentication, dataset, asset,
   form, project, and task operations with scoped authorization and paginated collections.
 
-Within `QuickTrain.Tasks`, files follow their module namespaces: `Attempts` holds allocation
-and leases, `Responses` holds typed answers and submission, `Reviews` holds review decisions,
-and `Exports` holds snapshots and JSONL generation. `Progress` contains counters and completion;
-`Access` contains scoped reads and authorization. The domain API remains in `tasks.ex`, with
-`Task`, `TaskInput`, and shared `Access`, `Progress`, and `Error` modules at the folder root.
-Background jobs remain under `Workers` so persisted Oban worker names stay stable.
+Within `QuickTrain.Tasks`, files follow their module namespaces: `Attempts` holds allocation,
+leases, and project completion; `Responses` holds typed answers and submission; `Reviews` holds
+review decisions; and `Exports` holds snapshots and JSONL generation. `Access` contains scoped
+reads and authorization. The domain API remains in `tasks.ex`, with `Task`, `TaskInput`, and
+shared `Access` and `Error` modules at the folder root. Background jobs live under `Workers`.
 
 Collection requires explicit `projects.read`, `projects.manage`, `tasks.assign`, `tasks.review`,
 and `tasks.results.read` grants for the relevant organizational roles. No production role gains
@@ -169,6 +168,21 @@ after one day. All GraphQL collections use bounded keyset-paginated Relay connec
 
 Production additionally requires `DATABASE_URL` and `SECRET_KEY_BASE`; the other runtime settings
 are documented in `.env.example`.
+
+## Project task collection
+
+A project fixes its dataset/schema/form at creation. In draft, enroll immutable revisions,
+bind inputs, and author explicit groups. Activation freezes that configuration, one submission
+target per task, and project-wide skip rules. Allocation issues whole-form attempts with fixed
+leases; review decisions change accepted results without requesting replacement work.
+
+GraphQL exposes scoped `tasks`/`task` and `taskResults`/`taskResult` reads, with paginated nested
+evidence. Workers use `workBundle` and status-only `attemptReceipt`. Project create/update
+mutations use native Ash result/error shapes. Exports select complete accepted or audit results,
+seal submitted-outcome membership, and publish deterministic JSONL through the Assets adapter.
+
+This feature is unreleased. Its branch migration history is consolidated into one migration;
+recreate local databases that used an earlier version of the branch. No data conversion is provided.
 
 ## Clean-database migration requirement
 

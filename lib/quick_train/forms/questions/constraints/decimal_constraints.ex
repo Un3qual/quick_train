@@ -3,7 +3,6 @@
 defmodule QuickTrain.Forms.Questions.Constraints.DecimalConstraints do
   @moduledoc "Organization-scoped decimal constraints definition."
   use Ash.Resource,
-    fragments: [QuickTrain.Authorization.CollectionRead],
     primary_read_warning?: false,
     otp_app: :quick_train,
     domain: QuickTrain.Forms,

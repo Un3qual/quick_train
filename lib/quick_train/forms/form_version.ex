@@ -1,7 +1,6 @@
 defmodule QuickTrain.Forms.FormVersion do
   @moduledoc "Organization-scoped form version definition."
   use Ash.Resource,
-    fragments: [QuickTrain.Authorization.CollectionRead],
     primary_read_warning?: false,
     otp_app: :quick_train,
     domain: QuickTrain.Forms,

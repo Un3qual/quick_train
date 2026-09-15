@@ -105,7 +105,6 @@ defmodule QuickTrainWeb.GraphqlApiTest do
       form_queries()
       |> Map.merge(project_queries())
       |> Map.merge(task_queries())
-      |> Map.merge(task_definition_queries())
 
     assert queries ==
              Map.merge(expected_queries, %{
@@ -348,44 +347,24 @@ defmodule QuickTrainWeb.GraphqlApiTest do
   defp project_queries do
     collections =
       Map.new(
-        ~w(projectItems projectInputBindings projectSlotPolicies projectQuestionPolicies
-           projectWorkerAccessEntries explicitGroups explicitGroupInputs resultInputBindings),
+        ~w(projectItems projectInputBindings projectSlotPolicies
+           projectWorkerAccessEntries explicitGroups explicitGroupInputs),
         &{&1, MapSet.new(~w(after before first last organizationId projectId))}
       )
 
     Map.merge(collections, %{
       "projects" => MapSet.new(~w(after before first last organizationId)),
-      "project" => MapSet.new(~w(id organizationId)),
-      "resultInputBinding" => MapSet.new(~w(id organizationId projectId))
+      "project" => MapSet.new(~w(id organizationId))
     })
   end
 
   defp task_queries do
-    evidence =
-      for prefix <- ~w(accepted audit),
-          {singular, plural} <- [
-            {"Task", "Tasks"},
-            {"TaskProgress", "TaskProgressRows"},
-            {"TaskItemCoverage", "TaskItemCoverageRows"},
-            {"TaskInput", "TaskInputs"},
-            {"Attempt", "Attempts"},
-            {"AttemptQuestion", "AttemptQuestions"},
-            {"AttemptInputPresentation", "AttemptInputPresentations"},
-            {"QuestionResponse", "QuestionResponses"},
-            {"StaticOptionAnswer", "StaticOptionAnswers"},
-            {"TaskInputAnswer", "TaskInputAnswers"},
-            {"TextSpan", "TextSpans"},
-            {"ReviewDecision", "ReviewDecisions"}
-          ],
-          {suffix, args} <- [
-            {singular, ~w(id organizationId projectId)},
-            {plural, ~w(after before first last organizationId projectId)}
-          ],
-          into: %{} do
-        {prefix <> suffix, MapSet.new(args)}
-      end
-
-    Map.merge(evidence, %{
+    %{
+      "tasks" => MapSet.new(~w(after before first last organizationId projectId)),
+      "task" => MapSet.new(~w(id organizationId projectId)),
+      "taskResults" =>
+        MapSet.new(~w(after before first last organizationId projectId acceptedOnly)),
+      "taskResult" => MapSet.new(~w(id organizationId projectId acceptedOnly)),
       "workBundle" => MapSet.new(~w(attemptId organizationId projectId)),
       "attemptReceipt" => MapSet.new(~w(attemptId organizationId projectId)),
       "taskBoundValue" =>
@@ -395,34 +374,20 @@ defmodule QuickTrainWeb.GraphqlApiTest do
       "resultExports" => MapSet.new(~w(after before first last organizationId projectId)),
       "resultExport" => MapSet.new(~w(exportId organizationId projectId)),
       "resultExportDownload" => MapSet.new(~w(exportId organizationId projectId))
-    })
-  end
-
-  defp task_definition_queries do
-    Map.new(
-      ~w(taskFormVersion taskInputSlotDefinition taskInputFieldRequirement taskPresentationElement
-         taskQuestionDefinition taskQuestionOption taskLabelSet taskLabel taskTextConstraints
-         taskIntegerConstraints taskDecimalConstraints taskSelectionConstraints
-         taskAnnotationConstraints taskFieldDefinition),
-      &{&1, MapSet.new(~w(attemptId id organizationId projectId))}
-    )
+    }
   end
 
   defp project_mutations do
     lifecycle =
       Map.new(
         ~w(activateProject pauseProject resumeProject completeProject archiveProject),
-        &{&1, MapSet.new(~w(organizationId projectId))}
+        &{&1, MapSet.new(~w(id organizationId))}
       )
 
     Map.merge(lifecycle, %{
-      "createProject" =>
-        MapSet.new(~w(audience coverageTarget datasetId externalAccess formVersionId leaseMinutes
-             organizationId reviewMode schemaVersionId selectionMode title)),
-      "updateProjectDraft" =>
-        MapSet.new(~w(audience coverageTarget datasetId externalAccess formVersionId leaseMinutes
-             organizationId projectId reviewMode schemaVersionId selectionMode title)),
-      "updateProjectTitle" => MapSet.new(~w(organizationId projectId title)),
+      "createProject" => MapSet.new(~w(input)),
+      "updateProjectDraft" => MapSet.new(~w(id organizationId input)),
+      "updateProjectTitle" => MapSet.new(~w(id organizationId input)),
       "enrollProjectRevisions" => MapSet.new(~w(organizationId projectId revisionIds)),
       "removeProjectItems" => MapSet.new(~w(organizationId projectId projectItemIds)),
       "setProjectInputBinding" =>
@@ -431,10 +396,6 @@ defmodule QuickTrainWeb.GraphqlApiTest do
       "setProjectSlotPolicy" =>
         MapSet.new(~w(inputSlotId itemCount organizationId projectId shuffle)),
       "removeProjectSlotPolicy" => MapSet.new(~w(inputSlotId organizationId projectId)),
-      "setProjectQuestionPolicy" =>
-        MapSet.new(~w(acceptedTarget failureThreshold organizationId projectId questionId
-             reasonRequired skipAllowed)),
-      "removeProjectQuestionPolicy" => MapSet.new(~w(organizationId projectId questionId)),
       "setProjectWorkerAccess" => MapSet.new(~w(disposition organizationId projectId userId)),
       "removeProjectWorkerAccess" => MapSet.new(~w(organizationId projectId userId)),
       "createProjectExplicitGroup" => MapSet.new(~w(inputs organizationId position projectId)),
@@ -452,8 +413,6 @@ defmodule QuickTrainWeb.GraphqlApiTest do
     Map.merge(attempt_actions, %{
       "fetchWork" => MapSet.new(~w(organizationId projectId requestKey)),
       "assignWork" => MapSet.new(~w(organizationId projectId requestKey workerId)),
-      "assignFollowUp" =>
-        MapSet.new(~w(organizationId predecessorId projectId requestKey workerId)),
       "saveTaskQuestion" =>
         MapSet.new(~w(answer attemptId expectedRevision organizationId projectId questionId)),
       "decideTaskQuestion" =>
@@ -461,11 +420,7 @@ defmodule QuickTrainWeb.GraphqlApiTest do
           ~w(expectedPredecessorId organizationId projectId questionResponseId reason requestKey verdict)
         ),
       "reviewTaskQuestions" => MapSet.new(~w(decisions organizationId projectId)),
-      "requestResultExport" =>
-        MapSet.new(
-          ~w(evidenceIdFrom evidenceIdTo evidenceKind mode organizationId projectId requestKey
-             taskIdFrom taskIdTo)
-        )
+      "requestResultExport" => MapSet.new(~w(mode organizationId projectId requestKey))
     })
   end
 

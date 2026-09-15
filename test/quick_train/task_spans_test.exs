@@ -18,7 +18,6 @@ defmodule QuickTrain.Tasks.TextSpansTest do
   alias QuickTrain.Forms.Questions.Constraints.AnnotationConstraints
   alias QuickTrain.Forms.Questions.QuestionDefinition
   alias QuickTrain.Tasks.Attempts.Attempt
-  alias QuickTrain.Tasks.Progress.TaskQuestionProgress
   alias QuickTrain.Tasks.Responses.TextSpan
   alias QuickTrain.Tasks.TaskInput
   alias QuickTrainWeb.GraphQL.Schema
@@ -141,7 +140,7 @@ defmodule QuickTrain.Tasks.TextSpansTest do
 
     assert Enum.all?(page["edges"], &(&1["node"]["label"]["id"] == ctx.source.form.label.id))
     assert Enum.all?(page["edges"], &(&1["node"]["taskInput"]["revisionId"] == bound.revision_id))
-    assert Ash.read_one!(TaskQuestionProgress, authorize?: false).accepted == 1
+    assert Ash.read_one!(QuickTrain.Tasks.Task, authorize?: false).state == :satisfied
   end
 
   test "more than one hundred submitted spans remain fully traversable through Ash and GraphQL",
@@ -152,10 +151,10 @@ defmodule QuickTrain.Tasks.TextSpansTest do
     assert {:ok, %{state: :submitted}} =
              action(ctx, Attempt, :submit, %{attempt_id: ctx.attempt.id})
 
-    ash_page = read_page!(ctx, :list_accepted)
+    ash_page = read_page!(ctx)
     assert Enum.count(ash_page.results) == 50
     assert ash_page.more?
-    ash_spans = all_pages(ash_page)
+    ash_spans = all_pages(ctx, ash_page)
     assert Enum.count(ash_spans) == 151
     assert MapSet.size(MapSet.new(ash_spans, & &1.id)) == 151
     first = graphql_page(ctx)
@@ -170,10 +169,7 @@ defmodule QuickTrain.Tasks.TextSpansTest do
     assert MapSet.new(edges, &{&1["node"]["start"], &1["node"]["end"]}) ==
              MapSet.new(0..150, &{&1, &1 + 1})
 
-    assert {:error, _} =
-             TextSpan
-             |> Ash.Query.for_read(:list_accepted, scope(ctx), actor: ctx.worker)
-             |> Ash.read()
+    assert {:error, _} = Ash.read(TextSpan, actor: ctx.worker)
   end
 
   test "released span drafts remain stored but lose worker access and result visibility", ctx do
@@ -185,27 +181,43 @@ defmodule QuickTrain.Tasks.TextSpansTest do
     assert {:error, _} = bound(ctx)
     assert {:error, _} = save(ctx, 1, [span(ctx, 0, 1)])
     assert Ash.count!(TextSpan, authorize?: false) == 1
-    assert read_page!(ctx, :list_accepted).results == []
-    assert read_page!(ctx, :list_audit).results == []
+
+    assert QuickTrain.Tasks.list_task_results!(ctx.context.org.id, ctx.project.id,
+             actor: ctx.reader
+           ).results == []
+
     assert graphql_page(ctx)["edges"] == []
   end
 
-  defp read_page!(ctx, action) do
-    TextSpan
-    |> Ash.Query.for_read(action, scope(ctx), actor: ctx.reader)
-    |> Ash.read!()
+  defp read_page!(ctx, after_cursor \\ nil) do
+    [outcome] =
+      QuickTrain.Tasks.list_task_results!(
+        ctx.context.org.id,
+        ctx.project.id,
+        %{accepted_only: true},
+        actor: ctx.reader
+      ).results
+
+    page = if after_cursor, do: [limit: 50, after: after_cursor], else: [limit: 50]
+    Ash.load!(outcome, [text_spans: Ash.Query.page(TextSpan, page)], actor: ctx.reader).text_spans
   end
 
-  defp all_pages(%{more?: false, results: results}), do: results
-  defp all_pages(page), do: page.results ++ all_pages(Ash.page!(page, :next))
+  defp all_pages(_ctx, %{more?: false, results: results}), do: results
+
+  defp all_pages(ctx, page) do
+    # Ash child pagination resumes from the last row of this bounded page.
+    # credo:disable-for-next-line ExSlop.Check.Refactor.ListLast
+    cursor = List.last(page.results).__metadata__.keyset
+    page.results ++ all_pages(ctx, read_page!(ctx, cursor))
+  end
 
   defp graphql_page(ctx, after_cursor \\ nil) do
     query = """
     query($after: String) {
-      acceptedTextSpans(organizationId: "#{ctx.context.org.id}", projectId: "#{ctx.project.id}", first: 100, after: $after) {
+      taskResults(organizationId: "#{ctx.context.org.id}", projectId: "#{ctx.project.id}", acceptedOnly: true, first: 1) { edges { node { textSpans(first: 100, after: $after) {
         edges { cursor node { id start end taskInput { id revisionId } label { id text } sourceValue { id textValue { value } } } }
         pageInfo { hasNextPage endCursor }
-      }
+      } } } }
     }
     """
 
@@ -216,7 +228,11 @@ defmodule QuickTrain.Tasks.TextSpansTest do
              )
 
     refute Map.has_key?(result, :errors), inspect(result)
-    result.data["acceptedTextSpans"]
+
+    case result.data["taskResults"]["edges"] do
+      [] -> %{"edges" => []}
+      [%{"node" => node}] -> node["textSpans"]
+    end
   end
 
   defp span(ctx, start, finish),

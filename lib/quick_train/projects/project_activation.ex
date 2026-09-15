@@ -6,7 +6,6 @@ defmodule QuickTrain.Projects.ProjectActivation do
     GroupIdentity,
     ProjectInputBinding,
     ProjectItem,
-    ProjectQuestionPolicy,
     ProjectSlotPolicy
   }
 
@@ -77,9 +76,9 @@ defmodule QuickTrain.Projects.ProjectActivation do
     questions = Enum.to_list(rows(QuestionDefinition, version_id: project.form_version_id))
     slots = Enum.to_list(rows(InputSlotDefinition, version_id: project.form_version_id))
     validate_contract!(requirements, questions)
-    {bindings, policies} = validate_policies!(project, requirements, questions, slots)
+    {bindings, policies} = validate_policies!(project, requirements, slots)
     validate_cohort!(project, requirements, bindings, policies)
-    if project.selection_mode == :explicit, do: validate_explicit!(project, policies)
+    validate_explicit!(project, policies)
     :ok
   end
 
@@ -105,17 +104,15 @@ defmodule QuickTrain.Projects.ProjectActivation do
        do: Error.reject!(:unsupported_task_contract)
   end
 
-  defp validate_policies!(project, requirements, questions, slots) do
+  defp validate_policies!(project, requirements, slots) do
     bindings =
       rows(ProjectInputBinding, project_id: project.id)
       |> Enum.to_list()
       |> Ash.load!(:field_definition, authorize?: false)
 
     policies = Enum.to_list(rows(ProjectSlotPolicy, project_id: project.id))
-    question_policies = Enum.to_list(rows(ProjectQuestionPolicy, project_id: project.id))
     exact!(requirements, bindings, :requirement_id, "complete bindings are required")
     exact!(slots, policies, :input_slot_id, "complete slot policies are required")
-    exact!(questions, question_policies, :question_id, "complete question policies are required")
 
     requirements_by_id = Map.new(requirements, &{&1.id, &1})
     slots_by_id = Map.new(slots, &{&1.id, &1})
@@ -251,7 +248,7 @@ defmodule QuickTrain.Projects.ProjectActivation do
       end)
 
     for item <- rows(ProjectItem, project_id: project.id) do
-      if Map.get(coverage, item.id, 0) < project.coverage_target,
+      if Map.get(coverage, item.id, 0) < 1,
         do:
           Error.reject!(:invalid_project_configuration, [
             item.id <> ": insufficient explicit coverage"

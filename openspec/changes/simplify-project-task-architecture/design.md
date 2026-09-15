@@ -1,32 +1,31 @@
 ## Context
 
-See proposal.md. This is an approved simplification of the existing branch, preserving collection behavior and durable evidence.
+See proposal.md. The feature is unreleased and has no existing data. Earlier branch schemas, IDs, API shapes, and generated export bytes do not need compatibility.
 
 ## Goals / Non-Goals
 
-**Goals:** Remove redundant persistence and resource models while preserving concurrent issuance, immutable submitted answers, result-only context access, and repeatable exports.
+**Goals:** Make a task an explicit group of immutable inputs with a single submission target; make reviews and exports consumers of submitted answers; expose application workflows instead of every persistence detail.
 
-**Non-Goals:** Change audience rules, answer targets, review history, selection fairness, or storage publication; introduce a scheduler, authorization grant ledger, or copied product data.
+**Non-Goals:** Change account/organization boundaries, weaken source authorization, remove answer families, or add scheduling infrastructure.
 
 ## Decisions
 
-1. Attempt owns the draft revision and outcomes. Move existing revisions to attempts and redirect outcome foreign keys. Preserve historical response IDs only as private provenance metadata for reproducing previously sealed JSONL; new outcomes use their attempt identity. Remove the independently persisted Response lifecycle and its public query roots. Keep the save/submit operation names, returning Attempt.
-2. Keep transactional progress counters and reconciliation. Derive attention from accepted/target/failure values and Task state from those rows and project closure through Ash calculations. This avoids another independently maintained projection layer.
-3. The export records immutable form-context eligibility at snapshot seal. The pinned form version and immutable request filters determine presentation/question/option/label membership. Existing evidence and source-value membership remains relational; no timestamp cutoff replaces committed membership.
-4. Activation initializes coverage for the frozen cohort. Balanced selection retains its existing coverage lock order. Explicit selection locks its next authored group and only that group's coverage rows; contention cannot reorder authored groups. Issuance still commits group consumption, inputs, reservations, and attempts together.
-5. Collection entry points remain in Tasks, but reads reuse the canonical Forms, Datasets, Assets, and ProjectInputBinding resources and their GraphQL types. The Authorization layer owns the shared collection-access filter and organization/source authority checks. A native Ash DSL fragment adds the scoped definition read to existing form/field resources; each resource permits collection access explicitly alongside ordinary read policies. Do not duplicate schemas, relationships, field lists, ordering, or GraphQL types to move authorization. Native Asset field policies hide private storage/claim fields. Every collection traversal still requires current live-worker or result authority for the exact issued input and bound field, and collections retain their owning resource pagination.
-
-6. Explicit activation streams groups with their inputs through Ash relationship loads and reuses the already validated slot policies. Raw group authoring validates item membership in one scoped query; persisted inputs rely on their existing scoped foreign keys. Coverage increments use one atomic bulk update over the already locked selected items within the issuance transaction. Project-leading indexes support coverage selection and progress scans without changing lock order. Bound-value metadata and downloads share a private asset resolution result; public values retain only the sanitized asset summary.
+1. Keep explicit groups and create Task/TaskInput only on first issuance. Remove balanced grouping and coverage tracking. Authored order and optional per-attempt shuffling remain. Draft groups must be nonempty, distinct, and match slot policies; every enrolled item must occur in a group.
+2. Each task takes its submission target from its frozen Project. Native counts of submitted attempts and physical live attempts determine remaining capacity under the Task lock. Expire overdue attempts after acquiring the lock. Every attempt covers every published question. A valid submission counts once even when allowed questions are skipped. Reviews never reopen capacity. Remove per-question policies, offered-question rows, progress projections, failure escalation, reconciliation, and linked follow-ups.
+3. Keep immutable per-question answers and append-only per-question review decisions. Automatic review accepts answered outcomes; manual review leaves them pending. Skips remain explicit and non-reviewable. Corrections change accepted results only. Keep task/attempt locks, optimistic draft revisions, idempotent submit/review requests, and exact published answer validation.
+4. Expose tasks and submitted question outcomes through scoped paginated roots. An accepted-only outcome filter does not impose a separate visibility mode on each nested resource. Worker access remains through an owned live work bundle; terminal receipts expose state, timestamps, and review-status totals only. Reuse canonical Forms/Datasets/Assets resources and current collection filters; remove standalone collection-definition actions and roots.
+5. Export the complete project in accepted or audit mode. A repeatable-read transaction seals one ExportSelection per eligible submitted QuestionResponse with the effective decision ID. All immutable children, task/input/attempt metadata, form context, bindings, and source values are derived from those selected owners. Audit history is bounded by the sealed decision number. No timestamp-only snapshot or later effective decision lookup substitutes for sealed membership. Output is deterministic and remains streamed to verified immutable assets. Remove evidence-kind and ID-range filters and historical response IDs.
+6. Expose native Ash project create/update mutations and domain interfaces. Dataset/schema/form identities are fixed at creation, avoiding draft repinning. Keep explicit child editing operations under the Project lock and revalidate the complete draft on activation. Project-level submission_target, skip_allowed, and reason_required replace per-question settings.
+7. Delete only branch-added migrations/snapshots, then generate the final schema from the main baseline with Ash codegen. Test on a new disposable database. No data-transfer or backward-compatibility paths are retained.
 
 ## Risks / Trade-offs
 
-- Canonical resources explicitly integrate with shared collection authorization. This modest policy coupling is preferable to a second model of the same entities; mutation logic and schemas remain solely in their owning domains.
-
-- Existing response IDs and export retries -> migrate provenance and retain the original JSONL field meanings without retaining a second lifecycle.
-- Calculated state and access filters -> exercise direct Ash reads, GraphQL, completion, and correction races.
-- Explicit group ordering and shared inputs -> retain stable locks and test independent-connection allocation.
-- Sharing canonical resource reads could widen collection access -> verify result-only and worker access, revocation, cross-project references, and reverse traversal.
+- Explicit groups require authored inputs; automatic grouping is intentionally removed.
+- A rejected answer does not automatically request replacement work. Managers can create another project when additional collection is needed.
+- Narrowed APIs change GraphQL shapes and root names; update repository callers and contract tests together.
+- Derived counts must be read under a task lock after overdue attempts are terminalized to prevent over-allocation.
+- Export retries must derive only immutable children and sealed review history; exercise concurrent submissions/corrections and restart reproducibility.
 
 ## Migration Plan
 
-Generate migrations with Ash codegen, then add the data transfer needed before removing redundant fields/tables. Retain historical migrations. Test with existing evidence in a disposable database and run the complete repository gate. JSON serialization must order keys explicitly: atom-map enumeration was runtime-dependent. Preserve published assets unchanged; detach only unpublished pending publication identities so they can regenerate the same sealed records with deterministic bytes. Retain the superseded assets' export ownership and normal staging expiry. Production rollback retains evidence and uses a forward fix; destructive down migrations remain a disposable-database operation.
+Generate a clean branch migration from main, retaining main migrations. Use a fresh dedicated test database and run the full verification gate. Development databases using an earlier branch schema must be recreated.

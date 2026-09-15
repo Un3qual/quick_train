@@ -16,7 +16,7 @@ defmodule QuickTrain.Tasks.Attempts.Attempt do
     attribute :operation, :atom,
       public?: true,
       allow_nil?: false,
-      constraints: [one_of: [:fetch, :assign, :follow_up]]
+      constraints: [one_of: [:fetch, :assign]]
 
     attribute :state, :atom,
       public?: true,
@@ -35,16 +35,10 @@ defmodule QuickTrain.Tasks.Attempts.Attempt do
       default: 0,
       constraints: [min: 0]
 
-    # Retained only to reproduce provenance in exports sealed before response consolidation.
-    attribute :legacy_response_id, :uuid
     timestamps()
   end
 
   relationships do
-    has_many :offered_questions, QuickTrain.Tasks.Attempts.AttemptQuestion,
-      destination_attribute: :attempt_id,
-      public?: true
-
     has_many :input_presentations, QuickTrain.Tasks.Attempts.AttemptInputPresentation,
       destination_attribute: :attempt_id,
       public?: true
@@ -71,10 +65,11 @@ defmodule QuickTrain.Tasks.Attempts.Attempt do
 
     belongs_to :worker, QuickTrain.Accounts.User, allow_nil?: false, attribute_public?: true
     belongs_to :requester, QuickTrain.Accounts.User, allow_nil?: false, attribute_public?: true
+  end
 
-    belongs_to :predecessor, QuickTrain.Tasks.Attempts.Attempt,
-      allow_nil?: true,
-      attribute_public?: true
+  calculations do
+    calculate :skip_allowed, :boolean, expr(project.skip_allowed), public?: true
+    calculate :reason_required, :boolean, expr(project.reason_required), public?: true
   end
 
   actions do
@@ -131,34 +126,6 @@ defmodule QuickTrain.Tasks.Attempts.Attempt do
       run Module.concat(["QuickTrain.Tasks.Access.ReadActions"])
     end
 
-    for {mode, list_action, get_action} <- [
-          {:audit, :list_audit, :get_audit},
-          {:accepted, :list_accepted, :get_accepted}
-        ] do
-      read list_action do
-        argument :organization_id, :uuid, allow_nil?: false
-        argument :project_id, :uuid, allow_nil?: false
-        filter expr(organization_id == ^arg(:organization_id) and project_id == ^arg(:project_id))
-        prepare {Module.concat(["QuickTrain.Tasks.Access.ReadAccess.Prepare"]), mode: mode}
-
-        pagination keyset?: true,
-                   required?: true,
-                   default_limit: 50,
-                   max_page_size: 100,
-                   stable_sort: [inserted_at: :asc, id: :asc]
-      end
-
-      read get_action do
-        get? true
-        argument :id, :uuid, allow_nil?: false
-        filter expr(id == ^arg(:id))
-        argument :organization_id, :uuid, allow_nil?: false
-        argument :project_id, :uuid, allow_nil?: false
-        filter expr(organization_id == ^arg(:organization_id) and project_id == ^arg(:project_id))
-        prepare {Module.concat(["QuickTrain.Tasks.Access.ReadAccess.Prepare"]), mode: mode}
-      end
-    end
-
     action :cancel, :struct do
       constraints instance_of: __MODULE__
       argument :organization_id, :uuid, allow_nil?: false
@@ -198,15 +165,6 @@ defmodule QuickTrain.Tasks.Attempts.Attempt do
       run Module.concat(["QuickTrain.Tasks.Attempts.AttemptAllocation"])
     end
 
-    action :follow_up, QuickTrain.Tasks.Attempts.AllocationResult do
-      argument :organization_id, :uuid, allow_nil?: false
-      argument :project_id, :uuid, allow_nil?: false
-      argument :request_key, :uuid, allow_nil?: false
-      argument :worker_id, :uuid, allow_nil?: false
-      argument :predecessor_id, :uuid, allow_nil?: false
-      run Module.concat(["QuickTrain.Tasks.Attempts.AttemptAllocation"])
-    end
-
     read :read do
       primary? true
 
@@ -232,8 +190,7 @@ defmodule QuickTrain.Tasks.Attempts.Attempt do
         :form_version_id,
         :task_id,
         :worker_id,
-        :requester_id,
-        :predecessor_id
+        :requester_id
       ]
     end
 
@@ -279,11 +236,6 @@ defmodule QuickTrain.Tasks.Attempts.Attempt do
       authorize_if Module.concat(["QuickTrain.Tasks.Access.ReadAccess"])
     end
 
-    policy action([:list_audit, :get_audit, :list_accepted, :get_accepted]) do
-      authorize_if {QuickTrain.Authorization.Checks.OrganizationCapability,
-                    capability: "tasks.results.read"}
-    end
-
     policy action([:start, :release, :start_record, :release_record]) do
       authorize_if actor_present()
     end
@@ -297,7 +249,7 @@ defmodule QuickTrain.Tasks.Attempts.Attempt do
       authorize_if actor_present()
     end
 
-    policy action([:assign, :follow_up]) do
+    policy action([:assign]) do
       authorize_if {QuickTrain.Authorization.Checks.OrganizationCapability,
                     capability: "tasks.assign"}
     end
@@ -312,11 +264,10 @@ defmodule QuickTrain.Tasks.Attempts.Attempt do
     derive_filter? false
     derive_sort? false
 
-    paginate_relationship_with offered_questions: :relay,
-                               input_presentations: :relay,
+    paginate_relationship_with input_presentations: :relay,
                                outcomes: :relay
 
-    relationships [:form_version, :task, :offered_questions, :input_presentations, :outcomes]
+    relationships [:form_version, :task, :input_presentations, :outcomes]
   end
 
   postgres do
@@ -341,11 +292,6 @@ defmodule QuickTrain.Tasks.Attempts.Attempt do
 
       reference :worker, on_delete: :restrict, name: "attempts_worker_scope_fkey"
       reference :requester, on_delete: :restrict, name: "attempts_requester_scope_fkey"
-
-      reference :predecessor,
-        on_delete: :restrict,
-        name: "attempts_predecessor_scope_fkey",
-        match_with: [task_id: :task_id, project_id: :project_id]
     end
 
     custom_indexes do

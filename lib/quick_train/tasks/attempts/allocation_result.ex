@@ -14,8 +14,7 @@ defmodule QuickTrain.Tasks.Attempts.AllocationResult do
           :issued,
           :retry_later,
           :waiting_for_answers,
-          :no_work_for_worker,
-          :needs_attention
+          :no_work_for_worker
         ]
       ]
 

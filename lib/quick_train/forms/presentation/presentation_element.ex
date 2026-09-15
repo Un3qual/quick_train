@@ -1,7 +1,6 @@
 defmodule QuickTrain.Forms.Presentation.PresentationElement do
   @moduledoc "Organization-scoped presentation element definition."
   use Ash.Resource,
-    fragments: [QuickTrain.Authorization.CollectionRead],
     primary_read_warning?: false,
     otp_app: :quick_train,
     domain: QuickTrain.Forms,

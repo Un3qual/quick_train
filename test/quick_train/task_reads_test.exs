@@ -2,7 +2,6 @@ defmodule QuickTrain.Tasks.TaskReadsTest do
   use QuickTrain.DataCase, async: false
   alias QuickTrain.{Accounts, Authorization, Forms, Organizations, ProjectsFixture}
   alias QuickTrain.Datasets.DatasetValue
-  alias QuickTrain.Forms.FormVersion
   alias QuickTrain.Projects.Management
   alias QuickTrain.Tasks.{Access, TaskInput}
   alias QuickTrain.Tasks.Attempts.Attempt
@@ -40,7 +39,7 @@ defmodule QuickTrain.Tasks.TaskReadsTest do
     end
 
     project =
-      QuickTrain.Projects.activate_project!(context.org.id, project.id, actor: context.actor)
+      QuickTrain.Projects.activate_project!(project, actor: context.actor)
 
     worker = Accounts.register_user!("reader-worker@example.test", "Worker")
 
@@ -59,7 +58,7 @@ defmodule QuickTrain.Tasks.TaskReadsTest do
     %{context: context, source: source, project: project, worker: worker, attempt: attempt}
   end
 
-  test "live worker reads pinned definitions, offered policies, and only exact bound values",
+  test "live worker reads pinned definitions, project skip settings, and only exact bound values",
        ctx do
     bundle = action!(Attempt, :work_bundle, scope(ctx), ctx.worker)
 
@@ -67,8 +66,9 @@ defmodule QuickTrain.Tasks.TaskReadsTest do
       Ash.load!(
         bundle,
         [
+          :skip_allowed,
+          :reason_required,
           form_version: [questions: :integer_constraints],
-          offered_questions: [:skip_allowed, :reason_required],
           input_presentations: [task_input: :requirements]
         ],
         actor: ctx.worker
@@ -76,8 +76,8 @@ defmodule QuickTrain.Tasks.TaskReadsTest do
 
     assert bundle.form_version.id == ctx.source.form.version.id
     assert hd(bundle.form_version.questions).integer_constraints.minimum == 1
-    assert hd(bundle.offered_questions).skip_allowed
-    assert hd(bundle.offered_questions).reason_required
+    assert bundle.skip_allowed
+    assert bundle.reason_required
     input = hd(bundle.input_presentations).task_input
     assert input.revision_id in Enum.map(ctx.source.revisions, & &1.id)
 
@@ -103,13 +103,13 @@ defmodule QuickTrain.Tasks.TaskReadsTest do
     assert {:error, _} = Ash.read(DatasetValue, actor: ctx.worker, context: %{task_access: true})
   end
 
-  test "malformed definition scopes return normal Ash validation errors", ctx do
-    args = Map.put(scope(ctx), :id, ctx.source.form.version.id)
-
-    for inputs <- [%{}, Map.delete(args, :project_id), Map.put(args, :organization_id, "invalid")] do
-      query =
-        Ash.Query.for_read(FormVersion, :get_collection_definition, inputs, actor: ctx.worker)
-
+  test "malformed work scopes return normal Ash validation errors", ctx do
+    for inputs <- [
+          %{},
+          Map.delete(scope(ctx), :project_id),
+          Map.put(scope(ctx), :organization_id, "invalid")
+        ] do
+      query = Ash.Query.for_read(Attempt, :read_work_bundle, inputs, actor: ctx.worker)
       refute query.valid?
       assert {:error, %Ash.Error.Invalid{}} = Ash.read_one(query)
     end
@@ -135,24 +135,18 @@ defmodule QuickTrain.Tasks.TaskReadsTest do
 
     assert {:error, _} = action(Attempt, :work_bundle, scope(ctx), ctx.worker)
 
-    assert {:error, _} =
-             FormVersion
-             |> Ash.Query.for_read(
-               :get_collection_definition,
-               Map.merge(scope(ctx), %{id: ctx.source.form.version.id}),
-               actor: ctx.worker
-             )
-             |> Ash.read_one()
+    bundle = Ash.load(ctx.attempt, :form_version, actor: ctx.worker)
+    assert {:ok, %{form_version: nil}} = bundle
   end
 
   test "result readers see submitted evidence and full typed contract without foundation grants",
        ctx do
     reader = result_reader!(ctx)
     save!(ctx)
-    assert rows(QuestionResponse, :list_audit, ctx, reader) == []
+    assert results(ctx, reader) == []
     submitted = action!(Attempt, :submit, scope(ctx), ctx.worker)
     assert submitted.state == :submitted
-    [outcome] = rows(QuestionResponse, :list_accepted, ctx, reader)
+    [outcome] = results(ctx, reader, true)
 
     outcome =
       Ash.load!(
@@ -166,7 +160,14 @@ defmodule QuickTrain.Tasks.TaskReadsTest do
     assert outcome.question.integer_constraints.maximum == 5
     assert outcome.effective_decision.verdict == :accept
     assert [_] = outcome.review_decisions
-    [attempt] = rows(Attempt, :list_audit, ctx, reader)
+
+    [task] =
+      QuickTrain.Tasks.list_tasks!(ctx.context.org.id, ctx.project.id,
+        actor: reader,
+        load: :attempts
+      ).results
+
+    [attempt] = task.attempts
 
     attempt =
       Ash.load!(
@@ -205,14 +206,19 @@ defmodule QuickTrain.Tasks.TaskReadsTest do
     assert released.state == :released
     assert {:error, _} = action(Attempt, :work_bundle, scope(ctx), ctx.worker)
     receipt = action!(Attempt, :receipt, scope(ctx), ctx.worker)
-    receipt = Ash.load!(receipt, [questions: :review_status], actor: ctx.worker)
-    assert hd(receipt.questions).review_status == :unsubmitted
+    assert {receipt.accepted, receipt.pending, receipt.rejected, receipt.skipped} == {0, 0, 0, 0}
     reader = result_reader!(ctx)
-    assert rows(QuestionResponse, :list_audit, ctx, reader) == []
-    [attempt] = rows(Attempt, :list_audit, ctx, reader)
-    attempt = Ash.load!(attempt, [:outcomes, :offered_questions], actor: reader)
+    assert results(ctx, reader) == []
+
+    [task] =
+      QuickTrain.Tasks.list_tasks!(ctx.context.org.id, ctx.project.id,
+        actor: reader,
+        load: :attempts
+      ).results
+
+    [attempt] = task.attempts
+    attempt = Ash.load!(attempt, [:outcomes], actor: reader)
     assert attempt.outcomes == []
-    assert [_] = attempt.offered_questions
     assert {:error, _} = Ash.read(QuestionResponse, actor: ctx.worker)
   end
 
@@ -227,22 +233,19 @@ defmodule QuickTrain.Tasks.TaskReadsTest do
     assert Ash.get!(Attempt, ctx.attempt.id, authorize?: false).state == :claimed
   end
 
-  test "known task definitions resolve through the scoped GraphQL boundary", ctx do
+  test "the worker gets the pinned form through its scoped bundle", ctx do
     document = """
-    query($organization: ID!, $project: ID!, $attempt: ID, $version: ID!, $field: ID!) {
-      taskFormVersion(organizationId: $organization, projectId: $project, attemptId: $attempt, id: $version) {
-        id questions(first: 1) { edges { node { id renderer integerConstraints { minimum maximum } } } }
+    query($organization: ID!, $project: ID!, $attempt: ID!) {
+      workBundle(organizationId: $organization, projectId: $project, attemptId: $attempt) {
+        formVersion { id questions(first: 1) { edges { node { id renderer integerConstraints { minimum maximum } } } } }
       }
-      taskFieldDefinition(organizationId: $organization, projectId: $project, attemptId: $attempt, id: $field) { id key }
     }
     """
 
     vars = %{
       "organization" => ctx.context.org.id,
       "project" => ctx.project.id,
-      "attempt" => ctx.attempt.id,
-      "version" => ctx.source.form.version.id,
-      "field" => ctx.source.field.id
+      "attempt" => ctx.attempt.id
     }
 
     assert {:ok, %{data: data} = result} =
@@ -252,27 +255,16 @@ defmodule QuickTrain.Tasks.TaskReadsTest do
              )
 
     refute Map.has_key?(result, :errors)
-    assert data["taskFormVersion"]["id"] == ctx.source.form.version.id
-    assert data["taskFieldDefinition"]["key"] == "body"
-    reader = result_reader!(ctx)
-
-    assert {:ok, %{data: data} = result} =
-             Absinthe.run(document, QuickTrainWeb.GraphQL.Schema,
-               variables: Map.delete(vars, "attempt"),
-               context: %{actor: reader}
-             )
-
-    refute Map.has_key?(result, :errors)
-    assert data["taskFormVersion"]["id"] == ctx.source.form.version.id
-    other = QuickTrain.FormsFixture.draft!(ctx.context, "unrelated")
+    assert data["workBundle"]["formVersion"]["id"] == ctx.source.form.version.id
+    other = ProjectsFixture.draft!(ctx.context, ctx.source)
 
     assert {:ok, rejected} =
              Absinthe.run(document, QuickTrainWeb.GraphQL.Schema,
-               variables: %{vars | "version" => other.version.id},
+               variables: %{vars | "project" => other.id},
                context: %{actor: ctx.worker}
              )
 
-    assert get_in(rejected, [:data, "taskFormVersion"]) == nil
+    assert get_in(rejected, [:data, "workBundle"]) == nil
   end
 
   test "explicit result traversal excludes the reader's own live drafts", ctx do
@@ -281,15 +273,12 @@ defmodule QuickTrain.Tasks.TaskReadsTest do
 
     query =
       QuickTrain.Tasks.Task
-      |> Ash.Query.for_read(:list_audit, Map.drop(scope(ctx), [:attempt_id]), actor: reader)
-      |> Ash.Query.load([:outcomes, :attempts, :progress])
+      |> Ash.Query.for_read(:list_scoped, Map.drop(scope(ctx), [:attempt_id]), actor: reader)
+      |> Ash.Query.load([:outcomes, :attempts])
 
     [task] = Ash.read!(query).results
     assert task.outcomes == []
     assert task.attempts == []
-    assert [_] = task.progress
-    assert [_] = rows(QuickTrain.Tasks.Progress.TaskItemCoverage, :list_audit, ctx, reader)
-    assert rows(QuickTrain.Tasks.Progress.TaskItemCoverage, :list_accepted, ctx, reader) == []
 
     bundle =
       action!(Attempt, :work_bundle, scope(ctx), reader)
@@ -301,15 +290,8 @@ defmodule QuickTrain.Tasks.TaskReadsTest do
     [task] = Ash.read!(query).results
     assert [_] = task.outcomes
     assert [_] = task.attempts
-    assert [_] = rows(QuickTrain.Tasks.Progress.TaskItemCoverage, :list_accepted, ctx, reader)
 
-    accepted =
-      QuickTrain.Tasks.Task
-      |> Ash.Query.for_read(:list_accepted, Map.drop(scope(ctx), [:attempt_id]), actor: reader)
-      |> Ash.Query.load(outcomes: :review_decisions)
-
-    [task] = Ash.read!(accepted).results
-    [outcome] = task.outcomes
+    [outcome] = results(ctx, reader, true) |> Ash.load!(:review_decisions, actor: reader)
     assert [_] = outcome.review_decisions
     [decision] = outcome.review_decisions
 
@@ -333,11 +315,11 @@ defmodule QuickTrain.Tasks.TaskReadsTest do
       authorize?: false
     )
 
-    assert Ash.read!(accepted).results == []
+    assert results(ctx, reader, true) == []
     [task] = Ash.read!(query).results
     assert [_] = task.outcomes
-    assert rows(QuickTrain.Tasks.Reviews.ReviewDecision, :list_accepted, ctx, reader) == []
-    assert [_, _] = rows(QuickTrain.Tasks.Reviews.ReviewDecision, :list_audit, ctx, reader)
+    [outcome] = results(ctx, reader) |> Ash.load!(:review_decisions, actor: reader)
+    assert [_, _] = outcome.review_decisions
   end
 
   @tag :rich_source
@@ -354,23 +336,21 @@ defmodule QuickTrain.Tasks.TaskReadsTest do
     assert absent.field_definition_id == ctx.source.note_field.id
     assert absent.revision_id == input.revision_id
 
-    bindings =
-      rows(QuickTrain.Projects.ProjectInputBinding, :list_result_bindings, ctx, reader)
+    input = Ash.load!(input, :requirements, actor: reader)
+    assert [_, _, _] = input.requirements
 
-    assert [_, _, _] = bindings
-    bindings = Ash.load!(bindings, [:requirement, :field_definition], actor: reader)
+    for requirement <- input.requirements do
+      bound =
+        action!(
+          TaskInput,
+          :bound_value,
+          %{args | requirement_id: requirement.id} |> Map.delete(:attempt_id),
+          reader
+        )
 
-    assert Enum.any?(
-             bindings,
-             &(&1.requirement.key == "download" and &1.field_definition.key == "download")
-           )
-
-    assert {:error, _} =
-             QuickTrain.Projects.ProjectInputBinding
-             |> Ash.Query.for_read(:list_result_bindings, Map.drop(scope(ctx), [:attempt_id]),
-               actor: ctx.worker
-             )
-             |> Ash.read()
+      assert bound.requirement_id == requirement.id
+      assert bound.binding_id
+    end
 
     secret_values =
       DatasetValue
@@ -454,7 +434,7 @@ defmodule QuickTrain.Tasks.TaskReadsTest do
     )
 
     other =
-      QuickTrain.Projects.activate_project!(ctx.context.org.id, other.id,
+      QuickTrain.Projects.activate_project!(other,
         actor: ctx.context.actor
       )
 
@@ -469,15 +449,13 @@ defmodule QuickTrain.Tasks.TaskReadsTest do
       ctx.worker
     )
 
-    query = """
-    { taskFieldDefinition(organizationId: "#{ctx.context.org.id}", projectId: "#{ctx.project.id}",
-       id: "#{ctx.source.secret.id}") { id key } }
-    """
-
-    assert {:ok, rejected} =
-             Absinthe.run(query, QuickTrainWeb.GraphQL.Schema, context: %{actor: reader})
-
-    assert get_in(rejected, [:data, "taskFieldDefinition"]) == nil
+    assert {:error, _} =
+             action(
+               TaskInput,
+               :bound_value,
+               %{args | requirement_id: Ash.UUID.generate()},
+               reader
+             )
 
     body =
       action!(
@@ -588,7 +566,8 @@ defmodule QuickTrain.Tasks.TaskReadsTest do
                 %{rows: [[backend]]} = Repo.query!("SELECT pg_backend_pid()")
                 send(parent, {:reader_connection, backend})
                 Access.project!(ctx.context.org.id, ctx.project.id)
-                Ash.load!(ctx.attempt, :offered_questions, actor: ctx.worker).offered_questions
+
+                Ash.load!(ctx.attempt, :input_presentations, actor: ctx.worker).input_presentations
               end)
             end)
           end)
@@ -768,15 +747,13 @@ defmodule QuickTrain.Tasks.TaskReadsTest do
   defp action!(resource, action, args, actor),
     do: resource |> Ash.ActionInput.for_action(action, args, actor: actor) |> Ash.run_action!()
 
-  defp rows(resource, action, ctx, actor) do
-    resource
-    |> Ash.Query.for_read(
-      action,
-      %{organization_id: ctx.context.org.id, project_id: ctx.project.id},
+  defp results(ctx, actor, accepted_only \\ false) do
+    QuickTrain.Tasks.list_task_results!(
+      ctx.context.org.id,
+      ctx.project.id,
+      %{accepted_only: accepted_only},
       actor: actor
-    )
-    |> Ash.read!()
-    |> Map.fetch!(:results)
+    ).results
   end
 
   defp result_reader!(ctx, actor \\ nil) do

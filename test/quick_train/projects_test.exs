@@ -24,14 +24,16 @@ defmodule QuickTrain.ProjectsTest do
     assert Projects.rename_project!(project, %{title: project.title}, actor: context.actor).title ==
              project.title
 
-    configured = Projects.configure_project!(project, %{coverage_target: 2}, actor: context.actor)
-    assert configured.coverage_target == 2
+    configured =
+      Projects.configure_project!(project, %{submission_target: 2}, actor: context.actor)
 
-    unchanged = Projects.configure_project!(project, %{title: nil}, actor: context.actor)
-    assert unchanged.coverage_target == 2
+    assert configured.submission_target == 2
+
+    unchanged = Projects.configure_project!(project, %{}, actor: context.actor)
+    assert unchanged.submission_target == 2
     assert unchanged.title == project.title
 
-    Projects.activate_project_record!(project, actor: context.actor)
+    Projects.activate_project!(project, actor: context.actor)
 
     assert_raise Ash.Error.Invalid, ~r/project_not_draft/, fn ->
       Projects.configure_project!(project, %{title: "Frozen"}, actor: context.actor)
@@ -60,9 +62,8 @@ defmodule QuickTrain.ProjectsTest do
     assert {:error, _} = Projects.get_project(context.org.id, project.id, actor: stranger)
 
     assert {:error, _} =
-             Projects.update_title(
-               context.org.id,
-               project.id,
+             Projects.rename_project(
+               project,
                %{
                  title: "No"
                },
@@ -134,8 +135,9 @@ defmodule QuickTrain.ProjectsTest do
     assert {:ok, %{data: %{"activateProject" => result}} = response} =
              Absinthe.run(
                """
-               mutation { activateProject(organizationId: "#{context.org.id}", projectId: "#{project.id}") {
-                 id state items(first: 5) { edges { node { id revisionId } } }
+               mutation { activateProject(organizationId: "#{context.org.id}", id: "#{project.id}") {
+                 result { id state items(first: 5) { edges { node { id revisionId } } } }
+                 errors { message }
                } }
                """,
                QuickTrainWeb.GraphQL.Schema,
@@ -143,6 +145,8 @@ defmodule QuickTrain.ProjectsTest do
              )
 
     refute Map.has_key?(response, :errors)
+    assert result["errors"] == []
+    result = result["result"]
     assert result["id"] == project.id
     assert result["state"] == "active"
     assert [_, _] = result["items"]["edges"]
@@ -243,7 +247,7 @@ defmodule QuickTrain.ProjectsTest do
     assert ProjectsFixture.items(project) == []
   end
 
-  test "draft repinning, mixed schemas, and binding family/requiredness fail atomically",
+  test "source identities are fixed at creation and incompatible bindings fail atomically",
        context do
     alias QuickTrain.Datasets
     project = ProjectsFixture.configured!(context, context.source)
@@ -305,7 +309,7 @@ defmodule QuickTrain.ProjectsTest do
              )
 
     assert {:error, _} =
-             Projects.update_draft(context.org.id, project.id, %{schema_version_id: schema.id},
+             Projects.configure_project(project, %{schema_version_id: schema.id},
                actor: context.actor
              )
 
@@ -316,13 +320,22 @@ defmodule QuickTrain.ProjectsTest do
 
     empty = ProjectsFixture.draft!(context, context.source)
 
+    assert {:error, _} =
+             Projects.configure_project(empty, %{schema_version_id: schema.id},
+               actor: context.actor
+             )
+
     repinned =
-      Projects.update_draft!(context.org.id, empty.id, %{schema_version_id: schema.id},
+      Projects.create_project!(
+        context.org.id,
+        %{
+          title: "New schema",
+          dataset_id: context.source.dataset.id,
+          schema_version_id: schema.id,
+          form_version_id: context.source.form.version.id
+        },
         actor: context.actor
       )
-
-    assert repinned.schema_version_id == schema.id
-    assert repinned.root_record_type_id == root.id
 
     for field <- [optional, integer] do
       assert {:error, error} =
@@ -343,7 +356,7 @@ defmodule QuickTrain.ProjectsTest do
   test "activation freezes configuration and lifecycle retries retain exact timestamps",
        context do
     project = ProjectsFixture.configured!(context, context.source)
-    active = Projects.activate_project!(context.org.id, project.id, actor: context.actor)
+    active = Projects.activate_project!(project, actor: context.actor)
     assert active.state == :active
 
     later =
@@ -362,7 +375,7 @@ defmodule QuickTrain.ProjectsTest do
     assert MapSet.new(ProjectsFixture.items(project), & &1.revision_id) ==
              MapSet.new(context.source.revisions, & &1.id)
 
-    assert persisted(Projects.activate_project!(context.org.id, project.id, actor: context.actor)) ==
+    assert persisted(Projects.activate_project!(project, actor: context.actor)) ==
              persisted(active)
 
     assert {:error, _} =
@@ -387,32 +400,30 @@ defmodule QuickTrain.ProjectsTest do
                actor: context.actor
              )
 
-    assert Projects.update_title!(context.org.id, project.id, %{title: "Renamed"},
-             actor: context.actor
-           ).title ==
+    assert Projects.rename_project!(project, %{title: "Renamed"}, actor: context.actor).title ==
              "Renamed"
 
     for {action, state} <- [
-          {&Projects.pause_project!/3, :paused},
-          {&Projects.resume_project!/3, :active},
-          {&Projects.complete_project!/3, :completed},
-          {&Projects.archive_project!/3, :archived}
+          {&Projects.pause_project!/2, :paused},
+          {&Projects.resume_project!/2, :active},
+          {&Projects.complete_project!/2, :completed},
+          {&Projects.archive_project!/2, :archived}
         ] do
-      changed = action.(context.org.id, project.id, actor: context.actor)
+      changed = action.(project, actor: context.actor)
       assert changed.state == state
 
-      assert persisted(action.(context.org.id, project.id, actor: context.actor)) ==
+      assert persisted(action.(project, actor: context.actor)) ==
                persisted(changed)
     end
 
     assert {:error, error} =
-             Projects.resume_project(context.org.id, project.id, actor: context.actor)
+             Projects.resume_project(project, actor: context.actor)
 
     assert Exception.message(error) =~ "invalid_project_transition"
     Organizations.deactivate_membership!(context.membership)
 
     assert {:error, _} =
-             Projects.archive_project(context.org.id, project.id, actor: context.actor)
+             Projects.archive_project(project, actor: context.actor)
   end
 
   test "active access overrides remain editable without reopening the configuration", context do
@@ -445,7 +456,7 @@ defmodule QuickTrain.ProjectsTest do
     project = ProjectsFixture.draft!(context, context.source)
 
     assert {:error, error} =
-             Projects.activate_project(context.org.id, project.id, actor: context.actor)
+             Projects.activate_project(project, actor: context.actor)
 
     assert Exception.message(error) =~ "invalid_project_configuration"
     assert Projects.get_project!(context.org.id, project.id, actor: context.actor).state == :draft
@@ -462,7 +473,7 @@ defmodule QuickTrain.ProjectsTest do
     project = ProjectsFixture.configured!(context, source)
 
     assert {:error, error} =
-             Projects.activate_project(context.org.id, project.id, actor: context.actor)
+             Projects.activate_project(project, actor: context.actor)
 
     assert Exception.message(error) =~ "unsupported_task_contract"
     assert Projects.get_project!(context.org.id, project.id, actor: context.actor).state == :draft
@@ -470,7 +481,7 @@ defmodule QuickTrain.ProjectsTest do
 
   test "explicit groups ignore display order and require coverage of every cohort item",
        context do
-    project = ProjectsFixture.configured!(context, context.source, selection_mode: :explicit)
+    project = ProjectsFixture.configured!(context, context.source, groups: false)
     [first, second] = ProjectsFixture.items(project)
     input = %{input_slot_id: context.source.form.slot.id, project_item_id: first.id, position: 0}
 
@@ -506,7 +517,7 @@ defmodule QuickTrain.ProjectsTest do
     assert Ash.count!(ExplicitGroup, authorize?: false) == 1
 
     assert {:error, _} =
-             Projects.activate_project(context.org.id, project.id, actor: context.actor)
+             Projects.activate_project(project, actor: context.actor)
 
     Projects.create_explicit_group!(
       context.org.id,
@@ -518,7 +529,7 @@ defmodule QuickTrain.ProjectsTest do
       actor: context.actor
     )
 
-    assert Projects.activate_project!(context.org.id, project.id, actor: context.actor).state ==
+    assert Projects.activate_project!(project, actor: context.actor).state ==
              :active
   end
 
@@ -528,7 +539,7 @@ defmodule QuickTrain.ProjectsTest do
 
     results =
       concurrently([
-        fn -> Projects.activate_project(context.org.id, project.id, actor: context.actor) end,
+        fn -> Projects.activate_project(project, actor: context.actor) end,
         fn ->
           Projects.set_slot_policy(
             context.org.id,

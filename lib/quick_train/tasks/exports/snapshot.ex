@@ -9,8 +9,7 @@ defmodule QuickTrain.Tasks.Exports.Snapshot do
   alias QuickTrain.Projects.ProjectInputBinding
   alias QuickTrain.Repo
   alias QuickTrain.Tasks.{Access, Error, Task, TaskInput}
-  alias QuickTrain.Tasks.Access.ReadAccess
-  alias QuickTrain.Tasks.Attempts.{Attempt, AttemptInputPresentation, AttemptQuestion, Leases}
+  alias QuickTrain.Tasks.Attempts.{Attempt, AttemptInputPresentation, Leases}
   alias QuickTrain.Tasks.Exports.{ExportSelection, ResultExport}
 
   alias QuickTrain.Tasks.Responses.{
@@ -29,7 +28,6 @@ defmodule QuickTrain.Tasks.Exports.Snapshot do
     task: Task,
     task_input: TaskInput,
     attempt: Attempt,
-    attempt_question: AttemptQuestion,
     attempt_input_presentation: AttemptInputPresentation,
     question_response: QuestionResponse,
     static_option_answer: StaticOptionAnswer,
@@ -44,9 +42,7 @@ defmodule QuickTrain.Tasks.Exports.Snapshot do
     dataset_value: DatasetValue
   ]
   @form_context [:presentation_element, :question_definition, :question_option, :label]
-  @contexts [:project_input_binding, :dataset_value]
   def kinds, do: Keyword.keys(@resources)
-  def resources, do: @resources
 
   @impl true
   def run(%{arguments: %{id: id}}, _opts, _context) do
@@ -72,20 +68,15 @@ defmodule QuickTrain.Tasks.Exports.Snapshot do
         true ->
           project = Access.project!(export.organization_id, export.project_id)
           Access.manager!(project, %{id: export.requester_id}, "tasks.results.read")
-          {include_form_context, form_count} = select!(export)
-
-          count =
-            ExportSelection
-            |> Ash.Query.filter(export_id == ^id)
-            |> Ash.sum!(:record_count, default: 0, authorize?: false)
+          select!(export)
+          count = Enum.sum_by(kinds(), &Ash.count!(query(export, &1), authorize?: false))
 
           Ash.update!(
             export,
             %{
               state: :writing,
               snapshot_at: Leases.now!(),
-              record_count: count + form_count,
-              include_form_context: include_form_context,
+              record_count: count,
               error_code: nil
             },
             action: :update_internal,
@@ -96,130 +87,62 @@ defmodule QuickTrain.Tasks.Exports.Snapshot do
   end
 
   defp select!(export) do
-    wanted =
-      if export.evidence_kind, do: [String.to_existing_atom(export.evidence_kind)], else: kinds()
-
-    form_kinds = Enum.filter(wanted, &(&1 in @form_context))
-
-    include_form_context =
-      form_kinds != [] and Ash.exists?(eligible(Attempt, export), authorize?: false)
-
-    form_count =
-      if include_form_context,
-        do: Enum.sum_by(form_kinds, &Ash.count!(form_context(export, &1), authorize?: false)),
-        else: 0
-
-    wanted |> Enum.reject(&(&1 in @form_context)) |> Enum.each(&select_kind!(export, &1))
-    {include_form_context, form_count}
-  end
-
-  defp select_kind!(export, kind) when kind in [:task, :task_input] do
-    eligible(Task, export)
-    |> stream()
-    |> Enum.each(fn task ->
-      query =
-        if kind == :task,
-          do: Ash.Query.filter(Task, id == ^task.id),
-          else: Ash.Query.filter(TaskInput, task_id == ^task.id)
-
-      pin_group!(export, kind, query, %{task_id: task.id})
-    end)
-  end
-
-  defp select_kind!(export, kind)
-       when kind in [:attempt, :attempt_question, :attempt_input_presentation] do
-    eligible(Attempt, export)
-    |> stream()
-    |> Enum.each(fn attempt ->
-      resource = Keyword.fetch!(@resources, kind)
-
-      query =
-        if kind == :attempt,
-          do: Ash.Query.filter(resource, id == ^attempt.id),
-          else: Ash.Query.filter(resource, attempt_id == ^attempt.id)
-
-      pin_group!(export, kind, query, %{task_id: attempt.task_id, attempt_id: attempt.id})
-    end)
-  end
-
-  defp select_kind!(export, kind)
-       when kind in [
-              :question_response,
-              :static_option_answer,
-              :task_input_answer,
-              :text_span,
-              :review_decision
-            ] do
-    eligible(QuestionResponse, export)
+    QuestionResponse
+    |> Ash.Query.filter(
+      project_id == ^export.project_id and attempt.state == :submitted and
+        (^export.mode == :audit or effective_verdict == :accept)
+    )
     |> Ash.Query.load(:effective_decision)
     |> stream()
-    |> Enum.each(&pin_outcome!(export, kind, &1))
-  end
-
-  defp select_kind!(export, kind) when kind in @contexts do
-    # Context eligibility is independent of the output-kind filter. It follows
-    # only eligible attempts and their pinned form/input graph.
-    if eligible(Attempt, export) |> Ash.exists?(authorize?: false) do
-      context!(export, kind)
-    end
-  end
-
-  defp pin_outcome!(export, kind, outcome) do
-    decision = outcome.effective_decision
-
-    attrs = %{
-      task_id: outcome.task_id,
-      question_id: outcome.question_id,
-      question_response_id: outcome.id,
-      decision_id: decision && decision.id
-    }
-
-    if kind == :review_decision do
-      query = ReviewDecision |> Ash.Query.filter(question_response_id == ^outcome.id)
-
-      query =
-        if export.mode == :accepted,
-          do: Ash.Query.filter(query, id == ^decision.id),
-          else: query
-
-      query
-      |> range(export)
-      |> stream()
-      |> Enum.each(fn row -> pin!(export, kind, Map.put(attrs, :decision_id, row.id), 1) end)
-    else
-      resource = Keyword.fetch!(@resources, kind)
-
-      query =
-        if kind == :question_response,
-          do: Ash.Query.filter(resource, id == ^outcome.id),
-          else: Ash.Query.filter(resource, question_response_id == ^outcome.id)
-
-      pin_group!(export, kind, query, attrs)
-    end
+    |> Stream.map(fn outcome ->
+      %{
+        export_id: export.id,
+        organization_id: export.organization_id,
+        project_id: export.project_id,
+        form_version_id: export.form_version_id,
+        task_id: outcome.task_id,
+        question_id: outcome.question_id,
+        question_response_id: outcome.id,
+        decision_id: outcome.effective_decision && outcome.effective_decision.id
+      }
+    end)
+    |> Ash.bulk_create!(ExportSelection, :create_internal,
+      authorize?: false,
+      transaction: :all,
+      stop_on_error?: true
+    )
   end
 
   defp form_context(export, kind) do
     resource = Keyword.fetch!(@resources, kind)
     query = Ash.Query.filter(resource, version_id == ^export.form_version_id)
 
-    query =
-      if kind == :label do
-        Ash.Query.filter(
-          query,
-          exists(
-            AnnotationConstraints,
-            version_id == ^export.form_version_id and label_set_id == parent(label_set_id)
-          )
+    if kind == :label do
+      Ash.Query.filter(
+        query,
+        exists(
+          AnnotationConstraints,
+          version_id == ^export.form_version_id and label_set_id == parent(label_set_id)
         )
-      else
-        query
-      end
-
-    range(query, export)
+      )
+    else
+      query
+    end
   end
 
-  defp context!(export, :project_input_binding) do
-    inputs = context_inputs(export).filter
+  defp stream(query),
+    do: query |> Ash.Query.sort(id: :asc) |> Ash.stream!(batch_size: 100, authorize?: false)
+
+  def rows(export, kind, load), do: export |> query(kind) |> Ash.Query.load(load) |> stream()
+
+  defp query(export, kind) when kind in @form_context do
+    export
+    |> form_context(kind)
+    |> Ash.Query.filter(exists(ExportSelection, export_id == ^export.id))
+  end
+
+  defp query(export, :project_input_binding) do
+    inputs = query(export, :task_input).filter
 
     ProjectInputBinding
     |> Ash.Query.filter(
@@ -230,180 +153,59 @@ defmodule QuickTrain.Tasks.Exports.Snapshot do
             input_slot_id == parent(requirement.input_slot_id)
         )
     )
-    |> range(export)
-    |> stream()
-    |> Stream.map(
-      &%{binding_id: &1.id, field_definition_id: &1.field_definition_id, record_count: 1}
-    )
-    |> pin_all!(export, :project_input_binding)
   end
 
-  defp context!(export, :dataset_value) do
-    context_inputs(export)
-    |> Ash.Query.load(:revision)
-    |> stream()
-    |> Stream.chunk_every(100)
-    |> Enum.each(&pin_input_values!(export, &1))
-  end
-
-  defp context_inputs(export) do
-    evidence = ReadAccess.evidence_filter(Attempt, export.mode)
-
-    eligible(TaskInput, export)
-    |> Ash.Query.filter(exists(Attempt, task_id == parent(task_id) and ^evidence))
-  end
-
-  defp pin_input_values!(export, inputs) do
-    slots = Enum.map(inputs, & &1.input_slot_id) |> Enum.uniq()
-
-    ProjectInputBinding
-    |> Ash.Query.filter(project_id == ^export.project_id and requirement.input_slot_id in ^slots)
-    |> Ash.Query.load(:requirement)
-    |> stream()
-    |> Stream.chunk_every(100)
-    |> Enum.each(&pin_bound_values!(export, inputs, &1))
-  end
-
-  defp pin_bound_values!(export, inputs, bindings) do
-    sources =
-      for input <- inputs,
-          binding <- bindings,
-          binding.requirement.input_slot_id == input.input_slot_id,
-          into: %{} do
-        {{input.revision.root_record_id, binding.field_definition_id},
-         %{binding_id: binding.id, revision_id: input.revision_id}}
-      end
-
-    roots = sources |> Map.keys() |> Enum.map(&elem(&1, 0)) |> Enum.uniq()
-    fields = Enum.map(bindings, & &1.field_definition_id) |> Enum.uniq()
+  defp query(export, :dataset_value) do
+    inputs = query(export, :task_input).filter
 
     DatasetValue
     |> Ash.Query.filter(
-      organization_id == ^export.organization_id and record_id in ^roots and
-        field_definition_id in ^fields
-    )
-    |> range(export)
-    |> stream()
-    |> Stream.filter(&Map.has_key?(sources, {&1.record_id, &1.field_definition_id}))
-    |> Stream.map(fn value ->
-      sources
-      |> Map.fetch!({value.record_id, value.field_definition_id})
-      |> Map.merge(%{
-        dataset_value_id: value.id,
-        field_definition_id: value.field_definition_id,
-        source_record_id: value.record_id,
-        record_count: 1
-      })
-    end)
-    |> pin_all!(export, :dataset_value)
-  end
-
-  defp pin_group!(export, kind, query, attrs) do
-    count = query |> range(export) |> Ash.count!(authorize?: false)
-    if count > 0, do: pin!(export, kind, attrs, count)
-  end
-
-  defp pin!(export, kind, attrs, count),
-    do: pin_all!([Map.put(attrs, :record_count, count)], export, kind)
-
-  defp pin_all!(attributes, export, kind) do
-    scope = %{
-      export_id: export.id,
-      organization_id: export.organization_id,
-      project_id: export.project_id,
-      form_version_id: export.form_version_id,
-      kind: kind
-    }
-
-    attributes
-    |> Stream.map(&Map.merge(&1, scope))
-    |> Ash.bulk_create!(ExportSelection, :create_internal,
-      authorize?: false,
-      transaction: :all,
-      stop_on_error?: true,
-      upsert?: true,
-      upsert_identity: if(kind == :dataset_value, do: :source_value, else: :membership),
-      upsert_fields: []
-    )
-  end
-
-  def eligible(resource, export) do
-    evidence = ReadAccess.evidence_filter(resource, export.mode)
-
-    query =
-      Ash.Query.filter(
-        resource,
-        organization_id == ^export.organization_id and project_id == ^export.project_id and
-          ^evidence
-      )
-
-    field = if resource == Task, do: :id, else: :task_id
-
-    query =
-      if export.task_id_from,
-        do: Ash.Query.filter(query, ^[{field, [greater_than_or_equal: export.task_id_from]}]),
-        else: query
-
-    if export.task_id_to,
-      do: Ash.Query.filter(query, ^[{field, [less_than_or_equal: export.task_id_to]}]),
-      else: query
-  end
-
-  def range(query, export) do
-    query =
-      if export.evidence_id_from,
-        do: Ash.Query.filter(query, id >= ^export.evidence_id_from),
-        else: query
-
-    if export.evidence_id_to,
-      do: Ash.Query.filter(query, id <= ^export.evidence_id_to),
-      else: query
-  end
-
-  def stream(query),
-    do: query |> Ash.Query.sort(id: :asc) |> Ash.stream!(batch_size: 100, authorize?: false)
-
-  def rows(export, kind, load) when kind in @form_context do
-    if export.include_form_context and
-         (is_nil(export.evidence_kind) or export.evidence_kind == Atom.to_string(kind)) do
-      export |> form_context(kind) |> Ash.Query.load(load) |> stream()
-    else
-      []
-    end
-  end
-
-  def rows(export, kind, load) do
-    membership = membership(export, kind)
-
-    Keyword.fetch!(@resources, kind)
-    |> Ash.Query.filter(^membership)
-    |> range(export)
-    |> Ash.Query.load(load)
-    |> stream()
-  end
-
-  for {kind, field, parent_field} <- [
-        {:task, :task_id, :id},
-        {:task_input, :task_id, :task_id},
-        {:attempt, :attempt_id, :id},
-        {:attempt_question, :attempt_id, :attempt_id},
-        {:attempt_input_presentation, :attempt_id, :attempt_id},
-        {:question_response, :question_response_id, :id},
-        {:static_option_answer, :question_response_id, :question_response_id},
-        {:task_input_answer, :question_response_id, :question_response_id},
-        {:text_span, :question_response_id, :question_response_id},
-        {:review_decision, :decision_id, :id},
-        {:project_input_binding, :binding_id, :id},
-        {:dataset_value, :dataset_value_id, :id}
-      ] do
-    defp membership(export, unquote(kind)) do
-      expr(
+      organization_id == ^export.organization_id and
         exists(
-          ExportSelection,
-          export_id == ^export.id and kind == ^unquote(kind) and
-            ^ref(unquote(field)) == parent(^ref(unquote(parent_field)))
+          TaskInput,
+          ^inputs and revision.root_record_id == parent(record_id) and
+            exists(
+              project.bindings,
+              field_definition_id == parent(parent(field_definition_id)) and
+                requirement.input_slot_id == parent(input_slot_id)
+            )
         )
+    )
+  end
+
+  defp query(export, :review_decision) do
+    ReviewDecision
+    |> Ash.Query.filter(
+      exists(
+        ExportSelection,
+        export_id == ^export.id and question_response_id == parent(question_response_id) and
+          ((^export.mode == :accepted and decision_id == parent(id)) or
+             (^export.mode == :audit and decision.number >= parent(number)))
       )
+    )
+  end
+
+  for {kind, path, field, parent_field} <- [
+        {:task, [], :task_id, :id},
+        {:task_input, [], :task_id, :task_id},
+        {:attempt, [:question_response], :attempt_id, :id},
+        {:attempt_input_presentation, [:question_response], :attempt_id, :attempt_id},
+        {:question_response, [], :question_response_id, :id},
+        {:static_option_answer, [], :question_response_id, :question_response_id},
+        {:task_input_answer, [], :question_response_id, :question_response_id},
+        {:text_span, [], :question_response_id, :question_response_id}
+      ] do
+    defp query(export, unquote(kind)) do
+      membership =
+        expr(
+          exists(
+            ExportSelection,
+            export_id == ^export.id and
+              ^ref(unquote(path), unquote(field)) == parent(^ref(unquote(parent_field)))
+          )
+        )
+
+      Keyword.fetch!(@resources, unquote(kind)) |> Ash.Query.filter(^membership)
     end
   end
 end
