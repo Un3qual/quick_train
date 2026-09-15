@@ -8,7 +8,7 @@ defmodule QuickTrain.Forms.FormVersion do
     data_layer: AshPostgres.DataLayer,
     authorizers: [Ash.Policy.Authorizer]
 
-  alias QuickTrain.Authorization.Checks.OrganizationCapability
+  alias QuickTrain.Authorization.Checks.{CollectionContext, OrganizationCapability}
   alias QuickTrain.Forms.Changes.{AllocateVersion, DraftWrite}
   alias QuickTrain.Forms.Form
   alias QuickTrain.Forms.Inputs.{InputFieldRequirement, InputSlotDefinition}
@@ -164,14 +164,14 @@ defmodule QuickTrain.Forms.FormVersion do
     end
 
     policy action(:read) do
-      authorize_if Module.concat(["QuickTrain.Authorization.Checks.CollectionContext"])
+      authorize_if CollectionContext
       forbid_unless actor_attribute_equals(:status, "active")
       authorize_if relates_to_actor_via([:form, :reader_role_assignments, :user])
     end
 
     policy action(:read) do
-      authorize_if Module.concat(["QuickTrain.Authorization.Checks.CollectionContext"])
-      authorize_if accessing_from(Module.concat(["QuickTrain.Forms.Form"]), :versions)
+      authorize_if CollectionContext
+      authorize_if accessing_from(Form, :versions)
     end
 
     policy action([:list_scoped, :get_scoped]) do
