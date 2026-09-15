@@ -66,3 +66,7 @@
 - [x] 12.2 Consolidate draft replacement, revision increment, and implicit start into a native Attempt update; preserve child guards, ownership, and lease checks and update callers.
 - [x] 12.3 Compute receipt totals with native Ash aggregates and verify mixed review statuses.
 - [x] 12.4 Synchronize specifications, measure the affected paths, run the verification gate, and commit.
+
+## 13. Project snapshot fields
+
+- [x] 13.1 Select only outcome and effective-decision identifiers while sealing export membership, verify unchanged snapshot/output behavior, and run the verification gate.

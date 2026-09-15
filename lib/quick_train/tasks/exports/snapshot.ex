@@ -7,6 +7,7 @@ defmodule QuickTrain.Tasks.Exports.Snapshot do
   alias QuickTrain.Tasks.Attempts.Leases
   alias QuickTrain.Tasks.Exports.{ExportSelection, ResultExport}
   alias QuickTrain.Tasks.Responses.QuestionResponse
+  alias QuickTrain.Tasks.Reviews.ReviewDecision
   require Ash.Query
 
   @impl true
@@ -54,7 +55,8 @@ defmodule QuickTrain.Tasks.Exports.Snapshot do
       project_id == ^export.project_id and attempt.state == :submitted and
         (^export.mode == :audit or effective_verdict == :accept)
     )
-    |> Ash.Query.load(:effective_decision)
+    |> Ash.Query.select([:id, :task_id, :question_id])
+    |> Ash.Query.load(effective_decision: Ash.Query.select(ReviewDecision, [:id]))
     |> stream()
     |> Stream.map(fn outcome ->
       %{
