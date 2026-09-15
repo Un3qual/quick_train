@@ -7,6 +7,11 @@ defmodule QuickTrain.Projects.ProjectItem do
     extensions: [AshGraphql.Resource],
     authorizers: [Ash.Policy.Authorizer]
 
+  alias QuickTrain.Authorization.Checks.OrganizationCapability
+  alias QuickTrain.Datasets.{Dataset, DatasetItem, DatasetItemRevision, DatasetSchemaVersion}
+  alias QuickTrain.Projects.Project
+  alias QuickTrain.Repo
+
   attributes do
     uuid_primary_key :id
 
@@ -14,16 +19,16 @@ defmodule QuickTrain.Projects.ProjectItem do
   end
 
   relationships do
-    belongs_to :project, QuickTrain.Projects.Project, allow_nil?: false, attribute_public?: true
-    belongs_to :dataset, QuickTrain.Datasets.Dataset, allow_nil?: false, attribute_public?: true
+    belongs_to :project, Project, allow_nil?: false, attribute_public?: true
+    belongs_to :dataset, Dataset, allow_nil?: false, attribute_public?: true
 
-    belongs_to :schema_version, QuickTrain.Datasets.DatasetSchemaVersion,
+    belongs_to :schema_version, DatasetSchemaVersion,
       allow_nil?: false,
       attribute_public?: true
 
-    belongs_to :item, QuickTrain.Datasets.DatasetItem, allow_nil?: false, attribute_public?: true
+    belongs_to :item, DatasetItem, allow_nil?: false, attribute_public?: true
 
-    belongs_to :revision, QuickTrain.Datasets.DatasetItemRevision,
+    belongs_to :revision, DatasetItemRevision,
       allow_nil?: false,
       attribute_public?: true
   end
@@ -69,12 +74,11 @@ defmodule QuickTrain.Projects.ProjectItem do
     end
 
     policy action(:read) do
-      authorize_if accessing_from(Module.concat(["QuickTrain.Projects.Project"]), :items)
+      authorize_if accessing_from(Project, :items)
     end
 
     policy action(:list_scoped) do
-      authorize_if {QuickTrain.Authorization.Checks.OrganizationCapability,
-                    capability: "projects.read"}
+      authorize_if {OrganizationCapability, capability: "projects.read"}
     end
   end
 
@@ -87,7 +91,7 @@ defmodule QuickTrain.Projects.ProjectItem do
 
   postgres do
     table "project_items"
-    repo QuickTrain.Repo
+    repo Repo
 
     references do
       reference :project,

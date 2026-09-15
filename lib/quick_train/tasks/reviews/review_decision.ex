@@ -8,6 +8,18 @@ defmodule QuickTrain.Tasks.Reviews.ReviewDecision do
     data_layer: AshPostgres.DataLayer,
     authorizers: [Ash.Policy.Authorizer]
 
+  alias QuickTrain.Accounts.User
+  alias QuickTrain.Authorization.Checks.OrganizationCapability
+  alias QuickTrain.Forms.FormVersion
+  alias QuickTrain.Forms.Questions.QuestionDefinition
+  alias QuickTrain.Organizations.Organization
+  alias QuickTrain.Projects.Project
+  alias QuickTrain.Repo
+  alias QuickTrain.Tasks.Access.ReadAccess
+  alias QuickTrain.Tasks.Responses.QuestionResponse
+  alias QuickTrain.Tasks.Reviews.QuestionReview.Input, as: ReviewInput
+  alias QuickTrain.Tasks.Task
+
   attributes do
     uuid_primary_key :id
 
@@ -33,30 +45,30 @@ defmodule QuickTrain.Tasks.Reviews.ReviewDecision do
   end
 
   relationships do
-    belongs_to :organization, QuickTrain.Organizations.Organization,
+    belongs_to :organization, Organization,
       allow_nil?: false,
       attribute_public?: true
 
-    belongs_to :project, QuickTrain.Projects.Project, allow_nil?: false, attribute_public?: true
+    belongs_to :project, Project, allow_nil?: false, attribute_public?: true
 
-    belongs_to :form_version, QuickTrain.Forms.FormVersion,
+    belongs_to :form_version, FormVersion,
       allow_nil?: false,
       attribute_public?: true
 
-    belongs_to :task, QuickTrain.Tasks.Task, allow_nil?: false, attribute_public?: true
+    belongs_to :task, Task, allow_nil?: false, attribute_public?: true
 
-    belongs_to :question, QuickTrain.Forms.Questions.QuestionDefinition,
+    belongs_to :question, QuestionDefinition,
       allow_nil?: false,
       attribute_public?: true
 
-    belongs_to :question_response, QuickTrain.Tasks.Responses.QuestionResponse,
+    belongs_to :question_response, QuestionResponse,
       allow_nil?: false,
       public?: true,
       attribute_public?: true
 
-    belongs_to :requester, QuickTrain.Accounts.User, allow_nil?: true, attribute_public?: true
+    belongs_to :requester, User, allow_nil?: true, attribute_public?: true
 
-    belongs_to :predecessor, QuickTrain.Tasks.Reviews.ReviewDecision,
+    belongs_to :predecessor, __MODULE__,
       allow_nil?: true,
       attribute_public?: true
   end
@@ -81,7 +93,7 @@ defmodule QuickTrain.Tasks.Reviews.ReviewDecision do
       argument :organization_id, :uuid, allow_nil?: false
       argument :project_id, :uuid, allow_nil?: false
 
-      argument :decisions, {:array, QuickTrain.Tasks.Reviews.QuestionReview.Input},
+      argument :decisions, {:array, ReviewInput},
         allow_nil?: false,
         constraints: [min_length: 1]
 
@@ -123,17 +135,15 @@ defmodule QuickTrain.Tasks.Reviews.ReviewDecision do
 
   policies do
     policy action(:read) do
-      authorize_if Module.concat(["QuickTrain.Tasks.Access.ReadAccess"])
+      authorize_if ReadAccess
     end
 
     policy action([:list_audit, :list_accepted, :get_audit, :get_accepted]) do
-      authorize_if {QuickTrain.Authorization.Checks.OrganizationCapability,
-                    capability: "tasks.results.read"}
+      authorize_if {OrganizationCapability, capability: "tasks.results.read"}
     end
 
     policy action([:decide, :review_batch]) do
-      authorize_if {QuickTrain.Authorization.Checks.OrganizationCapability,
-                    capability: "tasks.review"}
+      authorize_if {OrganizationCapability, capability: "tasks.review"}
     end
   end
 
@@ -146,7 +156,7 @@ defmodule QuickTrain.Tasks.Reviews.ReviewDecision do
 
   postgres do
     table "review_decisions"
-    repo QuickTrain.Repo
+    repo Repo
     migration_types number: :bigint
 
     references do

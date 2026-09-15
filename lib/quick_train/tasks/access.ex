@@ -1,6 +1,6 @@
 defmodule QuickTrain.Tasks.Access do
   @moduledoc false
-  alias QuickTrain.{Projects, Tasks}
+  alias QuickTrain.{Authorization, Projects, Tasks}
   alias QuickTrain.Tasks.Access.WorkerEligibility
   alias QuickTrain.Tasks.Attempts.Leases
   alias QuickTrain.Tasks.Error
@@ -15,7 +15,7 @@ defmodule QuickTrain.Tasks.Access do
   end
 
   def manager!(project, %{id: id}, capability) do
-    unless QuickTrain.Authorization.allowed?(id, project.organization_id, capability),
+    unless Authorization.allowed?(id, project.organization_id, capability),
       do: Error.reject!(:forbidden)
   end
 

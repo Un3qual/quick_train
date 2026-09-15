@@ -8,6 +8,15 @@ defmodule QuickTrain.Tasks.Attempts.AttemptInputPresentation do
     data_layer: AshPostgres.DataLayer,
     authorizers: [Ash.Policy.Authorizer]
 
+  alias QuickTrain.Forms.FormVersion
+  alias QuickTrain.Forms.Inputs.InputSlotDefinition
+  alias QuickTrain.Organizations.Organization
+  alias QuickTrain.Projects.Project
+  alias QuickTrain.Repo
+  alias QuickTrain.Tasks.Access.ReadAccess
+  alias QuickTrain.Tasks.Attempts.Attempt
+  alias QuickTrain.Tasks.{Task, TaskInput}
+
   attributes do
     uuid_primary_key :id
 
@@ -16,28 +25,28 @@ defmodule QuickTrain.Tasks.Attempts.AttemptInputPresentation do
   end
 
   relationships do
-    belongs_to :organization, QuickTrain.Organizations.Organization,
+    belongs_to :organization, Organization,
       allow_nil?: false,
       attribute_public?: true
 
-    belongs_to :project, QuickTrain.Projects.Project, allow_nil?: false, attribute_public?: true
+    belongs_to :project, Project, allow_nil?: false, attribute_public?: true
 
-    belongs_to :form_version, QuickTrain.Forms.FormVersion,
+    belongs_to :form_version, FormVersion,
       allow_nil?: false,
       attribute_public?: true
 
-    belongs_to :task, QuickTrain.Tasks.Task, allow_nil?: false, attribute_public?: true
+    belongs_to :task, Task, allow_nil?: false, attribute_public?: true
 
-    belongs_to :attempt, QuickTrain.Tasks.Attempts.Attempt,
+    belongs_to :attempt, Attempt,
       allow_nil?: false,
       attribute_public?: true
 
-    belongs_to :task_input, QuickTrain.Tasks.TaskInput,
+    belongs_to :task_input, TaskInput,
       allow_nil?: false,
       attribute_public?: true,
       public?: true
 
-    belongs_to :input_slot, QuickTrain.Forms.Inputs.InputSlotDefinition,
+    belongs_to :input_slot, InputSlotDefinition,
       allow_nil?: false,
       attribute_public?: true,
       public?: true
@@ -72,7 +81,7 @@ defmodule QuickTrain.Tasks.Attempts.AttemptInputPresentation do
 
   policies do
     policy action(:read) do
-      authorize_if Module.concat(["QuickTrain.Tasks.Access.ReadAccess"])
+      authorize_if ReadAccess
     end
 
     policy action([:create_internal]) do
@@ -89,7 +98,7 @@ defmodule QuickTrain.Tasks.Attempts.AttemptInputPresentation do
 
   postgres do
     table "attempt_input_presentations"
-    repo QuickTrain.Repo
+    repo Repo
     migration_types position: :bigint
 
     references do

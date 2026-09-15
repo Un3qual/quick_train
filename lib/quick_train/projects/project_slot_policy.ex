@@ -7,6 +7,12 @@ defmodule QuickTrain.Projects.ProjectSlotPolicy do
     extensions: [AshGraphql.Resource],
     authorizers: [Ash.Policy.Authorizer]
 
+  alias QuickTrain.Authorization.Checks.OrganizationCapability
+  alias QuickTrain.Forms.FormVersion
+  alias QuickTrain.Forms.Inputs.InputSlotDefinition
+  alias QuickTrain.Projects.Project
+  alias QuickTrain.Repo
+
   attributes do
     uuid_primary_key :id
 
@@ -20,13 +26,13 @@ defmodule QuickTrain.Projects.ProjectSlotPolicy do
   end
 
   relationships do
-    belongs_to :project, QuickTrain.Projects.Project, allow_nil?: false, attribute_public?: true
+    belongs_to :project, Project, allow_nil?: false, attribute_public?: true
 
-    belongs_to :form_version, QuickTrain.Forms.FormVersion,
+    belongs_to :form_version, FormVersion,
       allow_nil?: false,
       attribute_public?: true
 
-    belongs_to :input_slot, QuickTrain.Forms.Inputs.InputSlotDefinition,
+    belongs_to :input_slot, InputSlotDefinition,
       allow_nil?: false,
       attribute_public?: true
   end
@@ -97,8 +103,7 @@ defmodule QuickTrain.Projects.ProjectSlotPolicy do
     end
 
     policy action([:set, :remove]) do
-      authorize_if {QuickTrain.Authorization.Checks.OrganizationCapability,
-                    capability: "projects.manage"}
+      authorize_if {OrganizationCapability, capability: "projects.manage"}
     end
 
     policy action(:read) do
@@ -107,12 +112,11 @@ defmodule QuickTrain.Projects.ProjectSlotPolicy do
     end
 
     policy action(:read) do
-      authorize_if accessing_from(Module.concat(["QuickTrain.Projects.Project"]), :slot_policies)
+      authorize_if accessing_from(Project, :slot_policies)
     end
 
     policy action(:list_scoped) do
-      authorize_if {QuickTrain.Authorization.Checks.OrganizationCapability,
-                    capability: "projects.read"}
+      authorize_if {OrganizationCapability, capability: "projects.read"}
     end
   end
 
@@ -125,7 +129,7 @@ defmodule QuickTrain.Projects.ProjectSlotPolicy do
 
   postgres do
     table "project_slot_policies"
-    repo QuickTrain.Repo
+    repo Repo
 
     references do
       reference :project, on_delete: :restrict, match_with: [form_version_id: :form_version_id]

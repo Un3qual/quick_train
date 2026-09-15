@@ -2,6 +2,7 @@ defmodule QuickTrain.Tasks.Responses.ResponseDraft do
   @moduledoc false
   use Ash.Resource.Actions.Implementation
   alias QuickTrain.Forms.Questions.QuestionDefinition
+  alias QuickTrain.Tasks
 
   alias QuickTrain.Tasks.{Access, Error}
 
@@ -63,10 +64,10 @@ defmodule QuickTrain.Tasks.Responses.ResponseDraft do
       )
     end
 
-    attempt = QuickTrain.Tasks.revise_attempt!(attempt, authorize?: false)
+    attempt = Tasks.revise_attempt!(attempt, authorize?: false)
 
     if attempt.state in [:claimed, :assigned],
-      do: QuickTrain.Tasks.start_attempt!(attempt, actor: actor),
+      do: Tasks.start_attempt!(attempt, actor: actor),
       else: attempt
   end
 

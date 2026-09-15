@@ -2,6 +2,8 @@ defmodule QuickTrain.Tasks.Access.BoundValue do
   @moduledoc "One exact bound input value, including explicit optional absence."
   use Ash.Resource, data_layer: :embedded, extensions: [AshGraphql.Resource]
 
+  alias QuickTrain.Assets.AssetSummary
+
   attributes do
     attribute :task_input_id, :uuid, public?: true, allow_nil?: false
     attribute :revision_id, :uuid, public?: true, allow_nil?: false
@@ -10,7 +12,7 @@ defmodule QuickTrain.Tasks.Access.BoundValue do
     attribute :binding_id, :uuid, public?: true, allow_nil?: false
     attribute :missing, :boolean, public?: true, allow_nil?: false
 
-    attribute :asset, QuickTrain.Assets.AssetSummary, public?: true
+    attribute :asset, AssetSummary, public?: true
 
     attribute :value, :struct,
       public?: true,

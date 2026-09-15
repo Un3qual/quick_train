@@ -7,6 +7,14 @@ defmodule QuickTrain.Tasks.Exports.ResultExport do
     data_layer: AshPostgres.DataLayer,
     authorizers: [Ash.Policy.Authorizer]
 
+  alias QuickTrain.Accounts.User
+  alias QuickTrain.Assets.{Asset, AssetAccessResult}
+  alias QuickTrain.Authorization.Checks.OrganizationCapability
+  alias QuickTrain.Forms.FormVersion
+  alias QuickTrain.Organizations.Organization
+  alias QuickTrain.Projects.Project
+  alias QuickTrain.Repo
+
   attributes do
     uuid_primary_key :id
 
@@ -29,19 +37,19 @@ defmodule QuickTrain.Tasks.Exports.ResultExport do
   end
 
   relationships do
-    belongs_to :organization, QuickTrain.Organizations.Organization,
+    belongs_to :organization, Organization,
       allow_nil?: false,
       attribute_public?: true
 
-    belongs_to :project, QuickTrain.Projects.Project, allow_nil?: false, attribute_public?: true
+    belongs_to :project, Project, allow_nil?: false, attribute_public?: true
 
-    belongs_to :form_version, QuickTrain.Forms.FormVersion,
+    belongs_to :form_version, FormVersion,
       allow_nil?: false,
       attribute_public?: true
 
-    belongs_to :requester, QuickTrain.Accounts.User, allow_nil?: false, attribute_public?: true
-    belongs_to :asset, QuickTrain.Assets.Asset, allow_nil?: true, attribute_public?: true
-    belongs_to :pending_asset, QuickTrain.Assets.Asset, allow_nil?: true
+    belongs_to :requester, User, allow_nil?: false, attribute_public?: true
+    belongs_to :asset, Asset, allow_nil?: true, attribute_public?: true
+    belongs_to :pending_asset, Asset, allow_nil?: true
   end
 
   actions do
@@ -91,7 +99,7 @@ defmodule QuickTrain.Tasks.Exports.ResultExport do
              )
     end
 
-    action :download_export, QuickTrain.Assets.AssetAccessResult do
+    action :download_export, AssetAccessResult do
       argument :organization_id, :uuid, allow_nil?: false
       argument :project_id, :uuid, allow_nil?: false
       argument :export_id, :uuid, allow_nil?: false
@@ -139,8 +147,7 @@ defmodule QuickTrain.Tasks.Exports.ResultExport do
 
   policies do
     policy action([:request_export, :list_scoped, :get_scoped, :download_export]) do
-      authorize_if {QuickTrain.Authorization.Checks.OrganizationCapability,
-                    capability: "tasks.results.read"}
+      authorize_if {OrganizationCapability, capability: "tasks.results.read"}
     end
 
     policy action([:read, :create_internal, :update_internal]) do
@@ -158,7 +165,7 @@ defmodule QuickTrain.Tasks.Exports.ResultExport do
 
   postgres do
     table "result_exports"
-    repo QuickTrain.Repo
+    repo Repo
     migration_types record_count: :bigint
 
     references do

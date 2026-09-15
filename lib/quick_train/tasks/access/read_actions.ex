@@ -139,7 +139,7 @@ defmodule QuickTrain.Tasks.Access.ReadActions do
       {:ok, AssetAccessResult.from(asset, descriptor)}
     else
       {:error, error} when is_atom(error) ->
-        {:error, QuickTrain.Tasks.Error.exception(category: error)}
+        {:error, Error.exception(category: error)}
 
       other ->
         other

@@ -5,6 +5,7 @@ defmodule QuickTrain.Tasks.Exports.ResultExporting do
   alias QuickTrain.Assets.AssetAccessResult
   alias QuickTrain.Assets.Storage
   alias QuickTrain.DatasetAssetError
+  alias QuickTrain.Tasks
   alias QuickTrain.Tasks.{Access, Error}
   alias QuickTrain.Tasks.Exports.{Jsonl, ResultExport}
   alias QuickTrain.Tasks.Workers.ExportResults
@@ -120,7 +121,7 @@ defmodule QuickTrain.Tasks.Exports.ResultExporting do
     if export.state == :ready do
       :ok
     else
-      case QuickTrain.Tasks.seal_export_snapshot(id, authorize?: false) do
+      case Tasks.seal_export_snapshot(id, authorize?: false) do
         {:ok, snapshot} -> publish(snapshot)
         {:error, _error} -> fail(id, :export_snapshot_failed)
       end
@@ -260,7 +261,7 @@ defmodule QuickTrain.Tasks.Exports.ResultExporting do
   end
 
   defp locked_export!(id) do
-    QuickTrain.Tasks.get_result_export_internal!(id,
+    Tasks.get_result_export_internal!(id,
       query: [lock: :for_update],
       authorize?: false
     )

@@ -5,13 +5,16 @@ defmodule QuickTrain.Tasks.Responses.Inputs.AnswerInput do
     data_layer: :embedded,
     extensions: [AshGraphql.Resource]
 
+  alias QuickTrain.Forms.Types.AnswerFamily
+  alias QuickTrain.Tasks.Responses.Inputs.{TaskInputSelectionInput, TextSpanInput}
+
   attributes do
     attribute :outcome, :atom,
       allow_nil?: false,
       public?: true,
       constraints: [one_of: [:answered, :skipped]]
 
-    attribute :family, QuickTrain.Forms.Types.AnswerFamily, allow_nil?: false, public?: true
+    attribute :family, AnswerFamily, allow_nil?: false, public?: true
     attribute :text_value, :string, public?: true, constraints: [trim?: false, allow_empty?: true]
 
     attribute :integer_value, :integer,
@@ -28,12 +31,12 @@ defmodule QuickTrain.Tasks.Responses.Inputs.AnswerInput do
 
     attribute :option_ids, {:array, :uuid}, allow_nil?: false, default: [], public?: true
 
-    attribute :inputs, {:array, QuickTrain.Tasks.Responses.Inputs.TaskInputSelectionInput},
+    attribute :inputs, {:array, TaskInputSelectionInput},
       allow_nil?: false,
       default: [],
       public?: true
 
-    attribute :spans, {:array, QuickTrain.Tasks.Responses.Inputs.TextSpanInput},
+    attribute :spans, {:array, TextSpanInput},
       allow_nil?: false,
       default: [],
       public?: true

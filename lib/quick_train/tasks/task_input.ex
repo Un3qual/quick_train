@@ -8,6 +8,17 @@ defmodule QuickTrain.Tasks.TaskInput do
     data_layer: AshPostgres.DataLayer,
     authorizers: [Ash.Policy.Authorizer]
 
+  alias QuickTrain.Assets.AssetAccessResult
+  alias QuickTrain.Datasets.DatasetItemRevision
+  alias QuickTrain.Forms.FormVersion
+  alias QuickTrain.Forms.Inputs.{InputFieldRequirement, InputSlotDefinition}
+  alias QuickTrain.Organizations.Organization
+  alias QuickTrain.Projects.{Project, ProjectItem}
+  alias QuickTrain.Repo
+  alias QuickTrain.Tasks.Access.BoundValue
+  alias QuickTrain.Tasks.Access.ReadAccess
+  alias QuickTrain.Tasks.Task
+
   attributes do
     uuid_primary_key :id
 
@@ -15,39 +26,39 @@ defmodule QuickTrain.Tasks.TaskInput do
   end
 
   relationships do
-    has_many :requirements, QuickTrain.Forms.Inputs.InputFieldRequirement,
+    has_many :requirements, InputFieldRequirement,
       source_attribute: :input_slot_id,
       destination_attribute: :input_slot_id,
       public?: true
 
-    belongs_to :organization, QuickTrain.Organizations.Organization,
+    belongs_to :organization, Organization,
       allow_nil?: false,
       attribute_public?: true
 
-    belongs_to :project, QuickTrain.Projects.Project, allow_nil?: false, attribute_public?: true
+    belongs_to :project, Project, allow_nil?: false, attribute_public?: true
 
-    belongs_to :form_version, QuickTrain.Forms.FormVersion,
+    belongs_to :form_version, FormVersion,
       allow_nil?: false,
       attribute_public?: true
 
-    belongs_to :task, QuickTrain.Tasks.Task, allow_nil?: false, attribute_public?: true
+    belongs_to :task, Task, allow_nil?: false, attribute_public?: true
 
-    belongs_to :project_item, QuickTrain.Projects.ProjectItem,
+    belongs_to :project_item, ProjectItem,
       allow_nil?: false,
       attribute_public?: true
 
-    belongs_to :revision, QuickTrain.Datasets.DatasetItemRevision,
+    belongs_to :revision, DatasetItemRevision,
       allow_nil?: false,
       attribute_public?: true
 
-    belongs_to :input_slot, QuickTrain.Forms.Inputs.InputSlotDefinition,
+    belongs_to :input_slot, InputSlotDefinition,
       allow_nil?: false,
       attribute_public?: true,
       public?: true
   end
 
   actions do
-    action :source_download, QuickTrain.Assets.AssetAccessResult do
+    action :source_download, AssetAccessResult do
       argument :organization_id, :uuid, allow_nil?: false
       argument :project_id, :uuid, allow_nil?: false
       argument :task_input_id, :uuid, allow_nil?: false
@@ -56,7 +67,7 @@ defmodule QuickTrain.Tasks.TaskInput do
       run Module.concat(["QuickTrain.Tasks.Access.ReadActions"])
     end
 
-    action :bound_value, QuickTrain.Tasks.Access.BoundValue do
+    action :bound_value, BoundValue do
       transaction? true
       argument :organization_id, :uuid, allow_nil?: false
       argument :project_id, :uuid, allow_nil?: false
@@ -97,7 +108,7 @@ defmodule QuickTrain.Tasks.TaskInput do
     end
 
     policy action(:read) do
-      authorize_if Module.concat(["QuickTrain.Tasks.Access.ReadAccess"])
+      authorize_if ReadAccess
     end
 
     policy action([:create_internal]) do
@@ -115,7 +126,7 @@ defmodule QuickTrain.Tasks.TaskInput do
 
   postgres do
     table "task_inputs"
-    repo QuickTrain.Repo
+    repo Repo
 
     references do
       reference :organization, on_delete: :restrict, name: "task_inputs_organization_scope_fkey"

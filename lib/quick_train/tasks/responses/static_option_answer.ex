@@ -8,6 +8,15 @@ defmodule QuickTrain.Tasks.Responses.StaticOptionAnswer do
     data_layer: AshPostgres.DataLayer,
     authorizers: [Ash.Policy.Authorizer]
 
+  alias QuickTrain.Forms.FormVersion
+  alias QuickTrain.Forms.Questions.{QuestionDefinition, QuestionOption}
+  alias QuickTrain.Organizations.Organization
+  alias QuickTrain.Projects.Project
+  alias QuickTrain.Repo
+  alias QuickTrain.Tasks.Access.ReadAccess
+  alias QuickTrain.Tasks.Responses.QuestionResponse
+  alias QuickTrain.Tasks.Task
+
   attributes do
     uuid_primary_key :id
 
@@ -15,27 +24,27 @@ defmodule QuickTrain.Tasks.Responses.StaticOptionAnswer do
   end
 
   relationships do
-    belongs_to :organization, QuickTrain.Organizations.Organization,
+    belongs_to :organization, Organization,
       allow_nil?: false,
       attribute_public?: true
 
-    belongs_to :project, QuickTrain.Projects.Project, allow_nil?: false, attribute_public?: true
+    belongs_to :project, Project, allow_nil?: false, attribute_public?: true
 
-    belongs_to :form_version, QuickTrain.Forms.FormVersion,
+    belongs_to :form_version, FormVersion,
       allow_nil?: false,
       attribute_public?: true
 
-    belongs_to :task, QuickTrain.Tasks.Task, allow_nil?: false, attribute_public?: true
+    belongs_to :task, Task, allow_nil?: false, attribute_public?: true
 
-    belongs_to :question, QuickTrain.Forms.Questions.QuestionDefinition,
+    belongs_to :question, QuestionDefinition,
       allow_nil?: false,
       attribute_public?: true
 
-    belongs_to :question_response, QuickTrain.Tasks.Responses.QuestionResponse,
+    belongs_to :question_response, QuestionResponse,
       allow_nil?: false,
       attribute_public?: true
 
-    belongs_to :option, QuickTrain.Forms.Questions.QuestionOption,
+    belongs_to :option, QuestionOption,
       allow_nil?: false,
       attribute_public?: true,
       public?: true
@@ -76,7 +85,7 @@ defmodule QuickTrain.Tasks.Responses.StaticOptionAnswer do
 
   policies do
     policy action(:read) do
-      authorize_if Module.concat(["QuickTrain.Tasks.Access.ReadAccess"])
+      authorize_if ReadAccess
     end
 
     policy action([:create_internal, :destroy_internal]) do
@@ -93,7 +102,7 @@ defmodule QuickTrain.Tasks.Responses.StaticOptionAnswer do
 
   postgres do
     table "static_option_answers"
-    repo QuickTrain.Repo
+    repo Repo
 
     references do
       reference :organization,

@@ -7,8 +7,24 @@ defmodule QuickTrain.Projects.Project do
     extensions: [AshGraphql.Resource],
     authorizers: [Ash.Policy.Authorizer]
 
+  alias QuickTrain.Authorization.Checks.OrganizationCapability
   alias QuickTrain.Authorization.RoleAssignment
-  alias QuickTrain.Projects.Error
+  alias QuickTrain.Datasets.{Dataset, DatasetRecordType, DatasetSchemaVersion}
+  alias QuickTrain.Forms.{Form, FormVersion}
+  alias QuickTrain.Organizations.Organization
+
+  alias QuickTrain.Projects.{
+    Error,
+    ExplicitGroup,
+    ExplicitGroupInput,
+    GroupInput,
+    ProjectInputBinding,
+    ProjectItem,
+    ProjectSlotPolicy,
+    ProjectWorkerAccess
+  }
+
+  alias QuickTrain.Repo
 
   attributes do
     uuid_primary_key :id
@@ -61,51 +77,51 @@ defmodule QuickTrain.Projects.Project do
   end
 
   relationships do
-    belongs_to :organization, QuickTrain.Organizations.Organization,
+    belongs_to :organization, Organization,
       allow_nil?: false,
       attribute_public?: true
 
-    belongs_to :dataset, QuickTrain.Datasets.Dataset, allow_nil?: false, attribute_public?: true
+    belongs_to :dataset, Dataset, allow_nil?: false, attribute_public?: true
 
-    belongs_to :schema_version, QuickTrain.Datasets.DatasetSchemaVersion,
+    belongs_to :schema_version, DatasetSchemaVersion,
       allow_nil?: false,
       attribute_public?: true
 
-    belongs_to :root_record_type, QuickTrain.Datasets.DatasetRecordType,
+    belongs_to :root_record_type, DatasetRecordType,
       allow_nil?: false,
       attribute_public?: true
 
-    belongs_to :form, QuickTrain.Forms.Form, allow_nil?: false, attribute_public?: true
+    belongs_to :form, Form, allow_nil?: false, attribute_public?: true
 
-    belongs_to :form_version, QuickTrain.Forms.FormVersion,
+    belongs_to :form_version, FormVersion,
       allow_nil?: false,
       attribute_public?: true
 
-    has_many :items, QuickTrain.Projects.ProjectItem,
+    has_many :items, ProjectItem,
       destination_attribute: :project_id,
       public?: true
 
-    has_many :bindings, QuickTrain.Projects.ProjectInputBinding,
+    has_many :bindings, ProjectInputBinding,
       destination_attribute: :project_id,
       public?: true
 
-    has_many :slot_policies, QuickTrain.Projects.ProjectSlotPolicy,
+    has_many :slot_policies, ProjectSlotPolicy,
       destination_attribute: :project_id,
       public?: true
 
-    has_many :worker_access, QuickTrain.Projects.ProjectWorkerAccess,
+    has_many :worker_access, ProjectWorkerAccess,
       destination_attribute: :project_id,
       public?: true
 
-    has_many :explicit_groups, QuickTrain.Projects.ExplicitGroup,
+    has_many :explicit_groups, ExplicitGroup,
       destination_attribute: :project_id,
       public?: true
 
-    has_many :group_inputs, QuickTrain.Projects.ExplicitGroupInput,
+    has_many :group_inputs, ExplicitGroupInput,
       destination_attribute: :project_id,
       public?: true
 
-    has_many :reader_role_assignments, QuickTrain.Authorization.RoleAssignment do
+    has_many :reader_role_assignments, RoleAssignment do
       source_attribute :organization_id
       destination_attribute :organization_id
 
@@ -191,7 +207,7 @@ defmodule QuickTrain.Projects.Project do
       argument :organization_id, :uuid, allow_nil?: false
       argument :project_id, :uuid, allow_nil?: false
       argument :position, :integer, allow_nil?: false, constraints: [min: 0, max: 2_147_483_647]
-      argument :inputs, {:array, QuickTrain.Projects.GroupInput}, allow_nil?: false
+      argument :inputs, {:array, GroupInput}, allow_nil?: false
       run Module.concat(["QuickTrain.Projects.Management"])
     end
 
@@ -300,8 +316,7 @@ defmodule QuickTrain.Projects.Project do
     end
 
     policy action([:get_scoped, :list_scoped]) do
-      authorize_if {QuickTrain.Authorization.Checks.OrganizationCapability,
-                    capability: "projects.read"}
+      authorize_if {OrganizationCapability, capability: "projects.read"}
     end
 
     policy action([
@@ -315,8 +330,7 @@ defmodule QuickTrain.Projects.Project do
              :create_explicit_group,
              :remove_explicit_group
            ]) do
-      authorize_if {QuickTrain.Authorization.Checks.OrganizationCapability,
-                    capability: "projects.manage"}
+      authorize_if {OrganizationCapability, capability: "projects.manage"}
     end
 
     policy action([:rename, :pause_record, :resume_record, :archive_record]) do
@@ -361,7 +375,7 @@ defmodule QuickTrain.Projects.Project do
 
   postgres do
     table "projects"
-    repo QuickTrain.Repo
+    repo Repo
 
     references do
       reference :organization, on_delete: :restrict

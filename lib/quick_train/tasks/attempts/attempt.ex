@@ -8,6 +8,17 @@ defmodule QuickTrain.Tasks.Attempts.Attempt do
     data_layer: AshPostgres.DataLayer,
     authorizers: [Ash.Policy.Authorizer]
 
+  alias QuickTrain.Accounts.User
+  alias QuickTrain.Authorization.Checks.OrganizationCapability
+  alias QuickTrain.Forms.FormVersion
+  alias QuickTrain.Organizations.Organization
+  alias QuickTrain.Projects.Project
+  alias QuickTrain.Repo
+  alias QuickTrain.Tasks.Attempts.{AllocationResult, AttemptInputPresentation, Receipt}
+  alias QuickTrain.Tasks.Responses.Inputs.AnswerInput
+  alias QuickTrain.Tasks.Responses.QuestionResponse
+  alias QuickTrain.Tasks.Task
+
   attributes do
     uuid_primary_key :id
 
@@ -39,32 +50,32 @@ defmodule QuickTrain.Tasks.Attempts.Attempt do
   end
 
   relationships do
-    has_many :input_presentations, QuickTrain.Tasks.Attempts.AttemptInputPresentation,
+    has_many :input_presentations, AttemptInputPresentation,
       destination_attribute: :attempt_id,
       public?: true
 
-    has_many :outcomes, QuickTrain.Tasks.Responses.QuestionResponse,
+    has_many :outcomes, QuestionResponse,
       destination_attribute: :attempt_id,
       public?: true
 
-    belongs_to :organization, QuickTrain.Organizations.Organization,
+    belongs_to :organization, Organization,
       allow_nil?: false,
       attribute_public?: true
 
-    belongs_to :project, QuickTrain.Projects.Project, allow_nil?: false, attribute_public?: true
+    belongs_to :project, Project, allow_nil?: false, attribute_public?: true
 
-    belongs_to :form_version, QuickTrain.Forms.FormVersion,
+    belongs_to :form_version, FormVersion,
       allow_nil?: false,
       attribute_public?: true,
       public?: true
 
-    belongs_to :task, QuickTrain.Tasks.Task,
+    belongs_to :task, Task,
       allow_nil?: false,
       attribute_public?: true,
       public?: true
 
-    belongs_to :worker, QuickTrain.Accounts.User, allow_nil?: false, attribute_public?: true
-    belongs_to :requester, QuickTrain.Accounts.User, allow_nil?: false, attribute_public?: true
+    belongs_to :worker, User, allow_nil?: false, attribute_public?: true
+    belongs_to :requester, User, allow_nil?: false, attribute_public?: true
   end
 
   calculations do
@@ -87,7 +98,7 @@ defmodule QuickTrain.Tasks.Attempts.Attempt do
       argument :attempt_id, :uuid, allow_nil?: false
       argument :question_id, :uuid, allow_nil?: false
       argument :expected_revision, :integer, allow_nil?: false, constraints: [min: 0]
-      argument :answer, QuickTrain.Tasks.Responses.Inputs.AnswerInput, allow_nil?: false
+      argument :answer, AnswerInput, allow_nil?: false
       run Module.concat(["QuickTrain.Tasks.Responses.ResponseDraft"])
     end
 
@@ -106,7 +117,7 @@ defmodule QuickTrain.Tasks.Attempts.Attempt do
       prepare Module.concat(["QuickTrain.Tasks.Attempts.WorkBundle"])
     end
 
-    action :receipt, QuickTrain.Tasks.Attempts.Receipt do
+    action :receipt, Receipt do
       transaction? true
       argument :organization_id, :uuid, allow_nil?: false
       argument :project_id, :uuid, allow_nil?: false
@@ -126,14 +137,14 @@ defmodule QuickTrain.Tasks.Attempts.Attempt do
              )
     end
 
-    action :fetch, QuickTrain.Tasks.Attempts.AllocationResult do
+    action :fetch, AllocationResult do
       argument :organization_id, :uuid, allow_nil?: false
       argument :project_id, :uuid, allow_nil?: false
       argument :request_key, :uuid, allow_nil?: false
       run Module.concat(["QuickTrain.Tasks.Attempts.AttemptAllocation"])
     end
 
-    action :assign, QuickTrain.Tasks.Attempts.AllocationResult do
+    action :assign, AllocationResult do
       argument :organization_id, :uuid, allow_nil?: false
       argument :project_id, :uuid, allow_nil?: false
       argument :request_key, :uuid, allow_nil?: false
@@ -196,8 +207,7 @@ defmodule QuickTrain.Tasks.Attempts.Attempt do
       forbid_unless actor_attribute_equals(:status, "active")
       authorize_if Module.concat(["QuickTrain.Tasks.Access.ReadAccess"])
 
-      authorize_if {QuickTrain.Authorization.Checks.OrganizationCapability,
-                    capability: "tasks.assign"}
+      authorize_if {OrganizationCapability, capability: "tasks.assign"}
     end
 
     policy action([:read_work_bundle, :receipt]) do
@@ -217,8 +227,7 @@ defmodule QuickTrain.Tasks.Attempts.Attempt do
     end
 
     policy action(:cancel) do
-      authorize_if {QuickTrain.Authorization.Checks.OrganizationCapability,
-                    capability: "tasks.assign"}
+      authorize_if {OrganizationCapability, capability: "tasks.assign"}
     end
 
     policy action(:fetch) do
@@ -226,8 +235,7 @@ defmodule QuickTrain.Tasks.Attempts.Attempt do
     end
 
     policy action([:assign]) do
-      authorize_if {QuickTrain.Authorization.Checks.OrganizationCapability,
-                    capability: "tasks.assign"}
+      authorize_if {OrganizationCapability, capability: "tasks.assign"}
     end
 
     policy action([:create_internal, :update_internal, :revise]) do
@@ -248,7 +256,7 @@ defmodule QuickTrain.Tasks.Attempts.Attempt do
 
   postgres do
     table "attempts"
-    repo QuickTrain.Repo
+    repo Repo
     migration_types revision: :bigint
 
     references do

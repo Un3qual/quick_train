@@ -12,9 +12,11 @@ defmodule QuickTrain.Projects.Error do
 end
 
 defimpl AshGraphql.Error, for: QuickTrain.Projects.Error do
+  alias QuickTrain.Projects.Error
+
   def to_error(error) do
     %{
-      message: QuickTrain.Projects.Error.message(error),
+      message: Error.message(error),
       short_message: to_string(error.category),
       code: to_string(error.category),
       fields: [],

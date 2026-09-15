@@ -2,6 +2,7 @@ defmodule QuickTrain.Tasks.Access.ReadAccess do
   @moduledoc false
   use Ash.Policy.FilterCheck
   alias QuickTrain.Authorization.RoleAssignment
+  alias QuickTrain.Projects.Project
   alias QuickTrain.Tasks.Access.WorkerEligibility
 
   alias QuickTrain.Tasks.Attempts.{Attempt, AttemptInputPresentation}
@@ -53,7 +54,7 @@ defmodule QuickTrain.Tasks.Access.ReadAccess do
 
   def eligible_attempt(%{id: id}) do
     eligibility =
-      QuickTrain.Projects.Project
+      Project
       |> Ash.Filter.parse!(WorkerEligibility.project_filter(id))
       |> Ash.Filter.move_to_relationship_path([:project])
 

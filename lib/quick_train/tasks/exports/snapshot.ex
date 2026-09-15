@@ -8,6 +8,7 @@ defmodule QuickTrain.Tasks.Exports.Snapshot do
   alias QuickTrain.Forms.Questions.QuestionOption
   alias QuickTrain.Projects.ProjectInputBinding
   alias QuickTrain.Repo
+  alias QuickTrain.Tasks
   alias QuickTrain.Tasks.{Access, Task, TaskInput}
   alias QuickTrain.Tasks.Attempts.{Attempt, AttemptInputPresentation, Leases}
   alias QuickTrain.Tasks.Exports.{ExportSelection, ResultExport}
@@ -52,7 +53,7 @@ defmodule QuickTrain.Tasks.Exports.Snapshot do
       Repo.query!("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ")
 
       export =
-        QuickTrain.Tasks.get_result_export_internal!(id,
+        Tasks.get_result_export_internal!(id,
           query: [lock: :for_update],
           authorize?: false
         )

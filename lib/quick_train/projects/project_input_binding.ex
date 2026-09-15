@@ -8,6 +8,14 @@ defmodule QuickTrain.Projects.ProjectInputBinding do
     extensions: [AshGraphql.Resource],
     authorizers: [Ash.Policy.Authorizer]
 
+  alias QuickTrain.Authorization.Checks.OrganizationCapability
+  alias QuickTrain.Datasets.{DatasetFieldDefinition, DatasetRecordType, DatasetSchemaVersion}
+  alias QuickTrain.Forms.FormVersion
+  alias QuickTrain.Forms.Inputs.InputFieldRequirement
+  alias QuickTrain.Projects.Project
+  alias QuickTrain.Repo
+  alias QuickTrain.Tasks.TaskInput
+
   attributes do
     uuid_primary_key :id
 
@@ -15,30 +23,30 @@ defmodule QuickTrain.Projects.ProjectInputBinding do
   end
 
   relationships do
-    has_many :issued_inputs, QuickTrain.Tasks.TaskInput,
+    has_many :issued_inputs, TaskInput,
       source_attribute: :project_id,
       destination_attribute: :project_id
 
-    belongs_to :project, QuickTrain.Projects.Project, allow_nil?: false, attribute_public?: true
+    belongs_to :project, Project, allow_nil?: false, attribute_public?: true
 
-    belongs_to :schema_version, QuickTrain.Datasets.DatasetSchemaVersion,
+    belongs_to :schema_version, DatasetSchemaVersion,
       allow_nil?: false,
       attribute_public?: true
 
-    belongs_to :root_record_type, QuickTrain.Datasets.DatasetRecordType,
+    belongs_to :root_record_type, DatasetRecordType,
       allow_nil?: false,
       attribute_public?: true
 
-    belongs_to :form_version, QuickTrain.Forms.FormVersion,
+    belongs_to :form_version, FormVersion,
       allow_nil?: false,
       attribute_public?: true
 
-    belongs_to :requirement, QuickTrain.Forms.Inputs.InputFieldRequirement,
+    belongs_to :requirement, InputFieldRequirement,
       public?: true,
       allow_nil?: false,
       attribute_public?: true
 
-    belongs_to :field_definition, QuickTrain.Datasets.DatasetFieldDefinition,
+    belongs_to :field_definition, DatasetFieldDefinition,
       public?: true,
       allow_nil?: false,
       attribute_public?: true
@@ -115,8 +123,7 @@ defmodule QuickTrain.Projects.ProjectInputBinding do
     end
 
     policy action([:set, :remove]) do
-      authorize_if {QuickTrain.Authorization.Checks.OrganizationCapability,
-                    capability: "projects.manage"}
+      authorize_if {OrganizationCapability, capability: "projects.manage"}
     end
 
     policy action(:read) do
@@ -125,12 +132,11 @@ defmodule QuickTrain.Projects.ProjectInputBinding do
     end
 
     policy action(:read) do
-      authorize_if accessing_from(Module.concat(["QuickTrain.Projects.Project"]), :bindings)
+      authorize_if accessing_from(Project, :bindings)
     end
 
     policy action(:list_scoped) do
-      authorize_if {QuickTrain.Authorization.Checks.OrganizationCapability,
-                    capability: "projects.read"}
+      authorize_if {OrganizationCapability, capability: "projects.read"}
     end
   end
 
@@ -143,7 +149,7 @@ defmodule QuickTrain.Projects.ProjectInputBinding do
 
   postgres do
     table "project_input_bindings"
-    repo QuickTrain.Repo
+    repo Repo
 
     references do
       reference :project,

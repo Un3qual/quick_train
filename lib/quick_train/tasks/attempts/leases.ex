@@ -1,5 +1,6 @@
 defmodule QuickTrain.Tasks.Attempts.Leases do
   @moduledoc false
+  alias QuickTrain.Repo
   alias QuickTrain.Tasks.Attempts.Attempt
   require Ash.Query
   @live [:claimed, :assigned, :in_progress]
@@ -7,7 +8,7 @@ defmodule QuickTrain.Tasks.Attempts.Leases do
 
   # PostgreSQL transaction timestamps do not advance while waiting on a lock.
   def now! do
-    %{rows: [[now]]} = QuickTrain.Repo.query!("SELECT clock_timestamp()")
+    %{rows: [[now]]} = Repo.query!("SELECT clock_timestamp()")
     now
   end
 

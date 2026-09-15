@@ -8,6 +8,17 @@ defmodule QuickTrain.Tasks.Responses.TextSpan do
     data_layer: AshPostgres.DataLayer,
     authorizers: [Ash.Policy.Authorizer]
 
+  alias QuickTrain.Datasets.DatasetValue
+  alias QuickTrain.Forms.FormVersion
+  alias QuickTrain.Forms.Labels.Label
+  alias QuickTrain.Forms.Questions.QuestionDefinition
+  alias QuickTrain.Organizations.Organization
+  alias QuickTrain.Projects.Project
+  alias QuickTrain.Repo
+  alias QuickTrain.Tasks.Access.ReadAccess
+  alias QuickTrain.Tasks.Responses.QuestionResponse
+  alias QuickTrain.Tasks.{Task, TaskInput}
+
   attributes do
     uuid_primary_key :id
 
@@ -17,37 +28,37 @@ defmodule QuickTrain.Tasks.Responses.TextSpan do
   end
 
   relationships do
-    belongs_to :organization, QuickTrain.Organizations.Organization,
+    belongs_to :organization, Organization,
       allow_nil?: false,
       attribute_public?: true
 
-    belongs_to :project, QuickTrain.Projects.Project, allow_nil?: false, attribute_public?: true
+    belongs_to :project, Project, allow_nil?: false, attribute_public?: true
 
-    belongs_to :form_version, QuickTrain.Forms.FormVersion,
+    belongs_to :form_version, FormVersion,
       allow_nil?: false,
       attribute_public?: true
 
-    belongs_to :task, QuickTrain.Tasks.Task, allow_nil?: false, attribute_public?: true
+    belongs_to :task, Task, allow_nil?: false, attribute_public?: true
 
-    belongs_to :question, QuickTrain.Forms.Questions.QuestionDefinition,
+    belongs_to :question, QuestionDefinition,
       allow_nil?: false,
       attribute_public?: true
 
-    belongs_to :question_response, QuickTrain.Tasks.Responses.QuestionResponse,
+    belongs_to :question_response, QuestionResponse,
       allow_nil?: false,
       attribute_public?: true
 
-    belongs_to :task_input, QuickTrain.Tasks.TaskInput,
+    belongs_to :task_input, TaskInput,
       allow_nil?: false,
       attribute_public?: true,
       public?: true
 
-    belongs_to :source_value, QuickTrain.Datasets.DatasetValue,
+    belongs_to :source_value, DatasetValue,
       allow_nil?: false,
       attribute_public?: true,
       public?: true
 
-    belongs_to :label, QuickTrain.Forms.Labels.Label,
+    belongs_to :label, Label,
       allow_nil?: false,
       attribute_public?: true,
       public?: true
@@ -92,7 +103,7 @@ defmodule QuickTrain.Tasks.Responses.TextSpan do
 
   policies do
     policy action(:read) do
-      authorize_if Module.concat(["QuickTrain.Tasks.Access.ReadAccess"])
+      authorize_if ReadAccess
     end
 
     policy action([:create_internal, :destroy_internal]) do
@@ -109,7 +120,7 @@ defmodule QuickTrain.Tasks.Responses.TextSpan do
 
   postgres do
     table "text_spans"
-    repo QuickTrain.Repo
+    repo Repo
     migration_types start: :bigint, end: :bigint
 
     references do

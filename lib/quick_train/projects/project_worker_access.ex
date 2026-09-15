@@ -7,6 +7,11 @@ defmodule QuickTrain.Projects.ProjectWorkerAccess do
     extensions: [AshGraphql.Resource],
     authorizers: [Ash.Policy.Authorizer]
 
+  alias QuickTrain.Accounts.User
+  alias QuickTrain.Authorization.Checks.OrganizationCapability
+  alias QuickTrain.Projects.Project
+  alias QuickTrain.Repo
+
   attributes do
     uuid_primary_key :id
 
@@ -19,8 +24,8 @@ defmodule QuickTrain.Projects.ProjectWorkerAccess do
   end
 
   relationships do
-    belongs_to :project, QuickTrain.Projects.Project, allow_nil?: false, attribute_public?: true
-    belongs_to :user, QuickTrain.Accounts.User, allow_nil?: false, attribute_public?: true
+    belongs_to :project, Project, allow_nil?: false, attribute_public?: true
+    belongs_to :user, User, allow_nil?: false, attribute_public?: true
   end
 
   actions do
@@ -89,8 +94,7 @@ defmodule QuickTrain.Projects.ProjectWorkerAccess do
     end
 
     policy action([:set, :remove]) do
-      authorize_if {QuickTrain.Authorization.Checks.OrganizationCapability,
-                    capability: "projects.manage"}
+      authorize_if {OrganizationCapability, capability: "projects.manage"}
     end
 
     policy action(:read) do
@@ -99,12 +103,11 @@ defmodule QuickTrain.Projects.ProjectWorkerAccess do
     end
 
     policy action(:read) do
-      authorize_if accessing_from(Module.concat(["QuickTrain.Projects.Project"]), :worker_access)
+      authorize_if accessing_from(Project, :worker_access)
     end
 
     policy action(:list_scoped) do
-      authorize_if {QuickTrain.Authorization.Checks.OrganizationCapability,
-                    capability: "projects.read"}
+      authorize_if {OrganizationCapability, capability: "projects.read"}
     end
   end
 
@@ -117,7 +120,7 @@ defmodule QuickTrain.Projects.ProjectWorkerAccess do
 
   postgres do
     table "project_worker_access"
-    repo QuickTrain.Repo
+    repo Repo
 
     references do
       reference :project, on_delete: :restrict

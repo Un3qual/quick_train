@@ -7,6 +7,12 @@ defmodule QuickTrain.Projects.ExplicitGroupInput do
     extensions: [AshGraphql.Resource],
     authorizers: [Ash.Policy.Authorizer]
 
+  alias QuickTrain.Authorization.Checks.OrganizationCapability
+  alias QuickTrain.Forms.FormVersion
+  alias QuickTrain.Forms.Inputs.InputSlotDefinition
+  alias QuickTrain.Projects.{ExplicitGroup, Project, ProjectItem}
+  alias QuickTrain.Repo
+
   attributes do
     uuid_primary_key :id
 
@@ -19,21 +25,21 @@ defmodule QuickTrain.Projects.ExplicitGroupInput do
   end
 
   relationships do
-    belongs_to :project, QuickTrain.Projects.Project, allow_nil?: false, attribute_public?: true
+    belongs_to :project, Project, allow_nil?: false, attribute_public?: true
 
-    belongs_to :form_version, QuickTrain.Forms.FormVersion,
+    belongs_to :form_version, FormVersion,
       allow_nil?: false,
       attribute_public?: true
 
-    belongs_to :group, QuickTrain.Projects.ExplicitGroup,
+    belongs_to :group, ExplicitGroup,
       allow_nil?: false,
       attribute_public?: true
 
-    belongs_to :project_item, QuickTrain.Projects.ProjectItem,
+    belongs_to :project_item, ProjectItem,
       allow_nil?: false,
       attribute_public?: true
 
-    belongs_to :input_slot, QuickTrain.Forms.Inputs.InputSlotDefinition,
+    belongs_to :input_slot, InputSlotDefinition,
       allow_nil?: false,
       attribute_public?: true
   end
@@ -86,13 +92,12 @@ defmodule QuickTrain.Projects.ExplicitGroupInput do
     end
 
     policy action(:read) do
-      authorize_if accessing_from(Module.concat(["QuickTrain.Projects.Project"]), :group_inputs)
-      authorize_if accessing_from(Module.concat(["QuickTrain.Projects.ExplicitGroup"]), :inputs)
+      authorize_if accessing_from(Project, :group_inputs)
+      authorize_if accessing_from(ExplicitGroup, :inputs)
     end
 
     policy action(:list_scoped) do
-      authorize_if {QuickTrain.Authorization.Checks.OrganizationCapability,
-                    capability: "projects.read"}
+      authorize_if {OrganizationCapability, capability: "projects.read"}
     end
   end
 
@@ -105,7 +110,7 @@ defmodule QuickTrain.Projects.ExplicitGroupInput do
 
   postgres do
     table "project_explicit_group_inputs"
-    repo QuickTrain.Repo
+    repo Repo
 
     references do
       reference :project, on_delete: :restrict, match_with: [form_version_id: :form_version_id]

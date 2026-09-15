@@ -6,19 +6,29 @@ defmodule QuickTrain.Tasks.Exports.ExportSelection do
     data_layer: AshPostgres.DataLayer,
     authorizers: [Ash.Policy.Authorizer]
 
+  alias QuickTrain.Forms.FormVersion
+  alias QuickTrain.Forms.Questions.QuestionDefinition
+  alias QuickTrain.Organizations.Organization
+  alias QuickTrain.Projects.Project
+  alias QuickTrain.Repo
+  alias QuickTrain.Tasks.Exports.ResultExport
+  alias QuickTrain.Tasks.Responses.QuestionResponse
+  alias QuickTrain.Tasks.Reviews.ReviewDecision
+  alias QuickTrain.Tasks.Task
+
   attributes do
     uuid_primary_key :id, public?: false
   end
 
   relationships do
-    belongs_to :export, QuickTrain.Tasks.Exports.ResultExport, allow_nil?: false
-    belongs_to :organization, QuickTrain.Organizations.Organization, allow_nil?: false
-    belongs_to :project, QuickTrain.Projects.Project, allow_nil?: false
-    belongs_to :form_version, QuickTrain.Forms.FormVersion, allow_nil?: false
-    belongs_to :task, QuickTrain.Tasks.Task, allow_nil?: false
-    belongs_to :question, QuickTrain.Forms.Questions.QuestionDefinition, allow_nil?: false
-    belongs_to :question_response, QuickTrain.Tasks.Responses.QuestionResponse, allow_nil?: false
-    belongs_to :decision, QuickTrain.Tasks.Reviews.ReviewDecision
+    belongs_to :export, ResultExport, allow_nil?: false
+    belongs_to :organization, Organization, allow_nil?: false
+    belongs_to :project, Project, allow_nil?: false
+    belongs_to :form_version, FormVersion, allow_nil?: false
+    belongs_to :task, Task, allow_nil?: false
+    belongs_to :question, QuestionDefinition, allow_nil?: false
+    belongs_to :question_response, QuestionResponse, allow_nil?: false
+    belongs_to :decision, ReviewDecision
   end
 
   actions do
@@ -54,7 +64,7 @@ defmodule QuickTrain.Tasks.Exports.ExportSelection do
 
   postgres do
     table "export_selections"
-    repo QuickTrain.Repo
+    repo Repo
 
     references do
       reference :export,

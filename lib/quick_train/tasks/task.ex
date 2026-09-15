@@ -8,6 +8,16 @@ defmodule QuickTrain.Tasks.Task do
     data_layer: AshPostgres.DataLayer,
     authorizers: [Ash.Policy.Authorizer]
 
+  alias QuickTrain.Authorization.Checks.OrganizationCapability
+  alias QuickTrain.Forms.FormVersion
+  alias QuickTrain.Organizations.Organization
+  alias QuickTrain.Projects.{ExplicitGroup, Project}
+  alias QuickTrain.Repo
+  alias QuickTrain.Tasks.Access.ReadAccess
+  alias QuickTrain.Tasks.Attempts.Attempt
+  alias QuickTrain.Tasks.Responses.QuestionResponse
+  alias QuickTrain.Tasks.TaskInput
+
   attributes do
     uuid_primary_key :id
 
@@ -15,28 +25,28 @@ defmodule QuickTrain.Tasks.Task do
   end
 
   relationships do
-    has_many :inputs, QuickTrain.Tasks.TaskInput, destination_attribute: :task_id, public?: true
+    has_many :inputs, TaskInput, destination_attribute: :task_id, public?: true
 
-    has_many :attempts, QuickTrain.Tasks.Attempts.Attempt,
+    has_many :attempts, Attempt,
       destination_attribute: :task_id,
       public?: true
 
-    has_many :outcomes, QuickTrain.Tasks.Responses.QuestionResponse,
+    has_many :outcomes, QuestionResponse,
       destination_attribute: :task_id,
       public?: true
 
-    belongs_to :organization, QuickTrain.Organizations.Organization,
+    belongs_to :organization, Organization,
       allow_nil?: false,
       attribute_public?: true
 
-    belongs_to :project, QuickTrain.Projects.Project, allow_nil?: false, attribute_public?: true
+    belongs_to :project, Project, allow_nil?: false, attribute_public?: true
 
-    belongs_to :form_version, QuickTrain.Forms.FormVersion,
+    belongs_to :form_version, FormVersion,
       allow_nil?: false,
       attribute_public?: true,
       public?: true
 
-    belongs_to :explicit_group, QuickTrain.Projects.ExplicitGroup,
+    belongs_to :explicit_group, ExplicitGroup,
       allow_nil?: false,
       attribute_public?: true
   end
@@ -118,12 +128,11 @@ defmodule QuickTrain.Tasks.Task do
 
   policies do
     policy action(:read) do
-      authorize_if Module.concat(["QuickTrain.Tasks.Access.ReadAccess"])
+      authorize_if ReadAccess
     end
 
     policy action([:list_scoped, :get_scoped]) do
-      authorize_if {QuickTrain.Authorization.Checks.OrganizationCapability,
-                    capability: "tasks.results.read"}
+      authorize_if {OrganizationCapability, capability: "tasks.results.read"}
     end
 
     policy action(:create_internal) do
@@ -145,7 +154,7 @@ defmodule QuickTrain.Tasks.Task do
 
   postgres do
     table "tasks"
-    repo QuickTrain.Repo
+    repo Repo
 
     references do
       reference :organization, on_delete: :restrict, name: "tasks_organization_scope_fkey"

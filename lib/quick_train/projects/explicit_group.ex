@@ -7,6 +7,11 @@ defmodule QuickTrain.Projects.ExplicitGroup do
     extensions: [AshGraphql.Resource],
     authorizers: [Ash.Policy.Authorizer]
 
+  alias QuickTrain.Authorization.Checks.OrganizationCapability
+  alias QuickTrain.Forms.FormVersion
+  alias QuickTrain.Projects.{ExplicitGroupInput, Project}
+  alias QuickTrain.Repo
+
   attributes do
     uuid_primary_key :id
 
@@ -20,13 +25,13 @@ defmodule QuickTrain.Projects.ExplicitGroup do
   end
 
   relationships do
-    belongs_to :project, QuickTrain.Projects.Project, allow_nil?: false, attribute_public?: true
+    belongs_to :project, Project, allow_nil?: false, attribute_public?: true
 
-    belongs_to :form_version, QuickTrain.Forms.FormVersion,
+    belongs_to :form_version, FormVersion,
       allow_nil?: false,
       attribute_public?: true
 
-    has_many :inputs, QuickTrain.Projects.ExplicitGroupInput,
+    has_many :inputs, ExplicitGroupInput,
       destination_attribute: :group_id,
       public?: true
   end
@@ -72,15 +77,11 @@ defmodule QuickTrain.Projects.ExplicitGroup do
     end
 
     policy action(:read) do
-      authorize_if accessing_from(
-                     Module.concat(["QuickTrain.Projects.Project"]),
-                     :explicit_groups
-                   )
+      authorize_if accessing_from(Project, :explicit_groups)
     end
 
     policy action(:list_scoped) do
-      authorize_if {QuickTrain.Authorization.Checks.OrganizationCapability,
-                    capability: "projects.read"}
+      authorize_if {OrganizationCapability, capability: "projects.read"}
     end
   end
 
@@ -94,7 +95,7 @@ defmodule QuickTrain.Projects.ExplicitGroup do
 
   postgres do
     table "project_explicit_groups"
-    repo QuickTrain.Repo
+    repo Repo
 
     references do
       reference :project, on_delete: :restrict, match_with: [form_version_id: :form_version_id]

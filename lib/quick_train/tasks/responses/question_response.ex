@@ -8,6 +8,19 @@ defmodule QuickTrain.Tasks.Responses.QuestionResponse do
     data_layer: AshPostgres.DataLayer,
     authorizers: [Ash.Policy.Authorizer]
 
+  alias QuickTrain.Authorization.Checks.OrganizationCapability
+  alias QuickTrain.Forms.FormVersion
+  alias QuickTrain.Forms.Questions.QuestionDefinition
+  alias QuickTrain.Forms.Types.AnswerFamily
+  alias QuickTrain.Organizations.Organization
+  alias QuickTrain.Projects.Project
+  alias QuickTrain.Repo
+  alias QuickTrain.Tasks.Access.ReadAccess
+  alias QuickTrain.Tasks.Attempts.Attempt
+  alias QuickTrain.Tasks.Responses.{StaticOptionAnswer, TaskInputAnswer, TextSpan}
+  alias QuickTrain.Tasks.Reviews.ReviewDecision
+  alias QuickTrain.Tasks.Task
+
   attributes do
     uuid_primary_key :id
 
@@ -16,7 +29,7 @@ defmodule QuickTrain.Tasks.Responses.QuestionResponse do
       allow_nil?: false,
       constraints: [one_of: [:answered, :skipped]]
 
-    attribute :family, QuickTrain.Forms.Types.AnswerFamily, public?: true, allow_nil?: false
+    attribute :family, AnswerFamily, public?: true, allow_nil?: false
 
     attribute :text_value, :string,
       public?: true,
@@ -46,47 +59,47 @@ defmodule QuickTrain.Tasks.Responses.QuestionResponse do
   end
 
   relationships do
-    has_many :static_options, QuickTrain.Tasks.Responses.StaticOptionAnswer,
+    has_many :static_options, StaticOptionAnswer,
       destination_attribute: :question_response_id,
       public?: true
 
-    has_many :input_answers, QuickTrain.Tasks.Responses.TaskInputAnswer,
+    has_many :input_answers, TaskInputAnswer,
       destination_attribute: :question_response_id,
       public?: true
 
-    has_many :text_spans, QuickTrain.Tasks.Responses.TextSpan,
+    has_many :text_spans, TextSpan,
       destination_attribute: :question_response_id,
       public?: true
 
-    has_many :review_decisions, QuickTrain.Tasks.Reviews.ReviewDecision,
+    has_many :review_decisions, ReviewDecision,
       destination_attribute: :question_response_id,
       public?: true
 
-    has_one :effective_decision, QuickTrain.Tasks.Reviews.ReviewDecision do
+    has_one :effective_decision, ReviewDecision do
       destination_attribute :question_response_id
       from_many? true
       sort number: :desc
       public? true
     end
 
-    belongs_to :organization, QuickTrain.Organizations.Organization,
+    belongs_to :organization, Organization,
       allow_nil?: false,
       attribute_public?: true
 
-    belongs_to :project, QuickTrain.Projects.Project, allow_nil?: false, attribute_public?: true
+    belongs_to :project, Project, allow_nil?: false, attribute_public?: true
 
-    belongs_to :form_version, QuickTrain.Forms.FormVersion,
+    belongs_to :form_version, FormVersion,
       allow_nil?: false,
       attribute_public?: true
 
-    belongs_to :task, QuickTrain.Tasks.Task, allow_nil?: false, attribute_public?: true
+    belongs_to :task, Task, allow_nil?: false, attribute_public?: true
 
-    belongs_to :attempt, QuickTrain.Tasks.Attempts.Attempt,
+    belongs_to :attempt, Attempt,
       allow_nil?: false,
       attribute_public?: true,
       public?: true
 
-    belongs_to :question, QuickTrain.Forms.Questions.QuestionDefinition,
+    belongs_to :question, QuestionDefinition,
       allow_nil?: false,
       attribute_public?: true,
       public?: true
@@ -196,12 +209,11 @@ defmodule QuickTrain.Tasks.Responses.QuestionResponse do
 
   policies do
     policy action(:read) do
-      authorize_if Module.concat(["QuickTrain.Tasks.Access.ReadAccess"])
+      authorize_if ReadAccess
     end
 
     policy action([:list_scoped, :get_scoped]) do
-      authorize_if {QuickTrain.Authorization.Checks.OrganizationCapability,
-                    capability: "tasks.results.read"}
+      authorize_if {OrganizationCapability, capability: "tasks.results.read"}
     end
 
     policy action([:create_internal, :destroy_internal]) do
@@ -232,7 +244,7 @@ defmodule QuickTrain.Tasks.Responses.QuestionResponse do
 
   postgres do
     table "question_responses"
-    repo QuickTrain.Repo
+    repo Repo
     migration_types integer_value: :bigint
 
     references do
