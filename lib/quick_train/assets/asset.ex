@@ -130,6 +130,7 @@ defmodule QuickTrain.Assets.Asset do
         :staging_expires_at
       ]
 
+      change Module.concat(["QuickTrain.Assets.Asset.Changes.PrepareStaging"])
       change set_attribute(:state, :pending)
     end
 

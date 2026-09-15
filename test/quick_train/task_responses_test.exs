@@ -149,7 +149,7 @@ defmodule QuickTrain.Tasks.TaskResponsesTest do
     )
   end
 
-  defp submit!(ctx), do: action!(Attempt, :submit, scope(ctx), ctx.worker)
+  defp submit!(ctx), do: QuickTrain.Tasks.submit_response!(ctx.attempt, actor: ctx.worker)
 
   defp scope(ctx),
     do: %{

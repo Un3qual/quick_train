@@ -9,10 +9,7 @@ defmodule QuickTrain.Projects.Management do
     ExplicitGroupInput,
     GroupIdentity,
     ProjectActivation,
-    ProjectInputBinding,
-    ProjectItem,
-    ProjectSlotPolicy,
-    ProjectWorkerAccess
+    ProjectItem
   }
 
   alias QuickTrain.Datasets.DatasetItemRevision
@@ -46,34 +43,19 @@ defmodule QuickTrain.Projects.Management do
     authorize!(actor, project.organization_id)
     action = input.action.name
 
-    if project.state != :draft and action not in [:set_worker_access, :remove_worker_access],
+    if project.state != :draft,
       do: Error.reject!(:project_not_draft)
 
-    authorize_edit!(project, action, args, actor)
+    authorize_edit!(project, action, actor)
     edit!(project, action, args)
   end
 
-  defp authorize_edit!(project, action, _args, actor) do
-    if action in [:enroll_revisions, :set_binding],
+  defp authorize_edit!(project, action, actor) do
+    if action == :enroll_revisions,
       do: authorize!(actor, project.organization_id, "datasets.read")
 
-    if action in [:set_binding, :set_slot_policy, :create_explicit_group],
+    if action == :create_explicit_group,
       do: authorize!(actor, project.organization_id, "forms.read")
-  end
-
-  defp edit!(project, action, args)
-       when action in [:remove_binding, :remove_slot_policy] do
-    {resource, key} =
-      case action do
-        :remove_binding -> {ProjectInputBinding, :requirement_id}
-        :remove_slot_policy -> {ProjectSlotPolicy, :input_slot_id}
-      end
-
-    filter = [project_id: project.id] ++ [{key, Map.fetch!(args, key)}]
-    row = resource |> Ash.Query.filter(^filter) |> Ash.read_one!(authorize?: false)
-    if is_nil(row), do: Error.reject!(:invalid_project_configuration)
-    Ash.destroy!(row, action: :destroy_internal, authorize?: false)
-    project
   end
 
   defp edit!(project, :enroll_revisions, args) do
@@ -127,52 +109,6 @@ defmodule QuickTrain.Projects.Management do
     project
   end
 
-  defp edit!(project, :set_binding, args) do
-    ProjectActivation.validate_binding!(project, args.requirement_id, args.field_definition_id)
-
-    put!(ProjectInputBinding, project, [requirement_id: args.requirement_id], %{
-      schema_version_id: project.schema_version_id,
-      root_record_type_id: project.root_record_type_id,
-      form_version_id: project.form_version_id,
-      field_definition_id: args.field_definition_id
-    })
-
-    project
-  end
-
-  defp edit!(project, :set_slot_policy, args) do
-    ProjectActivation.validate_slot!(project, args.input_slot_id, args.item_count)
-
-    put!(ProjectSlotPolicy, project, [input_slot_id: args.input_slot_id], %{
-      form_version_id: project.form_version_id,
-      item_count: args.item_count,
-      shuffle: args.shuffle
-    })
-
-    project
-  end
-
-  defp edit!(project, :set_worker_access, args) do
-    unless Ash.exists?(QuickTrain.Accounts.User,
-             query: [filter: [id: args.user_id]],
-             authorize?: false
-           ),
-           do: Error.reject!(:invalid_project_configuration)
-
-    put!(ProjectWorkerAccess, project, [user_id: args.user_id], %{disposition: args.disposition})
-    project
-  end
-
-  defp edit!(project, :remove_worker_access, args) do
-    row =
-      ProjectWorkerAccess
-      |> Ash.Query.filter(project_id == ^project.id and user_id == ^args.user_id)
-      |> Ash.read_one!(authorize?: false)
-
-    if row, do: Ash.destroy!(row, action: :destroy_internal, authorize?: false)
-    project
-  end
-
   defp edit!(project, :create_explicit_group, args) do
     ProjectActivation.validate_group!(project, args.inputs)
     key = GroupIdentity.key(args.inputs)
@@ -209,10 +145,6 @@ defmodule QuickTrain.Projects.Management do
 
     Ash.destroy!(group, action: :destroy_internal, authorize?: false)
     project
-  end
-
-  defp put!(resource, project, identity, attrs) do
-    create!(resource, Map.merge(attrs, Map.new([{:project_id, project.id} | identity])))
   end
 
   defp scoped!(resource, project, id) do

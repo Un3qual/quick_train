@@ -538,7 +538,7 @@ defmodule QuickTrain.Tasks.ResultExportTest do
           Ash.transact(
             Attempt,
             fn ->
-              action!(Attempt, :submit, attempt_scope(scope), scope.worker)
+              Tasks.submit_response!(scope.attempt, actor: scope.worker)
               send(parent, :submission_uncommitted)
 
               receive do
@@ -776,7 +776,7 @@ defmodule QuickTrain.Tasks.ResultExportTest do
       )
     end
 
-    action!(Attempt, :submit, attempt_scope(scope), scope.worker)
+    Tasks.submit_response!(scope.attempt, actor: scope.worker)
     scope
   end
 

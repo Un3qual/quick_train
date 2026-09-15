@@ -50,21 +50,49 @@ defmodule QuickTrain.Projects.ProjectWorkerAccess do
                  stable_sort: [inserted_at: :asc, id: :asc]
     end
 
-    create :create_internal do
+    read :get_for_remove do
+      get? true
+      argument :project_id, :uuid, allow_nil?: false
+      argument :user_id, :uuid, allow_nil?: false
+
+      filter expr(
+               project_id == ^arg(:project_id) and
+                 user_id == ^arg(:user_id)
+             )
+    end
+
+    create :set do
       upsert? true
       upsert_identity :project_user
       upsert_fields [:disposition, :updated_at]
-      accept [:disposition, :project_id, :user_id]
+      argument :organization_id, :uuid, allow_nil?: false
+      accept [:project_id, :user_id, :disposition]
+      change Module.concat(["QuickTrain.Projects.Changes.ConfigureChild"])
     end
 
-    update :update_internal do
-      accept [:disposition]
+    destroy :remove do
+      argument :organization_id, :uuid, allow_nil?: false
+      require_atomic? false
+      change Module.concat(["QuickTrain.Projects.Changes.ConfigureChild"])
     end
-
-    destroy :destroy_internal
   end
 
   policies do
+    policy action(:get_for_remove) do
+      authorize_if expr(
+                     exists(
+                       project.reader_role_assignments,
+                       user_id == ^actor(:id) and
+                         exists(role.role_capabilities, capability.key == "projects.manage")
+                     )
+                   )
+    end
+
+    policy action([:set, :remove]) do
+      authorize_if {QuickTrain.Authorization.Checks.OrganizationCapability,
+                    capability: "projects.manage"}
+    end
+
     policy action(:read) do
       forbid_unless actor_attribute_equals(:status, "active")
       authorize_if relates_to_actor_via([:project, :reader_role_assignments, :user])

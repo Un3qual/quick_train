@@ -4,6 +4,11 @@ defmodule QuickTrain.Tasks do
 
   resources do
     resource QuickTrain.Tasks.Task do
+      define :get_task_internal,
+        action: :read,
+        get_by: [:id, :project_id, :organization_id],
+        not_found_error?: false
+
       define :list_tasks, action: :list_scoped, args: [:organization_id, :project_id]
       define :get_task, action: :get_scoped, args: [:organization_id, :project_id, :id]
     end
@@ -20,11 +25,12 @@ defmodule QuickTrain.Tasks do
         action: :save_question,
         args: [:organization_id, :project_id, :attempt_id]
 
-      define :submit_response, action: :submit, args: [:organization_id, :project_id, :attempt_id]
+      define :submit_response, action: :submit
 
       define :get_attempt_internal,
         action: :read,
-        get_by: [:id, :project_id, :organization_id]
+        get_by: [:id, :project_id, :organization_id],
+        not_found_error?: false
 
       define :start_attempt, action: :start
       define :release_attempt, action: :release
@@ -65,6 +71,7 @@ defmodule QuickTrain.Tasks do
     end
 
     resource QuickTrain.Tasks.Exports.ResultExport do
+      define :get_result_export_internal, action: :read, get_by: [:id], not_found_error?: false
       define :process_result_export, action: :process, args: [:id]
       define :seal_export_snapshot, action: :seal_snapshot, args: [:id]
 
@@ -97,7 +104,7 @@ defmodule QuickTrain.Tasks do
 
       read_one QuickTrain.Tasks.Responses.QuestionResponse, :task_result, :get_scoped
 
-      action QuickTrain.Tasks.Attempts.Attempt, :work_bundle, :work_bundle
+      read_one QuickTrain.Tasks.Attempts.Attempt, :work_bundle, :read_work_bundle
 
       action QuickTrain.Tasks.Attempts.Attempt, :attempt_receipt, :receipt
 
@@ -143,8 +150,9 @@ defmodule QuickTrain.Tasks do
           :answer
         ]
 
-      action QuickTrain.Tasks.Attempts.Attempt, :submit_task_response, :submit,
-        args: [:organization_id, :project_id, :attempt_id]
+      update QuickTrain.Tasks.Attempts.Attempt, :submit_task_response, :submit,
+        read_action: :get_for_update,
+        identity: false
 
       action QuickTrain.Tasks.Reviews.ReviewDecision, :decide_task_question, :decide,
         args: [

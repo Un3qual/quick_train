@@ -60,7 +60,10 @@ defmodule QuickTrain.Tasks.TaskReadsTest do
 
   test "live worker reads pinned definitions, project skip settings, and only exact bound values",
        ctx do
-    bundle = action!(Attempt, :work_bundle, scope(ctx), ctx.worker)
+    bundle =
+      QuickTrain.Tasks.work_bundle!(ctx.context.org.id, ctx.project.id, ctx.attempt.id,
+        actor: ctx.worker
+      )
 
     bundle =
       Ash.load!(
@@ -117,11 +120,18 @@ defmodule QuickTrain.Tasks.TaskReadsTest do
 
   test "substitution and revocation cannot renew work access", ctx do
     stranger = Accounts.register_user!("stranger-read@example.test", "Stranger")
-    assert {:error, _} = action(Attempt, :work_bundle, scope(ctx), stranger)
+
+    assert {:error, _} =
+             QuickTrain.Tasks.work_bundle(ctx.context.org.id, ctx.project.id, ctx.attempt.id,
+               actor: stranger
+             )
+
     other = ProjectsFixture.draft!(ctx.context, ctx.source)
 
     assert {:error, _} =
-             action(Attempt, :work_bundle, %{scope(ctx) | project_id: other.id}, ctx.worker)
+             QuickTrain.Tasks.work_bundle(ctx.context.org.id, other.id, ctx.attempt.id,
+               actor: ctx.worker
+             )
 
     QuickTrain.Projects.set_worker_access!(
       ctx.context.org.id,
@@ -133,7 +143,10 @@ defmodule QuickTrain.Tasks.TaskReadsTest do
       actor: ctx.context.actor
     )
 
-    assert {:error, _} = action(Attempt, :work_bundle, scope(ctx), ctx.worker)
+    assert {:error, _} =
+             QuickTrain.Tasks.work_bundle(ctx.context.org.id, ctx.project.id, ctx.attempt.id,
+               actor: ctx.worker
+             )
 
     bundle = Ash.load(ctx.attempt, :form_version, actor: ctx.worker)
     assert {:ok, %{form_version: nil}} = bundle
@@ -144,7 +157,7 @@ defmodule QuickTrain.Tasks.TaskReadsTest do
     reader = result_reader!(ctx)
     save!(ctx)
     assert results(ctx, reader) == []
-    submitted = action!(Attempt, :submit, scope(ctx), ctx.worker)
+    submitted = QuickTrain.Tasks.submit_response!(ctx.attempt, actor: ctx.worker)
     assert submitted.state == :submitted
     [outcome] = results(ctx, reader, true)
 
@@ -197,14 +210,22 @@ defmodule QuickTrain.Tasks.TaskReadsTest do
     assert {:error, _} =
              Forms.get_form_version(ctx.context.org.id, ctx.source.form.version.id, actor: reader)
 
-    assert {:error, _} = action(Attempt, :work_bundle, scope(ctx), reader)
+    assert {:error, _} =
+             QuickTrain.Tasks.work_bundle(ctx.context.org.id, ctx.project.id, ctx.attempt.id,
+               actor: reader
+             )
   end
 
   test "terminal receipts expose status while terminal draft descendants stay unreadable", ctx do
     save!(ctx)
     released = QuickTrain.Tasks.release_attempt!(ctx.attempt, actor: ctx.worker)
     assert released.state == :released
-    assert {:error, _} = action(Attempt, :work_bundle, scope(ctx), ctx.worker)
+
+    assert {:error, _} =
+             QuickTrain.Tasks.work_bundle(ctx.context.org.id, ctx.project.id, ctx.attempt.id,
+               actor: ctx.worker
+             )
+
     receipt = action!(Attempt, :receipt, scope(ctx), ctx.worker)
     assert {receipt.accepted, receipt.pending, receipt.rejected, receipt.skipped} == {0, 0, 0, 0}
     reader = result_reader!(ctx)
@@ -228,7 +249,11 @@ defmodule QuickTrain.Tasks.TaskReadsTest do
       [Ecto.UUID.dump!(ctx.attempt.id)]
     )
 
-    assert {:error, error} = action(Attempt, :work_bundle, scope(ctx), ctx.worker)
+    assert {:error, error} =
+             QuickTrain.Tasks.work_bundle(ctx.context.org.id, ctx.project.id, ctx.attempt.id,
+               actor: ctx.worker
+             )
+
     assert Exception.message(error) =~ "attempt_expired"
     assert Ash.get!(Attempt, ctx.attempt.id, authorize?: false).state == :claimed
   end
@@ -281,12 +306,14 @@ defmodule QuickTrain.Tasks.TaskReadsTest do
     assert task.attempts == []
 
     bundle =
-      action!(Attempt, :work_bundle, scope(ctx), reader)
+      QuickTrain.Tasks.work_bundle!(ctx.context.org.id, ctx.project.id, ctx.attempt.id,
+        actor: reader
+      )
       |> Ash.load!([:outcomes], actor: reader)
 
     assert [_] = bundle.outcomes
 
-    action!(Attempt, :submit, scope(ctx), reader)
+    QuickTrain.Tasks.submit_response!(ctx.attempt, actor: reader)
     [task] = Ash.read!(query).results
     assert [_] = task.outcomes
     assert [_] = task.attempts
@@ -326,7 +353,12 @@ defmodule QuickTrain.Tasks.TaskReadsTest do
   test "source context preserves optional absence and prevents forged and reverse traversal",
        ctx do
     reader = result_reader!(ctx)
-    bundle = action!(Attempt, :work_bundle, scope(ctx), ctx.worker)
+
+    bundle =
+      QuickTrain.Tasks.work_bundle!(ctx.context.org.id, ctx.project.id, ctx.attempt.id,
+        actor: ctx.worker
+      )
+
     bundle = Ash.load!(bundle, [input_presentations: :task_input], actor: ctx.worker)
     input = hd(bundle.input_presentations).task_input
     args = Map.merge(scope(ctx), %{task_input_id: input.id, requirement_id: ctx.source.note.id})
@@ -488,7 +520,9 @@ defmodule QuickTrain.Tasks.TaskReadsTest do
     alias QuickTrain.Assets.Storage.InMemory
 
     bundle =
-      action!(Attempt, :work_bundle, scope(ctx), ctx.worker)
+      QuickTrain.Tasks.work_bundle!(ctx.context.org.id, ctx.project.id, ctx.attempt.id,
+        actor: ctx.worker
+      )
       |> Ash.load!([input_presentations: :task_input], actor: ctx.worker)
 
     input = hd(bundle.input_presentations).task_input
@@ -585,7 +619,12 @@ defmodule QuickTrain.Tasks.TaskReadsTest do
       end)
 
     assert {:ok, []} = Task.await(task, 10_000)
-    assert {:error, error} = action(Attempt, :work_bundle, scope(ctx), ctx.worker)
+
+    assert {:error, error} =
+             QuickTrain.Tasks.work_bundle(ctx.context.org.id, ctx.project.id, ctx.attempt.id,
+               actor: ctx.worker
+             )
+
     assert Exception.message(error) =~ "attempt_expired"
   end
 

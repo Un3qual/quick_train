@@ -525,14 +525,15 @@ defmodule QuickTrain.Tasks.AnswerValidationTest do
         actor: context.actor
       )
 
-    create!(QuickTrain.Projects.ProjectInputBinding, %{
-      project_id: project.id,
-      schema_version_id: schema.id,
-      root_record_type_id: root.id,
-      form_version_id: base.version.id,
-      requirement_id: base.requirement.id,
-      field_definition_id: body.id
-    })
+    Projects.set_binding!(
+      context.org.id,
+      project.id,
+      %{
+        requirement_id: base.requirement.id,
+        field_definition_id: body.id
+      },
+      actor: context.actor
+    )
 
     task_attrs = %{
       organization_id: context.org.id,

@@ -58,21 +58,49 @@ defmodule QuickTrain.Projects.ProjectSlotPolicy do
                  stable_sort: [inserted_at: :asc, id: :asc]
     end
 
-    create :create_internal do
+    read :get_for_remove do
+      get? true
+      argument :project_id, :uuid, allow_nil?: false
+      argument :input_slot_id, :uuid, allow_nil?: false
+
+      filter expr(
+               project_id == ^arg(:project_id) and
+                 input_slot_id == ^arg(:input_slot_id)
+             )
+    end
+
+    create :set do
       upsert? true
       upsert_identity :project_slot
       upsert_fields [:item_count, :shuffle, :updated_at]
-      accept [:item_count, :shuffle, :project_id, :form_version_id, :input_slot_id]
+      argument :organization_id, :uuid, allow_nil?: false
+      accept [:project_id, :input_slot_id, :item_count, :shuffle]
+      change Module.concat(["QuickTrain.Projects.Changes.ConfigureChild"])
     end
 
-    update :update_internal do
-      accept [:item_count, :shuffle]
+    destroy :remove do
+      argument :organization_id, :uuid, allow_nil?: false
+      require_atomic? false
+      change Module.concat(["QuickTrain.Projects.Changes.ConfigureChild"])
     end
-
-    destroy :destroy_internal
   end
 
   policies do
+    policy action(:get_for_remove) do
+      authorize_if expr(
+                     exists(
+                       project.reader_role_assignments,
+                       user_id == ^actor(:id) and
+                         exists(role.role_capabilities, capability.key == "projects.manage")
+                     )
+                   )
+    end
+
+    policy action([:set, :remove]) do
+      authorize_if {QuickTrain.Authorization.Checks.OrganizationCapability,
+                    capability: "projects.manage"}
+    end
+
     policy action(:read) do
       forbid_unless actor_attribute_equals(:status, "active")
       authorize_if relates_to_actor_via([:project, :reader_role_assignments, :user])

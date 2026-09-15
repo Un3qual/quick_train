@@ -31,3 +31,11 @@
 - [x] 6.2 Bulk-expire overdue attempts under existing owner locks and validate group coverage without retaining the whole cohort.
 - [x] 6.3 Expose native attempt updates directly and remove redundant task group identity data.
 - [x] 6.4 Regenerate the unreleased branch schema, update callers/specs, run the verification gate, and commit.
+
+## 7. Use native actions and domain interfaces
+
+- [x] 7.1 Remove the generic work-bundle bridge and preserve authorization under GraphQL field selection.
+- [x] 7.2 Move binding, slot-policy, and worker-access mutations to native child-resource upsert/destroy actions under the Project lock.
+- [x] 7.3 Make submission a native Attempt update with transactional validation and automatic decisions.
+- [x] 7.4 Centralize scoped locked lookups and pending-asset setup behind domain interfaces.
+- [x] 7.5 Update API callers and specifications, verify authorization/concurrency/retries, run the full gate, and commit.

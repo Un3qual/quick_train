@@ -21,6 +21,8 @@ defmodule QuickTrain.Assets do
 
   resources do
     resource Asset do
+      define :create_pending_asset, action: :create_pending
+
       define :get_accessible_asset_internal,
         action: :resolve_ready_internal,
         args: [:asset_id, :organization_id],

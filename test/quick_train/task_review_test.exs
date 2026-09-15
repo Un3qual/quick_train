@@ -230,7 +230,7 @@ defmodule QuickTrain.Tasks.TaskReviewTest do
             answer: %{outcome: :answered, family: :integer, integer_value: 4}
           })
 
-        assert worker_action!(Attempt, :submit, ctx, worker, %{attempt_id: attempt.id}).state ==
+        assert QuickTrain.Tasks.submit_response!(attempt, actor: worker).state ==
                  :submitted
 
         QuestionResponse

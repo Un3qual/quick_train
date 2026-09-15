@@ -98,7 +98,9 @@ defmodule QuickTrain.Tasks.Exports.ResultExporting do
     existing
   end
 
-  defp ready_asset!(%{state: :ready, asset_id: id}), do: Ash.get!(Asset, id, authorize?: false)
+  defp ready_asset!(%{state: :ready, asset_id: id, organization_id: organization_id}),
+    do: Assets.get_asset!(id, organization_id, authorize?: false)
+
   defp ready_asset!(_export), do: Error.reject!(:export_not_ready)
 
   defp process(id) do
@@ -179,27 +181,17 @@ defmodule QuickTrain.Tasks.Exports.ResultExporting do
 
   defp pending_asset!(export, facts) do
     if export.pending_asset_id do
-      asset = Ash.get!(Asset, export.pending_asset_id, authorize?: false)
+      asset =
+        Assets.get_asset!(export.pending_asset_id, export.organization_id, authorize?: false)
 
       unless Map.take(asset, [:sha256, :byte_size, :media_type]) == facts,
         do: Error.reject!(:export_snapshot_mismatch)
 
       asset
     else
-      id = Ash.UUID.generate()
-
       asset =
-        Ash.create!(
-          Asset,
-          Map.merge(facts, %{
-            id: id,
-            organization_id: export.organization_id,
-            result_export_id: export.id,
-            staging_key: "assets/staging/#{export.organization_id}/#{id}",
-            staging_expires_at:
-              DateTime.add(DateTime.utc_now(), config(:staging_lifetime_seconds), :second)
-          }),
-          action: :create_pending,
+        Assets.create_pending_asset!(
+          Map.merge(facts, %{organization_id: export.organization_id, result_export_id: export.id}),
           authorize?: false
         )
 
@@ -268,10 +260,10 @@ defmodule QuickTrain.Tasks.Exports.ResultExporting do
   end
 
   defp locked_export!(id) do
-    ResultExport
-    |> Ash.Query.filter(id == ^id)
-    |> Ash.Query.lock(:for_update)
-    |> Ash.read_one!(authorize?: false)
+    QuickTrain.Tasks.get_result_export_internal!(id,
+      query: [lock: :for_update],
+      authorize?: false
+    )
     |> Access.found!()
   end
 end

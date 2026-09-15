@@ -71,8 +71,8 @@ defmodule QuickTrainWeb.ProjectTaskCollectionTest do
 
     assert graphql!(
              conn,
-             "mutation { submitTaskResponse(#{scope}, attemptId: \"#{attempt}\") { id state } }"
-           )["submitTaskResponse"]["state"] == "submitted"
+             "mutation { submitTaskResponse(#{scope}, attemptId: \"#{attempt}\") { result { id state } errors { message } } }"
+           )["submitTaskResponse"]["result"]["state"] == "submitted"
 
     receipt =
       graphql!(conn, """
@@ -103,6 +103,56 @@ defmodule QuickTrainWeb.ProjectTaskCollectionTest do
 
     assert denied["errors"]
     assert request(conn, "{ workBundle(#{scope}, attemptId: \"#{attempt}\") { id } }")["errors"]
+  end
+
+  test "native child mutations return the edited child and scope removals", ctx do
+    manager =
+      member!(ctx.context, "project-manager", ~w(projects.manage forms.read datasets.read))
+
+    conn = bearer(ctx.conn, manager)
+    project = ProjectsFixture.draft!(ctx.context, ctx.source)
+    scope = "organizationId: \"#{ctx.context.org.id}\", projectId: \"#{project.id}\""
+
+    cases = [
+      {"setProjectInputBinding", "removeProjectInputBinding", "requirementId",
+       ctx.source.form.field.id, "fieldDefinitionId: \"#{ctx.source.field.id}\""},
+      {"setProjectSlotPolicy", "removeProjectSlotPolicy", "inputSlotId", ctx.source.form.slot.id,
+       "itemCount: 1, shuffle: false"},
+      {"setProjectWorkerAccess", "removeProjectWorkerAccess", "userId", ctx.worker.id,
+       "disposition: \"allow\""}
+    ]
+
+    for {set, remove, key, id, attributes} <- cases do
+      input = "#{scope}, #{key}: \"#{id}\""
+
+      mutation =
+        "mutation { #{set}(input: {#{input}, #{attributes}}) { result { id } errors { message } } }"
+
+      result = graphql!(conn, mutation)[set]
+      assert result["errors"] == []
+      child_id = result["result"]["id"]
+      assert graphql!(conn, mutation)[set]["result"]["id"] == child_id
+
+      wrong_scope =
+        "organizationId: \"#{ctx.context.org.id}\", projectId: \"#{ctx.project.id}\", #{key}: \"#{id}\""
+
+      denied =
+        graphql!(
+          conn,
+          "mutation { #{remove}(#{wrong_scope}) { result { id } errors { message } } }"
+        )[remove]
+
+      assert denied["result"] == nil
+      assert denied["errors"] != []
+
+      removed =
+        graphql!(conn, "mutation { #{remove}(#{input}) { result { id } errors { message } } }")[
+          remove
+        ]
+
+      assert removed["errors"] == []
+      assert removed["result"]["id"] == child_id
+    end
   end
 
   test "assignment and result inspection require separate grants",
@@ -179,12 +229,13 @@ defmodule QuickTrainWeb.ProjectTaskCollectionTest do
       assert result["errors"] != []
     end
 
-    QuickTrain.Projects.set_worker_access!(
-      ctx.context.org.id,
-      ctx.project.id,
-      %{user_id: ctx.worker.id, disposition: :block},
-      actor: ctx.context.actor
-    )
+    override =
+      QuickTrain.Projects.set_worker_access!(
+        ctx.context.org.id,
+        ctx.project.id,
+        %{user_id: ctx.worker.id, disposition: :block},
+        actor: ctx.context.actor
+      )
 
     release = """
     mutation { releaseAttempt(#{scope(ctx)}, attemptId: "#{attempt.id}") {
@@ -196,9 +247,8 @@ defmodule QuickTrainWeb.ProjectTaskCollectionTest do
     assert Ash.get!(Attempt, attempt.id, authorize?: false).state == :in_progress
 
     QuickTrain.Projects.remove_worker_access!(
+      override,
       ctx.context.org.id,
-      ctx.project.id,
-      %{user_id: ctx.worker.id},
       actor: ctx.context.actor
     )
 

@@ -402,7 +402,7 @@ defmodule QuickTrain.Tasks.CollectionConcurrencyTest do
       )
 
   defp terminal(ctx, :submit),
-    do: action(ctx, Attempt, :submit, %{attempt_id: ctx.attempt.id}, ctx.worker)
+    do: QuickTrain.Tasks.submit_response(ctx.attempt, actor: ctx.worker)
 
   defp terminal(ctx, :expire) do
     ExpireAttempt.perform(%Oban.Job{

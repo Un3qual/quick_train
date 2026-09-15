@@ -73,13 +73,10 @@ defmodule QuickTrain.Tasks.Attempts.Attempt do
   end
 
   actions do
-    action :submit, :struct do
-      transaction? true
-      constraints instance_of: QuickTrain.Tasks.Attempts.Attempt
-      argument :organization_id, :uuid, allow_nil?: false
-      argument :project_id, :uuid, allow_nil?: false
-      argument :attempt_id, :uuid, allow_nil?: false
-      run Module.concat(["QuickTrain.Tasks.Responses.ResponseSubmission"])
+    update :submit do
+      accept []
+      require_atomic? false
+      change Module.concat(["QuickTrain.Tasks.Responses.Changes.Submit"])
     end
 
     action :save_question, :struct do
@@ -111,15 +108,6 @@ defmodule QuickTrain.Tasks.Attempts.Attempt do
 
     action :receipt, QuickTrain.Tasks.Attempts.Receipt do
       transaction? true
-      argument :organization_id, :uuid, allow_nil?: false
-      argument :project_id, :uuid, allow_nil?: false
-      argument :attempt_id, :uuid, allow_nil?: false
-      run Module.concat(["QuickTrain.Tasks.Access.ReadActions"])
-    end
-
-    # GraphQL keeps its direct result shape; the domain uses read_work_bundle.
-    action :work_bundle, :struct do
-      constraints instance_of: QuickTrain.Tasks.Attempts.Attempt
       argument :organization_id, :uuid, allow_nil?: false
       argument :project_id, :uuid, allow_nil?: false
       argument :attempt_id, :uuid, allow_nil?: false
@@ -212,7 +200,7 @@ defmodule QuickTrain.Tasks.Attempts.Attempt do
                     capability: "tasks.assign"}
     end
 
-    policy action([:work_bundle, :read_work_bundle, :receipt]) do
+    policy action([:read_work_bundle, :receipt]) do
       authorize_if actor_present()
     end
 

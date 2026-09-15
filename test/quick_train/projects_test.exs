@@ -439,17 +439,34 @@ defmodule QuickTrain.ProjectsTest do
                  disposition: disposition
                },
                actor: context.actor
-             ).state == :active
+             ).disposition == disposition
 
       row = Ash.read_one!(ProjectWorkerAccess, authorize?: false)
       assert row.disposition == disposition
     end
 
-    Projects.remove_worker_access!(context.org.id, project.id, %{user_id: worker.id},
+    Projects.remove_worker_access!(
+      Ash.read_one!(ProjectWorkerAccess, authorize?: false),
+      context.org.id,
       actor: context.actor
     )
 
     assert Ash.count!(ProjectWorkerAccess, authorize?: false) == 0
+  end
+
+  test "native child removal rejects a substituted owner", context do
+    project = ProjectsFixture.configured!(context, context.source)
+    other = ProjectsFixture.draft!(context, context.source)
+    binding = Ash.read_one!(ProjectInputBinding, authorize?: false)
+
+    assert {:error, _} =
+             Projects.remove_binding(%{binding | project_id: other.id}, context.org.id,
+               actor: context.actor
+             )
+
+    assert Ash.get!(ProjectInputBinding, binding.id, authorize?: false).project_id == project.id
+    assert :ok = Projects.remove_binding(binding, context.org.id, actor: context.actor)
+    assert Ash.count!(ProjectInputBinding, authorize?: false) == 0
   end
 
   test "missing policies leave the draft intact", context do

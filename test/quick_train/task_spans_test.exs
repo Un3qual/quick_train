@@ -80,9 +80,9 @@ defmodule QuickTrain.Tasks.TextSpansTest do
     assert {:error, _} =
              FormsFixture.edit(Label, ctx.context, ctx.source.form.label, %{text: "Changed"})
 
-    assert {:ok, submitted} = action(ctx, Attempt, :submit, %{attempt_id: ctx.attempt.id})
+    assert {:ok, submitted} = QuickTrain.Tasks.submit_response(ctx.attempt, actor: ctx.worker)
     assert submitted.state == :submitted
-    assert {:ok, retry} = action(ctx, Attempt, :submit, %{attempt_id: ctx.attempt.id})
+    assert {:ok, retry} = QuickTrain.Tasks.submit_response(ctx.attempt, actor: ctx.worker)
     assert retry.id == submitted.id
     assert {:error, _} = save(ctx, 1, [span(ctx, 0, 1)])
 
@@ -149,7 +149,7 @@ defmodule QuickTrain.Tasks.TextSpansTest do
     assert {:ok, %{revision: 1}} = save(ctx, 0, spans)
 
     assert {:ok, %{state: :submitted}} =
-             action(ctx, Attempt, :submit, %{attempt_id: ctx.attempt.id})
+             QuickTrain.Tasks.submit_response(ctx.attempt, actor: ctx.worker)
 
     ash_page = read_page!(ctx)
     assert Enum.count(ash_page.results) == 50

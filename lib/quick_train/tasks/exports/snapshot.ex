@@ -52,10 +52,10 @@ defmodule QuickTrain.Tasks.Exports.Snapshot do
       Repo.query!("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ")
 
       export =
-        ResultExport
-        |> Ash.Query.filter(id == ^id)
-        |> Ash.Query.lock(:for_update)
-        |> Ash.read_one!(authorize?: false)
+        QuickTrain.Tasks.get_result_export_internal!(id,
+          query: [lock: :for_update],
+          authorize?: false
+        )
         |> Access.found!()
 
       if export.snapshot_at do

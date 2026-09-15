@@ -5,7 +5,10 @@ defmodule QuickTrain.Tasks.Attempts.WorkBundle do
 
   @impl true
   def prepare(query, _opts, context),
-    do: Ash.Query.before_action(query, &lock_project(&1, context.actor))
+    do:
+      query
+      |> Ash.Query.ensure_selected([:worker_id, :state, :deadline])
+      |> Ash.Query.before_action(&lock_project(&1, context.actor))
 
   defp lock_project(query, actor) do
     project = Access.project!(query.arguments.organization_id, query.arguments.project_id)

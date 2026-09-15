@@ -1,6 +1,6 @@
-defmodule QuickTrain.Tasks.Responses.ResponseSubmission do
+defmodule QuickTrain.Tasks.Responses.Changes.Submit do
   @moduledoc false
-  use Ash.Resource.Actions.Implementation
+  use Ash.Resource.Change
 
   alias QuickTrain.Forms.Questions.QuestionDefinition
   alias QuickTrain.Tasks.{Access, Error}
@@ -11,19 +11,17 @@ defmodule QuickTrain.Tasks.Responses.ResponseSubmission do
   require Ash.Query
 
   @impl true
-  def run(input, _opts, context) do
-    {:ok, submit!(input.arguments, context.actor)}
-  rescue
-    error in Ash.Error.Invalid -> {:error, error}
-  end
+  def change(changeset, _opts, context),
+    do: Ash.Changeset.before_action(changeset, &submit(&1, context.actor))
 
-  defp submit!(args, actor) do
-    project = Access.project!(args.organization_id, args.project_id)
-    {task, attempt} = Access.lock_attempt!(project, args.attempt_id)
+  defp submit(changeset, actor) do
+    project = Access.project!(changeset.data.organization_id, changeset.data.project_id)
+    {task, attempt} = Access.lock_attempt!(project, changeset.data.id)
+    changeset = %{changeset | data: attempt}
     Access.owner!(project, attempt, actor, false)
 
     if attempt.state == :submitted do
-      attempt
+      Ash.Changeset.set_result(changeset, {:ok, attempt})
     else
       Access.owner!(project, attempt, actor)
 
@@ -86,14 +84,14 @@ defmodule QuickTrain.Tasks.Responses.ResponseSubmission do
       Access.owner!(project, attempt, actor)
       cutoff = Leases.now!()
 
-      submitted =
-        Ash.update!(attempt, %{state: :submitted, terminal_at: cutoff},
-          action: :update_internal,
-          authorize?: false
-        )
-
-      QuestionReview.initial_decisions!(project, outcomes)
-      submitted
+      changeset
+      |> Ash.Changeset.force_change_attributes(%{state: :submitted, terminal_at: cutoff})
+      |> Ash.Changeset.after_action(fn _changeset, submitted ->
+        QuestionReview.initial_decisions!(project, outcomes)
+        {:ok, submitted}
+      end)
     end
+  rescue
+    error in [Ash.Error.Invalid, Ash.Error.Forbidden] -> Ash.Changeset.add_error(changeset, error)
   end
 end

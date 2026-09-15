@@ -1,16 +1,16 @@
 defmodule QuickTrain.Tasks.Access do
   @moduledoc false
-  alias QuickTrain.Projects.Project
+  alias QuickTrain.{Projects, Tasks}
   alias QuickTrain.Tasks.Access.WorkerEligibility
-  alias QuickTrain.Tasks.Attempts.{Attempt, Leases}
-  alias QuickTrain.Tasks.{Error, Task}
-  require Ash.Query
+  alias QuickTrain.Tasks.Attempts.Leases
+  alias QuickTrain.Tasks.Error
 
   def project!(organization_id, project_id, lock \\ "FOR SHARE") do
-    Project
-    |> Ash.Query.filter(id == ^project_id and organization_id == ^organization_id)
-    |> Ash.Query.lock(lock)
-    |> Ash.read_one!(authorize?: false)
+    Projects.get_project!(organization_id, project_id,
+      query: [lock: lock],
+      not_found_error?: false,
+      authorize?: false
+    )
     |> found!()
   end
 
@@ -23,22 +23,24 @@ defmodule QuickTrain.Tasks.Access do
 
   def lock_attempt!(project, attempt_id) do
     initial =
-      Attempt
-      |> Ash.Query.filter(id == ^attempt_id and project_id == ^project.id)
-      |> Ash.read_one!(authorize?: false)
+      Tasks.get_attempt_internal!(attempt_id, project.id, project.organization_id,
+        authorize?: false
+      )
       |> found!()
 
     task =
-      Task
-      |> Ash.Query.filter(id == ^initial.task_id)
-      |> Ash.Query.lock(:for_update)
-      |> Ash.read_one!(authorize?: false)
+      Tasks.get_task_internal!(initial.task_id, project.id, project.organization_id,
+        query: [lock: :for_update],
+        authorize?: false
+      )
+      |> found!()
 
     attempt =
-      Attempt
-      |> Ash.Query.filter(id == ^initial.id)
-      |> Ash.Query.lock(:for_update)
-      |> Ash.read_one!(authorize?: false)
+      Tasks.get_attempt_internal!(initial.id, project.id, project.organization_id,
+        query: [lock: :for_update],
+        authorize?: false
+      )
+      |> found!()
 
     {task, attempt}
   end

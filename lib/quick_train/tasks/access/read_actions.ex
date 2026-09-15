@@ -11,12 +11,6 @@ defmodule QuickTrain.Tasks.Access.ReadActions do
   alias QuickTrain.Tasks.Reviews.QuestionReview
   require Ash.Query
 
-  def run(%{action: %{name: :work_bundle}, arguments: args}, _opts, context) do
-    QuickTrain.Tasks.work_bundle(args.organization_id, args.project_id, args.attempt_id,
-      scope: context
-    )
-  end
-
   def run(input, _opts, context) do
     if is_nil(context.actor), do: Error.reject!(:forbidden)
 

@@ -22,27 +22,12 @@ defmodule QuickTrain.Projects do
         action: :remove_project_items,
         args: [:organization_id, :project_id]
 
-      define :set_binding, action: :set_binding, args: [:organization_id, :project_id]
-      define :set_slot_policy, action: :set_slot_policy, args: [:organization_id, :project_id]
-
-      define :set_worker_access, action: :set_worker_access, args: [:organization_id, :project_id]
-
-      define :remove_worker_access,
-        action: :remove_worker_access,
-        args: [:organization_id, :project_id]
-
       define :create_explicit_group,
         action: :create_explicit_group,
         args: [:organization_id, :project_id]
 
       define :remove_explicit_group,
         action: :remove_explicit_group,
-        args: [:organization_id, :project_id]
-
-      define :remove_binding, action: :remove_binding, args: [:organization_id, :project_id]
-
-      define :remove_slot_policy,
-        action: :remove_slot_policy,
         args: [:organization_id, :project_id]
 
       define :activate_project, action: :activate_record
@@ -53,9 +38,22 @@ defmodule QuickTrain.Projects do
     end
 
     resource QuickTrain.Projects.ProjectItem
-    resource QuickTrain.Projects.ProjectInputBinding
-    resource QuickTrain.Projects.ProjectSlotPolicy
-    resource QuickTrain.Projects.ProjectWorkerAccess
+
+    resource QuickTrain.Projects.ProjectInputBinding do
+      define :set_binding, action: :set, args: [:organization_id, :project_id]
+      define :remove_binding, action: :remove, args: [:organization_id]
+    end
+
+    resource QuickTrain.Projects.ProjectSlotPolicy do
+      define :set_slot_policy, action: :set, args: [:organization_id, :project_id]
+      define :remove_slot_policy, action: :remove, args: [:organization_id]
+    end
+
+    resource QuickTrain.Projects.ProjectWorkerAccess do
+      define :set_worker_access, action: :set, args: [:organization_id, :project_id]
+      define :remove_worker_access, action: :remove, args: [:organization_id]
+    end
+
     resource QuickTrain.Projects.ExplicitGroup
     resource QuickTrain.Projects.ExplicitGroupInput
   end
@@ -110,23 +108,26 @@ defmodule QuickTrain.Projects do
       action QuickTrain.Projects.Project, :remove_project_items, :remove_project_items,
         args: [:organization_id, :project_id, :project_item_ids]
 
-      action QuickTrain.Projects.Project, :set_project_input_binding, :set_binding,
-        args: [:organization_id, :project_id, :requirement_id, :field_definition_id]
+      create QuickTrain.Projects.ProjectInputBinding, :set_project_input_binding, :set
 
-      action QuickTrain.Projects.Project, :remove_project_input_binding, :remove_binding,
-        args: [:organization_id, :project_id, :requirement_id]
+      destroy QuickTrain.Projects.ProjectInputBinding, :remove_project_input_binding, :remove,
+        read_action: :get_for_remove,
+        args: [:organization_id],
+        identity: false
 
-      action QuickTrain.Projects.Project, :set_project_slot_policy, :set_slot_policy,
-        args: [:organization_id, :project_id, :input_slot_id, :item_count, :shuffle]
+      create QuickTrain.Projects.ProjectSlotPolicy, :set_project_slot_policy, :set
 
-      action QuickTrain.Projects.Project, :remove_project_slot_policy, :remove_slot_policy,
-        args: [:organization_id, :project_id, :input_slot_id]
+      destroy QuickTrain.Projects.ProjectSlotPolicy, :remove_project_slot_policy, :remove,
+        read_action: :get_for_remove,
+        args: [:organization_id],
+        identity: false
 
-      action QuickTrain.Projects.Project, :set_project_worker_access, :set_worker_access,
-        args: [:organization_id, :project_id, :user_id, :disposition]
+      create QuickTrain.Projects.ProjectWorkerAccess, :set_project_worker_access, :set
 
-      action QuickTrain.Projects.Project, :remove_project_worker_access, :remove_worker_access,
-        args: [:organization_id, :project_id, :user_id]
+      destroy QuickTrain.Projects.ProjectWorkerAccess, :remove_project_worker_access, :remove,
+        read_action: :get_for_remove,
+        args: [:organization_id],
+        identity: false
 
       action QuickTrain.Projects.Project, :create_project_explicit_group, :create_explicit_group,
         args: [:organization_id, :project_id, :position, :inputs]

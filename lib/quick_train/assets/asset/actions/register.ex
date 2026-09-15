@@ -1,4 +1,5 @@
 defmodule QuickTrain.Assets.Asset.Actions.Register do
+  alias QuickTrain.Assets
   alias QuickTrain.Assets.Asset
   alias QuickTrain.Assets.AssetRegistrationResult
   alias QuickTrain.Assets.Ownership
@@ -73,35 +74,17 @@ defmodule QuickTrain.Assets.Asset.Actions.Register do
   end
 
   defp create_pending(arguments) do
-    asset_id = Ash.UUID.generate()
+    changeset = Assets.changeset_to_create_pending_asset(arguments, authorize?: false)
     config = Application.fetch_env!(:quick_train, :assets)
-    now = DateTime.utc_now()
 
-    staging_expires_at =
-      DateTime.add(now, Keyword.fetch!(config, :staging_lifetime_seconds), :second)
-
-    staging_key = "assets/staging/#{arguments.organization_id}/#{asset_id}"
-
-    attributes = %{
-      id: asset_id,
-      organization_id: arguments.organization_id,
-      sha256: arguments.sha256,
-      byte_size: arguments.byte_size,
-      media_type: arguments.media_type,
-      staging_key: staging_key,
-      staging_expires_at: staging_expires_at
-    }
-
-    with {:ok, access} <-
+    with {:ok, pending} <- Ash.Changeset.apply_attributes(changeset),
+         {:ok, access} <-
            Storage.writable_staging_access(
-             staging_key,
-             arguments.byte_size,
-             access_expiry(now, staging_expires_at, config)
+             pending.staging_key,
+             pending.byte_size,
+             access_expiry(DateTime.utc_now(), pending.staging_expires_at, config)
            ),
-         {:ok, asset} <-
-           Asset
-           |> Ash.Changeset.for_create(:create_pending, attributes)
-           |> Ash.create(authorize?: false) do
+         {:ok, asset} <- Ash.create(changeset, authorize?: false) do
       {:ok, AssetRegistrationResult.from(asset, access, false)}
     end
   end
