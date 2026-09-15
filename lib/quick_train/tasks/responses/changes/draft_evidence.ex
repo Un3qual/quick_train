@@ -26,9 +26,6 @@ defmodule QuickTrain.Tasks.Responses.Changes.DraftEvidence do
 
   defp attempt_ids([]), do: []
 
-  defp attempt_ids([%{resource: Attempt} | _] = changesets),
-    do: Enum.map(changesets, & &1.data.id)
-
   defp attempt_ids([%{resource: QuestionResponse} | _] = changesets),
     do: Enum.map(changesets, &Ash.Changeset.get_attribute(&1, :attempt_id))
 

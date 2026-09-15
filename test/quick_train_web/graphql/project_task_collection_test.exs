@@ -62,12 +62,13 @@ defmodule QuickTrainWeb.ProjectTaskCollectionTest do
 
     saved =
       graphql!(conn, """
-      mutation { saveTaskQuestion(#{scope}, attemptId: "#{attempt}", questionId: "#{question}", expectedRevision: 0,
-        answer: {outcome: "answered", family: INTEGER, integerValue: 4}) { id revision }
+      mutation { saveTaskQuestion(#{scope}, attemptId: "#{attempt}", input: {questionId: "#{question}", expectedRevision: 0,
+        answer: {outcome: "answered", family: INTEGER, integerValue: 4}}) { result { id revision } errors { message } }
       }
       """)["saveTaskQuestion"]
 
-    assert saved["revision"] == 1
+    assert saved["errors"] == []
+    assert saved["result"]["revision"] == 1
 
     assert graphql!(
              conn,

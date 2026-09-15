@@ -1,8 +1,8 @@
-defmodule QuickTrain.Tasks.Responses.ResponseDraft do
+defmodule QuickTrain.Tasks.Responses.Changes.SaveQuestion do
   @moduledoc false
-  use Ash.Resource.Actions.Implementation
+  use Ash.Resource.Change
   alias QuickTrain.Forms.Questions.QuestionDefinition
-  alias QuickTrain.Tasks
+  alias QuickTrain.Tasks.Attempts.Leases
 
   alias QuickTrain.Tasks.{Access, Error}
 
@@ -17,15 +17,14 @@ defmodule QuickTrain.Tasks.Responses.ResponseDraft do
   require Ash.Query
 
   @impl true
-  def run(input, _opts, context) do
-    {:ok, save!(input.arguments, context.actor)}
-  rescue
-    error in Ash.Error.Invalid -> {:error, error}
-  end
+  def change(changeset, _opts, context),
+    do: Ash.Changeset.before_action(changeset, &save(&1, context.actor))
 
-  defp save!(args, actor) do
-    project = Access.project!(args.organization_id, args.project_id)
-    {task, attempt} = Access.lock_attempt!(project, args.attempt_id)
+  defp save(changeset, actor) do
+    args = changeset.arguments
+    project = Access.project!(changeset.data.organization_id, changeset.data.project_id)
+    {task, attempt} = Access.lock_attempt!(project, changeset.data.id)
+    changeset = %{changeset | data: attempt}
     Access.owner!(project, attempt, actor)
     if attempt.revision != args.expected_revision, do: Error.reject!(:stale_response)
 
@@ -36,7 +35,11 @@ defmodule QuickTrain.Tasks.Responses.ResponseDraft do
 
     unless question, do: Error.reject!(:question_not_offered)
     normalized = AnswerValidation.validate!(project, task, question, args.answer, :draft)
-    skip_policies!(project, [Map.put(normalized.attributes, :question_id, question.id)])
+
+    AnswerValidation.skip_policies!(project, [
+      Map.put(normalized.attributes, :question_id, question.id)
+    ])
+
     remove_previous!(attempt, question.id)
     scope = Map.merge(Access.scope(project), %{task_id: task.id, question_id: question.id})
 
@@ -64,22 +67,17 @@ defmodule QuickTrain.Tasks.Responses.ResponseDraft do
       )
     end
 
-    attempt = Tasks.revise_attempt!(attempt, authorize?: false)
+    Access.owner!(project, attempt, actor)
 
     if attempt.state in [:claimed, :assigned],
-      do: Tasks.start_attempt!(attempt, actor: actor),
-      else: attempt
-  end
-
-  def skip_policies!(project, outcomes) do
-    skipped = Enum.filter(outcomes, &(&1.outcome == :skipped))
-
-    Enum.each(skipped, fn attrs ->
-      unless project.skip_allowed, do: Error.reject!(:skip_not_allowed)
-
-      if project.reason_required and (is_nil(attrs.reason) or String.trim(attrs.reason) == ""),
-        do: Error.reject!(:skip_reason_required)
-    end)
+      do:
+        Ash.Changeset.force_change_attributes(changeset, %{
+          state: :in_progress,
+          started_at: Leases.now!()
+        }),
+      else: changeset
+  rescue
+    error in [Ash.Error.Invalid, Ash.Error.Forbidden] -> Ash.Changeset.add_error(changeset, error)
   end
 
   defp remove_previous!(attempt, question_id) do
@@ -90,33 +88,5 @@ defmodule QuickTrain.Tasks.Responses.ResponseDraft do
       |> Ash.read_one!(authorize?: false)
 
     if prior, do: Ash.destroy!(prior, action: :destroy_internal, authorize?: false)
-  end
-
-  def stored_answer(outcome) do
-    attrs =
-      Map.take(outcome, [
-        :outcome,
-        :family,
-        :reason,
-        :explanation,
-        :text_value,
-        :integer_value,
-        :decimal_value,
-        :boolean_value
-      ])
-
-    options =
-      outcome.static_options
-      |> Enum.map(& &1.option_id)
-
-    inputs =
-      outcome.input_answers
-      |> Enum.map(&Map.take(&1, [:task_input_id, :position]))
-
-    spans =
-      outcome.text_spans
-      |> Enum.map(&Map.take(&1, [:task_input_id, :source_value_id, :label_id, :start, :end]))
-
-    Map.merge(attrs, %{option_ids: options, inputs: inputs, spans: spans})
   end
 end

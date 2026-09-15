@@ -5,7 +5,7 @@ defmodule QuickTrain.Tasks.Responses.Changes.Submit do
   alias QuickTrain.Forms.Questions.QuestionDefinition
   alias QuickTrain.Tasks.{Access, Error}
   alias QuickTrain.Tasks.Attempts.Leases
-  alias QuickTrain.Tasks.Responses.{AnswerValidation, QuestionResponse, ResponseDraft}
+  alias QuickTrain.Tasks.Responses.{AnswerValidation, QuestionResponse}
   alias QuickTrain.Tasks.Reviews.QuestionReview
 
   require Ash.Query
@@ -74,12 +74,12 @@ defmodule QuickTrain.Tasks.Responses.Changes.Submit do
           project,
           task,
           question,
-          ResponseDraft.stored_answer(outcome),
+          AnswerValidation.stored_answer(outcome),
           :submit
         )
       end
 
-      ResponseDraft.skip_policies!(project, outcomes)
+      AnswerValidation.skip_policies!(project, outcomes)
 
       Access.owner!(project, attempt, actor)
       cutoff = Leases.now!()

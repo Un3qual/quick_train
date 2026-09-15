@@ -41,11 +41,6 @@ defmodule QuickTrain.Tasks.Reviews.QuestionReview do
   defp initial_status(%{review_mode: :manual}, %{outcome: :answered}), do: :pending
   defp initial_status(%{review_mode: :automatic}, %{outcome: :answered}), do: :accepted
 
-  def effective_status(%{outcome: :skipped}), do: :skipped
-
-  def effective_status(%{outcome: :answered, effective_decision: decision}),
-    do: decision_status(decision)
-
   defp decide_all!(project, requests, actor) do
     ids = Enum.map(requests, & &1.question_response_id)
 
@@ -150,10 +145,6 @@ defmodule QuickTrain.Tasks.Reviews.QuestionReview do
     attributes = Map.put(attributes, :number, if(current, do: current.number + 1, else: 1))
     {:create, outcome, attributes}
   end
-
-  defp decision_status(nil), do: :pending
-  defp decision_status(%{verdict: :accept}), do: :accepted
-  defp decision_status(%{verdict: :reject}), do: :rejected
 
   defp decision_attributes(outcome, attributes) do
     scope =

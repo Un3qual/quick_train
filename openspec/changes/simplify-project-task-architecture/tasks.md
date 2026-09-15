@@ -59,3 +59,10 @@
 ## 11. Verify feature preservation
 
 - [x] 11.1 Compare the four fixes against their preceding behavior, fix the GraphQL task-removal lookup regression while retaining scoped authorization, strengthen draft replacement and export interpretation/pagination coverage, and run the verification gate.
+
+## 12. Address Tasks domain review
+
+- [x] 12.1 Batch export source-value loading while retaining bounded traversal, slot-specific bindings, and deterministic output.
+- [x] 12.2 Consolidate draft replacement, revision increment, and implicit start into a native Attempt update; preserve child guards, ownership, and lease checks and update callers.
+- [x] 12.3 Compute receipt totals with native Ash aggregates and verify mixed review statuses.
+- [x] 12.4 Synchronize specifications, measure the affected paths, run the verification gate, and commit.

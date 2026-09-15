@@ -120,43 +120,32 @@ defmodule QuickTrain.Tasks.TaskResponsesTest do
     refute Ash.exists?(QuestionResponse, authorize?: false)
   end
 
-  test "revision increments use stored values even when the supplied response is stale" do
-    response = Ash.read_one!(Attempt, authorize?: false)
-    assert QuickTrain.Tasks.revise_attempt!(response, authorize?: false).revision == 1
-    assert QuickTrain.Tasks.revise_attempt!(response, authorize?: false).revision == 2
+  test "saving from a stale attempt record preserves the start time and increments stored revision",
+       ctx do
+    first = save!(ctx, 0, %{outcome: :answered, family: :integer, integer_value: 4})
+    assert first.state == :in_progress
+    assert first.started_at
+    assert first.deadline == ctx.attempt.deadline
 
-    result =
-      Ash.bulk_update!([response], :revise, %{},
-        strategy: [:stream],
-        authorize?: false,
-        transaction: :all,
-        return_records?: true
-      )
-
-    assert [%{revision: 3}] = result.records
+    second = save!(ctx, 1, %{outcome: :answered, family: :integer, integer_value: 3})
+    assert second.revision == 2
+    assert second.started_at == first.started_at
+    assert second.deadline == first.deadline
   end
 
   defp save!(ctx, revision, answer) do
-    action!(
-      Attempt,
-      :save_question,
-      Map.merge(scope(ctx), %{
+    QuickTrain.Tasks.save_question!(
+      ctx.attempt,
+      %{
         question_id: ctx.source.form.question.id,
         expected_revision: revision,
         answer: answer
-      }),
-      ctx.worker
+      },
+      actor: ctx.worker
     )
   end
 
   defp submit!(ctx), do: QuickTrain.Tasks.submit_response!(ctx.attempt, actor: ctx.worker)
-
-  defp scope(ctx),
-    do: %{
-      organization_id: ctx.context.org.id,
-      project_id: ctx.project.id,
-      attempt_id: ctx.attempt.id
-    }
 
   defp action!(resource, action, args, actor),
     do: resource |> Ash.ActionInput.for_action(action, args, actor: actor) |> Ash.run_action!()

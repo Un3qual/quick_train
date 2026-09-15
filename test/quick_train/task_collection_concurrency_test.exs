@@ -390,17 +390,14 @@ defmodule QuickTrain.Tasks.CollectionConcurrencyTest do
   defp fetch(ctx, key), do: action(ctx, Attempt, :fetch, %{request_key: key}, ctx.worker)
 
   defp save(ctx, revision, value) do
-    action(
-      ctx,
-      Attempt,
-      :save_question,
+    QuickTrain.Tasks.save_question(
+      ctx.attempt,
       %{
-        attempt_id: ctx.attempt.id,
         question_id: ctx.source.form.question.id,
         expected_revision: revision,
         answer: %{outcome: :answered, family: :integer, integer_value: value}
       },
-      ctx.worker
+      actor: ctx.worker
     )
   end
 

@@ -41,6 +41,16 @@ defmodule QuickTrain.ProjectsFixture do
         form
       end
 
+    extra_requirements =
+      for index <- 1..Keyword.get(opts, :extra_bound_fields, 0)//1 do
+        FormsFixture.add!(QuickTrain.Forms.Inputs.InputFieldRequirement, context, form.version, %{
+          input_slot_id: form.slot.id,
+          key: "extra_#{index}",
+          value_family: :text,
+          required: false
+        })
+      end
+
     version =
       Forms.publish_form_version!(context.org.id, %{version_id: form.version.id},
         actor: context.actor
@@ -64,6 +74,23 @@ defmodule QuickTrain.ProjectsFixture do
         actor: context.actor
       )
 
+    extra_bindings =
+      for requirement <- extra_requirements do
+        field =
+          Datasets.add_field_definition!(
+            context.org.id,
+            root.id,
+            requirement.key,
+            requirement.key,
+            "text",
+            "single",
+            false,
+            actor: context.actor
+          )
+
+        {requirement, field}
+      end
+
     schema =
       Datasets.publish_schema_version!(context.org.id, schema.id, root.id, actor: context.actor)
 
@@ -75,7 +102,8 @@ defmodule QuickTrain.ProjectsFixture do
           schema.id,
           nil,
           "item-#{number}",
-          [%{field: "body", text: "Body #{number}"}],
+          [%{field: "body", text: "Body #{number}"}] ++
+            Enum.map(extra_requirements, &%{field: &1.key, text: "#{&1.key} for item #{number}"}),
           actor: context.actor
         ).revision
       end
@@ -86,7 +114,8 @@ defmodule QuickTrain.ProjectsFixture do
       schema: schema,
       root: root,
       field: field,
-      revisions: revisions
+      revisions: revisions,
+      extra_bindings: extra_bindings
     }
   end
 

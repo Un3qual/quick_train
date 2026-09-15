@@ -15,6 +15,45 @@ defmodule QuickTrain.Tasks.Responses.AnswerValidation do
     boolean: {:boolean_value, :boolean, nil}
   }
 
+  def skip_policies!(project, outcomes) do
+    skipped = Enum.filter(outcomes, &(&1.outcome == :skipped))
+
+    Enum.each(skipped, fn attrs ->
+      unless project.skip_allowed, do: Error.reject!(:skip_not_allowed)
+
+      if project.reason_required and (is_nil(attrs.reason) or String.trim(attrs.reason) == ""),
+        do: Error.reject!(:skip_reason_required)
+    end)
+  end
+
+  def stored_answer(outcome) do
+    attrs =
+      Map.take(outcome, [
+        :outcome,
+        :family,
+        :reason,
+        :explanation,
+        :text_value,
+        :integer_value,
+        :decimal_value,
+        :boolean_value
+      ])
+
+    options =
+      outcome.static_options
+      |> Enum.map(& &1.option_id)
+
+    inputs =
+      outcome.input_answers
+      |> Enum.map(&Map.take(&1, [:task_input_id, :position]))
+
+    spans =
+      outcome.text_spans
+      |> Enum.map(&Map.take(&1, [:task_input_id, :source_value_id, :label_id, :start, :end]))
+
+    Map.merge(attrs, %{option_ids: options, inputs: inputs, spans: spans})
+  end
+
   def validate!(project, task, question, input, stage) when stage in [:draft, :submit] do
     require!(
       task.project_id == project.id and task.organization_id == project.organization_id and

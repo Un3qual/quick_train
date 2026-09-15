@@ -8,7 +8,6 @@ defmodule QuickTrain.Tasks.Access.ReadActions do
   alias QuickTrain.Tasks.Access.BoundValue
   alias QuickTrain.Tasks.Attempts.{Attempt, Leases, Receipt}
   alias QuickTrain.Tasks.Responses.QuestionResponse
-  alias QuickTrain.Tasks.Reviews.QuestionReview
   require Ash.Query
 
   def run(input, _opts, context) do
@@ -41,9 +40,18 @@ defmodule QuickTrain.Tasks.Access.ReadActions do
       if attempt.state == :submitted do
         QuestionResponse
         |> Ash.Query.filter(attempt_id == ^attempt.id)
-        |> Ash.Query.load(:effective_decision)
-        |> Ash.stream!(authorize?: false)
-        |> Enum.frequencies_by(&QuestionReview.effective_status/1)
+        |> Ash.aggregate!(
+          [
+            {:accepted, :count,
+             query: [filter: [outcome: :answered, effective_verdict: :accept]]},
+            {:rejected, :count,
+             query: [filter: [outcome: :answered, effective_verdict: :reject]]},
+            {:pending, :count,
+             query: [filter: [outcome: :answered, effective_verdict: [is_nil: true]]]},
+            {:skipped, :count, query: [filter: [outcome: :skipped]]}
+          ],
+          authorize?: false
+        )
       else
         %{}
       end

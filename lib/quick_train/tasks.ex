@@ -35,11 +35,7 @@ defmodule QuickTrain.Tasks do
     end
 
     resource Attempt do
-      define :revise_attempt, action: :revise
-
-      define :save_question,
-        action: :save_question,
-        args: [:organization_id, :project_id, :attempt_id]
+      define :save_question, action: :save_question
 
       define :submit_response, action: :submit
 
@@ -162,15 +158,9 @@ defmodule QuickTrain.Tasks do
         read_action: :get_for_update,
         identity: false
 
-      action Attempt, :save_task_question, :save_question,
-        args: [
-          :organization_id,
-          :project_id,
-          :attempt_id,
-          :question_id,
-          :expected_revision,
-          :answer
-        ]
+      update Attempt, :save_task_question, :save_question,
+        read_action: :get_for_update,
+        identity: false
 
       update Attempt, :submit_task_response, :submit,
         read_action: :get_for_update,

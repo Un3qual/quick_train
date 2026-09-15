@@ -762,15 +762,14 @@ defmodule QuickTrain.Tasks.TaskReadsTest do
 
   defp save!(ctx),
     do:
-      action!(
-        Attempt,
-        :save_question,
-        Map.merge(scope(ctx), %{
+      QuickTrain.Tasks.save_question!(
+        ctx.attempt,
+        %{
           question_id: ctx.source.form.question.id,
           expected_revision: 0,
           answer: %{outcome: :answered, family: :integer, integer_value: 4}
-        }),
-        ctx.worker
+        },
+        actor: ctx.worker
       )
 
   defp scope(ctx),

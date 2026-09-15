@@ -36,13 +36,17 @@ defmodule QuickTrain.Tasks.ResultExportTest do
   setup tags do
     context =
       ProjectsFixture.context!(
-        ~w(projects.read projects.manage forms.read forms.manage datasets.read datasets.manage tasks.results.read assets.read assets.manage),
+        ~w(projects.read projects.manage forms.read forms.manage datasets.read datasets.manage tasks.results.read tasks.review assets.read assets.manage),
         "exports-#{System.unique_integer([:positive])}"
       )
 
     source_opts =
       if tags[:input_count],
-        do: [item_count: tags.input_count, slot_maximum: tags.inputs_per_task],
+        do: [
+          item_count: tags.input_count,
+          slot_maximum: tags.inputs_per_task,
+          extra_bound_fields: tags[:extra_bound_fields] || 0
+        ],
         else: []
 
     source =
@@ -51,7 +55,11 @@ defmodule QuickTrain.Tasks.ResultExportTest do
         else: ProjectsFixture.source!(context, source_opts)
 
     project =
-      ProjectsFixture.draft!(context, source, audience: :external_users, external_access: :open)
+      ProjectsFixture.draft!(context, source,
+        audience: :external_users,
+        external_access: :open,
+        review_mode: tags[:review_mode] || :automatic
+      )
 
     QuickTrain.Projects.set_binding!(
       context.org.id,
@@ -62,6 +70,15 @@ defmodule QuickTrain.Tasks.ResultExportTest do
       },
       actor: context.actor
     )
+
+    for {requirement, field} <- Map.get(source, :extra_bindings, []) do
+      QuickTrain.Projects.set_binding!(
+        context.org.id,
+        project.id,
+        %{requirement_id: requirement.id, field_definition_id: field.id},
+        actor: context.actor
+      )
+    end
 
     QuickTrain.Projects.set_slot_policy!(
       context.org.id,
@@ -307,6 +324,70 @@ defmodule QuickTrain.Tasks.ResultExportTest do
     assert Enum.all?(rows, &match?([_], &1["values"]))
 
     assert MapSet.new(rows, & &1["revision_id"]) == MapSet.new(scope.source.revisions, & &1.id)
+  end
+
+  @tag input_count: 2, inputs_per_task: 2, extra_bound_fields: 63
+  test "batched inputs retain every field at the published slot maximum without mixing records",
+       scope do
+    scope = submit!(scope)
+    {:ok, export} = request(scope)
+    assert :ok = Tasks.process_result_export(export.id, authorize?: false)
+    {:ok, bytes} = InMemory.read_sealed(download!(scope, export.id).read_access)
+    [_header, result] = jsonl(bytes)
+
+    for {input, number} <- Enum.with_index(result["inputs"], 1) do
+      assert Enum.map(input["values"], & &1["id"]) ==
+               Enum.sort(Enum.map(input["values"], & &1["id"]))
+
+      values = Map.new(input["values"], &{&1["field_key"], &1["text_value"]})
+      assert map_size(values) == 64
+      assert values["body"] == "Body #{number}"
+
+      for index <- 1..63,
+          do: assert(values["extra_#{index}"] == "extra_#{index} for item #{number}")
+    end
+  end
+
+  @tag rich: true, review_mode: :manual
+  test "receipts count mixed outcomes using the latest decisions", scope do
+    scope = submit!(scope, skip_decimal: true)
+
+    receipt = fn ->
+      Tasks.attempt_receipt!(scope.context.org.id, scope.project.id, scope.attempt.id,
+        actor: scope.worker
+      )
+      |> Map.take([:accepted, :pending, :rejected, :skipped])
+    end
+
+    assert receipt.() == %{accepted: 0, pending: 4, rejected: 0, skipped: 1}
+
+    outcomes =
+      QuestionResponse
+      |> Ash.Query.filter(attempt_id == ^scope.attempt.id)
+      |> Ash.read!(authorize?: false, page: false)
+      |> Map.new(&{&1.question_id, &1})
+
+    decide = fn question, verdict, predecessor ->
+      Tasks.decide_question!(
+        scope.context.org.id,
+        scope.project.id,
+        %{
+          question_response_id: outcomes[question.id].id,
+          verdict: verdict,
+          request_key: Ash.UUID.generate(),
+          expected_predecessor_id: predecessor,
+          reason: "Reviewed"
+        },
+        actor: scope.context.actor
+      )
+    end
+
+    accepted = decide.(scope.source.form.question, :accept, nil)
+    decide.(scope.source.choice, :reject, nil)
+    assert receipt.() == %{accepted: 1, pending: 2, rejected: 1, skipped: 1}
+
+    decide.(scope.source.form.question, :reject, accepted.id)
+    assert receipt.() == %{accepted: 0, pending: 2, rejected: 2, skipped: 1}
   end
 
   test "sealed selection and review provenance survive correction and later submission", scope do
@@ -766,7 +847,7 @@ defmodule QuickTrain.Tasks.ResultExportTest do
     Map.merge(scope, %{worker: worker, attempt: attempt})
   end
 
-  defp submit!(scope) do
+  defp submit!(scope, opts \\ []) do
     scope = begin!(scope)
     save!(scope, scope.source.form.question, %{family: :integer, integer_value: 4}, 0)
 
@@ -791,7 +872,10 @@ defmodule QuickTrain.Tasks.ResultExportTest do
       save!(
         scope,
         scope.source.decimal,
-        %{family: :decimal, decimal_value: "0.123456789123456789"},
+        if(opts[:skip_decimal],
+          do: %{outcome: :skipped, family: :decimal, reason: "Cannot assess"},
+          else: %{family: :decimal, decimal_value: "0.123456789123456789"}
+        ),
         1
       )
 
@@ -842,23 +926,15 @@ defmodule QuickTrain.Tasks.ResultExportTest do
 
   defp save!(scope, question, answer, revision),
     do:
-      action!(
-        Attempt,
-        :save_question,
-        Map.merge(attempt_scope(scope), %{
+      Tasks.save_question!(
+        scope.attempt,
+        %{
           question_id: question.id,
           expected_revision: revision,
-          answer: Map.put(answer, :outcome, :answered)
-        }),
-        scope.worker
+          answer: Map.put_new(answer, :outcome, :answered)
+        },
+        actor: scope.worker
       )
-
-  defp attempt_scope(scope),
-    do: %{
-      organization_id: scope.context.org.id,
-      project_id: scope.project.id,
-      attempt_id: scope.attempt.id
-    }
 
   defp action!(resource, action, args, actor),
     do: resource |> Ash.ActionInput.for_action(action, args, actor: actor) |> Ash.run_action!()

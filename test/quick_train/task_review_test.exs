@@ -216,12 +216,15 @@ defmodule QuickTrain.Tasks.TaskReviewTest do
         attempt = allocation.attempt
 
         response =
-          worker_action!(Attempt, :save_question, ctx, worker, %{
-            attempt_id: attempt.id,
-            question_id: ctx.source.form.question.id,
-            expected_revision: 0,
-            answer: %{outcome: :answered, family: :integer, integer_value: 4}
-          })
+          QuickTrain.Tasks.save_question!(
+            attempt,
+            %{
+              question_id: ctx.source.form.question.id,
+              expected_revision: 0,
+              answer: %{outcome: :answered, family: :integer, integer_value: 4}
+            },
+            actor: worker
+          )
 
         assert QuickTrain.Tasks.submit_response!(attempt, actor: worker).state ==
                  :submitted
@@ -435,7 +438,12 @@ defmodule QuickTrain.Tasks.TaskReviewTest do
     |> Ash.Query.filter(task_id == ^ctx.task.id)
     |> Ash.Query.load(:effective_decision)
     |> Ash.read!(authorize?: false, page: false)
-    |> Enum.frequencies_by(&QuestionReview.effective_status/1)
+    |> Enum.frequencies_by(fn
+      %{outcome: :skipped} -> :skipped
+      %{effective_decision: nil} -> :pending
+      %{effective_decision: %{verdict: :accept}} -> :accepted
+      %{effective_decision: %{verdict: :reject}} -> :rejected
+    end)
     |> then(&Map.merge(%{accepted: 0, pending: 0, rejected: 0, skipped: 0}, &1))
   end
 

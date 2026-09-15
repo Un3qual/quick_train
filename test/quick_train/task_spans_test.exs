@@ -246,12 +246,15 @@ defmodule QuickTrain.Tasks.TextSpansTest do
 
   defp save(ctx, revision, spans),
     do:
-      action(ctx, Attempt, :save_question, %{
-        attempt_id: ctx.attempt.id,
-        question_id: ctx.source.form.question.id,
-        expected_revision: revision,
-        answer: %{outcome: :answered, family: :text_spans, spans: spans}
-      })
+      QuickTrain.Tasks.save_question(
+        ctx.attempt,
+        %{
+          question_id: ctx.source.form.question.id,
+          expected_revision: revision,
+          answer: %{outcome: :answered, family: :text_spans, spans: spans}
+        },
+        actor: ctx.worker
+      )
 
   defp bound(ctx),
     do:

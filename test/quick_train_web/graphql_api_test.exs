@@ -408,8 +408,7 @@ defmodule QuickTrainWeb.GraphqlApiTest do
     Map.merge(attempt_actions, %{
       "fetchWork" => MapSet.new(~w(organizationId projectId requestKey)),
       "assignWork" => MapSet.new(~w(organizationId projectId requestKey workerId)),
-      "saveTaskQuestion" =>
-        MapSet.new(~w(answer attemptId expectedRevision organizationId projectId questionId)),
+      "saveTaskQuestion" => MapSet.new(~w(attemptId organizationId projectId input)),
       "decideTaskQuestion" =>
         MapSet.new(
           ~w(expectedPredecessorId organizationId projectId questionResponseId reason requestKey verdict)

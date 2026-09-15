@@ -90,16 +90,14 @@ defmodule QuickTrain.Tasks.Attempts.Attempt do
       change Module.concat(["QuickTrain.Tasks.Responses.Changes.Submit"])
     end
 
-    action :save_question, :struct do
-      transaction? true
-      constraints instance_of: __MODULE__
-      argument :organization_id, :uuid, allow_nil?: false
-      argument :project_id, :uuid, allow_nil?: false
-      argument :attempt_id, :uuid, allow_nil?: false
+    update :save_question do
+      accept []
+      require_atomic? false
       argument :question_id, :uuid, allow_nil?: false
       argument :expected_revision, :integer, allow_nil?: false, constraints: [min: 0]
       argument :answer, AnswerInput, allow_nil?: false
-      run Module.concat(["QuickTrain.Tasks.Responses.ResponseDraft"])
+      change Module.concat(["QuickTrain.Tasks.Responses.Changes.SaveQuestion"])
+      change atomic_update(:revision, expr(revision + 1))
     end
 
     read :read_work_bundle do
@@ -190,13 +188,6 @@ defmodule QuickTrain.Tasks.Attempts.Attempt do
       end
     end
 
-    update :revise do
-      accept []
-      require_atomic? false
-      change Module.concat(["QuickTrain.Tasks.Responses.Changes.DraftEvidence"])
-      change atomic_update(:revision, expr(revision + 1))
-    end
-
     update :update_internal do
       accept [:state, :started_at, :terminal_at]
     end
@@ -238,7 +229,7 @@ defmodule QuickTrain.Tasks.Attempts.Attempt do
       authorize_if {OrganizationCapability, capability: "tasks.assign"}
     end
 
-    policy action([:create_internal, :update_internal, :revise]) do
+    policy action([:create_internal, :update_internal]) do
       forbid_if always()
     end
   end

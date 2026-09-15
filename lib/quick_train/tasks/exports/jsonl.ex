@@ -141,10 +141,10 @@ defmodule QuickTrain.Tasks.Exports.Jsonl do
     inputs =
       AttemptInputPresentation
       |> Ash.Query.filter(attempt_id == ^response.attempt_id)
-      |> Ash.Query.load(task_input: :revision)
       |> Ash.Query.sort(input_slot_id: :asc, position: :asc, id: :asc)
       |> Ash.stream!(batch_size: 100, authorize?: false)
-      |> Stream.map(&input(export, &1))
+      |> Stream.chunk_every(100)
+      |> Stream.flat_map(&inputs(export, &1))
 
     decisions =
       ReviewDecision
@@ -169,24 +169,40 @@ defmodule QuickTrain.Tasks.Exports.Jsonl do
     )
   end
 
-  defp input(export, presentation) do
-    input = presentation.task_input
+  defp inputs(export, presentations) do
+    presentations
+    |> Enum.chunk_by(& &1.input_slot_id)
+    |> Enum.flat_map(fn [first | _] = presentations ->
+      slot_id = first.input_slot_id
 
-    values =
-      DatasetValue
-      |> Ash.Query.filter(
-        record_id == ^input.revision.root_record_id and
+      values =
+        DatasetValue
+        |> Ash.Query.filter(
           exists(
             ProjectInputBinding,
             project_id == ^export.project_id and
               field_definition_id == parent(field_definition_id) and
-              requirement.input_slot_id == ^input.input_slot_id
+              requirement.input_slot_id == ^slot_id
           )
+        )
+        |> Ash.Query.sort(id: :asc)
+        |> Ash.Query.load(
+          [:field_definition, asset_value: :asset] ++ (@typed_values -- [:asset_value])
+        )
+
+      # A published slot has at most 64 single-value requirements.
+      Ash.load!(presentations, [task_input: [revision: [root_record: [values: values]]]],
+        authorize?: false
       )
-      |> Ash.Query.load(
-        [:field_definition, asset_value: :asset] ++ (@typed_values -- [:asset_value])
-      )
-      |> stream()
+    end)
+    |> Enum.map(&input/1)
+  end
+
+  defp input(presentation) do
+    input = presentation.task_input
+
+    values =
+      input.revision.root_record.values
       |> Stream.map(&object(value(&1)))
 
     object(Map.merge(fields(input), %{position: presentation.position}), values: values)
