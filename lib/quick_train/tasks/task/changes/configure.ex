@@ -3,7 +3,6 @@ defmodule QuickTrain.Tasks.Task.Changes.Configure do
   use Ash.Resource.Change
   alias QuickTrain.Projects.{Error, Management, ProjectActivation}
   alias QuickTrain.Tasks.Task.Identity
-  alias QuickTrain.Tasks.TaskInput
 
   @impl true
   def change(changeset, _opts, context),
@@ -39,17 +38,12 @@ defmodule QuickTrain.Tasks.Task.Changes.Configure do
         form_version_id: project.form_version_id,
         canonical_key: Identity.key(inputs)
       })
-      |> Ash.Changeset.after_action(fn _changeset, task ->
-        inputs
-        |> Enum.map(&Map.merge(&1, Map.put(scope, :task_id, task.id)))
-        |> Ash.bulk_create!(TaskInput, :create_internal,
-          authorize?: false,
-          transaction: :all,
-          stop_on_error?: true
-        )
-
-        {:ok, task}
-      end)
+      |> Ash.Changeset.manage_relationship(:inputs, Enum.map(inputs, &Map.merge(&1, scope)),
+        type: :create,
+        on_no_match: {:create, :create_internal},
+        authorize?: false,
+        bulk?: true
+      )
     end
   rescue
     error in [Ash.Error.Invalid, Ash.Error.Forbidden] -> Ash.Changeset.add_error(changeset, error)

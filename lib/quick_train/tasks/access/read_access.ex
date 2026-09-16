@@ -47,8 +47,11 @@ defmodule QuickTrain.Tasks.Access.ReadAccess do
 
   defp task_relationship?(query) do
     case query.context[:accessing_from] do
-      %{source: source} -> String.starts_with?(Atom.to_string(source), "Elixir.QuickTrain.Tasks.")
-      _ -> false
+      %{source: source} ->
+        source in Ash.Domain.Info.resources(Ash.Resource.Info.domain(query.resource))
+
+      _ ->
+        false
     end
   end
 

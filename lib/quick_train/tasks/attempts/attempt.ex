@@ -112,6 +112,7 @@ defmodule QuickTrain.Tasks.Attempts.Attempt do
                  organization_id == ^arg(:organization_id)
              )
 
+      prepare build(ensure_selected: [:worker_id, :state, :deadline])
       prepare Module.concat(["QuickTrain.Tasks.Attempts.WorkBundle"])
     end
 

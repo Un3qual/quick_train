@@ -11,7 +11,6 @@ defmodule QuickTrain.Tasks.Attempts.AttemptAllocation do
   alias QuickTrain.Tasks.Attempts.{
     AllocationResult,
     Attempt,
-    AttemptInputPresentation,
     Leases
   }
 
@@ -198,10 +197,20 @@ defmodule QuickTrain.Tasks.Attempts.AttemptAllocation do
         deadline: DateTime.add(cutoff, project.lease_minutes * 60, :second)
       })
 
-    attempt = Ash.create!(Attempt, attrs, action: :create_internal, authorize?: false)
-    scope = Map.merge(project_scope, %{task_id: task.id, attempt_id: attempt.id})
+    scope = Map.put(project_scope, :task_id, task.id)
 
-    presentation!(project, task, scope)
+    attempt =
+      Attempt
+      |> Ash.Changeset.for_create(:create_internal, attrs, authorize?: false)
+      |> Ash.Changeset.manage_relationship(
+        :input_presentations,
+        presentation(project, task, scope),
+        type: :create,
+        on_no_match: {:create, :create_internal},
+        authorize?: false,
+        bulk?: true
+      )
+      |> Ash.create!()
 
     ExpireAttempt.new(
       Map.take(attempt, [:id, :organization_id, :project_id]),
@@ -212,7 +221,7 @@ defmodule QuickTrain.Tasks.Attempts.AttemptAllocation do
     %AllocationResult{status: :issued, attempt: attempt}
   end
 
-  defp presentation!(project, task, scope) do
+  defp presentation(project, task, scope) do
     inputs =
       TaskInput
       |> Ash.Query.filter(task_id == ^task.id)
@@ -237,11 +246,6 @@ defmodule QuickTrain.Tasks.Attempts.AttemptAllocation do
         })
       end)
     end)
-    |> Ash.bulk_create!(AttemptInputPresentation, :create_internal,
-      authorize?: false,
-      transaction: :all,
-      stop_on_error?: true
-    )
   end
 
   defp no_work(project, worker_id) do

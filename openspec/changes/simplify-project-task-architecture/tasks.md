@@ -70,3 +70,8 @@
 ## 13. Project snapshot fields
 
 - [x] 13.1 Select only outcome and effective-decision identifiers while sealing export membership, verify unchanged snapshot/output behavior, and run the verification gate.
+
+## 14. Prefer framework relationship handling
+
+- [x] 14.1 Audit Tasks and Projects custom actions, changes, preparations, validations, and policies; replace manual child creation with bulk Ash relationship management, use native term encoding for canonical task membership, declare work-bundle selection through a builtin preparation, and use domain introspection for relationship-source membership.
+- [x] 14.2 Verify unchanged authorization, batching, ordering, rollback, and response behavior; run independent OpenSpec validation and the full verification gate, then commit.

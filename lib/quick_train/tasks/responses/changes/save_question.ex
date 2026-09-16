@@ -6,13 +6,7 @@ defmodule QuickTrain.Tasks.Responses.Changes.SaveQuestion do
 
   alias QuickTrain.Tasks.{Access, Error}
 
-  alias QuickTrain.Tasks.Responses.{
-    AnswerValidation,
-    QuestionResponse,
-    StaticOptionAnswer,
-    TaskInputAnswer,
-    TextSpan
-  }
+  alias QuickTrain.Tasks.Responses.{AnswerValidation, QuestionResponse}
 
   require Ash.Query
 
@@ -44,28 +38,30 @@ defmodule QuickTrain.Tasks.Responses.Changes.SaveQuestion do
     scope = Map.merge(Access.scope(project), %{task_id: task.id, question_id: question.id})
 
     outcome =
-      Ash.create!(
+      Ash.Changeset.for_create(
         QuestionResponse,
+        :create_internal,
         Map.merge(scope, Map.put(normalized.attributes, :attempt_id, attempt.id)),
-        action: :create_internal,
         authorize?: false
       )
 
-    child_scope = Map.put(scope, :question_response_id, outcome.id)
-
-    for {resource, children} <- [
-          {StaticOptionAnswer, Enum.map(normalized.option_ids, &%{option_id: &1})},
-          {TaskInputAnswer, normalized.inputs},
-          {TextSpan, normalized.spans}
-        ] do
-      children
-      |> Enum.map(&Map.merge(child_scope, &1))
-      |> Ash.bulk_create!(resource, :create_internal,
+    [
+      static_options: Enum.map(normalized.option_ids, &%{option_id: &1}),
+      input_answers: normalized.inputs,
+      text_spans: normalized.spans
+    ]
+    |> Enum.reduce(outcome, fn {relationship, children}, outcome ->
+      Ash.Changeset.manage_relationship(
+        outcome,
+        relationship,
+        Enum.map(children, &Map.merge(scope, &1)),
+        type: :create,
+        on_no_match: {:create, :create_internal},
         authorize?: false,
-        transaction: :all,
-        stop_on_error?: true
+        bulk?: true
       )
-    end
+    end)
+    |> Ash.create!()
 
     Access.owner!(project, attempt, actor)
 
