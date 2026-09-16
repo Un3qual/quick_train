@@ -76,7 +76,6 @@ defmodule QuickTrain.Tasks.Responses.AnswerValidation do
     case answer.outcome do
       :skipped ->
         only_payload!(answer, [])
-        require!(is_nil(answer.reason) or String.trim(answer.reason) != "")
         put_in(result.attributes.skipped_at, DateTime.utc_now())
 
       :answered ->

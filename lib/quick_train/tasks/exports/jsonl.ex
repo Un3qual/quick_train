@@ -244,8 +244,7 @@ defmodule QuickTrain.Tasks.Exports.Jsonl do
   defp answers(resource, response),
     do: resource |> Ash.Query.filter(question_response_id == ^response.id) |> objects()
 
-  defp stream(query),
-    do: query |> Ash.Query.sort(id: :asc) |> Ash.stream!(batch_size: 100, authorize?: false)
+  defp stream(query), do: Ash.stream!(query, batch_size: 100, authorize?: false)
 
   defp objects(query), do: query |> stream() |> Stream.map(&object(fields(&1)))
 

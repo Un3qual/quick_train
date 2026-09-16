@@ -5,12 +5,16 @@ defmodule QuickTrain.Tasks.TaskResponsesTest do
   alias QuickTrain.Tasks.Responses.QuestionResponse
   alias QuickTrain.Tasks.Task
 
-  setup do
+  setup tags do
     context = ProjectsFixture.context!()
     source = ProjectsFixture.source!(context)
 
     project =
-      ProjectsFixture.active!(context, source, audience: :external_users, external_access: :open)
+      ProjectsFixture.active!(context, source,
+        audience: :external_users,
+        external_access: :open,
+        reason_required: Map.get(tags, :reason_required, true)
+      )
 
     worker = Accounts.register_user!("respondent@example.test", "Respondent")
 
@@ -79,6 +83,27 @@ defmodule QuickTrain.Tasks.TaskResponsesTest do
       )
 
     assert {task.submitted_count, task.live_count, task.state} == {1, 0, :satisfied}
+  end
+
+  @tag reason_required: false
+  test "optional skip reasons preserve omitted, empty, and whitespace values", ctx do
+    for {reason, revision} <- Enum.with_index([nil, "", " \t"]) do
+      save!(ctx, revision, %{outcome: :skipped, family: :integer, reason: reason})
+      assert Ash.read_one!(QuestionResponse, authorize?: false).reason == reason
+    end
+
+    assert submit!(ctx).state == :submitted
+    assert Ash.read_one!(QuestionResponse, authorize?: false).reason == " \t"
+  end
+
+  test "required skip reasons reject omitted, empty, and whitespace values", ctx do
+    for reason <- [nil, "", " \t"] do
+      assert_raise Ash.Error.Invalid, ~r/skip_reason_required/, fn ->
+        save!(ctx, 0, %{outcome: :skipped, family: :integer, reason: reason})
+      end
+    end
+
+    refute Ash.exists?(QuestionResponse, authorize?: false)
   end
 
   test "incomplete draft stays editable after a rejected submission", ctx do

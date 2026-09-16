@@ -253,6 +253,18 @@ defmodule QuickTrain.Tasks.ResultExportTest do
     definitions =
       Map.new(header["questions"], &{&1["id"], &1})
 
+    choice_options = definitions[scope.source.choice.id]["options"]
+    assert Enum.map(choice_options, & &1["position"]) == [0, 1]
+
+    assert Enum.map(choice_options, & &1["id"]) ==
+             Enum.sort(Enum.map(choice_options, & &1["id"]), :desc)
+
+    positions = Enum.map(header["presentation"], & &1["position"])
+    assert positions == Enum.sort(positions)
+
+    [ranking] = Enum.filter(rows, &(&1["question_id"] == scope.source.ranking.id))
+    assert Enum.map(ranking["input_answers"], & &1["position"]) == [0, 1]
+
     options = Map.new(definitions[scope.source.choice.id]["options"], &{&1["id"], &1})
     [choice] = Enum.filter(rows, &(&1["question_id"] == scope.source.choice.id))
     [answer] = choice["static_options"]
@@ -1063,12 +1075,23 @@ defmodule QuickTrain.Tasks.ResultExportTest do
       %{question_id: choice.id, minimum: 1, maximum: 1}
     )
 
-    FormsFixture.add!(QuestionOption, context, form.version, %{
-      question_id: choice.id,
-      key: "second",
-      label: "Second",
-      position: 1
-    })
+    second_option =
+      FormsFixture.add!(QuestionOption, context, form.version, %{
+        question_id: choice.id,
+        key: "second",
+        label: "Second",
+        position: 1
+      })
+
+    Forms.reorder_form_question_option!(
+      context.org.id,
+      %{
+        version_id: form.version.id,
+        question_id: choice.id,
+        ids: Enum.sort([option.id, second_option.id], :desc)
+      },
+      actor: context.actor
+    )
 
     ranking =
       FormsFixture.add!(QuestionDefinition, context, form.version, %{

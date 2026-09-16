@@ -83,13 +83,8 @@ defmodule QuickTrain.Tasks.Access.ReadActions do
 
     deadline =
       if args[:attempt_id] do
-        attempt =
-          Tasks.get_attempt_internal!(args.attempt_id, project.id, project.organization_id,
-            query: [filter: [task_id: input.task_id]],
-            authorize?: false
-          )
-          |> Access.found!()
-
+        {_task, attempt} = Access.lock_attempt!(project, args.attempt_id)
+        if attempt.task_id != input.task_id, do: Error.reject!(:forbidden)
         Access.owner!(project, attempt, actor)
         attempt.deadline
       else

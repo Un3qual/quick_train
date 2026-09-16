@@ -20,7 +20,7 @@ Each Attempt SHALL own its draft revision and QuestionResponse outcomes directly
 - **THEN** the save either commits first while its attempt remains eligible and live, or observes terminalization after acquiring the required locks and fails without changing the draft
 
 ### Requirement: Missing answered and skipped are distinct
-Every question in the pinned published form SHALL have exactly one explicit answered or skipped outcome before submission. Questions outside that form SHALL be rejected. A skip SHALL be permitted only by the frozen project-wide skip setting, contain no answer value, and preserve a server timestamp plus a nonblank reason when required. Optional explanations SHALL remain supported. An all-skipped submission SHALL be valid when skipping is enabled and SHALL count once toward the task's submission target. Skips SHALL remain immutable queryable evidence and SHALL not become accepted answers.
+Every question in the pinned published form SHALL have exactly one explicit answered or skipped outcome before submission. Questions outside that form SHALL be rejected. A skip SHALL be permitted only by the frozen project-wide skip setting, contain no answer value, and preserve a server timestamp plus a nonblank reason when required. When `reason_required` is false, omitted, empty, and whitespace-only skip reasons SHALL remain valid and preserve their supplied value. Optional explanations SHALL remain supported. An all-skipped submission SHALL be valid when skipping is enabled and SHALL count once toward the task's submission target. Skips SHALL remain immutable queryable evidence and SHALL not become accepted answers.
 
 #### Scenario: Absence is not a skip
 - **WHEN** a worker submits without an outcome for a published question

@@ -263,7 +263,7 @@ defmodule QuickTrain.Tasks.AnswerValidationTest do
     assert %DateTime{} = result.attributes.skipped_at
     assert result.option_ids == [] and result.inputs == [] and result.spans == []
 
-    for payload <- [%{text_value: ""}, %{option_ids: [base.label.id]}, %{reason: "  "}] do
+    for payload <- [%{text_value: ""}, %{option_ids: [base.label.id]}] do
       assert_raise Ash.Error.Invalid, fn ->
         validate!(scope, question, Map.put(payload, :outcome, :skipped), :draft)
       end

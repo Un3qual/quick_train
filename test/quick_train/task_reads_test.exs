@@ -591,6 +591,42 @@ defmodule QuickTrain.Tasks.TaskReadsTest do
     def sealed_read_access(_key, _expiry), do: {:error, "private provider details"}
   end
 
+  for operation <- [:bound_value, :source_download] do
+    @tag rich_source: true, committed_db: true, operation: operation
+    test "#{operation} waits for attempt release before checking worker access", ctx do
+      input =
+        TaskInput
+        |> Ash.Query.filter(task_id == ^ctx.attempt.task_id)
+        |> Ash.read_one!(authorize?: false)
+
+      args =
+        Map.merge(scope(ctx), %{task_input_id: input.id, requirement_id: ctx.source.download.id})
+
+      parent = self()
+
+      {:ok, reader} =
+        Ash.transact(Attempt, fn ->
+          QuickTrain.Tasks.release_attempt!(ctx.attempt, actor: ctx.worker)
+
+          reader =
+            Task.async(fn ->
+              Ecto.Adapters.SQL.Sandbox.unboxed_run(Repo, fn ->
+                %{rows: [[backend]]} = Repo.query!("SELECT pg_backend_pid()")
+                send(parent, {:reader_connection, backend})
+                action(TaskInput, ctx.operation, args, ctx.worker)
+              end)
+            end)
+
+          assert_receive {:reader_connection, backend}, 5_000
+          await_lock(backend, System.monotonic_time(:millisecond) + 5_000)
+          reader
+        end)
+
+      assert {:error, error} = Task.await(reader, 10_000)
+      assert Exception.message(error) =~ "attempt_terminal"
+    end
+  end
+
   @tag :rich_source
   test "source downloads sanitize provider failures", ctx do
     bundle =

@@ -101,3 +101,8 @@
 
 - [x] 19.1 Remove unused slot-policy/worker-access indexes, the unused binding relationship and decision-number aggregate, and the unconsumed initial-review status map; use Ash's ordered bulk results for form copying, regenerate the unreleased schema artifacts, and verify fresh migrations and focused behavior.
 - [ ] 19.2 Pass independent OpenSpec validation and the full verification gate. OpenSpec validation passes; the full gate stops at the dependency audit because the unchanged Ash 3.33.0 pin is flagged by EEF-CVE-2026-86338 (GHSA-7qr8-wrvq-566q).
+
+## 20. Address captured source-access and export feedback
+
+- [x] 20.1 Serialize worker source authorization with attempt terminalization, preserve resource-defined export ordering, and apply nonblank skip-reason checks only when the project requires a reason; reproduce each finding and keep the specifications synchronized.
+- [x] 20.2 Run focused tests, independent OpenSpec validation, and the repository gate, recording any remaining blocker before publishing the review fixes. All 56 focused tests, 362 full-suite tests, 15 OpenSpec items, and production compilation pass; the gate's earlier checks pass, but the unchanged Ash dependency advisory still blocks 19.2.
