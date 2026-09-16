@@ -66,13 +66,10 @@ defmodule QuickTrain.Tasks.Exports.ResultExport do
       run Module.concat(["QuickTrain.Tasks.Exports.Snapshot"])
     end
 
-    action :request_export, :struct do
-      constraints instance_of: __MODULE__
-      argument :organization_id, :uuid, allow_nil?: false
-      argument :project_id, :uuid, allow_nil?: false
-      argument :request_key, :uuid, allow_nil?: false
-      argument :mode, :atom, allow_nil?: false, constraints: [one_of: [:accepted, :audit]]
-      run Module.concat(["QuickTrain.Tasks.Exports.ResultExporting"])
+    create :request_export do
+      accept [:organization_id, :project_id, :request_key, :mode]
+      change relate_actor(:requester)
+      change Module.concat(["QuickTrain.Tasks.Exports.Changes.RequestExport"])
     end
 
     read :list_scoped do
@@ -116,23 +113,6 @@ defmodule QuickTrain.Tasks.Exports.ResultExport do
                  stable_sort: [id: :asc]
     end
 
-    create :create_internal do
-      accept [
-        :state,
-        :mode,
-        :request_key,
-        :snapshot_at,
-        :record_count,
-        :error_code,
-        :organization_id,
-        :project_id,
-        :form_version_id,
-        :requester_id,
-        :asset_id,
-        :pending_asset_id
-      ]
-    end
-
     update :update_internal do
       accept [
         :state,
@@ -150,7 +130,7 @@ defmodule QuickTrain.Tasks.Exports.ResultExport do
       authorize_if {OrganizationCapability, capability: "tasks.results.read"}
     end
 
-    policy action([:read, :create_internal, :update_internal]) do
+    policy action([:read, :update_internal]) do
       forbid_if always()
     end
   end

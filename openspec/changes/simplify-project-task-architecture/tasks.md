@@ -75,3 +75,9 @@
 
 - [x] 14.1 Audit Tasks and Projects custom actions, changes, preparations, validations, and policies; replace manual child creation with bulk Ash relationship management, use native term encoding for canonical task membership, declare work-bundle selection through a builtin preparation, and use domain introspection for relationship-source membership.
 - [x] 14.2 Verify unchanged authorization, batching, ordering, rollback, and response behavior; run independent OpenSpec validation and the full verification gate, then commit.
+
+## 15. Finish the custom callback audit
+
+- [x] 15.1 Reuse scoped domain getters and move static answer-family and outcome-field checks into builtin embedded-resource validations.
+- [x] 15.2 Make export requests native Ash creates with actor attribution, transactional enqueue, and unchanged scoped retry/conflict behavior; update GraphQL callers and specifications.
+- [x] 15.3 Verify answer validation, scoped reads, export retries and concurrency; run independent OpenSpec validation and the full verification gate, then commit.

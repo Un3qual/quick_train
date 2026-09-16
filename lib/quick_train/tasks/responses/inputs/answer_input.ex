@@ -42,6 +42,23 @@ defmodule QuickTrain.Tasks.Responses.Inputs.AnswerInput do
       public?: true
   end
 
+  validations do
+    validate one_of(:family, [
+               :text,
+               :integer,
+               :decimal,
+               :boolean,
+               :static_single_choice,
+               :static_multiple_choice,
+               :task_input_single_choice,
+               :task_input_multiple_choice,
+               :task_input_ranking,
+               :text_spans
+             ])
+
+    validate absent([:reason, :explanation]), where: [attribute_equals(:outcome, :answered)]
+  end
+
   graphql do
     type :task_answer_input
   end

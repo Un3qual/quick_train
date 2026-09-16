@@ -4,6 +4,7 @@ defmodule QuickTrain.Tasks.Access.ReadActions do
   alias QuickTrain.Assets.{AssetAccessResult, AssetSummary, Storage}
   alias QuickTrain.Datasets.{DatasetItemRevision, DatasetValue}
   alias QuickTrain.Projects.ProjectInputBinding
+  alias QuickTrain.Tasks
   alias QuickTrain.Tasks.{Access, Error, TaskInput}
   alias QuickTrain.Tasks.Access.BoundValue
   alias QuickTrain.Tasks.Attempts.{Attempt, Leases, Receipt}
@@ -27,9 +28,9 @@ defmodule QuickTrain.Tasks.Access.ReadActions do
     project = Access.project!(args.organization_id, args.project_id)
 
     attempt =
-      Attempt
-      |> Ash.Query.filter(id == ^args.attempt_id and project_id == ^project.id)
-      |> Ash.read_one!(authorize?: false)
+      Tasks.get_attempt_internal!(args.attempt_id, project.id, project.organization_id,
+        authorize?: false
+      )
       |> Access.found!()
 
     Access.owner!(project, attempt, actor, false)
@@ -83,11 +84,10 @@ defmodule QuickTrain.Tasks.Access.ReadActions do
     deadline =
       if args[:attempt_id] do
         attempt =
-          Attempt
-          |> Ash.Query.filter(
-            id == ^args.attempt_id and task_id == ^input.task_id and project_id == ^project.id
+          Tasks.get_attempt_internal!(args.attempt_id, project.id, project.organization_id,
+            query: [filter: [task_id: input.task_id]],
+            authorize?: false
           )
-          |> Ash.read_one!(authorize?: false)
           |> Access.found!()
 
         Access.owner!(project, attempt, actor)

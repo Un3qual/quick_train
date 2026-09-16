@@ -294,13 +294,14 @@ defmodule QuickTrainWeb.ProjectTaskCollectionTest do
     key = Ash.UUID.generate()
 
     mutation =
-      "mutation { requestResultExport(#{scope(ctx)}, requestKey: \"#{key}\", mode: \"audit\") { id state recordCount } }"
+      "mutation { requestResultExport(input: {#{scope(ctx)}, requestKey: \"#{key}\", mode: \"audit\"}) { result { id state recordCount } errors { message } } }"
 
     response = request(conn, mutation)
     refute response["errors"]
-    export = response["data"]["requestResultExport"]
+    assert response["data"]["requestResultExport"]["errors"] == []
+    export = response["data"]["requestResultExport"]["result"]
     assert export["state"] == "queued"
-    assert request(conn, mutation)["data"]["requestResultExport"]["id"] == export["id"]
+    assert request(conn, mutation)["data"]["requestResultExport"]["result"]["id"] == export["id"]
     assert QuickTrain.Tasks.process_result_export(export["id"], authorize?: false) == :ok
 
     status =
@@ -323,7 +324,9 @@ defmodule QuickTrainWeb.ProjectTaskCollectionTest do
     denied = bearer(ctx.conn, ctx.worker)
     assert request(denied, status)["errors"]
     assert request(denied, download)["errors"]
-    assert request(denied, mutation)["errors"]
+    denied_request = request(denied, mutation)["data"]["requestResultExport"]
+    assert denied_request["result"] == nil
+    assert denied_request["errors"] != []
   end
 
   defp scope(ctx),

@@ -187,6 +187,30 @@ defmodule QuickTrain.Tasks.CollectionConcurrencyTest do
     assert Ash.count!(Task, authorize?: false) == 1
   end
 
+  test "simultaneous export requests persist one export and enqueue one job", ctx do
+    key = Ash.UUID.generate()
+
+    request = fn ->
+      QuickTrain.Tasks.request_result_export(
+        ctx.context.org.id,
+        ctx.project.id,
+        key,
+        :audit,
+        actor: ctx.context.actor
+      )
+    end
+
+    assert [{:ok, first}, {:ok, second}] = concurrently([request, request])
+    assert first.id == second.id
+    assert first.requester_id == ctx.context.actor.id
+    assert Ash.count!(ResultExport, authorize?: false) == 1
+
+    assert [%Oban.Job{args: %{"id" => export_id}}] =
+             Oban.Testing.all_enqueued(Repo, worker: QuickTrain.Tasks.Workers.ExportResults)
+
+    assert export_id == first.id
+  end
+
   @tag submission_target: 2
   test "an existing task's last slot is reserved only once without creating another task",
        ctx do

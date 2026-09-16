@@ -37,6 +37,9 @@ defmodule QuickTrain.Tasks.AnswerInputTest do
   test "typed input rejects unsupported fields invalid UUID children and non-finite decimals" do
     for input <- [
           %{outcome: :answered, family: :text, arbitrary_payload: %{}},
+          %{outcome: :answered, family: :bounding_boxes},
+          %{outcome: :answered, family: :text, reason: "reason"},
+          %{outcome: :answered, family: :text, explanation: "explanation"},
           %{outcome: :answered, family: :integer, integer_value: 2_147_483_648},
           %{outcome: :answered, family: :decimal, decimal_value: "NaN"},
           %{outcome: :answered, family: :decimal, decimal_value: "Infinity"},
@@ -44,6 +47,23 @@ defmodule QuickTrain.Tasks.AnswerInputTest do
           %{outcome: :answered, family: :text_spans, spans: [%{task_input_id: "bad"}]}
         ] do
       assert {:error, _} = Ash.Type.cast_input(AnswerInput, input)
+    end
+  end
+
+  test "prebuilt answers still obey static family and outcome validations" do
+    project = %{id: "project", organization_id: "organization", form_version_id: "version"}
+    task = %{project_id: "project", organization_id: "organization", form_version_id: "version"}
+
+    for answer <- [
+          %AnswerInput{outcome: :answered, family: :bounding_boxes},
+          %AnswerInput{outcome: :answered, family: :text, reason: "reason"},
+          %AnswerInput{outcome: :answered, family: :text, explanation: "explanation"}
+        ] do
+      question = %{version_id: "version", family: answer.family}
+
+      assert_raise Ash.Error.Invalid, fn ->
+        AnswerValidation.validate!(project, task, question, answer, :draft)
+      end
     end
   end
 end

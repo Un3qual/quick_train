@@ -180,13 +180,7 @@ defmodule QuickTrain.Tasks do
       action ReviewDecision, :review_task_questions, :review_batch,
         args: [:organization_id, :project_id, :decisions]
 
-      action ResultExport, :request_result_export, :request_export,
-        args: [
-          :organization_id,
-          :project_id,
-          :request_key,
-          :mode
-        ]
+      create ResultExport, :request_result_export, :request_export
     end
   end
 end

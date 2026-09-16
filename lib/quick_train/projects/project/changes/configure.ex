@@ -1,10 +1,8 @@
 defmodule QuickTrain.Projects.Project.Changes.Configure do
   @moduledoc false
   use Ash.Resource.Change
-  alias QuickTrain.Datasets.DatasetSchemaVersion
-  alias QuickTrain.Forms.FormVersion
+  alias QuickTrain.{Datasets, Forms}
   alias QuickTrain.Projects.{Error, Management}
-  require Ash.Query
 
   @impl true
   def change(changeset, _opts, context),
@@ -31,12 +29,11 @@ defmodule QuickTrain.Projects.Project.Changes.Configure do
     schema_id = Ash.Changeset.get_attribute(changeset, :schema_version_id)
 
     schema =
-      DatasetSchemaVersion
-      |> Ash.Query.filter(
-        id == ^schema_id and dataset_id == ^dataset_id and
-          dataset.organization_id == ^organization_id and state == :published
+      Datasets.get_schema_version!(organization_id, schema_id,
+        query: [filter: [dataset_id: dataset_id, state: :published]],
+        not_found_error?: false,
+        authorize?: false
       )
-      |> Ash.read_one!(authorize?: false)
 
     if is_nil(schema), do: Error.reject!(:invalid_project_configuration)
 
@@ -52,11 +49,11 @@ defmodule QuickTrain.Projects.Project.Changes.Configure do
     Management.authorize!(actor, organization_id, "forms.read")
 
     version =
-      FormVersion
-      |> Ash.Query.filter(
-        id == ^version_id and form.organization_id == ^organization_id and state == :published
+      Forms.get_form_version!(organization_id, version_id,
+        query: [filter: [state: :published]],
+        not_found_error?: false,
+        authorize?: false
       )
-      |> Ash.read_one!(authorize?: false)
 
     if is_nil(version), do: Error.reject!(:invalid_project_configuration)
     Ash.Changeset.force_change_attribute(changeset, :form_id, version.form_id)

@@ -64,18 +64,6 @@ defmodule QuickTrain.Tasks.Responses.AnswerValidation do
     answer = cast_answer!(input)
     require!(answer.family == question.family)
 
-    require!(
-      answer.family in (Map.keys(@scalar_types) ++
-                          [
-                            :static_single_choice,
-                            :static_multiple_choice,
-                            :task_input_single_choice,
-                            :task_input_multiple_choice,
-                            :task_input_ranking,
-                            :text_spans
-                          ])
-    )
-
     optional_text!(answer.reason)
     optional_text!(answer.explanation)
 
@@ -92,8 +80,6 @@ defmodule QuickTrain.Tasks.Responses.AnswerValidation do
         put_in(result.attributes.skipped_at, DateTime.utc_now())
 
       :answered ->
-        require!(is_nil(answer.reason) and is_nil(answer.explanation))
-
         question =
           Ash.load!(question, question_load(question.family), authorize?: false, lazy?: true)
 
@@ -328,6 +314,11 @@ defmodule QuickTrain.Tasks.Responses.AnswerValidation do
 
   defp require!(true), do: :ok
   defp require!(_invalid), do: Error.reject!(:invalid_answer)
+
+  defp cast_answer!(%AnswerInput{} = input) do
+    fields = AnswerInput |> Ash.Resource.Info.attribute_names() |> Enum.to_list()
+    input |> Map.take(fields) |> cast_answer!()
+  end
 
   defp cast_answer!(input) do
     case Ash.Type.cast_input(AnswerInput, input) do

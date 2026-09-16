@@ -414,7 +414,7 @@ defmodule QuickTrainWeb.GraphqlApiTest do
           ~w(expectedPredecessorId organizationId projectId questionResponseId reason requestKey verdict)
         ),
       "reviewTaskQuestions" => MapSet.new(~w(decisions organizationId projectId)),
-      "requestResultExport" => MapSet.new(~w(mode organizationId projectId requestKey))
+      "requestResultExport" => MapSet.new(~w(input))
     })
   end
 

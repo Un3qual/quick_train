@@ -1,5 +1,4 @@
 defmodule QuickTrain.Tasks.Exports.ResultExporting do
-  alias QuickTrain.Accounts.User
   alias QuickTrain.Assets
   alias QuickTrain.Assets.Asset
   alias QuickTrain.Assets.AssetAccessResult
@@ -8,55 +7,12 @@ defmodule QuickTrain.Tasks.Exports.ResultExporting do
   alias QuickTrain.Tasks
   alias QuickTrain.Tasks.{Access, Error}
   alias QuickTrain.Tasks.Exports.{Jsonl, ResultExport}
-  alias QuickTrain.Tasks.Workers.ExportResults
   @moduledoc false
   use Ash.Resource.Actions.Implementation
-  require Ash.Query
 
   @impl true
   def run(%{action: %{name: :process}, arguments: %{id: id}}, _opts, _context),
     do: process(id) |> DatasetAssetError.wrap()
-
-  def run(%{action: %{name: :request_export}} = input, _opts, context) do
-    args = input.arguments
-
-    Ash.transact(ResultExport, fn ->
-      project = Access.project!(args.organization_id, args.project_id)
-      Access.manager!(project, context.actor, "tasks.results.read")
-      # A requester row serializes request-key retries before the unique insert;
-      # enqueue and export identity commit together.
-      User
-      |> Ash.Query.filter(id == ^context.actor.id)
-      |> Ash.Query.lock(:for_update)
-      |> Ash.read_one!(authorize?: false)
-
-      existing =
-        ResultExport
-        |> Ash.Query.filter(
-          project_id == ^project.id and requester_id == ^context.actor.id and
-            request_key == ^args.request_key
-        )
-        |> Ash.read_one!(authorize?: false)
-
-      if existing do
-        same_request!(existing, args)
-      else
-        require_activated!(project)
-
-        attrs =
-          Map.merge(args, %{
-            requester_id: context.actor.id,
-            form_version_id: project.form_version_id
-          })
-
-        export = Ash.create!(ResultExport, attrs, action: :create_internal, authorize?: false)
-        %{id: export.id} |> ExportResults.new() |> Oban.insert!()
-        export
-      end
-    end)
-  rescue
-    error in Ash.Error.Invalid -> {:error, error}
-  end
 
   def run(%{action: %{name: :download_export}} = input, _opts, context) do
     args = input.arguments
@@ -67,12 +23,10 @@ defmodule QuickTrain.Tasks.Exports.ResultExporting do
              Access.manager!(project, context.actor, "tasks.results.read")
 
              export =
-               ResultExport
-               |> Ash.Query.filter(
-                 id == ^args.export_id and project_id == ^project.id and
-                   organization_id == ^project.organization_id
+               Tasks.get_result_export!(project.organization_id, project.id, args.export_id,
+                 not_found_error?: false,
+                 authorize?: false
                )
-               |> Ash.read_one!(authorize?: false)
                |> Access.found!()
 
              ready_asset!(export)
@@ -85,18 +39,6 @@ defmodule QuickTrain.Tasks.Exports.ResultExporting do
     end
   rescue
     error in Ash.Error.Invalid -> {:error, error}
-  end
-
-  defp require_activated!(%{state: state})
-       when state in [:active, :paused, :completed, :archived], do: :ok
-
-  defp require_activated!(_project), do: Error.reject!(:project_not_activated)
-
-  defp same_request!(existing, args) do
-    unless existing.mode == args.mode,
-      do: Error.reject!(:export_request_conflict)
-
-    existing
   end
 
   defp ready_asset!(%{state: :ready, asset_id: id, organization_id: organization_id}),

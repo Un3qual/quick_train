@@ -1,7 +1,7 @@
 defmodule QuickTrain.Tasks.Responses.Changes.SaveQuestion do
   @moduledoc false
   use Ash.Resource.Change
-  alias QuickTrain.Forms.Questions.QuestionDefinition
+  alias QuickTrain.Forms
   alias QuickTrain.Tasks.Attempts.Leases
 
   alias QuickTrain.Tasks.{Access, Error}
@@ -23,9 +23,11 @@ defmodule QuickTrain.Tasks.Responses.Changes.SaveQuestion do
     if attempt.revision != args.expected_revision, do: Error.reject!(:stale_response)
 
     question =
-      QuestionDefinition
-      |> Ash.Query.filter(id == ^args.question_id and version_id == ^project.form_version_id)
-      |> Ash.read_one!(authorize?: false)
+      Forms.get_form_question_definition!(project.organization_id, args.question_id,
+        query: [filter: [version_id: project.form_version_id]],
+        not_found_error?: false,
+        authorize?: false
+      )
 
     unless question, do: Error.reject!(:question_not_offered)
     normalized = AnswerValidation.validate!(project, task, question, args.answer, :draft)

@@ -1122,9 +1122,7 @@ defmodule QuickTrain.Tasks.ResultExportTest do
   end
 
   defp request(scope, attrs \\ %{}) do
-    ResultExport
-    |> Ash.ActionInput.for_action(
-      :request_export,
+    args =
       Map.merge(
         %{
           organization_id: scope.context.org.id,
@@ -1133,10 +1131,15 @@ defmodule QuickTrain.Tasks.ResultExportTest do
           mode: :accepted
         },
         attrs
-      ),
+      )
+
+    Tasks.request_result_export(
+      args.organization_id,
+      args.project_id,
+      args.request_key,
+      args.mode,
       actor: scope.context.actor
     )
-    |> Ash.run_action()
   end
 
   defp download(scope, id) do
