@@ -14,7 +14,6 @@ defmodule QuickTrain.Projects.ProjectInputBinding do
   alias QuickTrain.Forms.Inputs.InputFieldRequirement
   alias QuickTrain.Projects.Project
   alias QuickTrain.Repo
-  alias QuickTrain.Tasks.TaskInput
 
   attributes do
     uuid_primary_key :id
@@ -23,10 +22,6 @@ defmodule QuickTrain.Projects.ProjectInputBinding do
   end
 
   relationships do
-    has_many :issued_inputs, TaskInput,
-      source_attribute: :project_id,
-      destination_attribute: :project_id
-
     belongs_to :project, Project, allow_nil?: false, attribute_public?: true
 
     belongs_to :schema_version, DatasetSchemaVersion,

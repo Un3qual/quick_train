@@ -23,23 +23,15 @@ defmodule QuickTrain.Tasks.Reviews.QuestionReview do
 
   # Submission holds the owner locks and commits these decisions with its evidence.
   def initial_decisions!(project, outcomes) do
-    statuses = Map.new(outcomes, &{&1.id, initial_status(project, &1)})
-
     outcomes
-    |> Enum.filter(&(Map.fetch!(statuses, &1.id) == :accepted))
+    |> Enum.filter(&(project.review_mode == :automatic and &1.outcome == :answered))
     |> Enum.map(&decision_attributes(&1, %{origin: :system, verdict: :accept, number: 1}))
     |> Ash.bulk_create!(ReviewDecision, :create_internal,
       authorize?: false,
       transaction: :all,
       stop_on_error?: true
     )
-
-    statuses
   end
-
-  defp initial_status(_project, %{outcome: :skipped}), do: :skipped
-  defp initial_status(%{review_mode: :manual}, %{outcome: :answered}), do: :pending
-  defp initial_status(%{review_mode: :automatic}, %{outcome: :answered}), do: :accepted
 
   defp decide_all!(project, requests, actor) do
     ids = Enum.map(requests, & &1.question_response_id)

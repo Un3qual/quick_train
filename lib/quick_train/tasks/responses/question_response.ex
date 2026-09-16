@@ -110,10 +110,6 @@ defmodule QuickTrain.Tasks.Responses.QuestionResponse do
       sort number: :desc
       public? true
     end
-
-    first :effective_decision_number, :review_decisions, :number do
-      sort number: :desc
-    end
   end
 
   actions do

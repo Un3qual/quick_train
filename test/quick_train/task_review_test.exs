@@ -257,13 +257,11 @@ defmodule QuickTrain.Tasks.TaskReviewTest do
     skipped = outcome!(ctx, outcome: :skipped)
     automatic = %{ctx.project | review_mode: :automatic}
 
-    assert QuestionReview.initial_decisions!(ctx.project, [answered, skipped]) ==
-             %{answered.id => :pending, skipped.id => :skipped}
+    QuestionReview.initial_decisions!(ctx.project, [answered, skipped])
 
     assert Ash.count!(ReviewDecision, authorize?: false) == 0
 
-    assert QuestionReview.initial_decisions!(automatic, [answered, skipped]) ==
-             %{answered.id => :accepted, skipped.id => :skipped}
+    QuestionReview.initial_decisions!(automatic, [answered, skipped])
 
     [decision] = Ash.read!(ReviewDecision, authorize?: false, page: false)
     assert decision.origin == :system

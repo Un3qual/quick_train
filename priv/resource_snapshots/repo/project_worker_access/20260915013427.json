@@ -127,39 +127,10 @@
     }
   ],
   "create_table_options": null,
-  "custom_indexes": [
-    {
-      "all_tenants?": false,
-      "concurrently": false,
-      "error_fields": [
-        "id",
-        "project_id"
-      ],
-      "fields": [
-        {
-          "type": "atom",
-          "value": "id"
-        },
-        {
-          "type": "atom",
-          "value": "project_id"
-        }
-      ],
-      "include": null,
-      "include_base_filter?": true,
-      "message": null,
-      "name": null,
-      "nulls_distinct": true,
-      "prefix": null,
-      "table": null,
-      "unique": true,
-      "using": null,
-      "where": null
-    }
-  ],
+  "custom_indexes": [],
   "custom_statements": [],
   "has_create_action": true,
-  "hash": "988B2FC9720D7EE8ECF8B5FB09A6E1E8075CB6DDFDDC4516285CBF0183B1A230",
+  "hash": "04EA6AF35BC125E7080398B5F3CBC4BC08A1FEBB3FBE9D7CF61780381ED05A5A",
   "identities": [
     {
       "all_tenants?": false,

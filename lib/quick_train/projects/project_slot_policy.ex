@@ -137,10 +137,6 @@ defmodule QuickTrain.Projects.ProjectSlotPolicy do
       reference :input_slot, on_delete: :restrict, match_with: [form_version_id: :version_id]
     end
 
-    custom_indexes do
-      index [:id, :project_id], unique: true
-    end
-
     check_constraints do
       check_constraint :item_count, "project_slot_policies_item_count_check",
         check: "item_count BETWEEN 1 AND 2147483647"

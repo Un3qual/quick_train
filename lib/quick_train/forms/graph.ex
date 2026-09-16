@@ -327,15 +327,11 @@ defmodule QuickTrain.Forms.Graph do
             authorize?: false,
             transaction: :all,
             stop_on_error?: true,
-            return_records?: true
+            return_records?: true,
+            sorted?: true
           )
 
-        originals = List.to_tuple(originals)
-
-        Enum.reduce(result.records, ids, fn copied, ids ->
-          original = elem(originals, Ash.Resource.get_metadata(copied, :bulk_create_index))
-          Map.put(ids, original.id, copied.id)
-        end)
+        Map.merge(ids, Map.new(Enum.zip_with(originals, result.records, &{&1.id, &2.id})))
       end)
 
     validate!(destination, :draft)

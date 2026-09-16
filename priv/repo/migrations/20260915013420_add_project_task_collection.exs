@@ -322,8 +322,6 @@ defmodule QuickTrain.Repo.Migrations.AddProjectTaskCollection do
              name: "project_worker_access_project_user_index"
            )
 
-    create index(:project_worker_access, [:id, :project_id], unique: true)
-
     create table(:export_selections, primary_key: false) do
       add :id, :uuid, null: false, default: fragment("gen_random_uuid()"), primary_key: true
       add :export_id, :uuid, null: false
@@ -1588,8 +1586,6 @@ defmodule QuickTrain.Repo.Migrations.AddProjectTaskCollection do
              """
            )
 
-    create index(:project_slot_policies, [:id, :project_id], unique: true)
-
     create index(:form_labels, [:id, :version_id], unique: true)
 
     alter table(:text_spans) do
@@ -1637,8 +1633,6 @@ defmodule QuickTrain.Repo.Migrations.AddProjectTaskCollection do
     end
 
     drop_if_exists index(:form_labels, [:id, :version_id])
-
-    drop_if_exists index(:project_slot_policies, [:id, :project_id])
 
     drop_if_exists constraint(:project_slot_policies, :project_slot_policies_item_count_check)
 
@@ -2180,8 +2174,6 @@ defmodule QuickTrain.Repo.Migrations.AddProjectTaskCollection do
                    )
 
     drop table(:export_selections)
-
-    drop_if_exists index(:project_worker_access, [:id, :project_id])
 
     drop_if_exists unique_index(:project_worker_access, [:project_id, :user_id],
                      name: "project_worker_access_project_user_index"

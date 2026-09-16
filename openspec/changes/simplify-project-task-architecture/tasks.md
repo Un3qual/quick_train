@@ -96,3 +96,8 @@
 ## 18. Address the local CodeRabbit follow-up
 
 - [x] 18.1 Fix zero-item fixture generation, clarify audit snapshots without review decisions across active specifications, verify the fixture behavior, and run independent OpenSpec validation and the full verification gate.
+
+## 19. Remove remaining review overhead
+
+- [x] 19.1 Remove unused slot-policy/worker-access indexes, the unused binding relationship and decision-number aggregate, and the unconsumed initial-review status map; use Ash's ordered bulk results for form copying, regenerate the unreleased schema artifacts, and verify fresh migrations and focused behavior.
+- [ ] 19.2 Pass independent OpenSpec validation and the full verification gate. OpenSpec validation passes; the full gate stops at the dependency audit because the unchanged Ash 3.33.0 pin is flagged by EEF-CVE-2026-86338 (GHSA-7qr8-wrvq-566q).

@@ -127,10 +127,6 @@ defmodule QuickTrain.Projects.ProjectWorkerAccess do
       reference :user, on_delete: :restrict
     end
 
-    custom_indexes do
-      index [:id, :project_id], unique: true
-    end
-
     check_constraints do
       check_constraint :disposition, "project_worker_access_disposition_check",
         check: "disposition IN ('allow', 'block')"
