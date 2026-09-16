@@ -3,20 +3,21 @@
 defmodule QuickTrain.Forms.Labels.Label do
   @moduledoc "Organization-scoped label definition."
   use Ash.Resource,
+    primary_read_warning?: false,
     otp_app: :quick_train,
     domain: QuickTrain.Forms,
     extensions: [AshGraphql.Resource],
     data_layer: AshPostgres.DataLayer,
     authorizers: [Ash.Policy.Authorizer]
 
-  alias QuickTrain.Authorization.Checks.OrganizationCapability
+  alias QuickTrain.Authorization.Checks.{CollectionContext, OrganizationCapability}
   alias QuickTrain.Forms.Changes.DraftWrite
   alias QuickTrain.Forms.FormVersion
   alias QuickTrain.Forms.Labels.LabelSet
   alias QuickTrain.Repo
 
   attributes do
-    uuid_primary_key :id, writable?: true
+    uuid_primary_key :id
 
     attribute :key, :string,
       public?: true,
@@ -64,6 +65,8 @@ defmodule QuickTrain.Forms.Labels.Label do
     read :read do
       primary? true
 
+      prepare build(sort: [position: :asc, id: :asc])
+
       pagination keyset?: true,
                  required?: false,
                  default_limit: 50,
@@ -74,6 +77,8 @@ defmodule QuickTrain.Forms.Labels.Label do
     read :list_scoped do
       argument :organization_id, :uuid, allow_nil?: false
       filter expr(version.form.organization_id == ^arg(:organization_id))
+
+      prepare build(sort: [position: :asc, id: :asc])
 
       pagination keyset?: true,
                  required?: true,
@@ -123,7 +128,7 @@ defmodule QuickTrain.Forms.Labels.Label do
     end
 
     create :create_internal do
-      accept [:id, :key, :text, :position, :label_set_id, :version_id]
+      accept [:key, :text, :position, :label_set_id, :version_id]
     end
 
     update :update_internal do
@@ -143,11 +148,13 @@ defmodule QuickTrain.Forms.Labels.Label do
     end
 
     policy action(:read) do
+      authorize_if CollectionContext
       forbid_unless actor_attribute_equals(:status, "active")
       authorize_if relates_to_actor_via([:version, :form, :reader_role_assignments, :user])
     end
 
     policy action(:read) do
+      authorize_if CollectionContext
       authorize_if accessing_from(Module.concat(["QuickTrain.Forms.Labels.LabelSet"]), :labels)
     end
 
@@ -172,6 +179,10 @@ defmodule QuickTrain.Forms.Labels.Label do
   end
 
   postgres do
+    custom_indexes do
+      index [:id, :version_id], unique: true
+    end
+
     table "form_labels"
     repo Repo
 

@@ -189,6 +189,13 @@ defmodule QuickTrain.Datasets.DatasetFieldDefinition do
 
   policies do
     policy action(:read) do
+      authorize_if Module.concat(["QuickTrain.Authorization.Checks.CollectionContext"])
+      authorize_if Module.concat(["QuickTrain.Authorization.Checks.SourceRead"])
+    end
+
+    policy action(:read) do
+      authorize_if Module.concat(["QuickTrain.Authorization.Checks.CollectionContext"])
+
       authorize_if accessing_from(
                      Module.concat(["QuickTrain.Datasets.DatasetRecordType"]),
                      :field_definitions

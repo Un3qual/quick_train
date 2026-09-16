@@ -1,13 +1,14 @@
 defmodule QuickTrain.Forms.Questions.Constraints.AnnotationConstraints do
   @moduledoc "Organization-scoped annotation constraints definition."
   use Ash.Resource,
+    primary_read_warning?: false,
     otp_app: :quick_train,
     domain: QuickTrain.Forms,
     extensions: [AshGraphql.Resource],
     data_layer: AshPostgres.DataLayer,
     authorizers: [Ash.Policy.Authorizer]
 
-  alias QuickTrain.Authorization.Checks.OrganizationCapability
+  alias QuickTrain.Authorization.Checks.{CollectionContext, OrganizationCapability}
   alias QuickTrain.Forms.Changes.DraftWrite
   alias QuickTrain.Forms.FormVersion
   alias QuickTrain.Forms.Inputs.InputFieldRequirement
@@ -16,7 +17,7 @@ defmodule QuickTrain.Forms.Questions.Constraints.AnnotationConstraints do
   alias QuickTrain.Repo
 
   attributes do
-    uuid_primary_key :id, writable?: true
+    uuid_primary_key :id
 
     attribute :minimum, :integer,
       public?: true,
@@ -75,6 +76,8 @@ defmodule QuickTrain.Forms.Questions.Constraints.AnnotationConstraints do
     read :read do
       primary? true
 
+      prepare build(sort: [inserted_at: :asc, id: :asc])
+
       pagination keyset?: true,
                  required?: false,
                  default_limit: 50,
@@ -115,7 +118,6 @@ defmodule QuickTrain.Forms.Questions.Constraints.AnnotationConstraints do
 
     create :create_internal do
       accept [
-        :id,
         :minimum,
         :maximum,
         :question_id,
@@ -138,11 +140,14 @@ defmodule QuickTrain.Forms.Questions.Constraints.AnnotationConstraints do
     end
 
     policy action(:read) do
+      authorize_if CollectionContext
       forbid_unless actor_attribute_equals(:status, "active")
       authorize_if relates_to_actor_via([:version, :form, :reader_role_assignments, :user])
     end
 
     policy action(:read) do
+      authorize_if CollectionContext
+
       authorize_if accessing_from(
                      Module.concat(["QuickTrain.Forms.Questions.QuestionDefinition"]),
                      :annotation_constraints

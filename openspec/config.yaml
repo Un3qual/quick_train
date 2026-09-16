@@ -3,7 +3,8 @@ schema: spec-driven
 context: |
   QuickTrain is a backend-only Elixir and Phoenix template built with Ash and AshPostgres.
   It provides reusable account, organization, authorization, enterprise identity, and
-  GraphQL foundations while deliberately omitting product domains and a frontend.
+  GraphQL foundations, normalized datasets/assets, versioned forms, and project/task
+  collection. It deliberately omits a frontend and finance/reputation domains.
 
   Use the repository toolchain through mise. Keep Erlang, Elixir, Node.js, OpenSpec,
   and backend dependencies on stable GA releases with exact pins where the repository
@@ -11,9 +12,9 @@ context: |
   changes require it.
 
   Preserve one global User resource. Organization membership is relational and optional,
-  every session requires an active account, and organization-scoped access requires an
-  active membership. Authorization must remain fail-closed and explicitly scoped to an
-  organization.
+  every session requires an active account. Organization management requires an active
+  membership; task workers may also qualify through a project's explicit external audience
+  route. Authorization must remain fail-closed and explicitly scoped to an organization.
 
   Prefer Ash resources, actions, changes, validations, policies, relationships, and
   generators over direct Ecto implementation. GraphQL is the only application API;

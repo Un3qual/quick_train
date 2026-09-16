@@ -14,29 +14,26 @@ defmodule QuickTrain.DataCase do
   end
 
   setup tags do
-    cond do
-      tags[:committed_db] ->
-        if tags[:async], do: raise("committed database tests must run synchronously")
-        :ok = Sandbox.checkout(QuickTrain.Repo, sandbox: false)
+    setup_sandbox(tags)
+  end
 
-        on_exit(fn ->
-          Sandbox.unboxed_run(QuickTrain.Repo, fn ->
-            # These synchronous tests own the dedicated test database between cases.
-            QuickTrain.Repo.query!(
-              "TRUNCATE users, organizations, capabilities, oban_jobs CASCADE"
-            )
-          end)
-        end)
+  def setup_sandbox(%{committed_db: true} = tags) do
+    if tags[:async], do: raise("committed database tests must run synchronously")
+    :ok = Sandbox.checkout(QuickTrain.Repo, sandbox: false)
 
-      tags[:unboxed_db] ->
-        :ok
+    on_exit(fn ->
+      Sandbox.unboxed_run(QuickTrain.Repo, fn ->
+        # These synchronous tests own the dedicated test database between cases.
+        QuickTrain.Repo.query!("TRUNCATE users, organizations, capabilities, oban_jobs CASCADE")
+      end)
+    end)
+  end
 
-      true ->
-        owner = Sandbox.start_owner!(QuickTrain.Repo, shared: not tags[:async])
-        on_exit(fn -> Sandbox.stop_owner(owner) end)
-    end
+  def setup_sandbox(%{unboxed_db: true}), do: :ok
 
-    :ok
+  def setup_sandbox(tags) do
+    owner = Sandbox.start_owner!(QuickTrain.Repo, shared: not tags[:async])
+    on_exit(fn -> Sandbox.stop_owner(owner) end)
   end
 
   def organization_manager_fixture(user_id, slug, name) do

@@ -1,0 +1,186 @@
+defmodule QuickTrain.Tasks do
+  @moduledoc "Scoped collection work, immutable outcomes, review, and result exports."
+  use Ash.Domain, otp_app: :quick_train, extensions: [AshGraphql.Domain]
+
+  alias QuickTrain.Tasks.Attempts.{Attempt, AttemptInputPresentation}
+  alias QuickTrain.Tasks.Exports.{ExportSelection, ResultExport}
+
+  alias QuickTrain.Tasks.Responses.{
+    QuestionResponse,
+    StaticOptionAnswer,
+    TaskInputAnswer,
+    TextSpan
+  }
+
+  alias QuickTrain.Tasks.Reviews.ReviewDecision
+  alias QuickTrain.Tasks.{Task, TaskInput}
+
+  resources do
+    resource Task do
+      define :create_task, action: :create, args: [:organization_id, :project_id]
+      define :remove_task, action: :remove, args: [:organization_id]
+
+      define :get_task_internal,
+        action: :read,
+        get_by: [:id, :project_id, :organization_id],
+        not_found_error?: false
+
+      define :list_tasks, action: :list_scoped, args: [:organization_id, :project_id]
+      define :get_task, action: :get_scoped, args: [:organization_id, :project_id, :id]
+    end
+
+    resource TaskInput do
+      define :bound_value, action: :bound_value, args: [:organization_id, :project_id]
+      define :source_download, action: :source_download, args: [:organization_id, :project_id]
+    end
+
+    resource Attempt do
+      define :save_question, action: :save_question
+
+      define :submit_response, action: :submit
+
+      define :get_attempt_internal,
+        action: :read,
+        get_by: [:id, :project_id, :organization_id],
+        not_found_error?: false
+
+      define :start_attempt, action: :start
+      define :release_attempt, action: :release
+      define :cancel_attempt, action: :cancel
+      define :expire_attempt, action: :expire
+      define :fetch_work, action: :fetch, args: [:organization_id, :project_id, :request_key]
+
+      define :assign_work,
+        action: :assign,
+        args: [:organization_id, :project_id, :worker_id, :request_key]
+
+      define :work_bundle,
+        action: :read_work_bundle,
+        args: [:organization_id, :project_id, :attempt_id]
+
+      define :attempt_receipt,
+        action: :receipt,
+        args: [:organization_id, :project_id, :attempt_id]
+    end
+
+    resource AttemptInputPresentation
+
+    resource QuestionResponse do
+      define :list_task_results, action: :list_scoped, args: [:organization_id, :project_id]
+      define :get_task_result, action: :get_scoped, args: [:organization_id, :project_id, :id]
+    end
+
+    resource StaticOptionAnswer
+    resource TaskInputAnswer
+    resource TextSpan
+
+    resource ReviewDecision do
+      define :decide_question, action: :decide, args: [:organization_id, :project_id]
+
+      define :review_questions,
+        action: :review_batch,
+        args: [:organization_id, :project_id, :decisions]
+    end
+
+    resource ResultExport do
+      define :get_result_export_internal, action: :read, get_by: [:id], not_found_error?: false
+      define :process_result_export, action: :process, args: [:id]
+      define :seal_export_snapshot, action: :seal_snapshot, args: [:id]
+
+      define :request_result_export,
+        action: :request_export,
+        args: [:organization_id, :project_id, :request_key, :mode]
+
+      define :list_result_exports, action: :list_scoped, args: [:organization_id, :project_id]
+
+      define :get_result_export,
+        action: :get_scoped,
+        args: [:organization_id, :project_id, :export_id]
+
+      define :result_export_download,
+        action: :download_export,
+        args: [:organization_id, :project_id, :export_id]
+    end
+
+    resource ExportSelection
+  end
+
+  graphql do
+    queries do
+      list Task, :tasks, :list_scoped, relay?: true, paginate_with: :keyset
+      read_one Task, :task, :get_scoped
+
+      list QuestionResponse, :task_results, :list_scoped,
+        relay?: true,
+        paginate_with: :keyset
+
+      read_one QuestionResponse, :task_result, :get_scoped
+
+      read_one Attempt, :work_bundle, :read_work_bundle
+
+      action Attempt, :attempt_receipt, :receipt
+
+      action TaskInput, :task_bound_value, :bound_value
+
+      action TaskInput, :task_source_download, :source_download
+
+      list ResultExport, :result_exports, :list_scoped,
+        relay?: true,
+        paginate_with: :keyset
+
+      read_one ResultExport, :result_export, :get_scoped
+
+      action ResultExport, :result_export_download, :download_export
+    end
+
+    mutations do
+      create Task, :create_project_task, :create
+
+      destroy Task, :remove_project_task, :remove,
+        read_action: :get_for_remove,
+        args: [:organization_id],
+        identity: false
+
+      action Attempt, :fetch_work, :fetch, args: [:organization_id, :project_id, :request_key]
+
+      action Attempt, :assign_work, :assign,
+        args: [:organization_id, :project_id, :worker_id, :request_key]
+
+      update Attempt, :start_attempt, :start,
+        read_action: :get_for_update,
+        identity: false
+
+      update Attempt, :release_attempt, :release,
+        read_action: :get_for_update,
+        identity: false
+
+      update Attempt, :cancel_attempt, :cancel,
+        read_action: :get_for_update,
+        identity: false
+
+      update Attempt, :save_task_question, :save_question,
+        read_action: :get_for_update,
+        identity: false
+
+      update Attempt, :submit_task_response, :submit,
+        read_action: :get_for_update,
+        identity: false
+
+      action ReviewDecision, :decide_task_question, :decide,
+        args: [
+          :organization_id,
+          :project_id,
+          :question_response_id,
+          :request_key,
+          :expected_predecessor_id,
+          :verdict,
+          :reason
+        ]
+
+      action ReviewDecision, :review_task_questions, :review_batch,
+        args: [:organization_id, :project_id, :decisions]
+
+      create ResultExport, :request_result_export, :request_export
+    end
+  end
+end

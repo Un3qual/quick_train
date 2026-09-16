@@ -101,8 +101,13 @@ defmodule QuickTrainWeb.GraphqlApiTest do
         {field["name"], MapSet.new(field["args"], & &1["name"])}
       end)
 
+    expected_queries =
+      form_queries()
+      |> Map.merge(project_queries())
+      |> Map.merge(task_queries())
+
     assert queries ==
-             Map.merge(form_queries(), %{
+             Map.merge(expected_queries, %{
                "apiVersion" => MapSet.new(),
                "asset" => MapSet.new(["assetId", "organizationId"]),
                "assetAccess" => MapSet.new(["assetId", "organizationId"]),
@@ -170,8 +175,13 @@ defmodule QuickTrainWeb.GraphqlApiTest do
         {field["name"], MapSet.new(field["args"], & &1["name"])}
       end)
 
+    expected_mutations =
+      form_mutations()
+      |> Map.merge(project_mutations())
+      |> Map.merge(task_mutations())
+
     assert mutations ==
-             Map.merge(form_mutations(), %{
+             Map.merge(expected_mutations, %{
                "addDatasetFieldDefinition" =>
                  MapSet.new([
                    "cardinality",
@@ -333,6 +343,80 @@ defmodule QuickTrainWeb.GraphqlApiTest do
 
   defp restore_env(key, nil), do: Application.delete_env(:quick_train, key)
   defp restore_env(key, value), do: Application.put_env(:quick_train, key, value)
+
+  defp project_queries do
+    collections =
+      Map.new(
+        ~w(projectInputBindings projectSlotPolicies projectWorkerAccessEntries),
+        &{&1, MapSet.new(~w(after before first last organizationId projectId))}
+      )
+
+    Map.merge(collections, %{
+      "projects" => MapSet.new(~w(after before first last organizationId)),
+      "project" => MapSet.new(~w(id organizationId))
+    })
+  end
+
+  defp task_queries do
+    %{
+      "tasks" => MapSet.new(~w(after before first last organizationId projectId)),
+      "task" => MapSet.new(~w(id organizationId projectId)),
+      "taskResults" =>
+        MapSet.new(~w(after before first last organizationId projectId acceptedOnly)),
+      "taskResult" => MapSet.new(~w(id organizationId projectId acceptedOnly)),
+      "workBundle" => MapSet.new(~w(attemptId organizationId projectId)),
+      "attemptReceipt" => MapSet.new(~w(attemptId organizationId projectId)),
+      "taskBoundValue" =>
+        MapSet.new(~w(attemptId organizationId projectId requirementId taskInputId)),
+      "taskSourceDownload" =>
+        MapSet.new(~w(attemptId organizationId projectId requirementId taskInputId)),
+      "resultExports" => MapSet.new(~w(after before first last organizationId projectId)),
+      "resultExport" => MapSet.new(~w(exportId organizationId projectId)),
+      "resultExportDownload" => MapSet.new(~w(exportId organizationId projectId))
+    }
+  end
+
+  defp project_mutations do
+    lifecycle =
+      Map.new(
+        ~w(activateProject pauseProject resumeProject completeProject archiveProject),
+        &{&1, MapSet.new(~w(id organizationId))}
+      )
+
+    Map.merge(lifecycle, %{
+      "createProject" => MapSet.new(~w(input)),
+      "updateProjectDraft" => MapSet.new(~w(id organizationId input)),
+      "updateProjectTitle" => MapSet.new(~w(id organizationId input)),
+      "setProjectInputBinding" => MapSet.new(~w(input)),
+      "removeProjectInputBinding" => MapSet.new(~w(organizationId projectId requirementId)),
+      "setProjectSlotPolicy" => MapSet.new(~w(input)),
+      "removeProjectSlotPolicy" => MapSet.new(~w(inputSlotId organizationId projectId)),
+      "setProjectWorkerAccess" => MapSet.new(~w(input)),
+      "removeProjectWorkerAccess" => MapSet.new(~w(organizationId projectId userId)),
+      "createProjectTask" => MapSet.new(~w(input)),
+      "removeProjectTask" => MapSet.new(~w(id organizationId projectId))
+    })
+  end
+
+  defp task_mutations do
+    attempt_actions =
+      Map.new(
+        ~w(startAttempt releaseAttempt cancelAttempt submitTaskResponse),
+        &{&1, MapSet.new(~w(attemptId organizationId projectId))}
+      )
+
+    Map.merge(attempt_actions, %{
+      "fetchWork" => MapSet.new(~w(organizationId projectId requestKey)),
+      "assignWork" => MapSet.new(~w(organizationId projectId requestKey workerId)),
+      "saveTaskQuestion" => MapSet.new(~w(attemptId organizationId projectId input)),
+      "decideTaskQuestion" =>
+        MapSet.new(
+          ~w(expectedPredecessorId organizationId projectId questionResponseId reason requestKey verdict)
+        ),
+      "reviewTaskQuestions" => MapSet.new(~w(decisions organizationId projectId)),
+      "requestResultExport" => MapSet.new(~w(input))
+    })
+  end
 
   defp form_queries do
     %{

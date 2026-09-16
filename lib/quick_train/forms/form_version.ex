@@ -1,13 +1,14 @@
 defmodule QuickTrain.Forms.FormVersion do
   @moduledoc "Organization-scoped form version definition."
   use Ash.Resource,
+    primary_read_warning?: false,
     otp_app: :quick_train,
     domain: QuickTrain.Forms,
     extensions: [AshGraphql.Resource],
     data_layer: AshPostgres.DataLayer,
     authorizers: [Ash.Policy.Authorizer]
 
-  alias QuickTrain.Authorization.Checks.OrganizationCapability
+  alias QuickTrain.Authorization.Checks.{CollectionContext, OrganizationCapability}
   alias QuickTrain.Forms.Changes.{AllocateVersion, DraftWrite}
   alias QuickTrain.Forms.Form
   alias QuickTrain.Forms.Inputs.{InputFieldRequirement, InputSlotDefinition}
@@ -82,6 +83,8 @@ defmodule QuickTrain.Forms.FormVersion do
     read :read do
       primary? true
 
+      prepare build(sort: [version: :asc, id: :asc])
+
       pagination keyset?: true,
                  required?: false,
                  default_limit: 50,
@@ -92,6 +95,8 @@ defmodule QuickTrain.Forms.FormVersion do
     read :list_scoped do
       argument :organization_id, :uuid, allow_nil?: false
       filter expr(form.organization_id == ^arg(:organization_id))
+
+      prepare build(sort: [version: :asc, id: :asc])
 
       pagination keyset?: true,
                  required?: true,
@@ -159,12 +164,14 @@ defmodule QuickTrain.Forms.FormVersion do
     end
 
     policy action(:read) do
+      authorize_if CollectionContext
       forbid_unless actor_attribute_equals(:status, "active")
       authorize_if relates_to_actor_via([:form, :reader_role_assignments, :user])
     end
 
     policy action(:read) do
-      authorize_if accessing_from(Module.concat(["QuickTrain.Forms.Form"]), :versions)
+      authorize_if CollectionContext
+      authorize_if accessing_from(Form, :versions)
     end
 
     policy action([:list_scoped, :get_scoped]) do
@@ -195,6 +202,10 @@ defmodule QuickTrain.Forms.FormVersion do
 
     references do
       reference :form, on_delete: :restrict
+    end
+
+    custom_indexes do
+      index [:id, :form_id], unique: true
     end
 
     check_constraints do

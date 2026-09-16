@@ -2,7 +2,7 @@
 
 QuickTrain is a backend-only Elixir template for enterprise applications. It keeps reusable
 account, tenant, authorization, and enterprise identity foundations, with organization-owned
-datasets, assets, and versioned form definitions. It has no frontend.
+datasets, assets, versioned form definitions, and project-based task collection. It has no frontend.
 
 ## Deliberate model choices
 
@@ -33,8 +33,29 @@ datasets, assets, and versioned form definitions. It has no frontend.
 - `QuickTrain.Forms`: reusable typed input and question contracts, editable drafts, immutable
   publication, and copying to new numbered drafts. See the versioned-forms OpenSpec change for
   capability provisioning and authoring limits. Forms do not access dataset content or storage.
-- `QuickTrainWeb.GraphQL.Schema`: an explicit allowlist of authentication, dataset, asset, and
-  form operations with scoped authorization and paginated collections.
+- `QuickTrain.Projects`: authored tasks, published form bindings, worker admission, and project lifecycle.
+- `QuickTrain.Tasks`: leased work, typed drafts and immutable submissions, per-question review,
+  scoped result reads, and immutable JSONL exports.
+- `QuickTrainWeb.GraphQL.Schema`: an explicit allowlist of authentication, dataset, asset,
+  form, project, and task operations with scoped authorization and paginated collections.
+
+Within `QuickTrain.Tasks`, files follow their module namespaces: `Attempts` holds allocation,
+leases, and project completion; `Responses` holds typed answers and submission; `Reviews` holds
+review decisions; and `Exports` holds snapshots and JSONL generation. `Access` contains scoped
+reads and authorization. The domain API remains in `tasks.ex`, with `Task`, `TaskInput`, and
+shared `Access` and `Error` modules at the folder root. Background jobs live under `Workers`.
+
+Collection requires explicit `projects.read`, `projects.manage`, `tasks.assign`, `tasks.review`,
+and `tasks.results.read` grants for the relevant organizational roles. No production role gains
+these capabilities automatically. Project workers use the configured member/external admission
+route and always require an active global account. Image contracts are rejected at activation;
+image rendering and spatial answers remain in the separate media change.
+
+Task workers use the `task_maintenance` and `task_exports` Oban queues. Exports require a storage
+adapter implementing streaming staging writes within the publication deadline and existing verification and
+access contract. The in-memory adapter verifies byte generation and opaque access contracts in
+tests; it does not provide HTTP delivery. Accumulated result counts are GraphQL decimal strings;
+configured targets and published integer answers remain GraphQL integers.
 
 ## Toolchain
 
@@ -147,6 +168,27 @@ after one day. All GraphQL collections use bounded keyset-paginated Relay connec
 
 Production additionally requires `DATABASE_URL` and `SECRET_KEY_BASE`; the other runtime settings
 are documented in `.env.example`.
+
+## Project task collection
+
+A project fixes its dataset/schema/form at creation. In draft, bind source fields and author
+tasks using immutable revision IDs and ordered input slots. The cohort is derived from those
+task inputs; there is no separate enrollment or group copy. Activation freezes that configuration, one submission
+target per task, and project-wide skip rules. Allocation issues whole-form attempts with fixed
+leases; review decisions change accepted results without requesting replacement work.
+
+GraphQL exposes scoped `tasks`/`task` and `taskResults`/`taskResult` reads, with paginated nested
+evidence. Workers use the native `workBundle` read and status-only `attemptReceipt`. Project create/update,
+task create/remove, binding/slot-policy/worker-access upserts and removals, and attempt start/release/cancel/submit
+mutations use native Ash result/errors shapes. Child upserts take an `input` object and return
+the affected child. Domain updates accept records; child removals accept the child record and
+organization ID. Exports select complete accepted or audit results, seal
+submitted-outcome membership, and publish deterministic JSONL through the Assets adapter. The header
+contains shared form context; each subsequent record contains one result with its inputs, typed
+answers, and pinned review history. Counts refer to results. Nested collections stream in pages.
+
+This feature is unreleased. Its branch migration history is consolidated into one migration;
+recreate local databases that used an earlier version of the branch. No data conversion is provided.
 
 ## Clean-database migration requirement
 

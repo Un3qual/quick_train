@@ -3,20 +3,21 @@
 defmodule QuickTrain.Forms.Questions.Constraints.TextConstraints do
   @moduledoc "Organization-scoped text constraints definition."
   use Ash.Resource,
+    primary_read_warning?: false,
     otp_app: :quick_train,
     domain: QuickTrain.Forms,
     extensions: [AshGraphql.Resource],
     data_layer: AshPostgres.DataLayer,
     authorizers: [Ash.Policy.Authorizer]
 
-  alias QuickTrain.Authorization.Checks.OrganizationCapability
+  alias QuickTrain.Authorization.Checks.{CollectionContext, OrganizationCapability}
   alias QuickTrain.Forms.Changes.DraftWrite
   alias QuickTrain.Forms.FormVersion
   alias QuickTrain.Forms.Questions.QuestionDefinition
   alias QuickTrain.Repo
 
   attributes do
-    uuid_primary_key :id, writable?: true
+    uuid_primary_key :id
     attribute :minimum, :integer, public?: true, constraints: [min: 0, max: 2_147_483_647]
     attribute :maximum, :integer, public?: true, constraints: [min: 0, max: 2_147_483_647]
     timestamps()
@@ -37,6 +38,8 @@ defmodule QuickTrain.Forms.Questions.Constraints.TextConstraints do
 
     read :read do
       primary? true
+
+      prepare build(sort: [inserted_at: :asc, id: :asc])
 
       pagination keyset?: true,
                  required?: false,
@@ -69,7 +72,7 @@ defmodule QuickTrain.Forms.Questions.Constraints.TextConstraints do
     end
 
     create :create_internal do
-      accept [:id, :minimum, :maximum, :question_id, :version_id]
+      accept [:minimum, :maximum, :question_id, :version_id]
     end
   end
 
@@ -85,11 +88,14 @@ defmodule QuickTrain.Forms.Questions.Constraints.TextConstraints do
     end
 
     policy action(:read) do
+      authorize_if CollectionContext
       forbid_unless actor_attribute_equals(:status, "active")
       authorize_if relates_to_actor_via([:version, :form, :reader_role_assignments, :user])
     end
 
     policy action(:read) do
+      authorize_if CollectionContext
+
       authorize_if accessing_from(
                      Module.concat(["QuickTrain.Forms.Questions.QuestionDefinition"]),
                      :text_constraints

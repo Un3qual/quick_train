@@ -52,6 +52,7 @@ defimpl AshGraphql.Error, for: QuickTrain.Authentication.Error do
   def to_error(error) do
     message = QuickTrain.Authentication.Error.public_message(error.operation)
 
+    # reach:disable-next-line fixed_shape_map -- AshGraphql.Error requires this map contract in every implementation.
     %{
       message: message,
       short_message: message,

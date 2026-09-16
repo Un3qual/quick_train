@@ -1,6 +1,7 @@
 defmodule QuickTrain.Forms.Form do
   @moduledoc "Organization-scoped form definition."
   use Ash.Resource,
+    primary_read_warning?: false,
     otp_app: :quick_train,
     domain: QuickTrain.Forms,
     extensions: [AshGraphql.Resource],
@@ -74,6 +75,8 @@ defmodule QuickTrain.Forms.Form do
     read :read do
       primary? true
 
+      prepare build(sort: [inserted_at: :asc, id: :asc])
+
       pagination keyset?: true,
                  required?: false,
                  default_limit: 50,
@@ -84,6 +87,8 @@ defmodule QuickTrain.Forms.Form do
     read :list_scoped do
       argument :organization_id, :uuid, allow_nil?: false
       filter expr(organization_id == ^arg(:organization_id))
+
+      prepare build(sort: [inserted_at: :asc, id: :asc])
 
       pagination keyset?: true,
                  required?: true,
@@ -132,6 +137,10 @@ defmodule QuickTrain.Forms.Form do
 
     references do
       reference :organization, on_delete: :restrict
+    end
+
+    custom_indexes do
+      index [:id, :organization_id], unique: true
     end
   end
 

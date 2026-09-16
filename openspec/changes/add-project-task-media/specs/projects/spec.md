@@ -7,6 +7,14 @@ Activation SHALL continue supporting scalar answers, static/task-input choices, 
 - **WHEN** an authorized manager activates an image project with task-media installed and all required source facts and serving support available
 - **THEN** it activates under the same frozen cohort/form/policy contract as other projects
 
+#### Scenario: Image execution is outside the installed task contract
+- **WHEN** task-media integration is not installed and a manager activates a published image-choice or image-annotation form, even if an image provider has been configured separately
+- **THEN** activation returns `unsupported_task_contract` without changing the draft or the published form
+
+#### Scenario: A mixed form is rejected as a whole
+- **WHEN** a pinned form combines supported text questions with image presentation or a spatial question that the installed task contract does not support
+- **THEN** activation fails rather than issuing a partial version of the form contract
+
 #### Scenario: A mixed form is validated as a whole
 - **WHEN** the media capability is operational but a form combines supported text questions with image requirements whose source content fails verification or lacks verified facts
 - **THEN** activation returns `invalid_project_configuration` with scoped source issues and leaves the whole project draft
