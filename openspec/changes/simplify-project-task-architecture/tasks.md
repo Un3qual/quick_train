@@ -81,3 +81,8 @@
 - [x] 15.1 Reuse scoped domain getters and move static answer-family and outcome-field checks into builtin embedded-resource validations.
 - [x] 15.2 Make export requests native Ash creates with actor attribution, transactional enqueue, and unchanged scoped retry/conflict behavior; update GraphQL callers and specifications.
 - [x] 15.3 Verify answer validation, scoped reads, export retries and concurrency; run independent OpenSpec validation and the full verification gate, then commit.
+
+## 16. Address PR review findings
+
+- [x] 16.1 Replace failed export assets immediately on retry while preserving sealed content and ownership; reproduce the failure and remove stale concurrency-test tags.
+- [x] 16.2 Run focused tests, independent OpenSpec validation, and the full verification gate before publishing the review fixes.

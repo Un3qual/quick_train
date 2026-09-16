@@ -115,7 +115,7 @@ defmodule QuickTrain.Tasks.CollectionConcurrencyTest do
     end
   end
 
-  @tag tasks: false, item_count: 2
+  @tag item_count: 2
   test "explicit issuance does not lock a later authored group", ctx do
     [first, second] =
       Ash.read!(Ash.Query.sort(Task, position: :asc),
@@ -145,7 +145,7 @@ defmodule QuickTrain.Tasks.CollectionConcurrencyTest do
     end
   end
 
-  @tag tasks: false, item_count: 2
+  @tag item_count: 2
   test "a contended first explicit group is retried rather than skipped", ctx do
     [first, _second] =
       Ash.read!(Ash.Query.sort(Task, position: :asc), authorize?: false, page: false)

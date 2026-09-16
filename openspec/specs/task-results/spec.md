@@ -106,8 +106,8 @@ Export requests SHALL use a native Ash create action and domain interface, with 
 - **WHEN** the export worker crashes after sealing content but before recording completion
 - **THEN** its retry verifies/reuses the same snapshot's canonical content and completes one export
 
-#### Scenario: An unpublished export upload expires
-- **WHEN** a sealed export retries after its unpublished asset's staging deadline, including an asset already marked failed due to expiry
+#### Scenario: An unpublished export upload fails or expires
+- **WHEN** a sealed export retries after its unpublished asset fails or reaches its staging deadline
 - **THEN** it replaces that asset under the export lock while retaining the export identity, sealed membership, snapshot timestamp, record count, and content facts; superseded assets retain export ownership, and later submissions do not enter the export
 - **AND** unexpired pending uploads and already published assets continue to be reused
 

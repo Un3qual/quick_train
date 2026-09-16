@@ -130,8 +130,9 @@ defmodule QuickTrain.Tasks.Exports.ResultExporting do
       unless Map.take(asset, [:sha256, :byte_size, :media_type]) == facts,
         do: Error.reject!(:export_snapshot_mismatch)
 
-      if asset.state in [:pending, :failed] and
-           DateTime.compare(asset.staging_expires_at, DateTime.utc_now()) != :gt,
+      if asset.state == :failed or
+           (asset.state == :pending and
+              DateTime.compare(asset.staging_expires_at, DateTime.utc_now()) != :gt),
          do: create_pending_asset!(export, facts),
          else: asset
     else
