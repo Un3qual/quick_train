@@ -1,6 +1,6 @@
 defmodule QuickTrain.Tasks.TaskReadsTest do
   use QuickTrain.DataCase, async: false
-  alias QuickTrain.{Accounts, Authorization, Forms, Organizations, ProjectsFixture}
+  alias QuickTrain.{Accounts, Authorization, Forms, Organizations, ProjectsFixture, Tasks}
   alias QuickTrain.Datasets.DatasetValue
   alias QuickTrain.Projects.Management
   alias QuickTrain.Tasks.{Access, TaskInput}
@@ -591,7 +591,7 @@ defmodule QuickTrain.Tasks.TaskReadsTest do
     def sealed_read_access(_key, _expiry), do: {:error, "private provider details"}
   end
 
-  for operation <- [:bound_value, :source_download] do
+  for operation <- [:work_bundle, :bound_value, :source_download] do
     @tag rich_source: true, committed_db: true, operation: operation
     test "#{operation} waits for attempt release before checking worker access", ctx do
       input =
@@ -613,7 +613,15 @@ defmodule QuickTrain.Tasks.TaskReadsTest do
               Ecto.Adapters.SQL.Sandbox.unboxed_run(Repo, fn ->
                 %{rows: [[backend]]} = Repo.query!("SELECT pg_backend_pid()")
                 send(parent, {:reader_connection, backend})
-                action(TaskInput, ctx.operation, args, ctx.worker)
+
+                if ctx.operation == :work_bundle do
+                  Tasks.work_bundle(ctx.context.org.id, ctx.project.id, ctx.attempt.id,
+                    actor: ctx.worker,
+                    load: [:outcomes]
+                  )
+                else
+                  action(TaskInput, ctx.operation, args, ctx.worker)
+                end
               end)
             end)
 

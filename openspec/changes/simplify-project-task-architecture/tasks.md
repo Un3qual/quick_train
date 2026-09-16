@@ -106,3 +106,8 @@
 
 - [x] 20.1 Serialize worker source authorization with attempt terminalization, preserve resource-defined export ordering, and apply nonblank skip-reason checks only when the project requires a reason; reproduce each finding and keep the specifications synchronized.
 - [x] 20.2 Run focused tests, independent OpenSpec validation, and the repository gate, recording any remaining blocker before publishing the review fixes. All 56 focused tests, 362 full-suite tests, 15 OpenSpec items, and production compilation pass; the gate's earlier checks pass, but the unchanged Ash dependency advisory still blocks 19.2.
+
+## 21. Serialize work-bundle reads with attempt transitions
+
+- [x] 21.1 Reuse the existing Project/Task/Attempt lock order for work-bundle reads, reproduce concurrent release in the read tests, and synchronize the live-work contract.
+- [x] 21.2 Run focused tests, independent OpenSpec validation, and the repository gate; record any remaining blocker before publishing. All 21 focused tests, 363 full-suite tests, 15 OpenSpec items, and production compilation pass; the gate's earlier checks pass, but the unchanged Ash dependency advisory still blocks 19.2.
