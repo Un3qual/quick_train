@@ -1,6 +1,9 @@
 defmodule QuickTrain.Tasks.Reviews.QuestionReview.Input do
   @moduledoc "One attributable question decision in an atomic review batch."
-  use Ash.Resource, data_layer: :embedded, extensions: [AshGraphql.Resource]
+  use Ash.Resource,
+    otp_app: :quick_train,
+    data_layer: :embedded,
+    extensions: [AshGraphql.Resource]
 
   attributes do
     attribute :question_response_id, :uuid, allow_nil?: false, public?: true

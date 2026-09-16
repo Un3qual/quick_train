@@ -173,14 +173,6 @@ defmodule QuickTrain.Projects.ProjectInputBinding do
         on_delete: :restrict,
         match_with: [root_record_type_id: :record_type_id]
     end
-
-    custom_indexes do
-      index [:id, :project_id, :field_definition_id],
-        unique: true,
-        name: "project_input_bindings_id_project_field_index"
-
-      index [:id, :project_id], unique: true
-    end
   end
 
   identities do

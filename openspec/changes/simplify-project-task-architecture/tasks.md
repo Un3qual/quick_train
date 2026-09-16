@@ -86,3 +86,9 @@
 
 - [x] 16.1 Replace failed export assets immediately on retry while preserving sealed content and ownership; reproduce the failure and remove stale concurrency-test tags.
 - [x] 16.2 Run focused tests, independent OpenSpec validation, and the full verification gate before publishing the review fixes.
+
+## 17. Address the next captured PR review
+
+- [x] 17.1 Sanitize source-download storage failures, enforce the existing asset byte cap during export generation, and verify the reported access and framework behavior.
+- [x] 17.2 Remove unused indexes from the unreleased schema, repair stale config paths, and clarify current specifications and intentional test behavior.
+- [x] 17.3 Verify a fresh database migration, run focused tests, independent OpenSpec validation, and the full verification gate before publishing.

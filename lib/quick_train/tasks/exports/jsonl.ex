@@ -274,10 +274,14 @@ defmodule QuickTrain.Tasks.Exports.Jsonl do
   end
 
   defp write_line!(file, chunks, state) do
+    max_bytes = Application.fetch_env!(:quick_train, :assets) |> Keyword.fetch!(:max_bytes)
+
     Stream.concat(chunks, ["\n"])
     |> Enum.reduce(state, fn bytes, {hash, size} ->
+      size = size + IO.iodata_length(bytes)
+      if size > max_bytes, do: Error.reject!(:byte_cap_exceeded)
       :ok = IO.binwrite(file, bytes)
-      {:crypto.hash_update(hash, bytes), size + IO.iodata_length(bytes)}
+      {:crypto.hash_update(hash, bytes), size}
     end)
   end
 

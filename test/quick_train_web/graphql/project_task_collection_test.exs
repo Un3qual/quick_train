@@ -254,6 +254,7 @@ defmodule QuickTrainWeb.ProjectTaskCollectionTest do
     )
 
     assert graphql!(conn, release)["releaseAttempt"]["result"]["state"] == "released"
+    # Retrying after a lost response must return the same terminal state.
     assert graphql!(conn, release)["releaseAttempt"]["result"]["state"] == "released"
   end
 

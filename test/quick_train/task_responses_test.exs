@@ -90,14 +90,14 @@ defmodule QuickTrain.Tasks.TaskResponsesTest do
   end
 
   test "question response creates reject mismatched scalar payloads in batches", ctx do
-    response = Ash.read_one!(Attempt, authorize?: false)
+    attempt = Ash.read_one!(Attempt, authorize?: false)
 
     attrs = %{
       organization_id: ctx.project.organization_id,
       project_id: ctx.project.id,
       form_version_id: ctx.project.form_version_id,
       task_id: ctx.attempt.task_id,
-      attempt_id: response.id,
+      attempt_id: attempt.id,
       question_id: ctx.source.form.question.id,
       family: :integer,
       outcome: :answered

@@ -72,7 +72,7 @@ defmodule QuickTrain.Tasks.TaskReadsTest do
           :skip_allowed,
           :reason_required,
           form_version: [questions: :integer_constraints],
-          input_presentations: [task_input: :requirements]
+          input_presentations: [:input_slot, task_input: [:input_slot, :requirements]]
         ],
         actor: ctx.worker
       )
@@ -82,6 +82,8 @@ defmodule QuickTrain.Tasks.TaskReadsTest do
     assert bundle.skip_allowed
     assert bundle.reason_required
     input = hd(bundle.input_presentations).task_input
+    assert hd(bundle.input_presentations).input_slot.id == ctx.source.form.slot.id
+    assert input.input_slot.id == ctx.source.form.slot.id
     assert input.revision_id in Enum.map(ctx.source.revisions, & &1.id)
 
     bound =
@@ -583,6 +585,37 @@ defmodule QuickTrain.Tasks.TaskReadsTest do
 
     assert {:error, _} =
              action(TaskInput, :source_download, Map.delete(args, :attempt_id), reader)
+  end
+
+  defmodule UnavailableSourceStorage do
+    def sealed_read_access(_key, _expiry), do: {:error, "private provider details"}
+  end
+
+  @tag :rich_source
+  test "source downloads sanitize provider failures", ctx do
+    bundle =
+      QuickTrain.Tasks.work_bundle!(ctx.context.org.id, ctx.project.id, ctx.attempt.id,
+        actor: ctx.worker,
+        load: [input_presentations: :task_input]
+      )
+
+    input = hd(bundle.input_presentations).task_input
+
+    args =
+      Map.merge(scope(ctx), %{task_input_id: input.id, requirement_id: ctx.source.download.id})
+
+    old = Application.fetch_env!(:quick_train, :assets)
+    on_exit(fn -> Application.put_env(:quick_train, :assets, old) end)
+
+    Application.put_env(
+      :quick_train,
+      :assets,
+      Keyword.put(old, :storage_adapter, UnavailableSourceStorage)
+    )
+
+    assert {:error, error} = action(TaskInput, :source_download, args, ctx.worker)
+    assert Exception.message(error) =~ "source_access_unavailable"
+    refute inspect(error) =~ "private provider details"
   end
 
   @tag :committed_db

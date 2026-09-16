@@ -81,13 +81,6 @@ defmodule QuickTrain.Repo.Migrations.AddProjectTaskCollection do
           null: false
     end
 
-    create index(:project_input_bindings, [:id, :project_id, :field_definition_id],
-             name: "project_input_bindings_id_project_field_index",
-             unique: true
-           )
-
-    create index(:project_input_bindings, [:id, :project_id], unique: true)
-
     create table(:attempts, primary_key: false) do
       add :id, :uuid, null: false, default: fragment("gen_random_uuid()"), primary_key: true
       add :request_key, :uuid, null: false
@@ -1406,11 +1399,6 @@ defmodule QuickTrain.Repo.Migrations.AddProjectTaskCollection do
              name: "static_option_answers_option_index"
            )
 
-    create index(:dataset_item_revisions, [:id, :organization_id, :root_record_id],
-             name: "dataset_item_revisions_id_org_record_index",
-             unique: true
-           )
-
     create index(:dataset_item_revisions, [:id, :item_id, :dataset_id, :schema_version_id],
              name: "dataset_item_revisions_id_item_dataset_schema_index",
              unique: true
@@ -1760,10 +1748,6 @@ defmodule QuickTrain.Repo.Migrations.AddProjectTaskCollection do
                      :dataset_item_revisions,
                      [:id, :item_id, :dataset_id, :schema_version_id],
                      name: "dataset_item_revisions_id_item_dataset_schema_index"
-                   )
-
-    drop_if_exists index(:dataset_item_revisions, [:id, :organization_id, :root_record_id],
-                     name: "dataset_item_revisions_id_org_record_index"
                    )
 
     drop constraint(:static_option_answers, "static_option_answers_option_scope_fkey")
@@ -2251,12 +2235,6 @@ defmodule QuickTrain.Repo.Migrations.AddProjectTaskCollection do
                    )
 
     drop table(:attempts)
-
-    drop_if_exists index(:project_input_bindings, [:id, :project_id])
-
-    drop_if_exists index(:project_input_bindings, [:id, :project_id, :field_definition_id],
-                     name: "project_input_bindings_id_project_field_index"
-                   )
 
     alter table(:project_input_bindings) do
       remove :field_definition_id

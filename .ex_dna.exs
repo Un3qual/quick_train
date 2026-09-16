@@ -16,7 +16,7 @@
     "lib/quick_train/datasets/dataset_value/decimal.ex",
     "lib/quick_train/datasets/dataset_value/integer.ex",
     "lib/quick_train/datasets/dataset_value/text.ex",
-    "lib/quick_train/tasks/attempt_input_presentation.ex",
-    "lib/quick_train/tasks/task_input_answer.ex"
+    "lib/quick_train/tasks/attempts/attempt_input_presentation.ex",
+    "lib/quick_train/tasks/responses/task_input_answer.ex"
   ]
 }

@@ -248,72 +248,10 @@
   "base_filter": null,
   "check_constraints": [],
   "create_table_options": null,
-  "custom_indexes": [
-    {
-      "all_tenants?": false,
-      "concurrently": false,
-      "error_fields": [
-        "id",
-        "project_id",
-        "field_definition_id"
-      ],
-      "fields": [
-        {
-          "type": "atom",
-          "value": "id"
-        },
-        {
-          "type": "atom",
-          "value": "project_id"
-        },
-        {
-          "type": "atom",
-          "value": "field_definition_id"
-        }
-      ],
-      "include": null,
-      "include_base_filter?": true,
-      "message": null,
-      "name": "project_input_bindings_id_project_field_index",
-      "nulls_distinct": true,
-      "prefix": null,
-      "table": null,
-      "unique": true,
-      "using": null,
-      "where": null
-    },
-    {
-      "all_tenants?": false,
-      "concurrently": false,
-      "error_fields": [
-        "id",
-        "project_id"
-      ],
-      "fields": [
-        {
-          "type": "atom",
-          "value": "id"
-        },
-        {
-          "type": "atom",
-          "value": "project_id"
-        }
-      ],
-      "include": null,
-      "include_base_filter?": true,
-      "message": null,
-      "name": null,
-      "nulls_distinct": true,
-      "prefix": null,
-      "table": null,
-      "unique": true,
-      "using": null,
-      "where": null
-    }
-  ],
+  "custom_indexes": [],
   "custom_statements": [],
   "has_create_action": true,
-  "hash": "2C7C13EA2F09C3F3ACCA5CCE062790B646DF5AEE4294E688818F35FF62102DC3",
+  "hash": "030C173AAA3DBB707C811E532C8D26DBE4BEC6267968E697B6E41BB5317D1419",
   "identities": [
     {
       "all_tenants?": false,

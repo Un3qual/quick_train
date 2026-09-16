@@ -484,6 +484,38 @@ defmodule QuickTrain.Tasks.ResultExportTest do
     assert rows == []
   end
 
+  test "export generation enforces the asset byte cap before writing oversized output", scope do
+    scope = submit!(scope)
+    {:ok, export} = request(scope)
+    export = Tasks.seal_export_snapshot!(export.id, authorize?: false)
+    old = Application.fetch_env!(:quick_train, :assets)
+    on_exit(fn -> Application.put_env(:quick_train, :assets, old) end)
+    Application.put_env(:quick_train, :assets, Keyword.put(old, :max_bytes, 128))
+    path = Path.join(System.tmp_dir!(), "export_byte_cap_#{export.id}.jsonl")
+
+    try do
+      assert_raise Ash.Error.Invalid, ~r/byte_cap_exceeded/, fn -> Jsonl.write!(export, path) end
+      assert File.stat!(path).size <= 128
+    after
+      File.rm(path)
+    end
+
+    assert {:error, _error} = Tasks.process_result_export(export.id, authorize?: false)
+    failed = Ash.get!(ResultExport, export.id, authorize?: false)
+    assert failed.state == :failed
+    assert is_nil(failed.pending_asset_id)
+    assert {:error, _error} = download(scope, export.id)
+
+    assert Path.wildcard(Path.join(System.tmp_dir!(), "quick_train_export_#{export.id}_*.jsonl")) ==
+             []
+
+    Application.put_env(:quick_train, :assets, old)
+    assert :ok = Tasks.process_result_export(export.id, authorize?: false)
+    ready = Ash.get!(ResultExport, export.id, authorize?: false)
+    assert ready.snapshot_at == export.snapshot_at
+    assert ready.record_count == export.record_count
+  end
+
   defmodule UnavailableStorage do
     def enforces_byte_cap?, do: true
   end

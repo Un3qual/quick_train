@@ -144,17 +144,21 @@ defmodule QuickTrain.Tasks.Access.ReadActions do
 
   defp source_download(args, actor) do
     with {:ok, {asset, expiry}} <-
-           Ash.transact(Attempt, fn -> source_asset!(args, actor) end),
-         {:ok, descriptor} <-
-           Storage.sealed_read_access(asset.sealed_key, expiry) do
-      {:ok, AssetAccessResult.from(asset, descriptor)}
-    else
-      {:error, error} when is_atom(error) ->
-        {:error, Error.exception(category: error)}
-
-      other ->
-        other
+           Ash.transact(Attempt, fn -> source_asset!(args, actor) end) do
+      source_access(asset, expiry)
     end
+  end
+
+  defp source_access(asset, expiry) do
+    case Storage.sealed_read_access(asset.sealed_key, expiry) do
+      {:ok, descriptor} -> {:ok, AssetAccessResult.from(asset, descriptor)}
+      _failure -> {:error, Error.exception(category: :source_access_unavailable)}
+    end
+  rescue
+    # reach:disable-next-line bare_rescue -- Provider exceptions must not expose storage details.
+    _error -> {:error, Error.exception(category: :source_access_unavailable)}
+  catch
+    _kind, _reason -> {:error, Error.exception(category: :source_access_unavailable)}
   end
 
   defp source_asset!(args, actor) do

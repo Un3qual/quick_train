@@ -33,3 +33,20 @@ Every question in the pinned published form SHALL have exactly one explicit answ
 #### Scenario: A skip requires a reason
 - **WHEN** the project requires a reason and only whitespace is supplied
 - **THEN** the write fails without freezing the attempt
+
+### Requirement: Typed answers retain published form semantics
+Ash create validations SHALL enforce scalar payload compatibility for ordinary and bulk question-response writes: only answered outcomes may contain scalar values, and each populated scalar field SHALL match the answer family. This rule SHALL live in Elixir rather than a PostgreSQL business-rule check; scoped foreign keys, uniqueness, and simple value bounds SHALL remain database integrity constraints.
+
+Answered outcomes SHALL use exactly their published answer family and matching normalized typed representation, never JSONB answer content. The system SHALL support text, integer, decimal, boolean, static single/multiple choice, task-input single/multiple choice, and complete task-input ranking. Constraints SHALL come from the pinned published question, including the published meanings of absent scalar constraint records. Integers SHALL fit signed 32-bit Int; decimals SHALL preserve precision and reject non-finite values; text SHALL preserve exact valid Unicode content/whitespace and reject NUL. Single choice SHALL select exactly one valid option/input, multiple choice SHALL contain unique selections within bounds, and ranking SHALL be a complete unique ordered permutation of the question's slot inputs. Options SHALL belong to the exact question and TaskInputs to the exact task and referenced slot. Drafts MAY omit scalar values or contain fewer selections, ranking entries, or spans than the published minimum. Saves SHALL enforce local types, ownership, provenance, uniqueness, maximum counts, and valid ranking positions. Submission SHALL additionally require scalar values and minimum counts, including exactly one single-choice selection and a complete ranking.
+
+#### Scenario: A foreign option is supplied
+- **WHEN** an answer references an option from a different question or published version
+- **THEN** it fails without revealing or persisting the foreign relationship
+
+#### Scenario: A ranking omits an input
+- **WHEN** a ranking contains duplicates, missing inputs, or inputs from another slot/task
+- **THEN** submission fails rather than storing a partial or ambiguous ranking
+
+#### Scenario: Decimal and text values retain meaning
+- **WHEN** a valid answer contains a high-precision decimal or text with significant whitespace
+- **THEN** reads and exports preserve its numeric precision or exact text while applying the published bounds

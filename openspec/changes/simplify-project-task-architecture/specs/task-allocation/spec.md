@@ -12,7 +12,7 @@ Pool fetch SHALL create claimed attempts; direct assignment SHALL require `tasks
 - **THEN** at most one live attempt is issued and expired prior leases cannot permanently occupy that slot
 
 ### Requirement: Select at fetch time and persist exact issued inputs
-Allocation SHALL first prefer an already-issued task with available submission capacity and no prior attempt by that worker. Otherwise it SHALL select the next unissued authored Task by position. It SHALL create only the Attempt and its input presentation, reusing the immutable TaskInputs authored before activation. Task SHALL own canonical membership uniqueness, independent of display order. No group-to-task copying or consumption record SHALL exist. Answers SHALL use TaskInput IDs rather than display labels.
+Allocation SHALL first prefer an already-issued task with available submission capacity and no prior attempt by that worker. Otherwise it SHALL select the next unissued authored Task by position. It SHALL create only the Attempt and its input presentation, reusing the immutable TaskInputs authored before activation. Task SHALL own canonical membership uniqueness, independent of display order. No group-to-task copying or consumption record SHALL exist. Answers SHALL use TaskInput IDs rather than display labels. Each ProjectSlotPolicy SHALL control shuffling within its slot: disabled shuffling preserves frozen TaskInput positions, while enabled shuffling persists a shuffled order for that slot on each AttemptInputPresentation.
 
 #### Scenario: Activation issues no work
 - **WHEN** a project is activated but no worker has fetched work

@@ -25,7 +25,7 @@ For a project frozen in `automatic` review mode, successful submission SHALL ato
 
 #### Scenario: A review request targets a submitted skip
 - **WHEN** an authorized reviewer targets a submitted skip with an individual decision, correction, or whole-response batch that also selects an answered outcome
-- **THEN** the request fails without appending any decision, the submitted evidence remains unchanged, and the attempt still counts once toward its task target
+- **THEN** the request fails without appending any decision, the submitted evidence remains unchanged, and task-target counting remains unchanged
 
 #### Scenario: The owning organization is inactive
 - **WHEN** an active reviewer with active membership requests a decision, correction, or whole-response review for an inactive organization
