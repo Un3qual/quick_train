@@ -92,3 +92,7 @@
 - [x] 17.1 Sanitize source-download storage failures, enforce the existing asset byte cap during export generation, and verify the reported access and framework behavior.
 - [x] 17.2 Remove unused indexes from the unreleased schema, repair stale config paths, and clarify current specifications and intentional test behavior.
 - [x] 17.3 Verify a fresh database migration, run focused tests, independent OpenSpec validation, and the full verification gate before publishing.
+
+## 18. Address the local CodeRabbit follow-up
+
+- [x] 18.1 Fix zero-item fixture generation, clarify audit snapshots without review decisions across active specifications, verify the fixture behavior, and run independent OpenSpec validation and the full verification gate.

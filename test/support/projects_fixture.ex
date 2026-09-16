@@ -95,7 +95,7 @@ defmodule QuickTrain.ProjectsFixture do
       Datasets.publish_schema_version!(context.org.id, schema.id, root.id, actor: context.actor)
 
     revisions =
-      for number <- 1..Keyword.get(opts, :item_count, 2) do
+      for number <- 1..Keyword.get(opts, :item_count, 2)//1 do
         Datasets.put_item_revision!(
           context.org.id,
           dataset.id,
