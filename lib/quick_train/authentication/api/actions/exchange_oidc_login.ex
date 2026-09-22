@@ -3,8 +3,6 @@ defmodule QuickTrain.Authentication.Api.Actions.ExchangeOidcLogin do
 
   use Ash.Resource.Actions.Implementation
 
-  require Ash.Query
-
   alias QuickTrain.Accounts
 
   alias QuickTrain.Accounts.{
@@ -49,11 +47,7 @@ defmodule QuickTrain.Authentication.Api.Actions.ExchangeOidcLogin do
     do: {:error, :invalid_oidc_exchange}
 
   defp load_transaction(state) do
-    state_hash = sha256(state)
-
-    case OidcLoginTransaction
-         |> Ash.Query.filter(state_hash == ^state_hash)
-         |> Ash.read_one(authorize?: false) do
+    case Accounts.get_oidc_login(sha256(state), authorize?: false, not_found_error?: false) do
       {:ok, transaction} when not is_nil(transaction) -> {:ok, transaction}
       {:ok, nil} -> {:error, :invalid_oidc_exchange}
       {:error, _error} -> {:error, :invalid_oidc_exchange}
@@ -169,7 +163,7 @@ defmodule QuickTrain.Authentication.Api.Actions.ExchangeOidcLogin do
 
   defp finalize_in_transaction(transaction, identity_claims) do
     with {:ok, locked_transaction} <-
-           lock_claimed_transaction(transaction.id),
+           lock_claimed_transaction(transaction.state_hash),
          {:ok, user} <- resolve_user(identity_claims),
          {:ok, issued} <- issue_bearer_session(user.id),
          {:ok, _consumed_transaction} <- consume_transaction(locked_transaction) do
@@ -182,12 +176,13 @@ defmodule QuickTrain.Authentication.Api.Actions.ExchangeOidcLogin do
     end
   end
 
-  defp lock_claimed_transaction(transaction_id) do
+  defp lock_claimed_transaction(state_hash) do
     transaction =
-      OidcLoginTransaction
-      |> Ash.Query.filter(id == ^transaction_id)
-      |> Ash.Query.lock(:for_update)
-      |> Ash.read_one!(authorize?: false)
+      Accounts.get_oidc_login!(state_hash,
+        query: [lock: :for_update],
+        authorize?: false,
+        not_found_error?: false
+      )
 
     case transaction do
       %{status: "exchanging"} -> {:ok, transaction}
@@ -204,10 +199,11 @@ defmodule QuickTrain.Authentication.Api.Actions.ExchangeOidcLogin do
   end
 
   defp lock_identity(issuer, subject) do
-    ExternalIdentity
-    |> Ash.Query.filter(issuer == ^issuer and subject == ^subject)
-    |> Ash.Query.lock(:for_update)
-    |> Ash.read_one(authorize?: false)
+    Accounts.get_external_identity(issuer, subject,
+      query: [lock: :for_update],
+      authorize?: false,
+      not_found_error?: false
+    )
   end
 
   defp resolve_existing_identity(%{status: "active"} = identity, claims) do
@@ -225,10 +221,11 @@ defmodule QuickTrain.Authentication.Api.Actions.ExchangeOidcLogin do
     do: {:error, :inactive_account}
 
   defp lock_user(user_id) do
-    User
-    |> Ash.Query.filter(id == ^user_id)
-    |> Ash.Query.lock(:for_update)
-    |> Ash.read_one(authorize?: false)
+    Accounts.get_user(user_id,
+      query: [lock: :for_update],
+      authorize?: false,
+      not_found_error?: false
+    )
   end
 
   defp create_identity_graph(identity_claims) do

@@ -202,20 +202,17 @@ defmodule QuickTrain.Tasks.Attempts.Attempt do
       authorize_if {OrganizationCapability, capability: "tasks.assign"}
     end
 
-    policy action([:read_work_bundle, :receipt]) do
-      authorize_if actor_present()
-    end
-
-    policy action([:save_question, :submit]) do
-      authorize_if actor_present()
+    policy action([:save_question, :submit, :start, :release]) do
+      forbid_unless actor_attribute_equals(:status, "active")
+      authorize_if Module.concat(["QuickTrain.Tasks.Access.ReadAccess"])
     end
 
     policy action(:read) do
       authorize_if Module.concat(["QuickTrain.Tasks.Access.ReadAccess"])
     end
 
-    policy action([:start, :release]) do
-      authorize_if actor_present()
+    policy action([:read_work_bundle, :receipt]) do
+      authorize_if Module.concat(["QuickTrain.Tasks.Access.AttemptOwner"])
     end
 
     policy action(:cancel) do
