@@ -49,7 +49,7 @@ defmodule QuickTrain.Tasks.TaskResponsesTest do
 
     task =
       Ash.get!(Task, ctx.attempt.task_id,
-        load: [:submitted_count, :live_count],
+        load: [:submitted_count, :live_count, :state],
         authorize?: false
       )
 
@@ -78,7 +78,7 @@ defmodule QuickTrain.Tasks.TaskResponsesTest do
 
     task =
       Ash.get!(Task, ctx.attempt.task_id,
-        load: [:submitted_count, :live_count],
+        load: [:submitted_count, :live_count, :state],
         authorize?: false
       )
 

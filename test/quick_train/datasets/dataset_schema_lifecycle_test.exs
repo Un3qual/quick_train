@@ -3,13 +3,62 @@ defmodule QuickTrain.Datasets.DatasetSchemaLifecycleTest do
 
   alias Ecto.Adapters.SQL.Sandbox
   alias QuickTrain.{Accounts, AshError, Datasets}
-  alias QuickTrain.Datasets.DatasetRecordType
+  alias QuickTrain.Datasets.{DatasetFieldDefinition, DatasetRecordType}
+  alias QuickTrain.Datasets.DatasetRecord.Values
 
   setup do
     manager = Accounts.register_user!("dataset-manager@example.test", "Dataset Manager")
     graph = organization_manager_fixture(manager.id, "dataset-org", "Dataset Org")
 
     %{manager: manager, organization: graph.organization}
+  end
+
+  test "record hydration selects supplied and required fields in a wide optional schema",
+       context do
+    {schema, root} =
+      create_draft_schema(context.organization.id, context.manager, "wide-optional")
+
+    for {key, required} <-
+          [{"required", true}, {"supplied", false}] ++
+            Enum.map(1..110, &{"unused-#{&1}", false}) do
+      Datasets.add_field_definition!(
+        context.organization.id,
+        root.id,
+        key,
+        key,
+        :text,
+        :single,
+        required,
+        actor: context.manager
+      )
+    end
+
+    schema =
+      Datasets.publish_schema_version!(schema, context.organization.id, root.id,
+        actor: context.manager
+      )
+
+    fields = Datasets.list_record_fields!(root.id, ["supplied", "unknown"], authorize?: false)
+    assert Enum.sort(Enum.map(fields, & &1.key)) == ["required", "supplied"]
+
+    assert {:error, "required_missing:required"} =
+             Values.normalize(schema, [
+               %{field: "supplied", text: "value"}
+             ])
+
+    for key <- ["unknown", "  ", "bad" <> <<0>>, <<255>>] do
+      assert {:error, :unknown_field} =
+               Values.normalize(
+                 schema,
+                 [%{field: "required", text: "value"}, %{field: key, text: "value"}]
+               )
+    end
+
+    assert {:ok, [_, _]} =
+             Values.normalize(
+               schema,
+               [%{field: "required", text: "value"}, %{field: "supplied", text: "value"}]
+             )
   end
 
   test "dataset metadata rejects NUL before persistence", %{
@@ -47,7 +96,7 @@ defmodule QuickTrain.Datasets.DatasetSchemaLifecycleTest do
                Datasets.add_record_type(org.id, schema.id, key, name, actor: actor)
 
       assert {:error, %Ash.Error.Invalid{}} =
-               Datasets.update_record_type(org.id, root.id, key, name, actor: actor)
+               Datasets.update_record_type(root, org.id, key, name, actor: actor)
 
       assert {:error, %Ash.Error.Invalid{}} =
                Datasets.add_field_definition(org.id, root.id, key, name, :text, :single, false,
@@ -56,8 +105,8 @@ defmodule QuickTrain.Datasets.DatasetSchemaLifecycleTest do
 
       assert {:error, %Ash.Error.Invalid{}} =
                Datasets.update_field_definition(
+                 field,
                  org.id,
-                 field.id,
                  key,
                  name,
                  :text,
@@ -88,14 +137,14 @@ defmodule QuickTrain.Datasets.DatasetSchemaLifecycleTest do
       end
 
     assert {:error, error} =
-             Datasets.publish_schema_version(org.id, schema.id, root.id, actor: actor)
+             Datasets.publish_schema_version(schema, org.id, root.id, actor: actor)
 
     assert Exception.message(error) =~ "invalid_schema"
     [field | _] = fields
 
     Datasets.update_field_definition!(
+      field,
       org.id,
-      field.id,
       field.key,
       field.name,
       :text,
@@ -104,7 +153,7 @@ defmodule QuickTrain.Datasets.DatasetSchemaLifecycleTest do
       actor: actor
     )
 
-    assert Datasets.publish_schema_version!(org.id, schema.id, root.id, actor: actor).state ==
+    assert Datasets.publish_schema_version!(schema, org.id, root.id, actor: actor).state ==
              :published
   end
 
@@ -203,7 +252,7 @@ defmodule QuickTrain.Datasets.DatasetSchemaLifecycleTest do
              )
 
     published =
-      Datasets.publish_schema_version!(organization.id, schema.id, root.id, actor: manager)
+      Datasets.publish_schema_version!(schema, organization.id, root.id, actor: manager)
 
     assert published.state == :published
     assert published.root_record_type_id == root.id
@@ -222,8 +271,8 @@ defmodule QuickTrain.Datasets.DatasetSchemaLifecycleTest do
 
     updated_root =
       Datasets.update_record_type!(
+        root,
         organization.id,
-        root.id,
         "person",
         "Person",
         actor: manager
@@ -245,8 +294,8 @@ defmodule QuickTrain.Datasets.DatasetSchemaLifecycleTest do
 
     updated_field =
       Datasets.update_field_definition!(
+        field,
         organization.id,
-        field.id,
         "display_name",
         "Display Name",
         "text",
@@ -258,7 +307,7 @@ defmodule QuickTrain.Datasets.DatasetSchemaLifecycleTest do
     assert updated_field.key == "display_name"
     refute updated_field.required
 
-    assert :ok = Datasets.remove_field_definition!(organization.id, field.id, actor: manager)
+    assert :ok = Datasets.remove_field_definition!(field, organization.id, actor: manager)
 
     removable =
       Datasets.add_record_type!(
@@ -269,7 +318,7 @@ defmodule QuickTrain.Datasets.DatasetSchemaLifecycleTest do
         actor: manager
       )
 
-    assert :ok = Datasets.remove_record_type!(organization.id, removable.id, actor: manager)
+    assert :ok = Datasets.remove_record_type!(removable, organization.id, actor: manager)
   end
 
   test "publication rejects a root record type from another schema", context do
@@ -279,8 +328,8 @@ defmodule QuickTrain.Datasets.DatasetSchemaLifecycleTest do
 
     assert {:error, error} =
              Datasets.publish_schema_version(
+               first_schema,
                organization.id,
-               first_schema.id,
                second_root.id,
                actor: manager
              )
@@ -361,8 +410,8 @@ defmodule QuickTrain.Datasets.DatasetSchemaLifecycleTest do
         Process.put(:pause_after_schema_lock, true)
 
         Datasets.publish_schema_version(
+          schema,
           organization.id,
-          schema.id,
           root.id,
           actor: manager
         )
@@ -380,8 +429,8 @@ defmodule QuickTrain.Datasets.DatasetSchemaLifecycleTest do
         end
 
         Datasets.update_record_type(
+          root,
           organization.id,
-          root.id,
           "too_late",
           "Too Late",
           actor: manager
@@ -481,6 +530,9 @@ defmodule QuickTrain.Datasets.DatasetSchemaLifecycleTest do
          field_definition_id,
          manager
        ) do
+    root = Ash.get!(DatasetRecordType, root_id, authorize?: false)
+    field = Ash.get!(DatasetFieldDefinition, field_definition_id, authorize?: false)
+
     operations = [
       fn ->
         Datasets.add_record_type(
@@ -493,14 +545,14 @@ defmodule QuickTrain.Datasets.DatasetSchemaLifecycleTest do
       end,
       fn ->
         Datasets.update_record_type(
+          root,
           organization_id,
-          root_id,
           "changed",
           "Changed",
           actor: manager
         )
       end,
-      fn -> Datasets.remove_record_type(organization_id, root_id, actor: manager) end,
+      fn -> Datasets.remove_record_type(root, organization_id, actor: manager) end,
       fn ->
         Datasets.add_field_definition(
           organization_id,
@@ -515,8 +567,8 @@ defmodule QuickTrain.Datasets.DatasetSchemaLifecycleTest do
       end,
       fn ->
         Datasets.update_field_definition(
+          field,
           organization_id,
-          field_definition_id,
           "changed",
           "Changed",
           "text",
@@ -527,8 +579,8 @@ defmodule QuickTrain.Datasets.DatasetSchemaLifecycleTest do
       end,
       fn ->
         Datasets.remove_field_definition(
+          field,
           organization_id,
-          field_definition_id,
           actor: manager
         )
       end

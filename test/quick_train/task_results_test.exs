@@ -853,11 +853,32 @@ defmodule QuickTrain.Tasks.ResultExportTest do
     assert pending.state == :ready
     assert {:error, _} = download(scope, export.id)
     Application.put_env(:quick_train, :assets, old)
-    assert :ok = QuickTrain.Tasks.process_result_export(export.id, authorize?: false)
+    reference = make_ref()
+    handler = {__MODULE__, reference}
+
+    :ok =
+      :telemetry.attach(
+        handler,
+        [:quick_train, :repo, :query],
+        &__MODULE__.record_snapshot_read/4,
+        {self(), reference}
+      )
+
+    try do
+      assert :ok = QuickTrain.Tasks.process_result_export(export.id, authorize?: false)
+      refute_receive {:snapshot_read, ^reference}
+    after
+      :telemetry.detach(handler)
+    end
+
     ready = Ash.get!(ResultExport, export.id, authorize?: false)
     assert ready.pending_asset_id == pending.id
     assert ready.asset_id == pending.id
     assert ready.snapshot_at == failed.snapshot_at
+  end
+
+  def record_snapshot_read(_event, _measurements, metadata, {pid, reference}) do
+    if metadata.source == "export_selections", do: send(pid, {:snapshot_read, reference})
   end
 
   defmodule SlowWriteStorage do
@@ -1143,9 +1164,7 @@ defmodule QuickTrain.Tasks.ResultExportTest do
           })
 
     version =
-      Forms.publish_form_version!(context.org.id, %{version_id: form.version.id},
-        actor: context.actor
-      )
+      Forms.publish_form_version!(form.version, context.org.id, %{}, actor: context.actor)
 
     dataset = Datasets.create_dataset!(context.org.id, "items", "Items", actor: context.actor)
     schema = Datasets.create_schema_version!(context.org.id, dataset.id, actor: context.actor)
@@ -1177,7 +1196,7 @@ defmodule QuickTrain.Tasks.ResultExportTest do
     )
 
     schema =
-      Datasets.publish_schema_version!(context.org.id, schema.id, root.id, actor: context.actor)
+      Datasets.publish_schema_version!(schema, context.org.id, root.id, actor: context.actor)
 
     revision =
       Datasets.put_item_revision!(

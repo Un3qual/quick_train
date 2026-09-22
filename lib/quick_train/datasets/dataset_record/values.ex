@@ -1,7 +1,9 @@
 defmodule QuickTrain.Datasets.DatasetRecord.Values do
   alias QuickTrain.Assets.Asset
   alias QuickTrain.Assets.Ownership
+  alias QuickTrain.Datasets
   alias QuickTrain.Datasets.DatasetValue.Family
+  alias QuickTrain.Datasets.Scalar
   @moduledoc false
 
   require Ash.Query
@@ -26,7 +28,15 @@ defmodule QuickTrain.Datasets.DatasetRecord.Values do
   end
 
   defp resolve(schema, values, value_parser) do
-    fields = Map.new(schema.root_record_type.field_definitions, &{&1.key, &1})
+    keys =
+      for value <- values,
+          {:ok, key} <- [fetch_field(value)],
+          {:ok, key} <- [Scalar.cast(:text, key)],
+          do: key
+
+    fields =
+      Datasets.list_record_fields!(schema.root_record_type_id, keys, authorize?: false)
+      |> Map.new(&{&1.key, &1})
 
     with {:ok, occurrences} <- normalize_entries(values, fields, value_parser),
          :ok <- required_fields_present(fields, occurrences) do
@@ -78,44 +88,12 @@ defmodule QuickTrain.Datasets.DatasetRecord.Values do
     end
   end
 
-  defp normalize_family(:text, value) when is_binary(value) do
-    if String.valid?(value) and not String.contains?(value, <<0>>),
-      do: {:ok, :text, value},
-      else: {:error, :type_mismatch}
-  end
-
-  defp normalize_family(:integer, value)
-       when is_integer(value) and value >= -2_147_483_648 and
-              value <= 2_147_483_647,
-       do: {:ok, :integer, value}
-
-  defp normalize_family(:decimal, value) when is_binary(value) or is_struct(value, Decimal) do
-    case Decimal.cast(value) do
-      {:ok, decimal} -> {:ok, :decimal, decimal}
-      :error -> {:error, :type_mismatch}
+  defp normalize_family(family, value) do
+    case Scalar.cast(family, value) do
+      {:ok, normalized} -> {:ok, family, normalized}
+      _invalid -> {:error, :type_mismatch}
     end
   end
-
-  defp normalize_family(:boolean, value) when is_boolean(value), do: {:ok, :boolean, value}
-
-  defp normalize_family(:utc_datetime, %DateTime{} = value),
-    do: {:ok, :utc_datetime, DateTime.shift_zone!(value, "Etc/UTC")}
-
-  defp normalize_family(:utc_datetime, value) when is_binary(value) do
-    case DateTime.from_iso8601(value) do
-      {:ok, date_time, _offset} -> {:ok, :utc_datetime, date_time}
-      _other -> {:error, :type_mismatch}
-    end
-  end
-
-  defp normalize_family(:asset, value) when is_binary(value) do
-    case Ecto.UUID.cast(value) do
-      {:ok, asset_id} -> {:ok, :asset, asset_id}
-      :error -> {:error, :type_mismatch}
-    end
-  end
-
-  defp normalize_family(_family, _value), do: {:error, :type_mismatch}
 
   defp required_fields_present(fields, occurrences) do
     present = MapSet.new(occurrences, & &1.field.id)
@@ -154,18 +132,17 @@ defmodule QuickTrain.Datasets.DatasetRecord.Values do
     end
   end
 
-  def load(record, schema) do
-    fields = Map.new(schema.root_record_type.field_definitions, &{&1.id, &1})
-    record = Ash.load!(record, :values, authorize?: false)
+  def load(record) do
+    record = Ash.load!(record, [values: :field_definition], authorize?: false)
 
     record.values
-    |> Enum.group_by(&Map.fetch!(fields, &1.field_definition_id).value_family)
+    |> Enum.group_by(& &1.field_definition.value_family)
     |> Enum.flat_map(fn {family, values} ->
       values
       |> Ash.load!(Keyword.fetch!(@typed_relationships, family), authorize?: false)
       |> Enum.map(fn value ->
         %{
-          field: Map.fetch!(fields, value.field_definition_id),
+          field: value.field_definition,
           family: family,
           ordinal: value.ordinal,
           value: typed_value(value, family)

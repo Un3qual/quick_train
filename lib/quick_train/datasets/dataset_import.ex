@@ -110,18 +110,20 @@ defmodule QuickTrain.Datasets.DatasetImport do
   actions do
     defaults [:read]
 
-    action :open, :struct do
-      allow_nil? false
-      constraints instance_of: __MODULE__
+    create :open do
+      accept [:organization_id, :dataset_id, :schema_version_id, :idempotency_key]
+      upsert? true
+      upsert_identity :organization_dataset_key
+      upsert_fields []
+      change Module.concat(["QuickTrain.Datasets.Changes.OpenImport"])
+    end
+
+    read :lock_internal do
+      get? true
       argument :organization_id, :uuid, allow_nil?: false
-      argument :dataset_id, :uuid, allow_nil?: false
-      argument :schema_version_id, :uuid, allow_nil?: false
-
-      argument :idempotency_key, :string,
-        allow_nil?: false,
-        constraints: [match: ~r/\A[^\x00]*\z/u, max_length: 512, length_count: :bytes]
-
-      run {Module.concat(["QuickTrain.Datasets.DatasetImport.Actions.Open"]), []}
+      argument :import_id, :uuid, allow_nil?: false
+      filter expr(id == ^arg(:import_id) and organization_id == ^arg(:organization_id))
+      prepare build(lock: :for_update)
     end
 
     action :finalize, :struct do
@@ -150,20 +152,6 @@ defmodule QuickTrain.Datasets.DatasetImport do
                   :failed
                 ]
               )
-    end
-
-    create :create_internal do
-      accept [
-        :organization_id,
-        :dataset_id,
-        :schema_version_id,
-        :initiated_by_id,
-        :idempotency_key,
-        :open_fingerprint,
-        :open_expires_at
-      ]
-
-      change set_attribute(:phase, :open)
     end
 
     update :seal_internal do

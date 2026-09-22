@@ -465,7 +465,7 @@ defmodule QuickTrain.Tasks.AnswerValidationTest do
 
   defp publish!(base) do
     version =
-      Forms.publish_form_version!(base.context.org.id, %{version_id: base.version.id},
+      Forms.publish_form_version!(base.version, base.context.org.id, %{},
         actor: base.context.actor
       )
 
@@ -518,7 +518,7 @@ defmodule QuickTrain.Tasks.AnswerValidationTest do
       )
 
     schema =
-      Datasets.publish_schema_version!(context.org.id, schema.id, root.id, actor: context.actor)
+      Datasets.publish_schema_version!(schema, context.org.id, root.id, actor: context.actor)
 
     revisions =
       for n <- 1..3,

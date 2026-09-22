@@ -3,7 +3,7 @@ defmodule QuickTrain.Datasets.DatasetRecordType do
 
   alias QuickTrain.Datasets.{DatasetFieldDefinition, DatasetSchemaVersion}
 
-  alias QuickTrain.Datasets.SchemaVersionBoundary
+  alias QuickTrain.Datasets.Changes.DraftWrite
 
   use Ash.Resource,
     otp_app: :quick_train,
@@ -46,9 +46,6 @@ defmodule QuickTrain.Datasets.DatasetRecordType do
 
   code_interface do
     define :get_internal, action: :read, get_by: [:id], not_found_error?: false
-    define :create_internal
-    define :update_internal
-    define :destroy_internal
   end
 
   actions do
@@ -76,101 +73,49 @@ defmodule QuickTrain.Datasets.DatasetRecordType do
              )
     end
 
-    action :add_to_draft, :struct do
-      allow_nil? false
-      constraints instance_of: __MODULE__
-      argument :organization_id, :uuid, allow_nil?: false
-      argument :schema_version_id, :uuid, allow_nil?: false
-
-      argument :key, :string,
-        allow_nil?: false,
-        constraints: [match: ~r/\A[^\x00]*\z/u, max_length: 512, length_count: :bytes]
-
-      argument :name, :string, allow_nil?: false, constraints: [match: ~r/\A[^\x00]*\z/u]
-
-      run fn input, _context ->
-        %{organization_id: organization_id, schema_version_id: schema_version_id} =
-          input.arguments
-
-        SchemaVersionBoundary.with_draft(
-          organization_id,
-          schema_version_id,
-          fn schema ->
-            __MODULE__.create_internal!(
-              %{
-                schema_version_id: schema.id,
-                key: input.arguments.key,
-                name: input.arguments.name
-              },
-              authorize?: false
-            )
-          end
-        )
-      end
+    read :read_for_authoring do
+      pagination keyset?: true, required?: false
     end
 
-    action :update_in_draft, :struct do
-      allow_nil? false
-      constraints instance_of: __MODULE__
-      argument :organization_id, :uuid, allow_nil?: false
-      argument :record_type_id, :uuid, allow_nil?: false
-
-      argument :key, :string,
-        allow_nil?: false,
-        constraints: [match: ~r/\A[^\x00]*\z/u, max_length: 512, length_count: :bytes]
-
-      argument :name, :string, allow_nil?: false, constraints: [match: ~r/\A[^\x00]*\z/u]
-
-      run fn input, _context ->
-        %{organization_id: organization_id, record_type_id: record_type_id} = input.arguments
-
-        SchemaVersionBoundary.with_record_type(
-          organization_id,
-          record_type_id,
-          fn record_type ->
-            __MODULE__.update_internal!(
-              record_type,
-              %{
-                key: input.arguments.key,
-                name: input.arguments.name
-              },
-              authorize?: false
-            )
-          end
-        )
-      end
-    end
-
-    action :remove_from_draft, :atom do
-      allow_nil? false
-      argument :organization_id, :uuid, allow_nil?: false
-      argument :record_type_id, :uuid, allow_nil?: false
-
-      run fn input, _context ->
-        %{organization_id: organization_id, record_type_id: record_type_id} = input.arguments
-
-        SchemaVersionBoundary.with_record_type(
-          organization_id,
-          record_type_id,
-          fn record_type ->
-            __MODULE__.destroy_internal(record_type, authorize?: false)
-          end
-        )
-      end
-    end
-
-    create :create_internal do
+    create :add_to_draft do
       accept [:schema_version_id, :key, :name]
+      argument :organization_id, :uuid, allow_nil?: false
+      change DraftWrite
     end
 
-    update :update_internal do
+    update :update_in_draft do
+      require_atomic? false
+      atomic_upgrade_with :read_for_authoring
       accept [:key, :name]
+      argument :organization_id, :uuid, allow_nil?: false
+      change DraftWrite
     end
 
-    destroy :destroy_internal
+    destroy :remove_from_draft do
+      require_atomic? false
+      atomic_upgrade_with :read_for_authoring
+      argument :organization_id, :uuid, allow_nil?: false
+      change DraftWrite
+    end
   end
 
   policies do
+    policy action(:read_for_authoring) do
+      authorize_if context_equals(:query_for, :bulk_update)
+      authorize_if context_equals(:query_for, :bulk_destroy)
+    end
+
+    policy action(:read_for_authoring) do
+      forbid_unless actor_attribute_equals(:status, "active")
+
+      authorize_if relates_to_actor_via([
+                     :schema_version,
+                     :dataset,
+                     :manager_role_assignments,
+                     :user
+                   ])
+    end
+
     policy action(:read) do
       authorize_if Module.concat(["QuickTrain.Authorization.Checks.SourceRead"])
     end

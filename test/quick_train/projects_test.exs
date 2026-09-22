@@ -397,7 +397,7 @@ defmodule QuickTrain.ProjectsTest do
       )
 
     schema =
-      Datasets.publish_schema_version!(context.org.id, schema.id, root.id, actor: context.actor)
+      Datasets.publish_schema_version!(schema, context.org.id, root.id, actor: context.actor)
 
     revision =
       Datasets.put_item_revision!(

@@ -53,22 +53,25 @@ defmodule QuickTrain.Datasets do
     mutations do
       create Dataset, :create_dataset, :create_dataset
 
-      action DatasetSchemaVersion, :create_dataset_schema_version, :create_draft,
+      create DatasetSchemaVersion, :create_dataset_schema_version, :create_draft,
         args: [:organization_id, :dataset_id]
 
-      action DatasetSchemaVersion, :publish_dataset_schema_version, :publish,
-        args: [:organization_id, :schema_version_id, :root_record_type_id]
+      update DatasetSchemaVersion, :publish_dataset_schema_version, :publish,
+        args: [:organization_id, :root_record_type_id],
+        read_action: :read_for_authoring
 
-      action DatasetRecordType, :add_dataset_record_type, :add_to_draft,
+      create DatasetRecordType, :add_dataset_record_type, :add_to_draft,
         args: [:organization_id, :schema_version_id, :key, :name]
 
-      action DatasetRecordType, :update_dataset_record_type, :update_in_draft,
-        args: [:organization_id, :record_type_id, :key, :name]
+      update DatasetRecordType, :update_dataset_record_type, :update_in_draft,
+        args: [:organization_id, :key, :name],
+        read_action: :read_for_authoring
 
-      action DatasetRecordType, :remove_dataset_record_type, :remove_from_draft,
-        args: [:organization_id, :record_type_id]
+      destroy DatasetRecordType, :remove_dataset_record_type, :remove_from_draft,
+        args: [:organization_id],
+        read_action: :read_for_authoring
 
-      action DatasetFieldDefinition, :add_dataset_field_definition, :add_to_draft,
+      create DatasetFieldDefinition, :add_dataset_field_definition, :add_to_draft,
         args: [
           :organization_id,
           :record_type_id,
@@ -79,21 +82,22 @@ defmodule QuickTrain.Datasets do
           :required
         ]
 
-      action DatasetFieldDefinition, :update_dataset_field_definition, :update_in_draft,
+      update DatasetFieldDefinition, :update_dataset_field_definition, :update_in_draft,
         args: [
           :organization_id,
-          :field_definition_id,
           :key,
           :name,
           :value_family,
           :cardinality,
           :required
-        ]
+        ],
+        read_action: :read_for_authoring
 
-      action DatasetFieldDefinition, :remove_dataset_field_definition, :remove_from_draft,
-        args: [:organization_id, :field_definition_id]
+      destroy DatasetFieldDefinition, :remove_dataset_field_definition, :remove_from_draft,
+        args: [:organization_id],
+        read_action: :read_for_authoring
 
-      action DatasetImport, :open_dataset_import, :open,
+      create DatasetImport, :open_dataset_import, :open,
         args: [:organization_id, :dataset_id, :schema_version_id, :idempotency_key]
 
       action DatasetImportRow, :append_dataset_import_row, :append,
@@ -123,6 +127,10 @@ defmodule QuickTrain.Datasets do
     end
 
     resource QuickTrain.Datasets.DatasetFieldDefinition do
+      define :list_record_fields,
+        action: :for_record_internal,
+        args: [:record_type_id, :field_keys]
+
       define :add_field_definition,
         action: :add_to_draft,
         args: [
@@ -139,7 +147,6 @@ defmodule QuickTrain.Datasets do
         action: :update_in_draft,
         args: [
           :organization_id,
-          :field_definition_id,
           :key,
           :name,
           :value_family,
@@ -149,7 +156,7 @@ defmodule QuickTrain.Datasets do
 
       define :remove_field_definition,
         action: :remove_from_draft,
-        args: [:organization_id, :field_definition_id]
+        args: [:organization_id]
 
       define :list_field_definitions,
         action: :list_scoped,
@@ -163,11 +170,11 @@ defmodule QuickTrain.Datasets do
 
       define :update_record_type,
         action: :update_in_draft,
-        args: [:organization_id, :record_type_id, :key, :name]
+        args: [:organization_id, :key, :name]
 
       define :remove_record_type,
         action: :remove_from_draft,
-        args: [:organization_id, :record_type_id]
+        args: [:organization_id]
 
       define :list_record_types,
         action: :list_scoped,
@@ -180,19 +187,13 @@ defmodule QuickTrain.Datasets do
         args: [:organization_id, :dataset_id, :schema_version_id],
         not_found_error?: false
 
-      define :create_schema_version_internal, action: :create_internal
-
-      define :publish_schema_version_internal,
-        action: :publish_internal,
-        get_by: [:id]
-
       define :create_schema_version,
         action: :create_draft,
         args: [:organization_id, :dataset_id]
 
       define :publish_schema_version,
         action: :publish,
-        args: [:organization_id, :schema_version_id, :root_record_type_id]
+        args: [:organization_id, :root_record_type_id]
 
       define :get_schema_version,
         action: :get_scoped,
@@ -255,7 +256,12 @@ defmodule QuickTrain.Datasets do
     resource QuickTrain.Datasets.DatasetValue.Asset
 
     resource QuickTrain.Datasets.DatasetImport do
-      define :create_import_internal, action: :create_internal
+      define :lock_import,
+        action: :lock_internal,
+        args: [:organization_id, :import_id],
+        not_found_error?: false
+
+      define :seal_import_internal, action: :seal_internal
 
       define :open_import,
         action: :open,
@@ -271,6 +277,10 @@ defmodule QuickTrain.Datasets do
     end
 
     resource QuickTrain.Datasets.DatasetImportRow do
+      define :create_import_row_internal, action: :create_internal
+      define :complete_import_row_internal, action: :complete_internal
+      define :get_import_row_internal, action: :read, get_by: [:id], not_found_error?: false
+
       define :find_import_row_conflicts,
         action: :find_conflicts_internal,
         args: [:organization_id, :import_id, :row_key, :source_position, :external_key]

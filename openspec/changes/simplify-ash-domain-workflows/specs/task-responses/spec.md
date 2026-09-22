@@ -1,7 +1,7 @@
 ## ADDED Requirements
 
 ### Requirement: Accurate attempt permission checks
-Attempt action permission checks SHALL reject absent, inactive, non-owner, or currently ineligible actors within the explicit organization/project scope. Eligible external workers SHALL not require organization membership. Execution SHALL still recheck current ownership, eligibility, lifecycle, and applicable lease rules after acquiring owner locks, preserving terminal retry and receipt behavior.
+Permission checks for owned attempt reads, mutations, and receipts SHALL reject absent, inactive, non-owner, or currently ineligible actors within the explicit organization/project scope. Eligible external workers SHALL not require organization membership. Execution SHALL still recheck current ownership, eligibility, lifecycle, and applicable lease rules after acquiring owner locks, preserving terminal retry and receipt behavior.
 
 #### Scenario: Another worker checks submission permission
 - **WHEN** an active worker checks permission to submit another worker's attempt

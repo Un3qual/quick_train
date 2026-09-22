@@ -278,14 +278,16 @@ defmodule QuickTrain.Forms do
       create FormVersion, :create_form_draft, :create_draft,
         args: [:organization_id, :form_id, :title, :description]
 
-      action FormVersion, :copy_published_form, :copy_published,
+      create FormVersion, :copy_published_form, :copy_published,
         args: [:organization_id, :form_id, :source_version_id]
 
       update FormVersion, :update_form_draft, :update_draft,
         args: [:organization_id, :title, :description],
         read_action: :read_for_authoring
 
-      action FormVersion, :publish_form_version, :publish, args: [:organization_id, :version_id]
+      update FormVersion, :publish_form_version, :publish,
+        args: [:organization_id],
+        read_action: :read_for_authoring
 
       create InputSlotDefinition,
              :add_form_input_slot_definition,

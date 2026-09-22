@@ -74,19 +74,40 @@ defmodule QuickTrainWeb.FormGraphqlTest do
 
     data =
       graphql!(conn, """
-      mutation { publishFormVersion(organizationId: "#{ctx.org.id}", versionId: "#{graph.version.id}") {
-        id version state publishedAt title
+      mutation { publishFormVersion(organizationId: "#{ctx.org.id}", id: "#{graph.version.id}") {
+        errors { message }
+        result { id version state publishedAt title
         inputSlots(first: 2) { edges { node { id key minimum maximum requirements(first: 2) { edges { node { valueFamily cardinality required } } } } } }
         questions(first: 2) { edges { node { id key prompt family renderer integerConstraints { minimum maximum } } } }
         elements(first: 2) { edges { node { id kind position question { id } } } }
+        }
       } }
       """)
 
-    published = data["publishFormVersion"]
+    assert data["publishFormVersion"]["errors"] == []
+    published = data["publishFormVersion"]["result"]
     assert published["state"] == "PUBLISHED"
 
     assert [%{"node" => %{"integerConstraints" => %{"minimum" => 1, "maximum" => 5}}}] =
              published["questions"]["edges"]
+
+    copied =
+      graphql!(conn, """
+      mutation { copyPublishedForm(organizationId: "#{ctx.org.id}", formId: "#{graph.form.id}", sourceVersionId: "#{graph.version.id}") {
+        result { id version state title questions(first: 2) { edges { node { id prompt } } } }
+        errors { message }
+      } }
+      """)["copyPublishedForm"]
+
+    assert copied["errors"] == []
+    assert copied["result"]["state"] == "DRAFT"
+    assert copied["result"]["version"] == 2
+    assert copied["result"]["title"] == published["title"]
+
+    assert [%{"node" => %{"id" => copied_question_id, "prompt" => "Rate it"}}] =
+             copied["result"]["questions"]["edges"]
+
+    refute copied_question_id == graph.question.id
 
     response =
       conn
@@ -305,22 +326,24 @@ defmodule QuickTrainWeb.FormGraphqlTest do
     Organizations.add_member!(ctx.org.id, member.id)
 
     query =
-      "mutation { publishFormVersion(organizationId: \"#{ctx.org.id}\", versionId: \"#{graph.version.id}\") { id } }"
+      "mutation { publishFormVersion(organizationId: \"#{ctx.org.id}\", id: \"#{graph.version.id}\") { result { id } errors { message } } }"
 
     for actor <- [outsider, member] do
       response = conn |> bearer(actor) |> post("/graphql", %{query: query}) |> json_response(200)
-      assert response["errors"] != []
-      refute get_in(response, ["data", "publishFormVersion"])
+      assert [%{"message" => _} | _] = get_in(response, ["data", "publishFormVersion", "errors"])
+      refute get_in(response, ["data", "publishFormVersion", "result"])
     end
 
     manager_conn = bearer(conn, ctx.actor)
     Organizations.deactivate_membership!(ctx.membership)
     response = manager_conn |> post("/graphql", %{query: query}) |> json_response(200)
-    assert response["errors"] != []
+    assert [%{"message" => _} | _] = get_in(response, ["data", "publishFormVersion", "errors"])
+    refute get_in(response, ["data", "publishFormVersion", "result"])
     Organizations.add_member!(ctx.org.id, ctx.actor.id)
     Ash.update!(ctx.org, %{status: "inactive"}, action: :update, authorize?: false)
     response = manager_conn |> post("/graphql", %{query: query}) |> json_response(200)
-    assert response["errors"] != []
+    assert [%{"message" => _} | _] = get_in(response, ["data", "publishFormVersion", "errors"])
+    refute get_in(response, ["data", "publishFormVersion", "result"])
     Ash.update!(ctx.actor, %{status: "disabled"}, action: :set_status, authorize?: false)
     assert manager_conn |> post("/graphql", %{query: query}) |> response(401)
   end

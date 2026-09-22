@@ -24,7 +24,7 @@ defmodule QuickTrainWeb.DatasetSchemaGraphqlTest do
         mutation CreateDataset($input: CreateDatasetInput!) {
           createDataset(input: $input) {
             result { id organizationId key name }
-            errors { message }
+            errors { message fields }
           }
         }
         """,
@@ -49,11 +49,11 @@ defmodule QuickTrainWeb.DatasetSchemaGraphqlTest do
           createDatasetSchemaVersion(
             organizationId: $organizationId,
             datasetId: $datasetId
-          ) { id datasetId version state publishedAt rootRecordTypeId }
+          ) { result { id datasetId version state publishedAt rootRecordTypeId } errors { message fields } }
         }
         """,
         %{"organizationId" => organization_id, "datasetId" => dataset["id"]}
-      )["createDatasetSchemaVersion"]
+      )["createDatasetSchemaVersion"]["result"]
 
     assert schema["version"] == 1
     assert schema["state"] == "DRAFT"
@@ -73,7 +73,7 @@ defmodule QuickTrainWeb.DatasetSchemaGraphqlTest do
             schemaVersionId: $schemaVersionId,
             key: $key,
             name: $name
-          ) { id schemaVersionId key name }
+          ) { result { id schemaVersionId key name } errors { message fields } }
         }
         """,
         %{
@@ -82,7 +82,7 @@ defmodule QuickTrainWeb.DatasetSchemaGraphqlTest do
           "key" => "customer",
           "name" => "Customer"
         }
-      )["addDatasetRecordType"]
+      )["addDatasetRecordType"]["result"]
 
     field =
       graphql!(
@@ -105,7 +105,7 @@ defmodule QuickTrainWeb.DatasetSchemaGraphqlTest do
             valueFamily: $valueFamily,
             cardinality: $cardinality,
             required: $required
-          ) { id recordTypeId key name valueFamily cardinality required }
+          ) { result { id recordTypeId key name valueFamily cardinality required } errors { message fields } }
         }
         """,
         %{
@@ -117,7 +117,7 @@ defmodule QuickTrainWeb.DatasetSchemaGraphqlTest do
           "cardinality" => "SINGLE",
           "required" => true
         }
-      )["addDatasetFieldDefinition"]
+      )["addDatasetFieldDefinition"]["result"]
 
     assert field["valueFamily"] == "TEXT"
     assert field["required"]
@@ -133,9 +133,9 @@ defmodule QuickTrainWeb.DatasetSchemaGraphqlTest do
         ) {
           publishDatasetSchemaVersion(
             organizationId: $organizationId,
-            schemaVersionId: $schemaVersionId,
+            id: $schemaVersionId,
             rootRecordTypeId: $rootRecordTypeId
-          ) { id state publishedAt rootRecordTypeId }
+          ) { result { id state publishedAt rootRecordTypeId } errors { message fields } }
         }
         """,
         %{
@@ -144,6 +144,9 @@ defmodule QuickTrainWeb.DatasetSchemaGraphqlTest do
           "rootRecordTypeId" => root["id"]
         }
       )["publishDatasetSchemaVersion"]
+
+    assert published["errors"] == []
+    published = published["result"]
 
     assert published["state"] == "PUBLISHED"
     assert published["rootRecordTypeId"] == root["id"]
