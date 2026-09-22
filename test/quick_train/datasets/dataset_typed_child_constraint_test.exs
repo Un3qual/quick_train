@@ -45,7 +45,7 @@ defmodule QuickTrain.Datasets.DatasetTypedChildConstraintTest do
         actor: manager
       )
 
-    Datasets.publish_schema_version!(graph.organization.id, schema.id, root.id, actor: manager)
+    Datasets.publish_schema_version!(schema, graph.organization.id, root.id, actor: manager)
 
     record_id = Ecto.UUID.generate()
 

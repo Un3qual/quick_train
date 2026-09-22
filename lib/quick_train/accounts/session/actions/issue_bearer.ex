@@ -3,6 +3,8 @@ defmodule QuickTrain.Accounts.Session.Actions.IssueBearer do
 
   use Ash.Resource.Actions.Implementation
 
+  alias QuickTrain.Accounts
+
   @token_bytes 32
 
   @impl true
@@ -19,10 +21,7 @@ defmodule QuickTrain.Accounts.Session.Actions.IssueBearer do
       expires_at: DateTime.add(issued_at, lifetime_seconds, :second)
     }
 
-    result =
-      input.resource
-      |> Ash.Changeset.for_create(:persist, attributes)
-      |> Ash.create(authorize?: false)
+    result = Accounts.persist_bearer_session(attributes, authorize?: false)
 
     case result do
       {:ok, session} ->

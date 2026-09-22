@@ -26,9 +26,9 @@ defmodule QuickTrain.Tasks.TextSpansTest do
 
   @text "A😀éZ" <> String.duplicate("x", 155)
 
-  setup do
+  setup tags do
     context = ProjectsFixture.context!()
-    source = source!(context)
+    source = source!(context, tags[:question_count] || 1)
 
     project =
       ProjectsFixture.active!(context, source,
@@ -47,6 +47,42 @@ defmodule QuickTrain.Tasks.TextSpansTest do
     ctx = Map.merge(ctx, %{attempt: attempt, input: input})
     assert {:ok, bound} = bound(ctx)
     Map.put(ctx, :value, bound.value)
+  end
+
+  @tag question_count: 3
+  test "submission reads a shared text source once across span questions", ctx do
+    ctx.source.form.questions
+    |> Enum.with_index()
+    |> Enum.each(fn {question, revision} ->
+      assert {:ok, _attempt} =
+               save(put_in(ctx.source.form.question, question), revision, [span(ctx, 1, 5)])
+    end)
+
+    reference = make_ref()
+    handler = {__MODULE__, reference}
+
+    :ok =
+      :telemetry.attach(
+        handler,
+        [:quick_train, :repo, :query],
+        &__MODULE__.record_source_read/4,
+        {self(), reference}
+      )
+
+    try do
+      assert {:ok, %{state: :submitted}} =
+               QuickTrain.Tasks.submit_response(ctx.attempt, actor: ctx.worker)
+
+      assert_receive {:source_read, ^reference}
+      refute_receive {:source_read, ^reference}
+      assert Ash.count!(TextSpan, authorize?: false) == 3
+    after
+      :telemetry.detach(handler)
+    end
+  end
+
+  def record_source_read(_event, _measurements, metadata, {pid, reference}) do
+    if metadata.source == "dataset_text_values", do: send(pid, {:source_read, reference})
   end
 
   test "overlapping code-point spans retain pinned source and label identities after submission",
@@ -140,7 +176,9 @@ defmodule QuickTrain.Tasks.TextSpansTest do
 
     assert Enum.all?(page["edges"], &(&1["node"]["label"]["id"] == ctx.source.form.label.id))
     assert Enum.all?(page["edges"], &(&1["node"]["taskInput"]["revisionId"] == bound.revision_id))
-    assert Ash.read_one!(QuickTrain.Tasks.Task, authorize?: false).state == :satisfied
+
+    assert Ash.read_one!(QuickTrain.Tasks.Task, authorize?: false, load: :state).state ==
+             :satisfied
   end
 
   test "more than one hundred submitted spans remain fully traversable through Ash and GraphQL",
@@ -289,8 +327,8 @@ defmodule QuickTrain.Tasks.TextSpansTest do
     reader
   end
 
-  defp source!(context) do
-    form = span_form!(context)
+  defp source!(context, question_count) do
+    form = span_form!(context, question_count)
 
     dataset =
       Datasets.create_dataset!(context.org.id, "documents", "Documents", actor: context.actor)
@@ -315,7 +353,7 @@ defmodule QuickTrain.Tasks.TextSpansTest do
       )
 
     schema =
-      Datasets.publish_schema_version!(context.org.id, schema.id, root.id, actor: context.actor)
+      Datasets.publish_schema_version!(schema, context.org.id, root.id, actor: context.actor)
 
     revision =
       Datasets.put_item_revision!(
@@ -338,7 +376,7 @@ defmodule QuickTrain.Tasks.TextSpansTest do
     }
   end
 
-  defp span_form!(context) do
+  defp span_form!(context, question_count) do
     form = FormsFixture.draft!(context)
 
     slot =
@@ -366,38 +404,42 @@ defmodule QuickTrain.Tasks.TextSpansTest do
         position: 0
       })
 
-    question =
-      FormsFixture.add!(QuestionDefinition, context, form.version, %{
-        key: "spans",
-        prompt: "Mark spans",
-        family: :text_spans,
-        renderer: :text_spans
-      })
+    questions =
+      for position <- 0..(question_count - 1) do
+        question =
+          FormsFixture.add!(QuestionDefinition, context, form.version, %{
+            key: "spans-#{position}",
+            prompt: "Mark spans",
+            family: :text_spans,
+            renderer: :text_spans
+          })
 
-    FormsFixture.add!(AnnotationConstraints, context, form.version, %{
-      question_id: question.id,
-      source_requirement_id: field.id,
-      label_set_id: labels.id,
-      minimum: 1,
-      maximum: 500
-    })
+        FormsFixture.add!(AnnotationConstraints, context, form.version, %{
+          question_id: question.id,
+          source_requirement_id: field.id,
+          label_set_id: labels.id,
+          minimum: 1,
+          maximum: 500
+        })
 
-    FormsFixture.add!(PresentationElement, context, form.version, %{
-      kind: :question,
-      position: 0,
-      question_id: question.id
-    })
+        FormsFixture.add!(PresentationElement, context, form.version, %{
+          kind: :question,
+          position: position,
+          question_id: question.id
+        })
+
+        question
+      end
 
     version =
-      Forms.publish_form_version!(context.org.id, %{version_id: form.version.id},
-        actor: context.actor
-      )
+      Forms.publish_form_version!(form.version, context.org.id, %{}, actor: context.actor)
 
     Map.merge(form, %{
       version: version,
       slot: slot,
       field: field,
-      question: question,
+      question: hd(questions),
+      questions: questions,
       label: label
     })
   end

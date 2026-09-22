@@ -96,7 +96,13 @@ defmodule QuickTrain.Tasks.CollectionConcurrencyTest do
     holder =
       on_connection(fn ->
         Ash.transact(Task, fn ->
-          task = Ash.get!(Task, ctx.attempt.task_id, authorize?: false, lock: :for_update)
+          task =
+            Ash.get!(Task, ctx.attempt.task_id,
+              authorize?: false,
+              lock: :for_update,
+              load: :state
+            )
+
           send(parent, {:history_locked, task.state})
           receive do: (:release -> :ok)
         end)
@@ -352,12 +358,12 @@ defmodule QuickTrain.Tasks.CollectionConcurrencyTest do
       if ctx.order == :submit_first do
         assert {:ok, %{state: :completed}} = second_result
         assert Ash.get!(Attempt, ctx.attempt.id, authorize?: false).state == :submitted
-        assert Ash.read_one!(Task, authorize?: false).state == :satisfied
+        assert Ash.read_one!(Task, authorize?: false, load: :state).state == :satisfied
         assert Ash.count!(ReviewDecision, authorize?: false) == 1
       else
         assert {:error, _} = second_result
         assert Ash.get!(Attempt, ctx.attempt.id, authorize?: false).state == :cancelled
-        assert Ash.read_one!(Task, authorize?: false).state == :cancelled
+        assert Ash.read_one!(Task, authorize?: false, load: :state).state == :cancelled
         assert Ash.count!(ReviewDecision, authorize?: false) == 0
       end
 

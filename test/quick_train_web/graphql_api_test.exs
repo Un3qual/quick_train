@@ -219,22 +219,20 @@ defmodule QuickTrainWeb.GraphqlApiTest do
                    "schemaVersionId"
                  ]),
                "publishDatasetSchemaVersion" =>
-                 MapSet.new(["organizationId", "rootRecordTypeId", "schemaVersionId"]),
-               "removeDatasetFieldDefinition" =>
-                 MapSet.new(["fieldDefinitionId", "organizationId"]),
-               "removeDatasetRecordType" => MapSet.new(["organizationId", "recordTypeId"]),
+                 MapSet.new(["id", "organizationId", "rootRecordTypeId"]),
+               "removeDatasetFieldDefinition" => MapSet.new(["id", "organizationId"]),
+               "removeDatasetRecordType" => MapSet.new(["id", "organizationId"]),
                "updateDatasetFieldDefinition" =>
                  MapSet.new([
                    "cardinality",
-                   "fieldDefinitionId",
+                   "id",
                    "key",
                    "name",
                    "organizationId",
                    "required",
                    "valueFamily"
                  ]),
-               "updateDatasetRecordType" =>
-                 MapSet.new(["key", "name", "organizationId", "recordTypeId"])
+               "updateDatasetRecordType" => MapSet.new(["id", "key", "name", "organizationId"])
              })
 
     type_names = MapSet.new(schema["types"], & &1["name"])
@@ -469,7 +467,7 @@ defmodule QuickTrainWeb.GraphqlApiTest do
       "copyPublishedForm" => MapSet.new(~w(formId organizationId sourceVersionId)),
       "createForm" => MapSet.new(~w(key organizationId)),
       "createFormDraft" => MapSet.new(~w(description formId organizationId title)),
-      "publishFormVersion" => MapSet.new(~w(organizationId versionId)),
+      "publishFormVersion" => MapSet.new(~w(id organizationId)),
       "removeFormAnnotationConstraints" => MapSet.new(~w(id organizationId versionId)),
       "removeFormDecimalConstraints" => MapSet.new(~w(id organizationId versionId)),
       "removeFormInputFieldRequirement" => MapSet.new(~w(id organizationId versionId)),

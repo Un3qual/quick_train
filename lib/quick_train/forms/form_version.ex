@@ -9,7 +9,7 @@ defmodule QuickTrain.Forms.FormVersion do
     authorizers: [Ash.Policy.Authorizer]
 
   alias QuickTrain.Authorization.Checks.{CollectionContext, OrganizationCapability}
-  alias QuickTrain.Forms.Changes.{AllocateVersion, DraftWrite}
+  alias QuickTrain.Forms.Changes.{AllocateVersion, CopyPublished, DraftWrite, PublishVersion}
   alias QuickTrain.Forms.Form
   alias QuickTrain.Forms.Inputs.{InputFieldRequirement, InputSlotDefinition}
   alias QuickTrain.Forms.Labels.LabelSet
@@ -118,14 +118,12 @@ defmodule QuickTrain.Forms.FormVersion do
       change AllocateVersion
     end
 
-    action :copy_published, :struct do
-      transaction? true
-      allow_nil? false
-      constraints instance_of: __MODULE__
+    create :copy_published do
+      accept [:form_id]
       argument :organization_id, :uuid, allow_nil?: false
-      argument :form_id, :uuid, allow_nil?: false
       argument :source_version_id, :uuid, allow_nil?: false
-      run {Module.concat(["QuickTrain.Forms.Authoring"]), []}
+      change AllocateVersion
+      change CopyPublished
     end
 
     update :update_draft do
@@ -136,19 +134,12 @@ defmodule QuickTrain.Forms.FormVersion do
       change DraftWrite
     end
 
-    action :publish, :struct do
-      transaction? true
-      allow_nil? false
-      constraints instance_of: __MODULE__
-      argument :organization_id, :uuid, allow_nil?: false
-      argument :version_id, :uuid, allow_nil?: false
-      run {Module.concat(["QuickTrain.Forms.Authoring"]), []}
-    end
-
-    update :publish_internal do
+    update :publish do
+      require_atomic? false
+      atomic_upgrade_with :read_for_authoring
       accept []
-      change set_attribute(:state, :published)
-      change atomic_update(:published_at, expr(now()))
+      argument :organization_id, :uuid, allow_nil?: false
+      change PublishVersion
     end
   end
 

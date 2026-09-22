@@ -56,7 +56,7 @@ defmodule QuickTrain.Accounts.Session do
       argument :user_id, :uuid, allow_nil?: false
       argument :lifetime_seconds, :integer
 
-      run QuickTrain.Accounts.Session.Actions.IssueBearer
+      run Module.concat(["QuickTrain.Accounts.Session.Actions.IssueBearer"])
     end
 
     create :persist do

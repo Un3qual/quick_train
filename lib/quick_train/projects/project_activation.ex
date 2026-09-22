@@ -68,9 +68,8 @@ defmodule QuickTrain.Projects.ProjectActivation do
   def validate!(project) do
     validate_published!(project)
     requirements = Enum.to_list(rows(InputFieldRequirement, version_id: project.form_version_id))
-    questions = Enum.to_list(rows(QuestionDefinition, version_id: project.form_version_id))
     slots = Enum.to_list(rows(InputSlotDefinition, version_id: project.form_version_id))
-    validate_contract!(requirements, questions)
+    validate_contract!(project, requirements)
     {bindings, policies} = validate_policies!(project, requirements, slots)
     validate_sources!(project, requirements, bindings)
     validate_tasks!(project, policies)
@@ -89,12 +88,16 @@ defmodule QuickTrain.Projects.ProjectActivation do
            do: Error.reject!(:invalid_project_configuration)
   end
 
-  defp validate_contract!(requirements, questions) do
+  defp validate_contract!(project, requirements) do
     if Enum.any?(requirements, &(&1.intended_use == :image)) or
-         Enum.any?(
-           questions,
-           &(&1.renderer == :image_choice or
-               &1.family in [:bounding_boxes, :polygon_regions, :raster_masks])
+         Ash.exists?(
+           Ash.Query.filter(
+             QuestionDefinition,
+             version_id == ^project.form_version_id and
+               (renderer == :image_choice or
+                  family in [:bounding_boxes, :polygon_regions, :raster_masks])
+           ),
+           authorize?: false
          ),
        do: Error.reject!(:unsupported_task_contract)
   end

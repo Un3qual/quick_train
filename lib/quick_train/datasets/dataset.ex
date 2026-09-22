@@ -32,6 +32,17 @@ defmodule QuickTrain.Datasets.Dataset do
       allow_nil?: false,
       attribute_public?: true
 
+    has_many :manager_role_assignments, QuickTrain.Authorization.RoleAssignment do
+      source_attribute :organization_id
+      destination_attribute :organization_id
+
+      filter expr(
+               user.status == "active" and organization.status == "active" and
+                 exists(role.role_capabilities, capability.key == "datasets.manage") and
+                 exists(organization.memberships, user_id == ^actor(:id) and status == "active")
+             )
+    end
+
     has_many :schema_versions, DatasetSchemaVersion, public?: true
 
     has_many :items, DatasetItem, public?: true

@@ -28,6 +28,67 @@ defmodule QuickTrain.Datasets.DatasetImportTest do
     %{manager: manager, organization: graph.organization, dataset: dataset, schema: schema}
   end
 
+  test "native opening rejects missing actors before deriving import facts", context do
+    refute Datasets.can_open_import?(
+             nil,
+             context.organization.id,
+             context.dataset.id,
+             context.schema.id,
+             "anonymous"
+           )
+
+    assert {:error, %Ash.Error.Forbidden{}} =
+             Datasets.open_import(
+               context.organization.id,
+               context.dataset.id,
+               context.schema.id,
+               "anonymous"
+             )
+
+    assert Ash.count!(DatasetImport, authorize?: false) == 0
+  end
+
+  test "unqueryable field keys retain a domain-failed row instead of reaching PostgreSQL",
+       context do
+    import = open!(context, "unknown-fields")
+
+    for {key, position} <- Enum.with_index(["bad" <> <<0>>, <<255>>]) do
+      row =
+        append!(context, import, "row-#{position}", nil, position, [%{field: key, text: "value"}])
+
+      assert row.outcome == :failed
+      assert row.error_code == "unknown_field"
+    end
+
+    assert Ash.count!(DatasetRecord, authorize?: false) == 0
+  end
+
+  test "nonfinite decimal rows fail structurally without reserving their identity", context do
+    import = open!(context, "finite-decimals")
+
+    for value <- ["NaN", "Infinity", "-Infinity"] do
+      assert {:error, error} =
+               Datasets.append_import_row(
+                 context.organization.id,
+                 import.id,
+                 "row",
+                 nil,
+                 0,
+                 [%{field: "balance", decimal: value}],
+                 actor: context.manager
+               )
+
+      assert Exception.message(error) =~ "malformed_decimal"
+      assert Ash.count!(DatasetImportRow, authorize?: false) == 0
+      assert Ash.count!(DatasetRecord, authorize?: false) == 0
+    end
+
+    assert append!(context, import, "row", nil, 0, [
+             %{field: "name", text: "Alice"},
+             %{field: "balance", decimal: "1.0"}
+           ]).outcome == :pending
+  end
+
   test "source positions fit the standard GraphQL Int range", context do
     import = open!(context, "position-boundary")
 
@@ -196,6 +257,8 @@ defmodule QuickTrain.Datasets.DatasetImportTest do
     first = open!(context, "batch-1")
     retry = open!(context, "batch-1")
     assert retry.id == first.id
+    assert retry.open_expires_at == first.open_expires_at
+    assert retry.initiated_by_id == first.initiated_by_id
     assert first.phase == :open
     assert DateTime.after?(first.open_expires_at, DateTime.utc_now())
 
@@ -724,6 +787,6 @@ defmodule QuickTrain.Datasets.DatasetImportTest do
       )
     end
 
-    Datasets.publish_schema_version!(organization_id, schema.id, root.id, actor: manager)
+    Datasets.publish_schema_version!(schema, organization_id, root.id, actor: manager)
   end
 end

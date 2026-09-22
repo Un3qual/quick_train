@@ -3,8 +3,6 @@ defmodule QuickTrain.Datasets.DatasetImportRow.Process do
 
   use Ash.Resource.Actions.Implementation
 
-  require Ash.Query
-
   alias QuickTrain.Datasets.{DatasetImportRow, DatasetRecord}
 
   @impl true
@@ -41,19 +39,21 @@ defmodule QuickTrain.Datasets.DatasetImportRow.Process do
 
     outcome = if result.changed, do: :succeeded, else: :unchanged
 
-    row
-    |> Ash.Changeset.for_update(:complete_internal, %{
-      outcome: outcome,
-      error_code: nil,
-      item_revision_id: result.revision.id
-    })
-    |> Ash.update!(authorize?: false)
+    QuickTrain.Datasets.complete_import_row_internal!(
+      row,
+      %{
+        outcome: outcome,
+        error_code: nil,
+        item_revision_id: result.revision.id
+      },
+      authorize?: false
+    )
   end
 
-  defp locked_row(row_id) do
-    DatasetImportRow
-    |> Ash.Query.filter(id == ^row_id)
-    |> Ash.Query.lock(:for_update)
-    |> Ash.read_one!(authorize?: false)
-  end
+  defp locked_row(row_id),
+    do:
+      QuickTrain.Datasets.get_import_row_internal!(row_id,
+        query: [lock: :for_update],
+        authorize?: false
+      )
 end

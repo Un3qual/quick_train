@@ -275,15 +275,15 @@ defmodule QuickTrain.Tasks.TaskReviewTest do
        ctx do
     outcome = outcome!(ctx)
     assert {:ok, first} = decide(ctx, request(outcome, :accept))
-    assert Ash.get!(Task, ctx.task.id, authorize?: false).state == :satisfied
+    assert Ash.get!(Task, ctx.task.id, authorize?: false, load: :state).state == :satisfied
     Ash.Seed.update!(ctx.project, %{state: :completed})
     assert {:ok, second} = decide(ctx, request(outcome, :reject, first.id, "Corrected"))
-    assert Ash.get!(Task, ctx.task.id, authorize?: false).state == :satisfied
+    assert Ash.get!(Task, ctx.task.id, authorize?: false, load: :state).state == :satisfied
     assert {:ok, third} = decide(ctx, request(outcome, :accept, second.id, "Restored"))
     current = Ash.load!(outcome, [:effective_decision, :effective_verdict], authorize?: false)
     assert current.effective_decision.id == third.id
     assert current.effective_verdict == :accept
-    assert Ash.get!(Task, ctx.task.id, authorize?: false).state == :satisfied
+    assert Ash.get!(Task, ctx.task.id, authorize?: false, load: :state).state == :satisfied
 
     assert Enum.all?(
              Ash.read!(Attempt, authorize?: false, page: false),

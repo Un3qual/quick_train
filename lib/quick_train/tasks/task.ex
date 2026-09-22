@@ -79,12 +79,10 @@ defmodule QuickTrain.Tasks.Task do
               ), public?: true, constraints: [one_of: [:open, :satisfied, :cancelled]]
   end
 
-  preparations do
-    prepare build(load: [:state])
-  end
-
   actions do
     read :read_authored do
+      prepare build(load: [:state])
+
       pagination keyset?: true,
                  required?: false,
                  default_limit: 50,
@@ -101,7 +99,7 @@ defmodule QuickTrain.Tasks.Task do
     end
 
     read :list_scoped do
-      prepare build(context: %{shared: %{task_results: true}})
+      prepare build(context: %{shared: %{task_results: true}}, load: [:state])
       filter expr(exists(attempts, true))
       argument :organization_id, :uuid, allow_nil?: false
       argument :project_id, :uuid, allow_nil?: false
@@ -116,7 +114,7 @@ defmodule QuickTrain.Tasks.Task do
     end
 
     read :get_scoped do
-      prepare build(context: %{shared: %{task_results: true}})
+      prepare build(context: %{shared: %{task_results: true}}, load: [:state])
       filter expr(exists(attempts, true))
       get? true
       argument :id, :uuid, allow_nil?: false

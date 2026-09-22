@@ -162,7 +162,7 @@ defmodule QuickTrain.Tasks.TaskAllocationTest do
     assert Ash.get!(Attempt, first.id, authorize?: false).state == :expired
     assert Ash.get!(Attempt, second.id, authorize?: false).state == :cancelled
     assert Enum.all?(Ash.read!(Task, authorize?: false, load: :live_count), &(&1.live_count == 0))
-    assert Enum.all?(Ash.read!(Task, authorize?: false), &(&1.state == :cancelled))
+    assert Enum.all?(Ash.read!(Task, authorize?: false, load: :state), &(&1.state == :cancelled))
 
     assert QuickTrain.Projects.complete_project!(ctx.project,
              actor: ctx.context.actor
@@ -224,7 +224,7 @@ defmodule QuickTrain.Tasks.TaskAllocationTest do
 
     assert fetch(ctx, Ash.UUID.generate()).status == :no_work_for_worker
     assert Ash.get!(Attempt, first.id, authorize?: false).state == :expired
-    assert Ash.get!(Task, first.task_id, authorize?: false).state == :open
+    assert Ash.get!(Task, first.task_id, authorize?: false, load: :state).state == :open
     other = Accounts.register_user!("replacement@example.test", "Replacement")
     assert fetch(%{ctx | worker: other}, Ash.UUID.generate()).attempt.task_id == first.task_id
   end

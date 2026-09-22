@@ -755,9 +755,7 @@ defmodule QuickTrain.Tasks.TaskReadsTest do
       })
 
     version =
-      Forms.publish_form_version!(context.org.id, %{version_id: form.version.id},
-        actor: context.actor
-      )
+      Forms.publish_form_version!(form.version, context.org.id, %{}, actor: context.actor)
 
     dataset = Datasets.create_dataset!(context.org.id, "rich", "Rich", actor: context.actor)
     schema = Datasets.create_schema_version!(context.org.id, dataset.id, actor: context.actor)
@@ -785,7 +783,7 @@ defmodule QuickTrain.Tasks.TaskReadsTest do
       end
 
     schema =
-      Datasets.publish_schema_version!(context.org.id, schema.id, root.id, actor: context.actor)
+      Datasets.publish_schema_version!(schema, context.org.id, root.id, actor: context.actor)
 
     InMemory.reset()
     bytes = "Source attachment"

@@ -107,7 +107,7 @@ defmodule QuickTrain.FormsFixture do
     attrs = Map.put(attrs, :organization_id, context.org.id)
 
     attrs =
-      if resource == FormVersion and action == :update_draft,
+      if resource == FormVersion and action in [:update_draft, :publish],
         do: attrs |> Map.put(:id, attrs.version_id) |> Map.delete(:version_id),
         else: attrs
 

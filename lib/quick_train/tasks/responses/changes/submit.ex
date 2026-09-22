@@ -67,6 +67,9 @@ defmodule QuickTrain.Tasks.Responses.Changes.Submit do
           do: Ash.load!(project, :bindings, authorize?: false),
           else: project
 
+      spans = Enum.flat_map(outcomes, & &1.text_spans)
+      span_sources = AnswerValidation.load_span_sources!(project, task.inputs, spans)
+
       for outcome <- outcomes do
         question = Map.get(questions, outcome.question_id, outcome.question)
 
@@ -75,7 +78,8 @@ defmodule QuickTrain.Tasks.Responses.Changes.Submit do
           task,
           question,
           AnswerValidation.stored_answer(outcome),
-          :submit
+          :submit,
+          span_sources
         )
       end
 

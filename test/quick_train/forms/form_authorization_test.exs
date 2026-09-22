@@ -29,9 +29,6 @@ defmodule QuickTrain.Forms.FormAuthorizationTest do
                action: :create_internal,
                actor: ctx.actor
              )
-
-    assert {:error, %Ash.Error.Forbidden{}} =
-             Ash.update(ctx.version, %{}, action: :publish_internal, actor: ctx.actor)
   end
 
   test "nested reads recheck account and organization capability", ctx do

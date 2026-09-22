@@ -75,55 +75,40 @@ defmodule QuickTrain.Datasets.DatasetSchemaVersion do
                id == ^arg(:schema_version_id) and dataset_id == ^arg(:dataset_id) and
                  dataset.organization_id == ^arg(:organization_id) and state == :published
              )
-
-      prepare build(load: [root_record_type: :field_definitions])
     end
 
-    action :create_draft, :struct do
-      allow_nil? false
-      constraints instance_of: __MODULE__
+    read :read_for_authoring do
+      pagination keyset?: true, required?: false
+    end
+
+    create :create_draft do
+      accept [:dataset_id]
       argument :organization_id, :uuid, allow_nil?: false
-      argument :dataset_id, :uuid, allow_nil?: false
-      run {Module.concat(["QuickTrain.Datasets.DatasetSchemaVersion.Actions.CreateDraft"]), []}
+      change Module.concat(["QuickTrain.Datasets.Changes.AllocateSchemaVersion"])
     end
 
-    action :publish, :struct do
-      allow_nil? false
-      constraints instance_of: __MODULE__
-      argument :organization_id, :uuid, allow_nil?: false
-      argument :schema_version_id, :uuid, allow_nil?: false
-      argument :root_record_type_id, :uuid, allow_nil?: false
-      run {Module.concat(["QuickTrain.Datasets.DatasetSchemaVersion.Actions.Publish"]), []}
-    end
-
-    create :create_internal do
-      accept [:dataset_id, :version]
-      change set_attribute(:state, :draft)
-    end
-
-    update :publish_internal do
-      argument :root_record_type_id, :uuid, allow_nil?: false
-      argument :max_fields_per_row, :integer, allow_nil?: false
+    update :publish do
+      require_atomic? false
+      atomic_upgrade_with :read_for_authoring
       accept []
-      validate attribute_equals(:state, :draft)
-
-      change filter(
-               expr(
-                 exists(
-                   record_types,
-                   id == ^arg(:root_record_type_id) and
-                     required_field_count <= ^arg(:max_fields_per_row)
-                 )
-               )
-             )
-
-      change set_attribute(:root_record_type_id, arg(:root_record_type_id))
-      change atomic_update(:published_at, expr(now()))
-      change set_attribute(:state, :published)
+      argument :organization_id, :uuid, allow_nil?: false
+      argument :root_record_type_id, :uuid, allow_nil?: false
+      change Module.concat(["QuickTrain.Datasets.Changes.DraftWrite"])
+      change Module.concat(["QuickTrain.Datasets.Changes.PublishSchema"])
     end
   end
 
   policies do
+    policy action(:read_for_authoring) do
+      authorize_if context_equals(:query_for, :bulk_update)
+      authorize_if context_equals(:query_for, :bulk_destroy)
+    end
+
+    policy action(:read_for_authoring) do
+      forbid_unless actor_attribute_equals(:status, "active")
+      authorize_if relates_to_actor_via([:dataset, :manager_role_assignments, :user])
+    end
+
     policy action(:read) do
       authorize_if accessing_from(
                      Module.concat(["QuickTrain.Datasets.Dataset"]),

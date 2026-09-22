@@ -43,7 +43,7 @@ defmodule QuickTrainWeb.DatasetImportGraphqlTest do
     )
 
     schema =
-      Datasets.publish_schema_version!(graph.organization.id, schema.id, root.id, actor: manager)
+      Datasets.publish_schema_version!(schema, graph.organization.id, root.id, actor: manager)
 
     %{
       conn: put_req_header(conn, "authorization", "Bearer #{session.token}"),
@@ -58,9 +58,9 @@ defmodule QuickTrainWeb.DatasetImportGraphqlTest do
       graphql!(context.conn, """
       mutation {
         openDatasetImport(organizationId: "#{context.organization.id}", datasetId: "#{context.dataset.id}",
-          schemaVersionId: "#{context.schema.id}", idempotencyKey: "numeric-boundaries") { id }
+          schemaVersionId: "#{context.schema.id}", idempotencyKey: "numeric-boundaries") { result { id } errors { message } }
       }
-      """)["openDatasetImport"]
+      """)["openDatasetImport"]["result"]
 
     query = """
     mutation Append($position: Int!, $values: [DatasetImportRowValuesInput!]!) {
@@ -109,13 +109,14 @@ defmodule QuickTrainWeb.DatasetImportGraphqlTest do
         mutation {
           openDatasetImport(organizationId: "#{context.organization.id}",
             datasetId: "#{context.dataset.id}", schemaVersionId: "#{Ash.UUID.generate()}",
-            idempotencyKey: "invalid-schema") { id }
+            idempotencyKey: "invalid-schema") { result { id } errors { code message } }
         }
         """
       })
       |> json_response(200)
 
-    assert [%{"code" => "invalid_schema", "message" => "invalid_schema"}] = response["errors"]
+    assert [%{"code" => "invalid_schema", "message" => "invalid_schema"}] =
+             response["data"]["openDatasetImport"]["errors"]
   end
 
   test "GraphQL import lifecycle uses fixed flat input and a keyset Relay row connection",
@@ -130,7 +131,7 @@ defmodule QuickTrainWeb.DatasetImportGraphqlTest do
             datasetId: $datasetId,
             schemaVersionId: $schemaVersionId,
             idempotencyKey: "graphql-batch"
-          ) { id phase schemaVersionId }
+          ) { result { id phase schemaVersionId } errors { message } }
         }
         """,
         %{
@@ -138,7 +139,7 @@ defmodule QuickTrainWeb.DatasetImportGraphqlTest do
           "datasetId" => context.dataset.id,
           "schemaVersionId" => context.schema.id
         }
-      )["openDatasetImport"]
+      )["openDatasetImport"]["result"]
 
     assert opened["phase"] == "OPEN"
 

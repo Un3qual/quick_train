@@ -54,7 +54,8 @@ defmodule QuickTrain.Tasks.Responses.AnswerValidation do
     Map.merge(attrs, %{option_ids: options, inputs: inputs, spans: spans})
   end
 
-  def validate!(project, task, question, input, stage) when stage in [:draft, :submit] do
+  def validate!(project, task, question, input, stage, span_sources \\ nil)
+      when stage in [:draft, :submit] do
     require!(
       task.project_id == project.id and task.organization_id == project.organization_id and
         task.form_version_id == project.form_version_id and
@@ -82,7 +83,7 @@ defmodule QuickTrain.Tasks.Responses.AnswerValidation do
         question =
           Ash.load!(question, question_load(question.family), authorize?: false, lazy?: true)
 
-        validate_answer!(result, project, task, question, answer, stage)
+        validate_answer!(result, project, task, question, answer, stage, span_sources)
     end
   end
 
@@ -106,7 +107,7 @@ defmodule QuickTrain.Tasks.Responses.AnswerValidation do
 
   defp question_load(_family), do: []
 
-  defp validate_answer!(result, _project, _task, question, answer, stage)
+  defp validate_answer!(result, _project, _task, question, answer, stage, _span_sources)
        when is_map_key(@scalar_types, question.family) do
     {field, type, constraint_relationship} = Map.fetch!(@scalar_types, question.family)
     only_payload!(answer, [field])
@@ -129,7 +130,7 @@ defmodule QuickTrain.Tasks.Responses.AnswerValidation do
     end
   end
 
-  defp validate_answer!(result, _project, _task, question, answer, stage)
+  defp validate_answer!(result, _project, _task, question, answer, stage, _span_sources)
        when question.family in [:static_single_choice, :static_multiple_choice] do
     only_payload!(answer, [:option_ids])
     unique!(answer.option_ids)
@@ -141,7 +142,7 @@ defmodule QuickTrain.Tasks.Responses.AnswerValidation do
     %{result | option_ids: answer.option_ids}
   end
 
-  defp validate_answer!(result, project, task, question, answer, stage)
+  defp validate_answer!(result, project, task, question, answer, stage, _span_sources)
        when question.family in [
               :task_input_single_choice,
               :task_input_multiple_choice,
@@ -169,7 +170,7 @@ defmodule QuickTrain.Tasks.Responses.AnswerValidation do
     %{result | inputs: inputs}
   end
 
-  defp validate_answer!(result, project, task, question, answer, stage)
+  defp validate_answer!(result, project, task, question, answer, stage, span_sources)
        when question.family == :text_spans do
     only_payload!(answer, [:spans])
 
@@ -200,13 +201,13 @@ defmodule QuickTrain.Tasks.Responses.AnswerValidation do
     allowed_labels = MapSet.new(bounds.label_set.labels, & &1.id)
 
     require!(MapSet.subset?(MapSet.new(labels), allowed_labels))
-    validate_sources!(project, requirement, inputs, spans)
+    validate_sources!(project, requirement, inputs, spans, span_sources)
     %{result | spans: spans}
   end
 
-  defp validate_sources!(_project, _requirement, _inputs, []), do: :ok
+  defp validate_sources!(_project, _requirement, _inputs, [], _span_sources), do: :ok
 
-  defp validate_sources!(project, requirement, inputs, spans) do
+  defp validate_sources!(project, requirement, inputs, spans, span_sources) do
     binding =
       project
       |> Ash.load!(:bindings, authorize?: false, lazy?: true)
@@ -214,44 +215,69 @@ defmodule QuickTrain.Tasks.Responses.AnswerValidation do
       |> Enum.find(&(&1.requirement_id == requirement.id))
 
     require!(not is_nil(binding))
+
+    %{sources: sources, input_roots: input_roots} =
+      span_sources || load_span_sources!(project, inputs, spans)
+
+    Enum.each(
+      spans,
+      &validate_span_source!(&1, sources, input_roots, binding.field_definition_id)
+    )
+  end
+
+  def load_span_sources!(_project, _inputs, []), do: %{sources: %{}, input_roots: %{}}
+
+  def load_span_sources!(project, inputs, spans) do
     selected_inputs = MapSet.new(spans, & &1.task_input_id)
     inputs = Enum.filter(inputs, &MapSet.member?(selected_inputs, &1.id))
+    source_ids = spans |> Enum.map(& &1.source_value_id) |> Enum.uniq()
+    revision_ids = inputs |> Enum.map(& &1.revision_id) |> Enum.uniq()
+
+    values =
+      DatasetValue
+      |> Ash.Query.filter(id in ^source_ids and organization_id == ^project.organization_id)
+      |> Ash.Query.load(:text_value)
 
     revisions =
       DatasetItemRevision
       |> Ash.Query.filter(
-        id in ^Enum.map(inputs, & &1.revision_id) and organization_id == ^project.organization_id and
+        id in ^revision_ids and organization_id == ^project.organization_id and
           dataset_id == ^project.dataset_id and schema_version_id == ^project.schema_version_id
       )
+      |> Ash.Query.load(root_record: [values: values])
       |> Ash.read!(authorize?: false, page: false)
 
     roots = Map.new(revisions, &{&1.id, &1.root_record_id})
 
     sources =
-      DatasetValue
-      |> Ash.Query.filter(
-        id in ^Enum.map(spans, & &1.source_value_id) and
-          organization_id == ^project.organization_id and
-          field_definition_id == ^binding.field_definition_id and record_id in ^Map.values(roots)
-      )
-      |> Ash.Query.load(:text_value)
-      |> Ash.read!(authorize?: false, page: false)
+      revisions
+      |> Enum.flat_map(& &1.root_record.values)
+      |> Enum.uniq_by(& &1.id)
       |> Map.new(fn source ->
         require!(not is_nil(source.text_value))
         text = source.text_value.value
         optional_text!(text)
-        {source.id, %{record_id: source.record_id, length: length(String.codepoints(text))}}
+
+        {source.id,
+         %{
+           record_id: source.record_id,
+           field_definition_id: source.field_definition_id,
+           length: length(String.codepoints(text))
+         }}
       end)
 
     input_roots = Map.new(inputs, &{&1.id, Map.get(roots, &1.revision_id)})
 
-    Enum.each(spans, &validate_span_source!(&1, sources, input_roots))
+    %{sources: sources, input_roots: input_roots}
   end
 
-  defp validate_span_source!(span, sources, input_roots) do
+  defp validate_span_source!(span, sources, input_roots, field_id) do
     source = Map.get(sources, span.source_value_id)
 
-    require!(not is_nil(source) and source.record_id == Map.get(input_roots, span.task_input_id))
+    require!(
+      not is_nil(source) and source.field_definition_id == field_id and
+        source.record_id == Map.get(input_roots, span.task_input_id)
+    )
 
     require!(span.end <= source.length)
   end

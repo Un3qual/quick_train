@@ -51,7 +51,7 @@ defmodule QuickTrainWeb.DatasetRevisionGraphqlTest do
     asset = ready_asset!(graph.organization.id, manager, "avatar bytes")
 
     schema =
-      Datasets.publish_schema_version!(graph.organization.id, schema.id, root.id, actor: manager)
+      Datasets.publish_schema_version!(schema, graph.organization.id, root.id, actor: manager)
 
     result =
       Datasets.put_item_revision!(

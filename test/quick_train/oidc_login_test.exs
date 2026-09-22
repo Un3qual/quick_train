@@ -5,7 +5,15 @@ defmodule QuickTrain.OidcLoginTest do
 
   alias Ecto.Adapters.SQL.Sandbox
   alias QuickTrain.Accounts
-  alias QuickTrain.Accounts.{Oidc, OidcBeginLimiter, OidccProvider, OidcLoginTransaction}
+
+  alias QuickTrain.Accounts.{
+    Oidc,
+    OidcBeginLimiter,
+    OidccProvider,
+    OidcLoginTransaction,
+    OidcProviderMetadataCache
+  }
+
   alias QuickTrain.Authentication
 
   setup do
@@ -99,6 +107,36 @@ defmodule QuickTrain.OidcLoginTest do
 
     assert Ash.count!(QuickTrain.Accounts.OidcLoginTransaction, authorize?: false) == before_count
     refute_receive {:oidc_authorization, _options}
+  end
+
+  test "begin discards pending login state when the metadata cache is unavailable" do
+    Application.put_env(
+      :quick_train,
+      :authentication,
+      Keyword.put(
+        Application.fetch_env!(:quick_train, :authentication),
+        :oidc_provider,
+        OidccProvider
+      )
+    )
+
+    Application.put_env(:quick_train, :human_oidc,
+      issuer: "https://issuer.example.test",
+      client_id: "client",
+      client_secret: "secret"
+    )
+
+    :ok = Supervisor.terminate_child(QuickTrain.Supervisor, OidcProviderMetadataCache)
+
+    try do
+      before_count = Ash.count!(OidcLoginTransaction, authorize?: false)
+
+      assert {:error, error} = begin_oidc_login("desktop", "198.51.100.17")
+      assert Exception.message(error) =~ "provider_unavailable"
+      assert Ash.count!(OidcLoginTransaction, authorize?: false) == before_count
+    after
+      {:ok, _pid} = Supervisor.restart_child(QuickTrain.Supervisor, OidcProviderMetadataCache)
+    end
   end
 
   test "begin enforces network admission before persistence or provider work" do

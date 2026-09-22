@@ -348,7 +348,10 @@ defmodule QuickTrain.Forms.FormIntegrityTest do
             authorize?: false
           )
 
-    Ash.update!(ctx.version, %{}, action: :publish_internal, authorize?: false)
+    QuickTrain.Repo.query!(
+      "UPDATE form_versions SET state = 'published', published_at = now() WHERE id = $1::text::uuid",
+      [ctx.version.id]
+    )
 
     assert {:error, _} =
              run(FormVersion, :copy_published, ctx, %{

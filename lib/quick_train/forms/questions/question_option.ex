@@ -124,7 +124,7 @@ defmodule QuickTrain.Forms.Questions.QuestionOption do
       argument :version_id, :uuid, allow_nil?: false
       argument :question_id, :uuid, allow_nil?: false
       argument :ids, {:array, :uuid}, allow_nil?: false, constraints: [max_length: 1000]
-      run {Module.concat(["QuickTrain.Forms.Authoring"]), []}
+      run {Module.concat(["QuickTrain.Forms.Reorder"]), []}
     end
 
     create :create_internal do

@@ -23,9 +23,16 @@ defmodule QuickTrain.Tasks.Access.ReadAccess do
 
   def filter(
         %{id: _} = actor,
-        %{resource: Attempt, query: %{action: %{name: :get_for_update}}},
+        %{resource: Attempt, action: %{name: action}},
         _opts
-      ),
+      )
+      when action in [
+             :get_for_update,
+             :save_question,
+             :submit,
+             :start,
+             :release
+           ],
       do: eligible_attempt(actor)
 
   def filter(%{id: _} = actor, %{resource: resource, query: query}, _opts) do

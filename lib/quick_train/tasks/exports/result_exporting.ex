@@ -74,6 +74,49 @@ defmodule QuickTrain.Tasks.Exports.ResultExporting do
   end
 
   defp publish(export) do
+    with {:ok, asset} <- prepared_asset(export),
+         {:ok, canonical} <-
+           Assets.get_accessible_asset_internal(asset.id, asset.organization_id,
+             authorize?: false
+           ),
+         true <- not is_nil(canonical),
+         facts = Map.take(asset, [:sha256, :byte_size, :media_type]),
+         {:ok, ^facts} <-
+           Storage.verify_sealed(canonical.sealed_key, facts, config(:publication_deadline_ms)),
+         {:ok, _access} <- read_access(canonical),
+         {:ok, _export} <-
+           Ash.transact(ResultExport, fn ->
+             current = locked_export!(export.id)
+
+             Ash.update!(current, %{state: :ready, asset_id: canonical.id, error_code: nil},
+               action: :update_internal,
+               authorize?: false
+             )
+           end) do
+      :ok
+    else
+      {:error, reason} when is_atom(reason) -> fail(export.id, reason)
+      _error -> fail(export.id, :export_publication_failed)
+    end
+  end
+
+  defp prepared_asset(export) do
+    case Ash.transact(ResultExport, fn ->
+           export.id |> locked_export!() |> published_asset!()
+         end) do
+      {:ok, nil} -> upload(export)
+      result -> result
+    end
+  end
+
+  defp published_asset!(%{pending_asset_id: nil}), do: nil
+
+  defp published_asset!(export) do
+    asset = owned_asset!(export)
+    if asset.state in [:ready, :duplicate_content], do: asset
+  end
+
+  defp upload(export) do
     path =
       Path.join(
         System.tmp_dir!(),
@@ -86,28 +129,8 @@ defmodule QuickTrain.Tasks.Exports.ResultExporting do
       with {:ok, asset} <- pending_asset(export, facts),
            :ok <- write(asset, path),
            {:ok, _result} <-
-             Assets.finalize_asset(asset.id, asset.organization_id, authorize?: false),
-           {:ok, canonical} <-
-             Assets.get_accessible_asset_internal(asset.id, asset.organization_id,
-               authorize?: false
-             ),
-           true <- not is_nil(canonical),
-           {:ok, ^facts} <-
-             Storage.verify_sealed(canonical.sealed_key, facts, config(:publication_deadline_ms)),
-           {:ok, _access} <- read_access(canonical),
-           {:ok, _export} <-
-             Ash.transact(ResultExport, fn ->
-               current = locked_export!(export.id)
-
-               Ash.update!(current, %{state: :ready, asset_id: canonical.id, error_code: nil},
-                 action: :update_internal,
-                 authorize?: false
-               )
-             end) do
-        :ok
-      else
-        {:error, reason} when is_atom(reason) -> fail(export.id, reason)
-        _error -> fail(export.id, :export_publication_failed)
+             Assets.finalize_asset(asset.id, asset.organization_id, authorize?: false) do
+        {:ok, asset}
       end
     after
       File.rm(path)
@@ -124,8 +147,7 @@ defmodule QuickTrain.Tasks.Exports.ResultExporting do
 
   defp pending_asset!(export, facts) do
     if export.pending_asset_id do
-      asset =
-        Assets.get_asset!(export.pending_asset_id, export.organization_id, authorize?: false)
+      asset = owned_asset!(export)
 
       unless Map.take(asset, [:sha256, :byte_size, :media_type]) == facts,
         do: Error.reject!(:export_snapshot_mismatch)
@@ -138,6 +160,13 @@ defmodule QuickTrain.Tasks.Exports.ResultExporting do
     else
       create_pending_asset!(export, facts)
     end
+  end
+
+  defp owned_asset!(export) do
+    asset = Assets.get_asset!(export.pending_asset_id, export.organization_id, authorize?: false)
+
+    if asset.result_export_id != export.id, do: Error.reject!(:export_snapshot_mismatch)
+    asset
   end
 
   defp create_pending_asset!(export, facts) do
