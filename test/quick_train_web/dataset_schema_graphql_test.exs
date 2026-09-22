@@ -53,7 +53,10 @@ defmodule QuickTrainWeb.DatasetSchemaGraphqlTest do
         }
         """,
         %{"organizationId" => organization_id, "datasetId" => dataset["id"]}
-      )["createDatasetSchemaVersion"]["result"]
+      )["createDatasetSchemaVersion"]
+
+    assert schema["errors"] == []
+    schema = schema["result"]
 
     assert schema["version"] == 1
     assert schema["state"] == "DRAFT"
@@ -82,7 +85,10 @@ defmodule QuickTrainWeb.DatasetSchemaGraphqlTest do
           "key" => "customer",
           "name" => "Customer"
         }
-      )["addDatasetRecordType"]["result"]
+      )["addDatasetRecordType"]
+
+    assert root["errors"] == []
+    root = root["result"]
 
     field =
       graphql!(
@@ -117,7 +123,10 @@ defmodule QuickTrainWeb.DatasetSchemaGraphqlTest do
           "cardinality" => "SINGLE",
           "required" => true
         }
-      )["addDatasetFieldDefinition"]["result"]
+      )["addDatasetFieldDefinition"]
+
+    assert field["errors"] == []
+    field = field["result"]
 
     assert field["valueFamily"] == "TEXT"
     assert field["required"]
