@@ -1,0 +1,34 @@
+## Why
+
+QuickTrain already owns asset authorization, integrity, immutable publication, and task export lifecycles, but its only working storage adapter is an in-memory test double. Make those features usable over HTTPS while keeping development, ordinary tests, and the full verification gate independent of live AWS services and credentials.
+
+## What Changes
+
+- Implement one S3 storage adapter for AWS S3 in production and the approved VersityGW filesystem-backed S3 service in development and integration tests. Select endpoints and credentials through configuration, preserving the existing in-memory adapter for ordinary tests.
+- Add bounded browser uploads, verified immutable publication, authorized opaque downloads, and streaming publication of generated task exports through the existing Assets boundary.
+- Extend upload access descriptors with a signed multipart-form POST representation so the storage service can enforce the registered byte cap. **BREAKING:** clients using the S3 adapter must dispatch on the returned method and submit its form fields instead of assuming every upload is a raw PUT. Existing GET/PUT descriptors remain supported.
+- Provide a concrete download delivery path that enforces attachment/octet-stream/nosniff and short-lived access. Keep lifecycle and authorization decisions in existing Ash actions; resolve the transport choice in the design before implementation.
+- Pin VersityGW, provide local HTTPS, preserve development files across service restarts, isolate integration-test storage, and add mise commands for service lifecycle and local storage verification.
+- Define remote timeout behavior honestly: return bounded failures without granting readiness, tolerate an uncertain remote write outcome, and reverify complete immutable bytes on retry.
+- Make local protocol tests part of `mise run verify`; keep live AWS deployment checks separate and explicitly invoked. Local compatibility evidence must not be represented as proof of AWS configuration.
+
+Explicit non-goals: image inspection or inline rendering, spatial task answers, a new asset lifecycle or storage plugin framework, a separate filesystem application adapter, automatic staging/credential/import maintenance, marketplace features, frontend work, and provisioning cloud infrastructure during development or CI.
+
+## Capabilities
+
+### New Capabilities
+
+- `http-asset-storage`: A concrete S3 storage implementation, local VersityGW development and integration environments, bounded remote I/O, and honest provider qualification.
+
+### Modified Capabilities
+
+- `assets`: Support method-specific upload descriptors and concrete protected opaque HTTP delivery while preserving existing organization, attempt, and result authority.
+
+## Impact
+
+- Affects `QuickTrain.Assets.Storage`, the new S3 implementation, embedded GraphQL storage-access types, storage configuration, download delivery, and the existing task export storage integration.
+- Adds only stable, pinned S3 client/signing dependencies required by the selected implementation, plus a pinned VersityGW development container and local certificate setup. Use maintained signing/client functions rather than implementing AWS request signing.
+- Extends Compose and mise tooling and documents the local/provider contract. No new business resource or database migration is expected; any necessary persistence change must be justified in the design and generated through Ash.
+- Remains within the reusable backend foundation: one global User, optional membership for existing task-worker routes, and fail-closed scoped authorization. Detailed media still requires its own change before `add-project-task-media` can proceed; this change provides only the real opaque-storage prerequisite.
+
+The user approved HTTP storage, cloud-independent development/tests, and VersityGW. This is a planning change; the selected version's compatibility tests and runtime implementation have not yet run.
