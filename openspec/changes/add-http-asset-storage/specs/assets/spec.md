@@ -21,6 +21,21 @@ Upload descriptors SHALL support raw PUT and multipart-form POST requests. Every
 
 ## MODIFIED Requirements
 
+### Requirement: Staging expiry and finalizer claims remain enforced
+The system SHALL assign staging an expiry and refuse to begin finalization after that expiry. Finalization SHALL acquire a bounded mutually exclusive claim under the asset lock and check its identity on post-I/O transitions. Expired claims MAY be replaced. A finalizer SHALL recheck its live claim before publication, use finite adapter deadlines, and reverify an existing canonical object before adopting it. Storage I/O SHALL occur outside database transactions. Application-managed staging cleanup and background publication recovery remain deferred to `restore-operator-bootstrap-and-maintenance`. Production S3 staging SHALL follow the qualified provider-native retention rules defined by `http-asset-storage`, allowing obsolete staging objects and versions to expire after the configured safety window while protecting sealed content. Provider expiration SHALL NOT change asset database state, replace claim checks, or imply that bytes are deleted immediately at staging expiry. Local development reset and disposable test cleanup SHALL retain their existing scope without requiring a background cleanup worker.
+
+#### Scenario: Expired staging cannot begin finalization
+- **WHEN** finalization obtains the asset lock after staging expiry
+- **THEN** it records staging expiry without publishing new content
+
+#### Scenario: A stale finalizer tries to commit
+- **WHEN** a finalizer's claim expires or is replaced before its database transition
+- **THEN** it cannot commit stale lifecycle facts
+
+#### Scenario: Provider retention removes obsolete staging
+- **WHEN** qualified production lifecycle rules expire obsolete staging objects or versions after the configured safety window
+- **THEN** that provider cleanup is permitted without an application cleanup worker, and sealed content, asset database state, staging-expiry enforcement, and finalizer-claim checks remain unchanged
+
 ### Requirement: Opaque download delivery
 The system SHALL serve ready assets only as downloads. HTTP storage adapters SHALL enforce response headers `Content-Disposition: attachment`, `Content-Type: application/octet-stream`, and `Cache-Control: no-store` through provider metadata or authenticated response overrides. Download access SHALL target an approved HTTPS storage hostname distinct from application hostnames and outside the scope of application session cookies. HTTP storage configuration SHALL explicitly declare application hostnames and session-cookie Domain scopes, including consuming frontends; an explicitly empty domain list SHALL mean host-only cookies, while an omitted declaration SHALL fail validation. Validation SHALL reject storage hostnames equal to application hosts or equal to or beneath a declared cookie domain after DNS/domain normalization. Application cookies and bearer credentials SHALL NOT be sent to storage; the issued operation-scoped storage authorization SHALL authorize the transfer. Clients SHALL treat these URLs only as file-transfer access and SHALL NOT load them as scripts, stylesheets, or inline application content. An otherwise-compliant isolated download endpoint SHALL remain supported without `X-Content-Type-Options: nosniff`; where a delivery endpoint supplies that header, the system SHALL retain it. Attachment disposition, binary content type, and origin isolation SHALL NOT be represented as equivalent to nosniff's script/style MIME enforcement. Request headers in an access descriptor SHALL NOT be considered enforcement of response headers. Inline previews and image dimensions are deferred; existing nullable dimension fields SHALL remain unset on newly finalized assets.
 

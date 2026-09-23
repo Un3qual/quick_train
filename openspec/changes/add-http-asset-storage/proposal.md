@@ -23,7 +23,7 @@ Explicit non-goals: a QuickTrain download-streaming route or required CDN/proxy,
 
 ### Modified Capabilities
 
-- `assets`: Support method-specific upload descriptors and isolated direct downloads with mandatory attachment/binary/cache controls and optional `nosniff`, while preserving existing organization, attempt, and result authority.
+- `assets`: Support method-specific upload descriptors and isolated direct downloads with mandatory attachment/binary/cache controls and optional `nosniff`. Reconcile staging expiry with provider-native production retention while preserving finalizer claims and existing organization, attempt, and result authority.
 - `task-results`: Reconcile export deadline failures with uncertain remote commits while preserving sealed snapshots, pending-asset retry rules, and verified publication.
 
 ## Impact
