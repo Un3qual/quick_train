@@ -8,7 +8,7 @@ config :ash_postgres, upsert_with_merge?: false
 config :quick_train, Oban,
   engine: Oban.Engines.Basic,
   notifier: Oban.Notifiers.Postgres,
-  queues: [default: 10, assets: 5, dataset_imports: 5],
+  queues: [default: 10, assets: 5, dataset_imports: 5, task_maintenance: 5, task_exports: 2],
   lifeline: [rescue_after: {2, :hours}],
   pruner: [max_age: {1, :day}],
   repo: QuickTrain.Repo
@@ -42,6 +42,8 @@ config :quick_train, :dataset_imports,
 
 config :quick_train,
   ash_domains: [
+    QuickTrain.Projects,
+    QuickTrain.Tasks,
     QuickTrain.Forms,
     QuickTrain.Datasets,
     QuickTrain.Assets,

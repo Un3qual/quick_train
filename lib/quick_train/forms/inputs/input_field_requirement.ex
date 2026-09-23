@@ -1,13 +1,14 @@
 defmodule QuickTrain.Forms.Inputs.InputFieldRequirement do
   @moduledoc "Organization-scoped input field requirement definition."
   use Ash.Resource,
+    primary_read_warning?: false,
     otp_app: :quick_train,
     domain: QuickTrain.Forms,
     extensions: [AshGraphql.Resource],
     data_layer: AshPostgres.DataLayer,
     authorizers: [Ash.Policy.Authorizer]
 
-  alias QuickTrain.Authorization.Checks.OrganizationCapability
+  alias QuickTrain.Authorization.Checks.{CollectionContext, OrganizationCapability}
   alias QuickTrain.Forms.Changes.DraftWrite
   alias QuickTrain.Forms.FormVersion
   alias QuickTrain.Forms.Inputs.InputSlotDefinition
@@ -15,7 +16,7 @@ defmodule QuickTrain.Forms.Inputs.InputFieldRequirement do
   alias QuickTrain.Repo
 
   attributes do
-    uuid_primary_key :id, writable?: true
+    uuid_primary_key :id
 
     attribute :key, :string,
       public?: true,
@@ -58,6 +59,8 @@ defmodule QuickTrain.Forms.Inputs.InputFieldRequirement do
     read :read do
       primary? true
 
+      prepare build(sort: [inserted_at: :asc, id: :asc])
+
       pagination keyset?: true,
                  required?: false,
                  default_limit: 50,
@@ -68,6 +71,8 @@ defmodule QuickTrain.Forms.Inputs.InputFieldRequirement do
     read :list_scoped do
       argument :organization_id, :uuid, allow_nil?: false
       filter expr(version.form.organization_id == ^arg(:organization_id))
+
+      prepare build(sort: [inserted_at: :asc, id: :asc])
 
       pagination keyset?: true,
                  required?: true,
@@ -117,7 +122,6 @@ defmodule QuickTrain.Forms.Inputs.InputFieldRequirement do
 
     create :create_internal do
       accept [
-        :id,
         :key,
         :value_family,
         :cardinality,
@@ -141,11 +145,13 @@ defmodule QuickTrain.Forms.Inputs.InputFieldRequirement do
     end
 
     policy action(:read) do
+      authorize_if CollectionContext
       forbid_unless actor_attribute_equals(:status, "active")
       authorize_if relates_to_actor_via([:version, :form, :reader_role_assignments, :user])
     end
 
     policy action(:read) do
+      authorize_if CollectionContext
       authorize_if accessing_from(Module.concat(["QuickTrain.Forms.FormVersion"]), :requirements)
 
       authorize_if accessing_from(

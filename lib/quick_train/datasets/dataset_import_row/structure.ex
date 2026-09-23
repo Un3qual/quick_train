@@ -3,7 +3,7 @@ defmodule QuickTrain.Datasets.DatasetImportRow.Structure do
   # credo:disable-for-this-file Credo.Check.Refactor.Nesting
   @moduledoc false
 
-  alias QuickTrain.Datasets.Fingerprint
+  alias QuickTrain.Datasets.{Fingerprint, Scalar}
 
   @selectors [
     text: :text,
@@ -74,49 +74,35 @@ defmodule QuickTrain.Datasets.DatasetImportRow.Structure do
     end
   end
 
-  defp normalize_value(:text, value) when is_binary(value) do
-    if String.valid?(value) and not String.contains?(value, <<0>>),
-      do: {:ok, value, byte_size(value)},
-      else: {:error, :malformed_text}
-  end
+  defp normalize_value(selector, value) do
+    # Imports accept wire representations; direct revisions may also accept typed structs.
+    family = Keyword.fetch!(@selectors, selector)
 
-  defp normalize_value(:integer, value)
-       when is_integer(value) and value >= -2_147_483_648 and
-              value <= 2_147_483_647 do
-    {:ok, value, byte_size(Integer.to_string(value))}
-  end
-
-  defp normalize_value(:decimal, value) when is_binary(value) do
-    case Decimal.parse(value) do
-      {%Decimal{} = decimal, ""} ->
-        canonical = Fingerprint.canonical_decimal(decimal)
-        {:ok, decimal, byte_size(canonical)}
-
-      _other ->
-        {:error, :malformed_decimal}
+    if selector in [:decimal, :utc_datetime] and not is_binary(value) do
+      {:error, :malformed_scalar_shape}
+    else
+      case Scalar.cast(family, value) do
+        {:ok, normalized} -> {:ok, normalized, scalar_bytes(family, normalized)}
+        _invalid -> {:error, scalar_error(selector, value)}
+      end
     end
   end
 
-  defp normalize_value(:boolean, value) when is_boolean(value), do: {:ok, value, 1}
+  defp scalar_bytes(:text, value), do: byte_size(value)
+  defp scalar_bytes(:integer, value), do: byte_size(Integer.to_string(value))
+  defp scalar_bytes(:decimal, value), do: byte_size(Fingerprint.canonical_decimal(value))
+  defp scalar_bytes(:boolean, _value), do: 1
 
-  defp normalize_value(:utc_datetime, value) when is_binary(value) do
-    case DateTime.from_iso8601(value) do
-      {:ok, date_time, _offset} ->
-        {:ok, date_time, byte_size(Integer.to_string(DateTime.to_unix(date_time, :microsecond)))}
+  defp scalar_bytes(:utc_datetime, value),
+    do: byte_size(Integer.to_string(DateTime.to_unix(value, :microsecond)))
 
-      _other ->
-        {:error, :malformed_utc_datetime}
-    end
-  end
+  defp scalar_bytes(:asset, _value), do: 16
 
-  defp normalize_value(:asset_id, value) when is_binary(value) do
-    case Ecto.UUID.cast(value) do
-      {:ok, asset_id} -> {:ok, asset_id, 16}
-      :error -> {:error, :malformed_asset_id}
-    end
-  end
-
-  defp normalize_value(_selector, _value), do: {:error, :malformed_scalar_shape}
+  defp scalar_error(:text, value) when is_binary(value), do: :malformed_text
+  defp scalar_error(:decimal, value) when is_binary(value), do: :malformed_decimal
+  defp scalar_error(:utc_datetime, value) when is_binary(value), do: :malformed_utc_datetime
+  defp scalar_error(:asset_id, value) when is_binary(value), do: :malformed_asset_id
+  defp scalar_error(_selector, _value), do: :malformed_scalar_shape
 
   defp plain_map(%_{} = value), do: Map.from_struct(value)
   defp plain_map(value) when is_map(value), do: value

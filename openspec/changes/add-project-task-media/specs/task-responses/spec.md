@@ -1,7 +1,7 @@
 ## ADDED Requirements
 
 ### Requirement: Spatial annotation provenance is exact
-Each spatial region SHALL identify the exact TaskInput, its bound source DatasetValue, and a label from the question's published label set. The source SHALL match the question's required image source and exact allocated immutable revision. Region counts SHALL satisfy the published question bounds; zero regions SHALL be an answered outcome only when its minimum is zero. Foreign labels, wrong source values, and unallocated inputs SHALL fail. Every spatial write SHALL use the core Project/Task/Attempt/Response lock order, post-lock owner/eligibility/lease/state checks, draft revision check, and immutable submission boundary. No spatial payload SHALL be persisted as JSONB.
+Each spatial region SHALL identify the exact TaskInput, its bound source DatasetValue, and a label from the question's published label set. The source SHALL match the question's required image source and exact allocated immutable revision. Region counts SHALL satisfy the published question bounds; zero regions SHALL be an answered outcome only when its minimum is zero. Foreign labels, wrong source values, and unallocated inputs SHALL fail. Every spatial write SHALL use the core Project/Task/Attempt lock order, post-lock owner/eligibility/lease/state checks, draft revision check, and immutable submission boundary. No spatial payload SHALL be persisted as JSONB.
 
 #### Scenario: An annotation targets an unbound field
 - **WHEN** a worker supplies a valid value from the allocated revision that is not the question's bound source

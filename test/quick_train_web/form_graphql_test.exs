@@ -2,9 +2,10 @@ defmodule QuickTrainWeb.FormGraphqlTest do
   use QuickTrain.ConnCase, async: false
   import QuickTrain.FormsFixture
   alias QuickTrain.{Accounts, Organizations}
+  alias QuickTrain.Forms.Inputs.InputFieldRequirement
   alias QuickTrain.Forms.Labels.LabelSet
   alias QuickTrain.Forms.Presentation.PresentationElement
-  alias QuickTrain.Forms.Questions.Constraints.SelectionConstraints
+  alias QuickTrain.Forms.Questions.Constraints.{AnnotationConstraints, SelectionConstraints}
   alias QuickTrain.Forms.Questions.{QuestionDefinition, QuestionOption}
 
   test "native presentation mutations return and edit element content", %{
@@ -73,19 +74,40 @@ defmodule QuickTrainWeb.FormGraphqlTest do
 
     data =
       graphql!(conn, """
-      mutation { publishFormVersion(organizationId: "#{ctx.org.id}", versionId: "#{graph.version.id}") {
-        id version state publishedAt title
+      mutation { publishFormVersion(organizationId: "#{ctx.org.id}", id: "#{graph.version.id}") {
+        errors { message }
+        result { id version state publishedAt title
         inputSlots(first: 2) { edges { node { id key minimum maximum requirements(first: 2) { edges { node { valueFamily cardinality required } } } } } }
         questions(first: 2) { edges { node { id key prompt family renderer integerConstraints { minimum maximum } } } }
         elements(first: 2) { edges { node { id kind position question { id } } } }
+        }
       } }
       """)
 
-    published = data["publishFormVersion"]
+    assert data["publishFormVersion"]["errors"] == []
+    published = data["publishFormVersion"]["result"]
     assert published["state"] == "PUBLISHED"
 
     assert [%{"node" => %{"integerConstraints" => %{"minimum" => 1, "maximum" => 5}}}] =
              published["questions"]["edges"]
+
+    copied =
+      graphql!(conn, """
+      mutation { copyPublishedForm(organizationId: "#{ctx.org.id}", formId: "#{graph.form.id}", sourceVersionId: "#{graph.version.id}") {
+        result { id version state title questions(first: 2) { edges { node { id prompt } } } }
+        errors { message }
+      } }
+      """)["copyPublishedForm"]
+
+    assert copied["errors"] == []
+    assert copied["result"]["state"] == "DRAFT"
+    assert copied["result"]["version"] == 2
+    assert copied["result"]["title"] == published["title"]
+
+    assert [%{"node" => %{"id" => copied_question_id, "prompt" => "Rate it"}}] =
+             copied["result"]["questions"]["edges"]
+
+    refute copied_question_id == graph.question.id
 
     response =
       conn
@@ -232,7 +254,7 @@ defmodule QuickTrainWeb.FormGraphqlTest do
     conn = bearer(conn, ctx.actor)
 
     image =
-      add!(QuickTrain.Forms.Inputs.InputFieldRequirement, ctx, graph.version, %{
+      add!(InputFieldRequirement, ctx, graph.version, %{
         key: "image",
         input_slot_id: graph.slot.id,
         value_family: :asset,
@@ -301,25 +323,27 @@ defmodule QuickTrainWeb.FormGraphqlTest do
     graph = rating!(ctx)
     outsider = Accounts.register_user!("outside-forms@example.test", "Outside")
     member = Accounts.register_user!("no-forms-capability@example.test", "Member")
-    QuickTrain.Organizations.add_member!(ctx.org.id, member.id)
+    Organizations.add_member!(ctx.org.id, member.id)
 
     query =
-      "mutation { publishFormVersion(organizationId: \"#{ctx.org.id}\", versionId: \"#{graph.version.id}\") { id } }"
+      "mutation { publishFormVersion(organizationId: \"#{ctx.org.id}\", id: \"#{graph.version.id}\") { result { id } errors { message } } }"
 
     for actor <- [outsider, member] do
       response = conn |> bearer(actor) |> post("/graphql", %{query: query}) |> json_response(200)
-      assert response["errors"] != []
-      refute get_in(response, ["data", "publishFormVersion"])
+      assert [%{"message" => _} | _] = get_in(response, ["data", "publishFormVersion", "errors"])
+      refute get_in(response, ["data", "publishFormVersion", "result"])
     end
 
     manager_conn = bearer(conn, ctx.actor)
-    QuickTrain.Organizations.deactivate_membership!(ctx.membership)
+    Organizations.deactivate_membership!(ctx.membership)
     response = manager_conn |> post("/graphql", %{query: query}) |> json_response(200)
-    assert response["errors"] != []
-    QuickTrain.Organizations.add_member!(ctx.org.id, ctx.actor.id)
+    assert [%{"message" => _} | _] = get_in(response, ["data", "publishFormVersion", "errors"])
+    refute get_in(response, ["data", "publishFormVersion", "result"])
+    Organizations.add_member!(ctx.org.id, ctx.actor.id)
     Ash.update!(ctx.org, %{status: "inactive"}, action: :update, authorize?: false)
     response = manager_conn |> post("/graphql", %{query: query}) |> json_response(200)
-    assert response["errors"] != []
+    assert [%{"message" => _} | _] = get_in(response, ["data", "publishFormVersion", "errors"])
+    refute get_in(response, ["data", "publishFormVersion", "result"])
     Ash.update!(ctx.actor, %{status: "disabled"}, action: :set_status, authorize?: false)
     assert manager_conn |> post("/graphql", %{query: query}) |> response(401)
   end
@@ -331,16 +355,16 @@ defmodule QuickTrainWeb.FormGraphqlTest do
     graph = rating!(ctx)
 
     question =
-      add!(QuickTrain.Forms.Questions.QuestionDefinition, ctx, graph.version, %{
+      add!(QuestionDefinition, ctx, graph.version, %{
         key: "span",
         prompt: "Mark text",
         family: :text_spans,
         renderer: :text_spans
       })
 
-    set = add!(QuickTrain.Forms.Labels.LabelSet, ctx, graph.version, %{key: "labels"})
+    set = add!(LabelSet, ctx, graph.version, %{key: "labels"})
 
-    add!(QuickTrain.Forms.Questions.Constraints.AnnotationConstraints, ctx, graph.version, %{
+    add!(AnnotationConstraints, ctx, graph.version, %{
       question_id: question.id,
       source_requirement_id: graph.field.id,
       label_set_id: set.id,

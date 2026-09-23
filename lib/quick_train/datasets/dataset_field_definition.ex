@@ -3,7 +3,7 @@ defmodule QuickTrain.Datasets.DatasetFieldDefinition do
 
   alias QuickTrain.Datasets.{DatasetFieldDefinition, DatasetRecordType, DatasetValue}
 
-  alias QuickTrain.Datasets.SchemaVersionBoundary
+  alias QuickTrain.Datasets.Changes.DraftWrite
 
   use Ash.Resource,
     otp_app: :quick_train,
@@ -50,9 +50,6 @@ defmodule QuickTrain.Datasets.DatasetFieldDefinition do
 
   code_interface do
     define :get_internal, action: :read, get_by: [:id], not_found_error?: false
-    define :create_internal
-    define :update_internal
-    define :destroy_internal
   end
 
   actions do
@@ -64,6 +61,18 @@ defmodule QuickTrain.Datasets.DatasetFieldDefinition do
                  default_limit: 50,
                  max_page_size: 100,
                  stable_sort: [inserted_at: :asc, id: :asc]
+    end
+
+    read :for_record_internal do
+      argument :record_type_id, :uuid, allow_nil?: false
+
+      argument :field_keys, {:array, :string},
+        allow_nil?: false,
+        constraints: [items: [trim?: false, allow_empty?: true]]
+
+      filter expr(
+               record_type_id == ^arg(:record_type_id) and (required or key in ^arg(:field_keys))
+             )
     end
 
     read :list_scoped do
@@ -81,114 +90,58 @@ defmodule QuickTrain.Datasets.DatasetFieldDefinition do
              )
     end
 
-    action :add_to_draft, :struct do
-      allow_nil? false
-      constraints instance_of: __MODULE__
+    read :read_for_authoring do
+      pagination keyset?: true, required?: false
+    end
+
+    create :add_to_draft do
+      accept [:record_type_id, :key, :name, :value_family, :cardinality, :required]
       argument :organization_id, :uuid, allow_nil?: false
-      argument :record_type_id, :uuid, allow_nil?: false
-
-      argument :key, :string,
-        allow_nil?: false,
-        constraints: [match: ~r/\A[^\x00]*\z/u, max_length: 512, length_count: :bytes]
-
-      argument :name, :string, allow_nil?: false, constraints: [match: ~r/\A[^\x00]*\z/u]
-      argument :value_family, DatasetValue.Family, allow_nil?: false
-
-      argument :cardinality, DatasetFieldDefinition.Cardinality, allow_nil?: false
-
-      argument :required, :boolean, allow_nil?: false
-
-      run fn input, _context ->
-        %{organization_id: organization_id, record_type_id: record_type_id} = input.arguments
-
-        SchemaVersionBoundary.with_record_type(
-          organization_id,
-          record_type_id,
-          fn record_type ->
-            attributes =
-              input.arguments
-              |> Map.take([:key, :name, :value_family, :cardinality, :required])
-              |> Map.put(:record_type_id, record_type.id)
-
-            __MODULE__.create_internal!(attributes, authorize?: false)
-          end
-        )
-      end
+      change DraftWrite
     end
 
-    action :update_in_draft, :struct do
-      allow_nil? false
-      constraints instance_of: __MODULE__
-      argument :organization_id, :uuid, allow_nil?: false
-      argument :field_definition_id, :uuid, allow_nil?: false
-
-      argument :key, :string,
-        allow_nil?: false,
-        constraints: [match: ~r/\A[^\x00]*\z/u, max_length: 512, length_count: :bytes]
-
-      argument :name, :string, allow_nil?: false, constraints: [match: ~r/\A[^\x00]*\z/u]
-      argument :value_family, DatasetValue.Family, allow_nil?: false
-
-      argument :cardinality, DatasetFieldDefinition.Cardinality, allow_nil?: false
-
-      argument :required, :boolean, allow_nil?: false
-
-      run fn input, _context ->
-        %{organization_id: organization_id, field_definition_id: field_definition_id} =
-          input.arguments
-
-        SchemaVersionBoundary.with_field_definition(
-          organization_id,
-          field_definition_id,
-          fn field ->
-            attributes =
-              Map.take(input.arguments, [:key, :name, :value_family, :cardinality, :required])
-
-            __MODULE__.update_internal!(field, attributes, authorize?: false)
-          end
-        )
-      end
-    end
-
-    action :remove_from_draft, :atom do
-      allow_nil? false
-      argument :organization_id, :uuid, allow_nil?: false
-      argument :field_definition_id, :uuid, allow_nil?: false
-
-      run fn input, _context ->
-        %{organization_id: organization_id, field_definition_id: field_definition_id} =
-          input.arguments
-
-        SchemaVersionBoundary.with_field_definition(
-          organization_id,
-          field_definition_id,
-          fn field ->
-            __MODULE__.destroy_internal(field, authorize?: false)
-          end
-        )
-      end
-    end
-
-    create :create_internal do
-      accept [
-        :record_type_id,
-        :key,
-        :name,
-        :value_family,
-        :cardinality,
-        :required
-      ]
-    end
-
-    update :update_internal do
+    update :update_in_draft do
+      require_atomic? false
+      atomic_upgrade_with :read_for_authoring
       accept [:key, :name, :value_family, :cardinality, :required]
+      argument :organization_id, :uuid, allow_nil?: false
+      change DraftWrite
     end
 
-    destroy :destroy_internal
+    destroy :remove_from_draft do
+      require_atomic? false
+      atomic_upgrade_with :read_for_authoring
+      argument :organization_id, :uuid, allow_nil?: false
+      change DraftWrite
+    end
   end
 
   policies do
+    policy action(:read_for_authoring) do
+      authorize_if context_equals(:query_for, :bulk_update)
+      authorize_if context_equals(:query_for, :bulk_destroy)
+    end
+
+    policy action(:read_for_authoring) do
+      forbid_unless actor_attribute_equals(:status, "active")
+
+      authorize_if relates_to_actor_via([
+                     :record_type,
+                     :schema_version,
+                     :dataset,
+                     :manager_role_assignments,
+                     :user
+                   ])
+    end
+
     policy action(:read) do
+      authorize_if Module.concat(["QuickTrain.Authorization.Checks.CollectionContext"])
+      authorize_if Module.concat(["QuickTrain.Authorization.Checks.SourceRead"])
+    end
+
+    policy action(:read) do
+      authorize_if Module.concat(["QuickTrain.Authorization.Checks.CollectionContext"])
+
       authorize_if accessing_from(
                      Module.concat(["QuickTrain.Datasets.DatasetRecordType"]),
                      :field_definitions

@@ -1,0 +1,65 @@
+defmodule QuickTrain.Tasks.Responses.Inputs.AnswerInput do
+  @moduledoc "Typed input for replacing one complete question outcome."
+  use Ash.Resource,
+    otp_app: :quick_train,
+    data_layer: :embedded,
+    extensions: [AshGraphql.Resource]
+
+  alias QuickTrain.Forms.Types.AnswerFamily
+  alias QuickTrain.Tasks.Responses.Inputs.{TaskInputSelectionInput, TextSpanInput}
+
+  attributes do
+    attribute :outcome, :atom,
+      allow_nil?: false,
+      public?: true,
+      constraints: [one_of: [:answered, :skipped]]
+
+    attribute :family, AnswerFamily, allow_nil?: false, public?: true
+    attribute :text_value, :string, public?: true, constraints: [trim?: false, allow_empty?: true]
+
+    attribute :integer_value, :integer,
+      public?: true,
+      constraints: [min: -2_147_483_648, max: 2_147_483_647]
+
+    attribute :decimal_value, :decimal, public?: true
+    attribute :boolean_value, :boolean, public?: true
+    attribute :reason, :string, public?: true, constraints: [trim?: false, allow_empty?: true]
+
+    attribute :explanation, :string,
+      public?: true,
+      constraints: [trim?: false, allow_empty?: true]
+
+    attribute :option_ids, {:array, :uuid}, allow_nil?: false, default: [], public?: true
+
+    attribute :inputs, {:array, TaskInputSelectionInput},
+      allow_nil?: false,
+      default: [],
+      public?: true
+
+    attribute :spans, {:array, TextSpanInput},
+      allow_nil?: false,
+      default: [],
+      public?: true
+  end
+
+  validations do
+    validate one_of(:family, [
+               :text,
+               :integer,
+               :decimal,
+               :boolean,
+               :static_single_choice,
+               :static_multiple_choice,
+               :task_input_single_choice,
+               :task_input_multiple_choice,
+               :task_input_ranking,
+               :text_spans
+             ])
+
+    validate absent([:reason, :explanation]), where: [attribute_equals(:outcome, :answered)]
+  end
+
+  graphql do
+    type :task_answer_input
+  end
+end

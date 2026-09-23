@@ -30,7 +30,7 @@ Worker image access SHALL be issued only for exact bound sources or the worker's
 - **THEN** no rendering descriptor or unrelated metadata is disclosed
 
 ### Requirement: Spatial evidence follows existing collection semantics
-Spatial outcomes SHALL use the existing attempt/offered-question, draft revision, lease, immutable submission, skip, review, and escalation rules. A reviewer SHALL not edit geometry or substitute source media; a correction SHALL append a review decision, and rework SHALL create a linked new attempt. Source dimensions and media verification provenance used by submitted annotations SHALL be immutable and attributable to their exact input/assets. All source/label/region/point/mask collections SHALL have bounded typed Relay pagination with default 50/max 100.
+Spatial outcomes SHALL use the existing whole-form attempt, draft revision, lease, immutable submission, project-wide skip, and review rules. A reviewer SHALL not edit geometry or substitute source media; a correction SHALL append a review decision, without reopening collection demand. Source dimensions and media verification provenance used by submitted annotations SHALL be immutable and attributable to their exact input/assets. All source/label/region/point/mask collections SHALL have bounded typed Relay pagination with default 50/max 100.
 
 #### Scenario: A geometry save races submission
 - **WHEN** a spatial child replacement competes with submission of the same draft

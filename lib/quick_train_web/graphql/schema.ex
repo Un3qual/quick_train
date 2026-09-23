@@ -8,7 +8,9 @@ defmodule QuickTrainWeb.GraphQL.Schema do
       QuickTrain.Authentication,
       QuickTrain.Assets,
       QuickTrain.Datasets,
-      QuickTrain.Forms
+      QuickTrain.Forms,
+      QuickTrain.Tasks,
+      QuickTrain.Projects
     ],
     define_relay_types?: true,
     relay_ids?: false

@@ -6,6 +6,9 @@ defmodule QuickTrain.Accounts.OidccProvider do
   alias Oidcc.{Authorization, ClientContext, ProviderConfiguration, Token}
   alias QuickTrain.Accounts.{Oidc, OidcProviderMetadataCache}
 
+  # Discovery and JWKS are sequential, leaving time within the cache's 30-second call deadline.
+  @metadata_request_options %{request_opts: %{timeout: 10_000}}
+
   @impl true
   def authorization_url(options) do
     with {:ok, client_context} <- client_context(),
@@ -79,10 +82,10 @@ defmodule QuickTrain.Accounts.OidccProvider do
   def load_provider_metadata(issuer) do
     with true <- secure_endpoint?(issuer),
          {:ok, {configuration, configuration_expiry}} <-
-           ProviderConfiguration.load_configuration(issuer),
+           ProviderConfiguration.load_configuration(issuer, @metadata_request_options),
          true <- secure_provider_configuration?(configuration),
          {:ok, {jwks, jwks_expiry}} <-
-           ProviderConfiguration.load_jwks(configuration.jwks_uri) do
+           ProviderConfiguration.load_jwks(configuration.jwks_uri, @metadata_request_options) do
       {:ok, {configuration, jwks}, min(configuration_expiry, jwks_expiry)}
     else
       false -> {:error, :insecure_provider_endpoint}

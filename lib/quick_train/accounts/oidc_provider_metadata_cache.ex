@@ -14,8 +14,15 @@ defmodule QuickTrain.Accounts.OidcProviderMetadataCache do
 
   def fetch(issuer), do: fetch(__MODULE__, issuer)
 
-  def fetch(server, issuer) do
-    GenServer.call(server, {:fetch, issuer}, @call_timeout)
+  def fetch(server, issuer, timeout \\ @call_timeout) do
+    GenServer.call(server, {:fetch, issuer}, timeout)
+  catch
+    :exit, {reason, {GenServer, :call, _arguments}}
+    when reason in [:timeout, :noproc, :normal, :shutdown, :killed] ->
+      {:error, :provider_unavailable}
+
+    :exit, {{:shutdown, _reason}, {GenServer, :call, _arguments}} ->
+      {:error, :provider_unavailable}
   end
 
   @impl true

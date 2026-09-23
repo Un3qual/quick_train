@@ -4,7 +4,7 @@ defmodule QuickTrain.Forms.FormIntegrityTest do
   import QuickTrain.FormsFixture
 
   alias QuickTrain.Forms
-  alias QuickTrain.Forms.{FormVersion, Graph}
+  alias QuickTrain.Forms.{Error, FormVersion, Graph}
   alias QuickTrain.Forms.Inputs.{InputFieldRequirement, InputSlotDefinition}
   alias QuickTrain.Forms.Presentation.PresentationElement
   alias QuickTrain.Forms.Questions.Constraints.{IntegerConstraints, TextConstraints}
@@ -272,7 +272,7 @@ defmodule QuickTrain.Forms.FormIntegrityTest do
     )
 
     assert {:error, error} = run(FormVersion, :publish, ctx, %{version_id: ctx.version.id})
-    assert [%QuickTrain.Forms.Error{issues: [issue], truncated: false}] = error.errors
+    assert [%Error{issues: [issue], truncated: false}] = error.errors
     assert issue == "#{ctx.question.id}: incompatible renderer"
   end
 
@@ -314,7 +314,7 @@ defmodule QuickTrain.Forms.FormIntegrityTest do
 
     assert {:error, error} = run(FormVersion, :publish, ctx, %{version_id: ctx.version.id})
     assert Exception.message(error) =~ "truncated"
-    [%QuickTrain.Forms.Error{issues: issues}] = error.errors
+    [%Error{issues: issues}] = error.errors
     assert Enum.count(issues) == 100
   end
 
@@ -348,7 +348,10 @@ defmodule QuickTrain.Forms.FormIntegrityTest do
             authorize?: false
           )
 
-    Ash.update!(ctx.version, %{}, action: :publish_internal, authorize?: false)
+    QuickTrain.Repo.query!(
+      "UPDATE form_versions SET state = 'published', published_at = now() WHERE id = $1::text::uuid",
+      [ctx.version.id]
+    )
 
     assert {:error, _} =
              run(FormVersion, :copy_published, ctx, %{

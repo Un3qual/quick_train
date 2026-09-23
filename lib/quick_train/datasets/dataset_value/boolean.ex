@@ -32,6 +32,13 @@ defmodule QuickTrain.Datasets.DatasetValue.Boolean do
 
   policies do
     policy action(:read) do
+      authorize_if Module.concat(["QuickTrain.Authorization.Checks.CollectionContext"])
+      authorize_if Module.concat(["QuickTrain.Authorization.Checks.SourceRead"])
+    end
+
+    policy action(:read) do
+      authorize_if Module.concat(["QuickTrain.Authorization.Checks.CollectionContext"])
+
       authorize_if accessing_from(
                      Module.concat(["QuickTrain.Datasets.DatasetValue"]),
                      :boolean_value

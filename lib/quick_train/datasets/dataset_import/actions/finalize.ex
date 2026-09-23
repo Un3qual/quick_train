@@ -43,9 +43,9 @@ defmodule QuickTrain.Datasets.DatasetImport.Actions.Finalize do
       |> Ash.read!(authorize?: false)
 
     sealed =
-      import
-      |> Ash.Changeset.for_update(:seal_internal, %{sealed_at: DateTime.utc_now()})
-      |> Ash.update!(authorize?: false)
+      QuickTrain.Datasets.seal_import_internal!(import, %{sealed_at: DateTime.utc_now()},
+        authorize?: false
+      )
 
     # The locked open-to-sealed transition enqueues once; bulk inserts don't use Oban uniqueness.
     scheduler = scheduler()
@@ -57,12 +57,8 @@ defmodule QuickTrain.Datasets.DatasetImport.Actions.Finalize do
     sealed
   end
 
-  defp locked_import(organization_id, import_id) do
-    DatasetImport
-    |> Ash.Query.filter(id == ^import_id and organization_id == ^organization_id)
-    |> Ash.Query.lock(:for_update)
-    |> Ash.read_one!(authorize?: false)
-  end
+  defp locked_import(organization_id, import_id),
+    do: QuickTrain.Datasets.lock_import!(organization_id, import_id, authorize?: false)
 
   defp scheduler do
     Application.get_env(

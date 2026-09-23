@@ -25,9 +25,15 @@ defmodule QuickTrain.Datasets.DatasetRevisionTest do
     Map.merge(graph, %{manager: manager, organization: graph.organization, asset: asset})
   end
 
-  test "direct decimals apply library limits to strings and structs before persistence",
+  test "direct decimals reject nonfinite values and apply library limits before persistence",
        context do
     for decimal <- [
+          "NaN",
+          "Infinity",
+          "-Infinity",
+          Decimal.new("NaN"),
+          Decimal.new("Infinity"),
+          Decimal.new("-Infinity"),
           "1e999999999",
           %Decimal{sign: 1, coef: 1, exp: 999_999_999},
           %Decimal{sign: 1, coef: 1, exp: -999_999_999}
@@ -641,7 +647,7 @@ defmodule QuickTrain.Datasets.DatasetRevisionTest do
         {key, field}
       end)
 
-    schema = Datasets.publish_schema_version!(organization_id, schema.id, root.id, actor: manager)
+    schema = Datasets.publish_schema_version!(schema, organization_id, root.id, actor: manager)
 
     %{
       organization: %{id: organization_id},
@@ -675,9 +681,7 @@ defmodule QuickTrain.Datasets.DatasetRevisionTest do
     end)
 
     schema =
-      Datasets.publish_schema_version!(context.organization.id, schema.id, root.id,
-        actor: manager
-      )
+      Datasets.publish_schema_version!(schema, context.organization.id, root.id, actor: manager)
 
     %{schema: schema, root: root}
   end

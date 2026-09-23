@@ -22,6 +22,7 @@ defmodule QuickTrain.Datasets.DatasetValue do
   alias QuickTrain.Organizations.Organization
 
   use Ash.Resource,
+    primary_read_warning?: false,
     otp_app: :quick_train,
     domain: QuickTrain.Datasets,
     extensions: [AshGraphql.Resource],
@@ -76,6 +77,8 @@ defmodule QuickTrain.Datasets.DatasetValue do
     read :read do
       primary? true
 
+      prepare build(sort: [field_definition_id: :asc, ordinal: :asc, id: :asc])
+
       pagination keyset?: true,
                  required?: false,
                  default_limit: 50,
@@ -114,6 +117,12 @@ defmodule QuickTrain.Datasets.DatasetValue do
 
   policies do
     policy action(:read) do
+      authorize_if Module.concat(["QuickTrain.Authorization.Checks.CollectionContext"])
+      authorize_if Module.concat(["QuickTrain.Authorization.Checks.SourceRead"])
+    end
+
+    policy action(:read) do
+      authorize_if Module.concat(["QuickTrain.Authorization.Checks.CollectionContext"])
       authorize_if accessing_from(Module.concat(["QuickTrain.Datasets.DatasetRecord"]), :values)
     end
 
@@ -185,6 +194,10 @@ defmodule QuickTrain.Datasets.DatasetValue do
     end
 
     custom_indexes do
+      index [:id, :organization_id, :record_id, :field_definition_id],
+        unique: true,
+        name: "dataset_values_id_org_record_field_index"
+
       index [:id, :organization_id],
         unique: true,
         name: "dataset_values_id_organization_id_index"
