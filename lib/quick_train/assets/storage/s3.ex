@@ -119,14 +119,13 @@ defmodule QuickTrain.Assets.Storage.S3 do
   defp staging_version(config, key, expected, deadline) do
     case request(config, :head, key, [], nil, [], deadline) do
       {:ok, %{status: 200} = response} ->
-        if Req.Response.get_header(response, "content-length") ==
-             [Integer.to_string(expected.byte_size)] do
-          case Req.Response.get_header(response, "x-amz-version-id") do
-            [version] when version not in ["", "null"] -> {:ok, version}
-            _invalid -> {:error, :storage_version_required}
-          end
-        else
-          {:error, :content_mismatch}
+        size = Integer.to_string(expected.byte_size)
+
+        case {Req.Response.get_header(response, "content-length"),
+              Req.Response.get_header(response, "x-amz-version-id")} do
+          {[^size], [version]} when version not in ["", "null"] -> {:ok, version}
+          {[^size], _invalid} -> {:error, :storage_version_required}
+          _mismatch -> {:error, :content_mismatch}
         end
 
       {:ok, %{status: 404}} ->

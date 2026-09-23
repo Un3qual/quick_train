@@ -6,6 +6,7 @@ defmodule QuickTrain.Assets.Storage.S3.Qualification do
   alias ExAws.S3, as: SDK
   alias QuickTrain.Assets.Storage.S3
   alias QuickTrain.Assets.Storage.S3.{Config, HTTPClient, Operation}
+  alias Req.Response
 
   @request_budget 10_000
   @absent_codes %{
@@ -469,7 +470,7 @@ defmodule QuickTrain.Assets.Storage.S3.Qualification do
     upload(config, post, plan.bytes) |> require_status([200, 201, 204], :descriptor_upload_failed)
     first = signed(config, :head, plan.staging)
     require_status(first, [200], :version_probe_failed)
-    version = Req.Response.get_header(first, "x-amz-version-id") |> List.first()
+    version = Response.get_header(first, "x-amz-version-id") |> List.first()
     check(version not in [nil, "", "null"], :versioning_required)
 
     upload(config, post, plan.bytes <> "x")
@@ -514,7 +515,7 @@ defmodule QuickTrain.Assets.Storage.S3.Qualification do
           {"content-disposition", "attachment"},
           {"cache-control", "no-store"}
         ] do
-      check(Req.Response.get_header(downloaded, name) == [value], :download_headers_invalid)
+      check(Response.get_header(downloaded, name) == [value], :download_headers_invalid)
     end
 
     raw(config, :get, object_url(config, plan.sealed))
@@ -544,7 +545,7 @@ defmodule QuickTrain.Assets.Storage.S3.Qualification do
 
     sealed_version =
       signed(config, :head, plan.sealed)
-      |> Req.Response.get_header("x-amz-version-id")
+      |> Response.get_header("x-amz-version-id")
       |> List.first()
 
     check(sealed_version not in [nil, "", "null"], :versioning_required)

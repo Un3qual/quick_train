@@ -57,4 +57,4 @@
 - [x] 9.2 Replace custom XPath construction and inventory mapping with SweetXml sigils and mapping; preserve bounded parsing, DTD rejection, complete inventory checks, and exact cleanup scope.
 - [x] 9.3 Keep native Req responses through transfer/probe code, adapt responses only at the ExAws callback, and use Req's header and multipart APIs. Derive signed download overrides from the existing delivery headers.
 - [x] 9.4 Verify focused fixtures and disposable HTTPS integration, including multipart encoding and cleanup of both object versions and delete markers; commit the simplifications.
-- [ ] 9.5 Run independent OpenSpec validation and the complete verification gate, record results, and commit closeout.
+- [x] 9.5 Run independent OpenSpec validation and the complete verification gate, record results, and commit closeout.

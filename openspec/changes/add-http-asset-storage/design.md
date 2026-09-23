@@ -218,8 +218,11 @@ cleanup tracks partial startup so failures cannot affect development data or ano
 Focused verification passed 32 tests (seed `728070`) and all 24 disposable HTTPS tests
 (seed `793018`). The existing upload test now exercises the same native multipart
 transport used by qualification; the cleanup fixture includes object versions and delete
-markers without assuming their order. Full verification is pending. AWS deployment
-qualification remains not performed.
+markers without assuming their order. The full
+`QUICK_TRAIN_TEST_DATABASE_NAME=quick_train_fde2_review mise run verify` gate then passed
+all static/build checks, 411 backend tests (seed `517590`), and 24 disposable HTTPS tests
+(seed `957037`). Independent OpenSpec validation passed all 16 active changes/specifications.
+AWS deployment qualification remains not performed.
 
 ## References
 
