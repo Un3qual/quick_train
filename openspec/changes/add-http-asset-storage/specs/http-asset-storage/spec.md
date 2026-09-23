@@ -5,7 +5,7 @@ Make asset uploads, immutable file downloads, and task export transfers usable o
 ## ADDED Requirements
 
 ### Requirement: Local and production storage share the same protocol implementation
-The system SHALL support AWS S3 in production and VersityGW in local development and integration tests through the same S3 storage implementation. Endpoint, region, addressing style, bucket, credentials, and certificate trust SHALL be deployment configuration. Ordinary tests SHALL retain the existing in-memory storage implementation. Local and test configuration SHALL use explicit local endpoints and local-only credentials, SHALL NOT discover AWS credentials or fall back to AWS endpoints, and SHALL NOT contact cloud metadata services. Missing or invalid production storage configuration SHALL fail closed rather than fall back to local storage or a test double.
+The system SHALL support AWS S3 in production and VersityGW in local development and integration tests through the same S3 storage implementation. Endpoint, region, addressing style, bucket, credentials, and certificate trust SHALL be deployment configuration. Production AWS endpoints SHALL be regional HTTPS endpoints; local VersityGW SHALL use its explicitly configured HTTPS endpoint. Both SHALL validate certificates and hostnames and reject redirects. Ordinary tests SHALL retain the existing in-memory storage implementation. Local and test configuration SHALL use explicit local endpoints and local-only credentials, SHALL NOT discover AWS credentials or fall back to AWS endpoints, and SHALL NOT contact cloud metadata services. Missing or invalid production storage configuration SHALL fail closed rather than fall back to local storage or a test double.
 
 #### Scenario: Development runs without AWS configuration
 - **WHEN** a developer starts the documented local services and performs an asset upload and download
@@ -15,6 +15,10 @@ The system SHALL support AWS S3 in production and VersityGW in local development
 - **WHEN** the configured local endpoint cannot be reached
 - **THEN** storage operations fail explicitly without contacting a default AWS endpoint or using ambient cloud credentials
 
+#### Scenario: A local endpoint is not an AWS regional endpoint
+- **WHEN** the configured VersityGW endpoint has a valid trusted HTTPS identity and serves requests without redirects
+- **THEN** local configuration accepts it without requiring an AWS regional hostname
+
 ### Requirement: Uploads are capped by the receiving service
 Client upload access SHALL bind an exact private staging key, expiration, and a byte-size limit no larger than the registered asset size. The receiving service SHALL enforce the cap independently of the client and of later finalization. Altering the destination, extending the expiration, or weakening the size condition SHALL invalidate access. Successful upload SHALL NOT itself make an asset ready or grant download access. Access SHALL never permit writes to canonical published content.
 
@@ -22,12 +26,16 @@ Client upload access SHALL bind an exact private staging key, expiration, and a 
 - **WHEN** a client uploads more bytes than its issued access permits
 - **THEN** the receiving service rejects the upload and the asset remains unavailable for download
 
+#### Scenario: Multipart framing exceeds the file-size cap
+- **WHEN** a valid multipart POST contains file bytes exactly equal to the registered size plus the required form fields and framing
+- **THEN** the receiving service accepts the upload because the cap applies to file bytes, while one additional file byte is rejected
+
 #### Scenario: A client modifies its upload authorization
 - **WHEN** the client changes the permitted key, expiry, or size conditions
 - **THEN** the storage service rejects the modified authorization
 
 ### Requirement: Publication verifies one stable source and an immutable destination
-Finalization SHALL select a stable staging object version, verify its actual complete byte size and SHA-256, and publish only those verified bytes at the existing organization-scoped canonical location. The publication SHALL conditionally create that location and SHALL NOT overwrite existing canonical bytes. Existing canonical content SHALL be reused only after verifying its complete bytes and immutable declared facts. A staging overwrite during verification SHALL NOT change the selected version or the content later served. A mismatched upload SHALL NOT occupy a canonical location, even when another registration has matching canonical content. Network I/O SHALL NOT hold asset database transactions open; existing finalizer claim checks SHALL govern readiness transitions.
+Finalization SHALL select a stable staging object version, verify its actual complete byte size and SHA-256, and publish only those verified bytes at the existing organization-scoped canonical location. The publication SHALL conditionally create that location and SHALL NOT overwrite existing canonical bytes. Existing canonical content SHALL be reused only after verifying its complete bytes and immutable declared facts. Canonical metadata SHALL represent the exact persisted declared media type with a fixed-size SHA-256 digest, independently of the download Content-Type, preserving currently valid long and non-ASCII media-type values without imposing a new registration limit. Verification SHALL reject a missing, malformed, or mismatched digest and SHALL still verify complete content bytes. A staging overwrite during verification SHALL NOT change the selected version or the content later served. A mismatched upload SHALL NOT occupy a canonical location, even when another registration has matching canonical content. Network I/O SHALL NOT hold asset database transactions open; existing finalizer claim checks SHALL govern readiness transitions.
 
 #### Scenario: Staging changes during publication
 - **WHEN** an upload replaces the current staging object while a finalizer verifies an earlier version
@@ -36,6 +44,14 @@ Finalization SHALL select a stable staging object version, verify its actual com
 #### Scenario: Identical finalizers race
 - **WHEN** two registrations concurrently publish matching verified bytes to the same organization-scoped canonical location
 - **THEN** they converge on one immutable object and the existing canonical asset resolution without replacement or per-registration sealed copies
+
+#### Scenario: A valid declared media type exceeds the provider metadata budget
+- **WHEN** an otherwise-valid asset has a long or non-ASCII declared media type whose direct encoding would exceed S3 metadata limits
+- **THEN** publication stores its fixed-size digest, preserves the exact database value, and can verify and reuse the canonical object without a metadata-size failure
+
+#### Scenario: Canonical content has a different declared media type
+- **WHEN** canonical bytes match but their declared-media-type digest differs from the expected asset fact
+- **THEN** finalization reports a conflict without overwriting or adopting the canonical object
 
 ### Requirement: Bounded remote operations preserve honest retry outcomes
 Storage operations SHALL return within their configured operation deadline, release local streams and temporary files, and expose only sanitized failures. A timeout or lost response SHALL NOT be treated as proof that the remote service cancelled an already accepted operation. Complete staging or canonical bytes can exist after an uncertain outcome, but no failed or uncertain operation SHALL grant database readiness or download access. Retries SHALL reverify remote content and current lifecycle claims before recording success. Oversized, interrupted, or incomplete source streams SHALL NOT produce publishable partial content. Previously verified canonical objects SHALL remain unchanged by retries.
@@ -97,8 +113,23 @@ The standard test command SHALL run ordinary tests with the in-memory adapter. T
 - **THEN** the full gate reports failure rather than reporting success from the ordinary suite alone
 
 ### Requirement: Provider qualification is separate from local compatibility
-The change SHALL record which behaviors were verified against the pinned local service. A separately invoked deployment check SHALL exercise a disposable isolated namespace against the configured AWS deployment, including its real permissions, TLS, upload restrictions, immutable publication, and delivery headers. This check SHALL never run implicitly from development startup, ordinary tests, or full local verification. Passing local checks SHALL NOT be reported as verification of an untested AWS deployment. Local compatibility defects SHALL be resolved or explicitly block qualification; they SHALL NOT be hidden by weakening production invariants or silently replacing approved local storage.
+The change SHALL record which behaviors were verified against the pinned local service. A separately invoked deployment check SHALL exercise a disposable isolated namespace against the configured AWS deployment, including its real permissions, TLS, upload restrictions, immutable publication, production staging retention, and delivery headers. This check SHALL never run implicitly from development startup, ordinary tests, or full local verification. Passing local checks SHALL NOT be reported as verification of an untested AWS deployment. Local compatibility defects SHALL be resolved or explicitly block qualification; they SHALL NOT be hidden by weakening production invariants or silently replacing approved local storage.
 
 #### Scenario: A deployment has not been checked
 - **WHEN** local verification passes but the AWS deployment check has not run
 - **THEN** the result reports local compatibility success and AWS deployment verification as not performed
+
+### Requirement: Production staging retention uses safe native lifecycle rules
+Production qualification SHALL require enabled provider-native lifecycle rules scoped to `assets/staging/` that expire current versions, permanently expire noncurrent versions without a retained-version-count exception, and remove expired delete markers. Both current and noncurrent expiration ages SHALL be finite and strictly greater than the sum of configured maximum staging lifetime, upload-access lifetime, publication-claim lifetime, and operation budget. The deployment check SHALL inspect the complete bucket lifecycle configuration and reject rules that can expire or transition sealed objects or shorten that staging safety window. Staging retention settings that block lifecycle expiration SHALL prevent qualification. Operators SHALL provision the documented simple rule configuration; the application SHALL NOT provision lifecycle policies or add a cleanup worker. Local development reset and disposable integration volumes SHALL remain independent of production lifecycle rules. Asynchronous provider cleanup SHALL NOT be presented as an exact deletion deadline, a hard storage quota, or completion of deferred application maintenance.
+
+#### Scenario: Replayed uploads have no complete retention policy
+- **WHEN** staging current-version expiration, noncurrent-version expiration, or expired delete-marker cleanup is missing or disabled
+- **THEN** the deployment check rejects production qualification rather than accepting indefinite retention of replayed upload versions
+
+#### Scenario: Retention can delete live or sealed bytes
+- **WHEN** an expiration age is within the configured staging safety window or an overlapping expiration/transition rule can affect sealed content
+- **THEN** production qualification fails even if the application identity itself cannot delete sealed objects
+
+#### Scenario: Staging retention protects active publication
+- **WHEN** the complete configuration uses supported staging-only rules with both expiration ages beyond the configured safety window and no expiration blockers
+- **THEN** retention qualification succeeds without waiting for asynchronous lifecycle execution or enabling a QuickTrain cleanup worker

@@ -10,9 +10,10 @@ QuickTrain already owns asset authorization, integrity, immutable publication, a
 - Use short-lived signed GET access for direct S3/VersityGW downloads from an isolated storage host. Require attachment disposition, octet-stream content type, and no-store responses. Make `nosniff` additional protection where available, rather than a prerequisite that forces a download proxy. Keep lifecycle and authorization decisions in existing Ash actions and GraphQL as the only application API.
 - Pin VersityGW, provide local HTTPS, preserve development files across service restarts, isolate integration-test storage, and add mise commands for service lifecycle and local storage verification.
 - Define remote timeout behavior honestly: return bounded failures without granting readiness, tolerate an uncertain remote write outcome, and reverify complete immutable bytes on retry.
+- Require operator-configured native S3 lifecycle rules for production staging objects and their versions, verified by the separate deployment check; keep sealed objects outside expiration rules.
 - Make local protocol tests part of `mise run verify`; keep live AWS deployment checks separate and explicitly invoked. Local compatibility evidence must not be represented as proof of AWS configuration.
 
-Explicit non-goals: a QuickTrain download-streaming route or required CDN/proxy, image inspection or inline rendering, spatial task answers, a new asset lifecycle or storage plugin framework, a separate filesystem application adapter, automatic staging/credential/import maintenance, marketplace features, frontend work, and provisioning cloud infrastructure during development or CI.
+Explicit non-goals: a QuickTrain download-streaming route or required CDN/proxy, image inspection or inline rendering, spatial task answers, a new asset lifecycle or storage plugin framework, a separate filesystem application adapter, application-managed staging/credential/import maintenance, marketplace features, frontend work, and provisioning cloud infrastructure during development or CI.
 
 ## Capabilities
 
@@ -23,6 +24,7 @@ Explicit non-goals: a QuickTrain download-streaming route or required CDN/proxy,
 ### Modified Capabilities
 
 - `assets`: Support method-specific upload descriptors and isolated direct downloads with mandatory attachment/binary/cache controls and optional `nosniff`, while preserving existing organization, attempt, and result authority.
+- `task-results`: Reconcile export deadline failures with uncertain remote commits while preserving sealed snapshots, pending-asset retry rules, and verified publication.
 
 ## Impact
 
