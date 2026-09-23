@@ -31,11 +31,11 @@ Explicit non-goals: a QuickTrain download-streaming route or required CDN/proxy,
 - Extends Compose and mise tooling and documents the local/provider contract. No new business resource or database migration is expected; any necessary persistence change must be justified in the design and generated through Ash.
 - Remains within the reusable backend foundation: one global User, optional membership for existing task-worker routes, and fail-closed scoped authorization. Detailed media still requires its own change before `add-project-task-media` can proceed; this change provides only the real opaque-storage prerequisite.
 
-The user approved HTTP storage, cloud-independent development/tests, and VersityGW. This is a planning change; the selected version's compatibility tests and runtime implementation have not yet run.
+The user approved HTTP storage, cloud-independent development/tests, VersityGW, and optional nosniff for isolated direct downloads. This is a planning change; the selected version's compatibility tests and runtime implementation have not yet run.
 
-## Proposed download decision
+## Approved download decision
 
-Following the request to reconsider `nosniff`, this draft recommends direct signed downloads rather than adding a transfer route solely to inject that header. This revised download contract is proposed for review, not recorded as an approved implementation decision.
+The approved contract uses direct signed downloads and makes `nosniff` optional on the isolated storage endpoint. A transfer route or proxy solely to inject that header is outside this change.
 
 S3 supports signed overrides for Content-Disposition, Content-Type, and Cache-Control, but not X-Content-Type-Options. Attachment disposition directs normal navigation toward downloading; it is not equivalent to the strict script/style MIME checks supplied by `nosniff`. A separate storage origin also does not make it safe to include uploaded bytes as scripts in the application. The contract therefore keeps files as opaque downloads, isolates the storage hostname from application credentials and cookies, and prohibits clients from treating storage as an executable-content or preview source. Providers that already supply `nosniff` retain it. Inline media remains a separate design decision.
 
