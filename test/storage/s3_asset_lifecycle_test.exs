@@ -5,7 +5,7 @@ defmodule QuickTrain.Assets.S3AssetLifecycleTest do
   alias QuickTrain.{Accounts, AshError, Assets}
   alias QuickTrain.Assets.Asset
   alias QuickTrain.Assets.Storage.S3
-  alias QuickTrain.S3FaultServer, as: Server
+  alias QuickTrainWeb.S3FaultServer, as: Server
 
   @moduletag :storage
   @moduletag :committed_db

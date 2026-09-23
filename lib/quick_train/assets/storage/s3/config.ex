@@ -43,7 +43,7 @@ defmodule QuickTrain.Assets.Storage.S3.Config do
       _invalid -> @invalid
     end
   rescue
-    _error -> @invalid
+    ArgumentError -> @invalid
   end
 
   def new(_options), do: @invalid

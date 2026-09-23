@@ -141,7 +141,7 @@ An isolated development setup/restart check preserved credentials, certificates,
 and prior versions. CORS accepted the configured localhost origin and rejected another origin;
 plaintext requests failed. Concurrent disposable runs (one successful, one intentionally failed)
 removed only their own containers and volumes. A missing Docker endpoint caused an explicit
-integration failure. A measured 25 MiB staging write took 166 ms and publication took 422 ms,
+integration failure. In the final gate, a measured 25 MiB staging write took 167 ms and publication took 468 ms,
 against the existing 30,000 ms budget per operation on this machine; these are observations,
 not a production latency guarantee.
 
@@ -149,7 +149,23 @@ The deployment command is separate from local verification. Deterministic fixtur
 runtime target binding, safe lifecycle/ownership/public-access controls, and cleanup isolation.
 AWS deployment qualification has **not been performed**. The live application-identity probes
 must run against the intended AWS configuration before that deployment is considered qualified.
-Full repository verification and final review are pending at this implementation milestone.
+The independent review's three findings were fixed and verified: transient verification HTTP
+failures preserve retryability, protocol fixtures cannot merge ambient SDK credentials, and
+malformed inspection/inventory XML returns sanitized failures while preserving cleanup manifests.
+
+Final local validation passed:
+
+- `mise run openspec.validate`: all 15 changes/specifications valid.
+- `QUICK_TRAIN_TEST_DATABASE_NAME=quick_train_ae1a_root_test mise run verify`: formatting,
+  Ash code-generation check, compile boundaries/cycles, strict Credo/Reach, zero clone budget,
+  Dialyzer (zero errors), dependency audit (no retired/advisory packages), production compilation,
+  409 ordinary tests, and 22 disposable HTTPS storage tests all passed. The dedicated ordinary
+  test database avoids modifying unrelated development/test schemas; the integration runner
+  separately creates and removes its own UUID database.
+- The final integration run used ExUnit seed `714320`; its 22 tests completed in 8.5 seconds.
+
+All implementation tasks are complete. This active change is ready for the normal OpenSpec
+sync/archive workflow; its delta specifications have not been archived into the main specs yet.
 
 ## References
 

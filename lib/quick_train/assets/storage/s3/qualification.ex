@@ -198,23 +198,48 @@ defmodule QuickTrain.Assets.Storage.S3.Qualification do
 
   defp validate_lifecycle(document, window) do
     rules = nodes_at(document, "/LifecycleConfiguration/Rule")
-    values = Enum.map(rules, &lifecycle_rule(&1, window))
 
-    if rules != [] and children(document) == List.duplicate("Rule", length(rules)) and
-         Enum.all?(values, &is_map/1) and Enum.any?(values, & &1.current) and
-         Enum.any?(values, & &1.noncurrent) and Enum.any?(values, & &1.marker) do
-      {:ok,
-       %{
-         safety_window_seconds: window,
-         current_expiration_days: values |> Enum.map(& &1.current) |> Enum.reject(&is_nil/1),
-         noncurrent_expiration_days:
-           values |> Enum.map(& &1.noncurrent) |> Enum.reject(&is_nil/1),
-         expired_delete_marker_cleanup: true
-       }}
+    with true <- rules != [] and children(document) == List.duplicate("Rule", length(rules)),
+         {:ok, summary} <- lifecycle_summary(rules, window),
+         true <-
+           summary.current_expiration_days != [] and summary.noncurrent_expiration_days != [] and
+             summary.expired_delete_marker_cleanup do
+      {:ok, summary}
     else
-      {:error, :unsafe_staging_lifecycle}
+      _invalid -> {:error, :unsafe_staging_lifecycle}
     end
   end
+
+  defp lifecycle_summary(rules, window) do
+    initial = %{
+      safety_window_seconds: window,
+      current_expiration_days: [],
+      noncurrent_expiration_days: [],
+      expired_delete_marker_cleanup: false
+    }
+
+    Enum.reduce_while(rules, {:ok, initial}, fn rule, {:ok, summary} ->
+      case lifecycle_rule(rule, window) do
+        %{current: current, noncurrent: noncurrent, marker: marker} ->
+          {:cont,
+           {:ok,
+            %{
+              summary
+              | current_expiration_days:
+                  add_expiration_day(current, summary.current_expiration_days),
+                noncurrent_expiration_days:
+                  add_expiration_day(noncurrent, summary.noncurrent_expiration_days),
+                expired_delete_marker_cleanup: marker or summary.expired_delete_marker_cleanup
+            }}}
+
+        :invalid ->
+          {:halt, :invalid}
+      end
+    end)
+  end
+
+  defp add_expiration_day(nil, days), do: days
+  defp add_expiration_day(day, days), do: [day | days]
 
   defp lifecycle_rule(rule, window) do
     expiration = nodes_at(rule, "./Expiration")
@@ -351,6 +376,8 @@ defmodule QuickTrain.Assets.Storage.S3.Qualification do
   rescue
     # reach:disable-next-line bare_rescue -- Never expose provider content on inventory failures.
     _exception -> {:error, :probe_inventory_incomplete}
+  catch
+    :exit, _reason -> {:error, :probe_inventory_incomplete}
   end
 
   defp inventory_prefix(config, operator, plan, prefix) do
@@ -620,6 +647,8 @@ defmodule QuickTrain.Assets.Storage.S3.Qualification do
   rescue
     # reach:disable-next-line bare_rescue -- Treat unreadable provider errors as inspection failure.
     _exception -> false
+  catch
+    :exit, _reason -> false
   end
 
   defp parse(:absent), do: :absent

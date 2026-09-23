@@ -1,4 +1,4 @@
-defmodule QuickTrain.S3FaultServer do
+defmodule QuickTrainWeb.S3FaultServer do
   @moduledoc false
   import Plug.Conn
 

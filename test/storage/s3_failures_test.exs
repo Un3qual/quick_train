@@ -1,7 +1,7 @@
 defmodule QuickTrain.Assets.S3FailuresTest do
   use ExUnit.Case, async: false
   alias QuickTrain.Assets.Storage.S3
-  alias QuickTrain.S3FaultServer, as: Server
+  alias QuickTrainWeb.S3FaultServer, as: Server
 
   @moduletag :storage
 

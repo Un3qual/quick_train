@@ -251,6 +251,38 @@ defmodule QuickTrain.Assets.S3QualificationTest do
     assert {:error, :bucket_inspection_failed} = Qualification.inspect_bucket(context.config, sdk)
   end
 
+  test "malformed missing-configuration responses fail inspection without leaking parser exits",
+       context do
+    responses =
+      Map.new(context.snapshot.documents, fn {name, xml} ->
+        response =
+          if xml == :absent,
+            do: absent(name),
+            else: {:ok, %{status_code: 200, body: xml, headers: []}}
+
+        {{:get, [Qualification.inspection_resource(name)]}, response}
+      end)
+
+    sdk = Map.put(context.config.sdk, :http_client, FixtureHTTPClient)
+
+    for name <- [:object_lock, :replication] do
+      malformed =
+        Map.put(
+          responses,
+          {:get, [Qualification.inspection_resource(name)]},
+          {:ok, %{status_code: 404, body: "<private-provider-detail", headers: []}}
+        )
+
+      Application.put_env(:quick_train, :qualification_fixture, %{
+        owner: self(),
+        responses: malformed
+      })
+
+      assert {:error, :bucket_inspection_failed} =
+               Qualification.inspect_bucket(context.config, sdk)
+    end
+  end
+
   test "probe namespaces use normal key shapes and distinct UUIDs" do
     first = Qualification.probe_plan()
     second = Qualification.probe_plan()
@@ -314,6 +346,35 @@ defmodule QuickTrain.Assets.S3QualificationTest do
       assert keys == plan.keys
       refute_receive {:inspection_request, :delete, _host, _path, _params}
     end
+  end
+
+  test "malformed inventory preserves the cleanup key manifest without attempting deletion",
+       context do
+    plan = Qualification.probe_plan()
+    sdk = Map.put(context.config.sdk, :http_client, FixtureHTTPClient)
+
+    responses = %{
+      {:get, ["max-keys", "prefix", "versions"]} =>
+        {:ok, %{status_code: 200, body: "<private-provider-detail", headers: []}}
+    }
+
+    Application.put_env(:quick_train, :qualification_fixture, %{
+      owner: self(),
+      responses: responses
+    })
+
+    assert {:error, :probe_inventory_incomplete} =
+             Qualification.inventory(context.config, sdk, plan)
+
+    assert %{
+             inventory_complete: false,
+             deleted_versions: 0,
+             remaining_versions: [],
+             inspect_keys: keys
+           } = Qualification.cleanup(context.config, sdk, plan)
+
+    assert keys == plan.keys
+    refute_receive {:inspection_request, :delete, _host, _path, _params}
   end
 
   defp versions_response(bucket, objects, truncated \\ false) do

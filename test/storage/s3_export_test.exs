@@ -4,8 +4,8 @@ defmodule QuickTrain.Storage.S3ExportTest do
   alias QuickTrain.{Accounts, Authorization, Organizations, ProjectsFixture, Tasks}
   alias QuickTrain.Assets.Asset
   alias QuickTrain.Assets.Storage.S3
-  alias QuickTrain.S3FaultServer, as: Server
   alias QuickTrain.Tasks.Exports.ResultExport
+  alias QuickTrainWeb.S3FaultServer, as: Server
 
   @moduletag :storage
   @moduletag :committed_db

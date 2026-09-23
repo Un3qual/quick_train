@@ -7,7 +7,7 @@ run_id="quicktrain-storage-test-$(uuidgen | tr '[:upper:]' '[:lower:]')"
 export QUICK_TRAIN_TEST_DATABASE_NAME="${run_id//-/_}"
 export MIX_TEST_PARTITION=""
 echo "Storage integration run: $run_id"
-cert_dir=$(mktemp -d "${TMPDIR:-/tmp/}quicktrain-storage.XXXXXX")
+cert_dir=$(mktemp -d "${TMPDIR:-/tmp}/quicktrain-storage.XXXXXX")
 data_created=false
 versions_created=false
 container_attempted=false
