@@ -59,6 +59,65 @@ if authentication_overrides != [] do
   config :quick_train, :authentication, authentication_overrides
 end
 
+# The separate storage integration runner supplies its configuration explicitly.
+# Ordinary tests always retain the in-memory adapter from config/test.exs.
+if config_env() != :test do
+  storage_env = fn name -> System.get_env("QUICK_TRAIN_STORAGE_" <> name) end
+
+  parse_storage_json = fn value ->
+    case value do
+      nil ->
+        nil
+
+      value ->
+        case Jason.decode(value) do
+          {:ok, decoded} -> decoded
+          {:error, _reason} -> raise "invalid storage configuration"
+        end
+    end
+  end
+
+  storage_options = [
+    profile: storage_env.("PROFILE"),
+    endpoint: storage_env.("ENDPOINT"),
+    region: storage_env.("REGION"),
+    bucket: storage_env.("BUCKET"),
+    access_key_id: storage_env.("ACCESS_KEY"),
+    secret_access_key: storage_env.("SECRET_KEY"),
+    security_token: storage_env.("SESSION_TOKEN"),
+    addressing: storage_env.("ADDRESSING"),
+    ca_file: storage_env.("CA_FILE"),
+    application_hosts: storage_env.("APPLICATION_HOSTS_JSON"),
+    cookie_domains: storage_env.("COOKIE_DOMAINS_JSON")
+  ]
+
+  if Enum.any?(storage_options, fn {_key, value} -> not is_nil(value) end) do
+    storage_options =
+      storage_options
+      |> Keyword.update!(:profile, fn
+        "local" -> :local
+        "aws" -> :aws
+        _invalid -> nil
+      end)
+      |> Keyword.update!(:addressing, fn
+        "path" -> :path
+        "virtual" -> :virtual
+        _invalid -> nil
+      end)
+      |> Keyword.update!(:application_hosts, parse_storage_json)
+      |> Keyword.update!(:cookie_domains, parse_storage_json)
+
+    case QuickTrain.Assets.Storage.S3.Config.new(storage_options) do
+      {:ok, _validated} ->
+        config :quick_train, :s3_storage, storage_options
+        config :quick_train, :assets, storage_adapter: QuickTrain.Assets.Storage.S3
+
+      {:error, _reason} ->
+        raise "invalid storage configuration"
+    end
+  end
+end
+
 if config_env() == :prod do
   database_url =
     System.get_env("DATABASE_URL") ||

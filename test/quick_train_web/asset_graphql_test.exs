@@ -5,6 +5,30 @@ defmodule QuickTrainWeb.AssetGraphqlTest do
   alias QuickTrain.Assets.Asset
   alias QuickTrain.Assets.Storage.InMemory, as: TestStorage
 
+  defmodule PostStorage do
+    def enforces_byte_cap?, do: true
+    def approved_hosts, do: ["storage.quicktrain.local"]
+
+    def writable_staging_access(key, cap, expiry) do
+      {:ok,
+       %{
+         method: :post,
+         uri: URI.parse("https://storage.quicktrain.local/bucket"),
+         headers: [],
+         form_fields: %{
+           "key" => key,
+           "policy" => "private-policy",
+           "Content-Type" => "application/octet-stream"
+         },
+         file_field: "file",
+         expires_at: expiry,
+         max_bytes: cap,
+         cache_control: "no-store",
+         referrer_policy: "no-referrer"
+       }}
+    end
+  end
+
   setup %{conn: conn} do
     :ok = TestStorage.reset()
 
@@ -52,7 +76,7 @@ defmodule QuickTrainWeb.AssetGraphqlTest do
           ) {
             reused
             asset { id organizationId state sha256 byteSize mediaType }
-            uploadAccess { method uri expiresAt maxBytes cacheControl referrerPolicy headers }
+            uploadAccess { method uri expiresAt maxBytes cacheControl referrerPolicy headers formFields fileField }
           }
         }
         """,
@@ -69,6 +93,8 @@ defmodule QuickTrainWeb.AssetGraphqlTest do
     assert registration["uploadAccess"]["method"] == "PUT"
     assert registration["uploadAccess"]["maxBytes"] == byte_size(content)
     assert registration["uploadAccess"]["uri"] =~ "https://storage.quicktrain.local/"
+    assert is_nil(registration["uploadAccess"]["formFields"])
+    assert is_nil(registration["uploadAccess"]["fileField"])
 
     refute Map.has_key?(registration["asset"], "stagingKey")
     refute Map.has_key?(registration["asset"], "sealedKey")
@@ -161,7 +187,7 @@ defmodule QuickTrainWeb.AssetGraphqlTest do
         query AssetAccess($assetId: ID!, $organizationId: ID!) {
           assetAccess(assetId: $assetId, organizationId: $organizationId) {
             asset { id state }
-            readAccess { method uri expiresAt cacheControl referrerPolicy }
+            readAccess { method uri expiresAt cacheControl referrerPolicy formFields fileField }
           }
         }
         """,
@@ -172,7 +198,49 @@ defmodule QuickTrainWeb.AssetGraphqlTest do
       )["assetAccess"]
 
     assert access["readAccess"]["method"] == "GET"
+    assert is_nil(access["readAccess"]["formFields"])
+    assert is_nil(access["readAccess"]["fileField"])
     assert {:ok, ^content} = TestStorage.read_sealed(%{uri: access["readAccess"]["uri"]})
+  end
+
+  test "registration serializes POST form fields without changing their names or values", ctx do
+    config = Application.fetch_env!(:quick_train, :assets)
+    on_exit(fn -> Application.put_env(:quick_train, :assets, config) end)
+
+    Application.put_env(
+      :quick_train,
+      :assets,
+      Keyword.put(config, :storage_adapter, PostStorage)
+    )
+
+    registration =
+      graphql!(ctx.conn, """
+      mutation {
+        registerAsset(organizationId: "#{ctx.graph.organization.id}", sha256: "#{sha256("post")}",
+          byteSize: 4, mediaType: "text/plain") {
+          asset { id state }
+          uploadAccess { method uri headers formFields fileField maxBytes expiresAt }
+        }
+      }
+      """)["registerAsset"]
+
+    assert registration["asset"]["state"] == "PENDING"
+    access = registration["uploadAccess"]
+    assert access["method"] == "POST"
+    assert access["uri"] == "https://storage.quicktrain.local/bucket"
+    assert Jason.decode!(access["headers"]) == %{}
+    assert access["fileField"] == "file"
+    assert access["maxBytes"] == 4
+
+    assert Jason.decode!(access["formFields"]) == %{
+             "key" =>
+               "assets/staging/#{ctx.graph.organization.id}/#{registration["asset"]["id"]}",
+             "policy" => "private-policy",
+             "Content-Type" => "application/octet-stream"
+           }
+
+    assert {:ok, expiry, 0} = DateTime.from_iso8601(access["expiresAt"])
+    assert DateTime.after?(expiry, DateTime.utc_now())
   end
 
   test "the GraphQL root is deliberate and has no generic asset mutation", %{conn: conn} do

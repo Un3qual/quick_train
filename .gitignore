@@ -17,6 +17,7 @@
 /priv/static/
 /.elixir_ls/
 /.mise.local.toml
+/.storage/
 .env
 .DS_Store
 

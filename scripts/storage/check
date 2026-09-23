@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+set -euo pipefail
+cd "$(dirname "$0")/../.."
+
+if [[ "${MIX_ENV:-dev}" == test ]]; then
+  echo 'storage.check requires the configured deployment environment, not MIX_ENV=test.' >&2
+  exit 1
+fi
+
+exec mise exec -- mix run --no-start -e 'QuickTrain.Assets.Storage.S3.Qualification.cli()'

@@ -19,7 +19,27 @@ run = "docker compose up -d postgres"
 
 [tasks."db.stop"]
 description = "Stop PostgreSQL"
-run = "docker compose down"
+run = "docker compose stop postgres"
+
+[tasks."storage.test"]
+description = "Qualify HTTPS storage on a disposable local VersityGW instance"
+run = "scripts/storage/test"
+
+[tasks."storage.setup"]
+description = "Create local storage TLS and credentials and bootstrap the persistent bucket"
+run = "scripts/storage/setup"
+
+[tasks."storage.start"]
+description = "Start persistent local storage and verify its configuration"
+run = "scripts/storage/start"
+
+[tasks."storage.stop"]
+description = "Stop only the persistent local storage service"
+run = "scripts/storage/stop"
+
+[tasks."storage.check"]
+description = "Explicitly qualify the configured AWS bucket and application identity"
+run = "scripts/storage/check"
 
 [tasks.test]
 description = "Run backend tests"
@@ -38,6 +58,7 @@ description = "Run the complete project verification gate"
 run = [
   "openspec validate --all --strict --no-interactive",
   "MIX_ENV=test mix verify",
+  "scripts/storage/test",
 ]
 
 [tasks.server]

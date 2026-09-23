@@ -120,6 +120,37 @@ Test acceptance/rejection with deterministic configuration fixtures rather than 
 4. For deployment, have the operator provision a private versioned bucket, safe staging/version lifecycle rules, isolated endpoint, explicit application host/cookie-domain declarations, least-privilege credentials, and explicit CORS if needed. Run `storage.check` with the intended runtime configuration against that exact bucket before enabling storage access; only that checked target and application identity qualify. Never change bucket contents during ordinary application startup.
 5. Roll back by disabling new storage access or restoring the previous application release/configuration while retaining private objects and database facts. Do not substitute InMemory in production or delete storage to roll back. Already-issued signed capabilities retain their original expiry.
 
+## Implementation and verification evidence
+
+Implemented on 2026-09-23 with exact ExAws 2.7.0, ExAws.S3 2.5.9, and SweetXml 0.7.5
+dependencies, reusing Req 0.7.2. Existing Ash/Igniter generators were inspected; the access
+descriptor is an existing embedded resource, so it was edited directly without persistence
+generation or a migration. The runtime uses explicit SDK configuration maps and direct SDK
+operations so ambient ExAws configuration cannot select credentials or metadata discovery.
+
+The verified gateway is `versity/versitygw:v1.8.0@sha256:30292fc2eeacc67a36993b01f7a7a5e3361a19cced0e80c1d71cfa2a4b0a2499`.
+Local HTTPS checks demonstrated exact-cap multipart uploads, cap-plus-one rejection, fixed-field
+and signed-policy tampering rejection, expired POST/GET rejection, version-specific reads,
+checksum rejection, conditional PUT conflict behavior, denied unsigned access, and authenticated
+download response headers. Coordinated lifecycle and export tests exercise current claims,
+publication races, staging replacement, long/non-ASCII media types, stale claims, lost responses,
+delayed remote completion, and deterministic snapshot retries. Temporary verification HTTP
+failures preserve pending identity rather than being reported as permanent content conflicts.
+
+An isolated development setup/restart check preserved credentials, certificates, current bytes,
+and prior versions. CORS accepted the configured localhost origin and rejected another origin;
+plaintext requests failed. Concurrent disposable runs (one successful, one intentionally failed)
+removed only their own containers and volumes. A missing Docker endpoint caused an explicit
+integration failure. A measured 25 MiB staging write took 166 ms and publication took 422 ms,
+against the existing 30,000 ms budget per operation on this machine; these are observations,
+not a production latency guarantee.
+
+The deployment command is separate from local verification. Deterministic fixtures check exact
+runtime target binding, safe lifecycle/ownership/public-access controls, and cleanup isolation.
+AWS deployment qualification has **not been performed**. The live application-identity probes
+must run against the intended AWS configuration before that deployment is considered qualified.
+Full repository verification and final review are pending at this implementation milestone.
+
 ## References
 
 - [ExAws.S3 policy signing, operations, and signed URLs](https://ex-aws-s3.hexdocs.pm/ExAws.S3.html)

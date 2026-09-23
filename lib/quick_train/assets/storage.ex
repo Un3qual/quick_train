@@ -7,22 +7,36 @@ defmodule QuickTrain.Assets.Storage do
   descriptors directly, so this module cannot intercept later HTTP redirects.
   Files are opaque downloads, never validated images or safe documents. Providers
   must serve HTTP responses with Content-Disposition: attachment,
-  Content-Type: application/octet-stream, and X-Content-Type-Options: nosniff.
+  Content-Type: application/octet-stream, and Cache-Control: no-store, from an
+  approved HTTPS storage host distinct from application hosts and outside their
+  session-cookie Domain scopes. HTTP adapters must validate explicit application
+  host and cookie-domain declarations; an empty domain list means host-only cookies.
+  X-Content-Type-Options: nosniff is optional and should be retained when supplied.
+  Attachment delivery and host isolation do not replace its script/style protection.
   Descriptor headers are request headers, not enforcement of response headers.
-  A provider that cannot meet these requirements is not a supported adapter.
+  Clients must not send application cookies or bearer credentials to storage or
+  embed access URLs as scripts, styles, or inline content. Use no-referrer handling.
+
+  PUT uploads send raw bytes with the descriptor's headers. POST uploads submit
+  `form_fields` unchanged, append bytes under `file_field`, and let the multipart
+  encoder set the request Content-Type and boundary. Fixed object headers belong
+  in those form fields. Signed URLs and form fields are sensitive credentials.
+  Expiry bounds the start of a transfer, not an already accepted download.
   """
 
   @type object_key :: String.t()
   @type deadline_ms :: pos_integer()
 
   @type access_descriptor :: %{
-          required(:method) => :get | :put,
+          required(:method) => :get | :put | :post,
           required(:uri) => URI.t(),
           required(:headers) => [{String.t(), String.t()}],
           required(:expires_at) => DateTime.t(),
           required(:cache_control) => String.t(),
           required(:referrer_policy) => String.t(),
-          optional(:max_bytes) => pos_integer()
+          optional(:max_bytes) => pos_integer(),
+          optional(:form_fields) => %{String.t() => String.t()},
+          optional(:file_field) => String.t()
         }
 
   @type expected_facts :: %{
@@ -51,13 +65,16 @@ defmodule QuickTrain.Assets.Storage do
   Writes an enumerable of binary chunks to staging without publishing it.
 
   Adapters must enforce the supplied byte cap and finite deadline while consuming
-  the stream, and commit staging bytes only after the complete stream succeeds.
-  Expiry returns `{:error, :storage_deadline_exceeded}` in finite time, without
-  leaving partial bytes or allowing that operation to commit staging bytes later.
-  As with sealing and verification, deadline enforcement belongs to the trusted
-  adapter. The deadline bounds this storage operation, not total export generation.
-  This capability
-  is optional so adapters that only support client uploads remain compatible.
+  the stream, and must not install incomplete content. One monotonic deadline must
+  cover enumeration, hashing, transport, and retries, with local workers/streams
+  cancelled and caller-owned temporary files cleaned up on failure.
+  Expiry returns `{:error, :storage_deadline_exceeded}` in finite time. A complete
+  private remote write may commit after an uncertain timeout or lost response;
+  failure must not establish readiness. A retry must reverify complete bytes and
+  current publication claims before recording readiness. Local adapters may offer
+  stronger cancellation guarantees, but remote storage does not promise atomicity
+  with the database. The deadline bounds this operation, not total export generation.
+  This capability is optional so adapters that only support client uploads remain compatible.
   Generated content still requires the existing verification and seal protocol.
   """
   @callback write_staging(
@@ -69,12 +86,27 @@ defmodule QuickTrain.Assets.Storage do
 
   @optional_callbacks start_link: 1, write_staging: 4
 
+  @doc """
+  Issues bounded raw PUT or multipart POST access to an exact staging destination.
+
+  POST access requires string-valued form fields and a file field name. GET and PUT
+  access must omit these POST fields. The receiver must enforce the registered byte
+  cap and an expiry no later than requested; form fields must include every fixed
+  object-header/metadata value required by the signed policy.
+  """
   @callback writable_staging_access(
               staging_key :: object_key(),
               byte_cap :: pos_integer(),
               expires_at :: DateTime.t()
             ) :: {:ok, access_descriptor()} | {:error, term()}
 
+  @doc """
+  Verifies complete staging bytes before publishing and reverifying immutable content.
+
+  The finite operation deadline covers all reads, hashing, writes, and retries.
+  An uncertain remote write may complete after timeout; the caller must retain its
+  publication claim checks and require verification before recording readiness.
+  """
   @callback verify_and_publish(
               staging_key :: object_key(),
               sealed_key :: object_key(),
@@ -82,6 +114,7 @@ defmodule QuickTrain.Assets.Storage do
               deadline_ms()
             ) :: {:ok, publish_result()} | {:error, term()}
 
+  @doc "Reverifies complete immutable content within one finite operation deadline."
   @callback verify_sealed(
               sealed_key :: object_key(),
               expected :: expected_facts(),
@@ -121,7 +154,7 @@ defmodule QuickTrain.Assets.Storage do
     with {:ok, adapter} <- configured_adapter(),
          true <- adapter.enforces_byte_cap?() || {:error, :byte_cap_not_enforced},
          {:ok, descriptor} <- adapter.writable_staging_access(staging_key, byte_cap, expires_at),
-         :ok <- validate_descriptor(descriptor, :put, adapter, byte_cap, expires_at) do
+         :ok <- validate_descriptor(descriptor, :upload, adapter, byte_cap, expires_at) do
       {:ok, descriptor}
     else
       {:error, _reason} = error -> error
@@ -213,9 +246,9 @@ defmodule QuickTrain.Assets.Storage do
     if function_exported?(adapter, :start_link, 1), do: adapter.start_link([]), else: :ignore
   end
 
-  defp validate_descriptor(descriptor, method, adapter, byte_cap, requested_expires_at)
+  defp validate_descriptor(descriptor, access, adapter, byte_cap, requested_expires_at)
        when is_map(descriptor) do
-    with ^method <- Map.get(descriptor, :method),
+    with :ok <- validate_method_fields(descriptor, access),
          %URI{} = uri <- Map.get(descriptor, :uri),
          :ok <- validate_destination(uri, adapter),
          %DateTime{} = descriptor_expires_at <- Map.get(descriptor, :expires_at),
@@ -234,6 +267,34 @@ defmodule QuickTrain.Assets.Storage do
 
   defp validate_descriptor(_descriptor, _method, _adapter, _byte_cap, _requested_expires_at),
     do: {:error, :invalid_storage_descriptor}
+
+  defp validate_method_fields(
+         %{method: :post, form_fields: fields, file_field: file_field},
+         :upload
+       )
+       when is_map(fields) and not is_struct(fields) do
+    if valid_field_name?(file_field) and Enum.all?(fields, &valid_header?/1) and
+         not Map.has_key?(fields, file_field),
+       do: :ok,
+       else: {:error, :invalid_storage_descriptor}
+  end
+
+  defp validate_method_fields(%{method: :put} = descriptor, :upload),
+    do: reject_fields(descriptor, [:form_fields, :file_field])
+
+  defp validate_method_fields(%{method: :get} = descriptor, :get),
+    do: reject_fields(descriptor, [:form_fields, :file_field, :max_bytes])
+
+  defp validate_method_fields(_descriptor, _access), do: {:error, :invalid_storage_descriptor}
+
+  defp reject_fields(descriptor, fields) do
+    if Enum.any?(fields, &Map.has_key?(descriptor, &1)),
+      do: {:error, :invalid_storage_descriptor},
+      else: :ok
+  end
+
+  defp valid_field_name?(name) when is_binary(name) and name != "", do: String.valid?(name)
+  defp valid_field_name?(_name), do: false
 
   defp valid_header?({name, value})
        when is_binary(name) and name != "" and is_binary(value),
@@ -265,8 +326,12 @@ defmodule QuickTrain.Assets.Storage do
 
   defp validate_byte_cap(_descriptor, _byte_cap), do: {:error, :byte_cap_not_enforced}
 
-  defp validate_destination(%URI{scheme: "https", host: host}, adapter)
-       when is_binary(host) do
+  defp validate_destination(
+         %URI{scheme: "https", host: host, userinfo: nil, fragment: nil, port: port},
+         adapter
+       )
+       when is_binary(host) and host != "" and
+              (is_nil(port) or (is_integer(port) and port >= 1 and port <= 65_535)) do
     if host in adapter.approved_hosts() do
       :ok
     else

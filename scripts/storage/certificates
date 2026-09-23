@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+set -euo pipefail
+umask 077
+cert_dir=${1:?certificate directory required}
+mkdir -p "$cert_dir"
+if [[ -s "$cert_dir/ca.pem" && -s "$cert_dir/server.pem" && -s "$cert_dir/server.key" ]]; then
+  openssl verify -CAfile "$cert_dir/ca.pem" -purpose sslserver -verify_ip 127.0.0.1 "$cert_dir/server.pem"
+  exit 0
+fi
+if [[ -e "$cert_dir/ca.pem" || -e "$cert_dir/ca.key" || -e "$cert_dir/server.pem" || -e "$cert_dir/server.key" ]]; then
+  echo 'Local certificate material is incomplete; restore it or remove the certificate directory explicitly.' >&2
+  exit 1
+fi
+openssl req -x509 -newkey rsa:2048 -nodes -days 365 -sha256 \
+  -subj '/CN=QuickTrain local storage CA' \
+  -keyout "$cert_dir/ca.key" -out "$cert_dir/ca.pem" 2>/dev/null
+openssl req -newkey rsa:2048 -nodes -sha256 -subj '/CN=127.0.0.1' \
+  -keyout "$cert_dir/server.key" -out "$cert_dir/server.csr" 2>/dev/null
+cat > "$cert_dir/server.ext" <<'EXT'
+basicConstraints=critical,CA:FALSE
+keyUsage=critical,digitalSignature,keyEncipherment
+extendedKeyUsage=serverAuth
+subjectAltName=IP:127.0.0.1
+EXT
+openssl x509 -req -days 365 -sha256 -in "$cert_dir/server.csr" \
+  -CA "$cert_dir/ca.pem" -CAkey "$cert_dir/ca.key" -CAcreateserial \
+  -extfile "$cert_dir/server.ext" -out "$cert_dir/server.pem" 2>/dev/null

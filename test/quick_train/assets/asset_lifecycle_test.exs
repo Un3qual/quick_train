@@ -33,6 +33,26 @@ defmodule QuickTrain.Assets.AssetLifecycleTest do
     end
   end
 
+  defmodule InvalidPostStorage do
+    def enforces_byte_cap?, do: true
+    def approved_hosts, do: ["storage.quicktrain.local"]
+
+    def writable_staging_access(_key, cap, expiry) do
+      {:ok,
+       %{
+         method: :post,
+         uri: URI.parse("https://storage.quicktrain.local/upload"),
+         max_bytes: cap,
+         expires_at: expiry,
+         cache_control: "no-store",
+         referrer_policy: "no-referrer",
+         headers: [],
+         form_fields: %{"policy" => "private-policy", "credential" => %{invalid: true}},
+         file_field: "file"
+       }}
+    end
+  end
+
   setup do
     :ok = TestStorage.reset()
 
@@ -115,6 +135,30 @@ defmodule QuickTrain.Assets.AssetLifecycleTest do
              )
 
     assert Exception.message(error) =~ "invalid_storage_descriptor"
+    assert Ash.count!(Asset, authorize?: false) == 0
+  end
+
+  test "malformed POST fields expose no credentials and create no pending asset", ctx do
+    config = Application.fetch_env!(:quick_train, :assets)
+    on_exit(fn -> Application.put_env(:quick_train, :assets, config) end)
+
+    Application.put_env(
+      :quick_train,
+      :assets,
+      Keyword.put(config, :storage_adapter, InvalidPostStorage)
+    )
+
+    assert {:error, error} =
+             Assets.register_asset(
+               ctx.graph.organization.id,
+               sha256("content"),
+               7,
+               "text/plain",
+               actor: ctx.manager
+             )
+
+    assert Exception.message(error) =~ "invalid_storage_descriptor"
+    refute Exception.message(error) =~ "private-policy"
     assert Ash.count!(Asset, authorize?: false) == 0
   end
 

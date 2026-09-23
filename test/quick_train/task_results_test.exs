@@ -823,6 +823,58 @@ defmodule QuickTrain.Tasks.ResultExportTest do
     def sealed_read_access(_key, _expiry), do: {:error, "private provider details"}
   end
 
+  defmodule MalformedReadStorage do
+    defdelegate enforces_byte_cap?(), to: InMemory
+    defdelegate approved_hosts(), to: InMemory
+    defdelegate write_staging(key, chunks, cap, deadline_ms), to: InMemory
+    defdelegate verify_and_publish(staging, sealed, facts, deadline), to: InMemory
+    defdelegate verify_sealed(sealed, facts, deadline), to: InMemory
+
+    def sealed_read_access(key, expiry) do
+      with {:ok, descriptor} <- InMemory.sealed_read_access(key, expiry) do
+        {:ok, Map.put(descriptor, :form_fields, %{"policy" => "private-policy"})}
+      end
+    end
+  end
+
+  test "malformed access preserves the committed export asset and snapshot for retry", scope do
+    {:ok, export} = request(scope)
+    old = Application.fetch_env!(:quick_train, :assets)
+    on_exit(fn -> Application.put_env(:quick_train, :assets, old) end)
+
+    Application.put_env(
+      :quick_train,
+      :assets,
+      Keyword.put(old, :storage_adapter, MalformedReadStorage)
+    )
+
+    assert {:error,
+            %Ash.Error.Invalid{
+              errors: [%QuickTrain.DatasetAssetError{category: :export_access_unavailable}]
+            }} = Tasks.process_result_export(export.id, authorize?: false)
+
+    failed = Ash.get!(ResultExport, export.id, authorize?: false)
+    pending = Ash.get!(Asset, failed.pending_asset_id, authorize?: false)
+    assert failed.state == :failed
+    assert is_nil(failed.asset_id)
+    assert pending.state == :ready
+    assert pending.result_export_id == export.id
+    assert {:error, _} = download(scope, export.id)
+
+    Application.put_env(:quick_train, :assets, old)
+    assert :ok = Tasks.process_result_export(export.id, authorize?: false)
+
+    ready = Ash.get!(ResultExport, export.id, authorize?: false)
+    retried_asset = Ash.get!(Asset, ready.asset_id, authorize?: false)
+    assert ready.state == :ready
+    assert ready.pending_asset_id == pending.id
+    assert ready.asset_id == pending.id
+    assert ready.snapshot_at == failed.snapshot_at
+    assert retried_asset.staging_expires_at == pending.staging_expires_at
+    assert retried_asset.state == pending.state
+    assert {:ok, _} = download(scope, export.id)
+  end
+
   test "failure after byte publication retains its association and hides the artifact until retry",
        scope do
     {:ok, export} = request(scope)

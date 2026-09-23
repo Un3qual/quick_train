@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+set -euo pipefail
+cd "$(dirname "$0")/../.."
+
+if [[ ! -s .storage/local.env ]]; then
+  echo 'Run mise run storage.setup to create the local credentials and certificates.' >&2
+  exit 1
+fi
+set -a
+source .storage/local.env
+set +a
+
+if [[ ! "${QUICK_TRAIN_STORAGE_ENDPOINT:-}" =~ ^https://127\.0\.0\.1:[0-9]+$ ]] ||
+   [[ "$QUICK_TRAIN_STORAGE_ENDPOINT" != "https://127.0.0.1:${QUICK_TRAIN_STORAGE_PORT:-55434}" ]]; then
+  echo 'Local storage requires https://127.0.0.1:<QUICK_TRAIN_STORAGE_PORT>.' >&2
+  exit 1
+fi
+if [[ -z "${ROOT_ACCESS_KEY:-}" || -z "${ROOT_SECRET_KEY:-}" ||
+      "$ROOT_ACCESS_KEY" != "${QUICK_TRAIN_STORAGE_ACCESS_KEY:-}" ||
+      "$ROOT_SECRET_KEY" != "${QUICK_TRAIN_STORAGE_SECRET_KEY:-}" ]]; then
+  echo 'Local gateway and application credentials must be present and match.' >&2
+  exit 1
+fi
+
+scripts/storage/certificates .storage/certs
+docker compose up -d --no-deps storage
+
+ready=false
+for attempt in $(seq 1 50); do
+  if curl --silent --fail --max-time 1 --cacert "$QUICK_TRAIN_STORAGE_CA_FILE" \
+      "$QUICK_TRAIN_STORAGE_ENDPOINT/healthz" >/dev/null; then
+    ready=true
+    break
+  fi
+  sleep 0.1
+done
+if [[ "$ready" != true ]]; then
+  echo 'Local storage did not become ready with trusted TLS.' >&2
+  exit 1
+fi
+
+mise exec -- env MIX_ENV=dev mix run --no-start scripts/storage/bootstrap.exs
