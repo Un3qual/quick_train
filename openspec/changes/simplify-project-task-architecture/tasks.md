@@ -111,3 +111,10 @@
 
 - [x] 21.1 Reuse the existing Project/Task/Attempt lock order for work-bundle reads, reproduce concurrent release in the read tests, and synchronize the live-work contract.
 - [x] 21.2 Run focused tests, independent OpenSpec validation, and the repository gate; record any remaining blocker before publishing. All 21 focused tests, 363 full-suite tests, 15 OpenSpec items, and production compilation pass; the gate's earlier checks pass, but the unchanged Ash dependency advisory still blocks 19.2.
+
+## Closeout verification — 2026-09-22
+
+- All six delta specifications match the canonical requirements; removed requirements are absent. No specification merge is needed.
+- `mise run openspec.validate`: 16 items passed.
+- `mise run verify`: compilation, formatting, Ash code generation, boundary/compile-cycle checks, Credo, ExDNA, Reach, and Dialyzer passed. The dependency audit failed on Ash 3.33.0 (`EEF-CVE-2026-86338`) and Mint 1.10.0 (`EEF-CVE-2026-82672`), so task 19.2 remains open.
+- Ran the remaining gate stages independently: production compilation with warnings as errors passed; all 374 tests passed on the fresh `quick_train_c8c4_closeout` database (seed 714537).

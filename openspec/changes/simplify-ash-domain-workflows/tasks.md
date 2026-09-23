@@ -30,3 +30,10 @@
   - Mint 1.10.0: `EEF-CVE-2026-82672` / `GHSA-rj5m-69wp-cxq9`.
 - Ran the remaining stages independently: `MIX_ENV=prod mix compile --warnings-as-errors` passed; `MIX_ENV=test QUICK_TRAIN_TEST_DATABASE_NAME=quick_train_c209_verify mix test` passed all 374 tests (seed 468451).
 - Native mutation envelopes and record-first update/destroy domain calls are covered by updated API and fixture consumers. No database migration was generated. Dependency upgrades remain outside this approved change.
+
+## Closeout verification — 2026-09-22
+
+- All six delta specifications match the canonical requirements. No specification merge is needed.
+- `mise run openspec.validate`: 16 items passed.
+- `mise run verify`: compilation, formatting, Ash code generation, boundary/compile-cycle checks, Credo, ExDNA, Reach, and Dialyzer passed. The dependency audit remains blocked by the Ash and Mint advisories recorded above.
+- Ran the remaining gate stages independently: production compilation with warnings as errors passed; all 374 tests passed on the fresh `quick_train_c8c4_closeout` database (seed 714537).
