@@ -6,15 +6,27 @@ defmodule QuickTrain.Assets.Storage.S3.HTTPClient do
 
   @impl true
   def request(method, url, body, headers, opts) do
-    timeout = Keyword.get(opts, :timeout, 5_000)
-    into = Keyword.get(opts, :into, &collect_control/2)
+    body = if method in [:get, :head], do: nil, else: body
+
+    with {:ok, response} <-
+           request([method: method, url: url, body: body, headers: headers] ++ opts) do
+      {:ok,
+       %{
+         status_code: response.status,
+         headers: Req.get_headers_list(response),
+         body: response.body
+       }}
+    end
+  end
+
+  def request(options) do
+    {timeout, options} = Keyword.pop(options, :timeout, 5_000)
+    {tls_options, options} = Keyword.pop(options, :tls_options, [])
+    options = Keyword.put_new(options, :into, &collect_control/2)
 
     result =
       Req.request(
-        method: method,
-        url: url,
-        body: if(method in [:get, :head], do: nil, else: body),
-        headers: headers,
+        options,
         retry: false,
         redirect: false,
         decode_body: false,
@@ -23,9 +35,8 @@ defmodule QuickTrain.Assets.Storage.S3.HTTPClient do
         finch: [
           pool_timeout: timeout,
           receive_timeout: timeout,
-          conn_opts: [transport_opts: [timeout: 5_000] ++ Keyword.get(opts, :tls_options, [])]
-        ],
-        into: into
+          conn_opts: [transport_opts: [timeout: 5_000] ++ tls_options]
+        ]
       )
 
     case result do
@@ -33,13 +44,7 @@ defmodule QuickTrain.Assets.Storage.S3.HTTPClient do
         {:error, %{reason: :storage_redirect}}
 
       {:ok, response} ->
-        {:ok,
-         %{
-           status_code: response.status,
-           headers: Req.get_headers_list(response),
-           body: response.body,
-           private: response.private
-         }}
+        {:ok, response}
 
       {:error, _reason} ->
         {:error, %{reason: :storage_request_failed}}

@@ -1,6 +1,8 @@
 defmodule QuickTrain.Assets.Storage.S3.Qualification do
   @moduledoc "Explicit qualification of the configured AWS bucket and application identity."
 
+  import SweetXml, only: [sigil_x: 2, xpath: 2, xpath: 3]
+
   alias ExAws.S3, as: SDK
   alias QuickTrain.Assets.Storage.S3
   alias QuickTrain.Assets.Storage.S3.{Config, HTTPClient, Operation}
@@ -144,16 +146,16 @@ defmodule QuickTrain.Assets.Storage.S3.Qualification do
       bucket_region(documents.location) != config.sdk.region ->
         {:error, :qualification_target_mismatch}
 
-      text_at(documents.versioning, "/VersioningConfiguration/Status/text()") != "Enabled" ->
+      xpath(documents.versioning, ~x"/VersioningConfiguration/Status/text()"s) != "Enabled" ->
         {:error, :versioning_required}
 
-      text_at(documents.versioning, "/VersioningConfiguration/MfaDelete/text()") not in [
+      xpath(documents.versioning, ~x"/VersioningConfiguration/MfaDelete/text()"s) not in [
         "",
         "Disabled"
       ] ->
         {:error, :staging_retention_blocked}
 
-      texts_at(documents.ownership, "/OwnershipControls/Rule/ObjectOwnership/text()") != [
+      xpath(documents.ownership, ~x"/OwnershipControls/Rule/ObjectOwnership/text()"ls) != [
         "BucketOwnerEnforced"
       ] ->
         {:error, :bucket_owner_enforced_required}
@@ -170,7 +172,7 @@ defmodule QuickTrain.Assets.Storage.S3.Qualification do
   end
 
   defp bucket_region(document) do
-    case text_at(document, "/LocationConstraint/text()") do
+    case xpath(document, ~x"/LocationConstraint/text()"s) do
       "" -> "us-east-1"
       "EU" -> "eu-west-1"
       region -> region
@@ -180,7 +182,7 @@ defmodule QuickTrain.Assets.Storage.S3.Qualification do
   defp public_access_blocked?(document) do
     Enum.all?(
       ~w(BlockPublicAcls IgnorePublicAcls BlockPublicPolicy RestrictPublicBuckets),
-      &(text_at(document, "/PublicAccessBlockConfiguration/#{&1}/text()") == "true")
+      &(xpath(document, ~x"/PublicAccessBlockConfiguration/#{&1}/text()"s) == "true")
     )
   end
 
@@ -197,7 +199,7 @@ defmodule QuickTrain.Assets.Storage.S3.Qualification do
   end
 
   defp validate_lifecycle(document, window) do
-    rules = nodes_at(document, "/LifecycleConfiguration/Rule")
+    rules = xpath(document, ~x"/LifecycleConfiguration/Rule"el)
 
     with true <- rules != [] and children(document) == List.duplicate("Rule", length(rules)),
          {:ok, summary} <- lifecycle_summary(rules, window),
@@ -242,15 +244,15 @@ defmodule QuickTrain.Assets.Storage.S3.Qualification do
   defp add_expiration_day(day, days), do: [day | days]
 
   defp lifecycle_rule(rule, window) do
-    expiration = nodes_at(rule, "./Expiration")
-    noncurrent = nodes_at(rule, "./NoncurrentVersionExpiration")
+    expiration = xpath(rule, ~x"./Expiration"el)
+    noncurrent = xpath(rule, ~x"./NoncurrentVersionExpiration"el)
 
     with true <-
            allowed_children?(
              rule,
              ~w(ID Status Filter Prefix Expiration NoncurrentVersionExpiration)
            ),
-         true <- text_at(rule, "./Status/text()") == "Enabled",
+         true <- xpath(rule, ~x"./Status/text()"s) == "Enabled",
          true <- staging_filter?(rule),
          true <- expiration != [] or noncurrent != [],
          {:ok, expiration} <- expiration(expiration, window),
@@ -264,14 +266,14 @@ defmodule QuickTrain.Assets.Storage.S3.Qualification do
   defp expiration([], _window), do: {:ok, %{current: nil, marker: false}}
 
   defp expiration([node], window) do
-    days = text_at(node, "./Days/text()")
+    days = xpath(node, ~x"./Days/text()"s)
 
     cond do
       children(node) == ["Days"] and safe_days?(days, window) ->
         {:ok, %{current: String.to_integer(days), marker: false}}
 
       children(node) == ["ExpiredObjectDeleteMarker"] and
-          text_at(node, "./ExpiredObjectDeleteMarker/text()") == "true" ->
+          xpath(node, ~x"./ExpiredObjectDeleteMarker/text()"s) == "true" ->
         {:ok, %{current: nil, marker: true}}
 
       true ->
@@ -283,7 +285,7 @@ defmodule QuickTrain.Assets.Storage.S3.Qualification do
   defp noncurrent_expiration([], _window), do: {:ok, nil}
 
   defp noncurrent_expiration([node], window) do
-    days = text_at(node, "./NoncurrentDays/text()")
+    days = xpath(node, ~x"./NoncurrentDays/text()"s)
 
     if children(node) == ["NoncurrentDays"] and safe_days?(days, window),
       do: {:ok, String.to_integer(days)},
@@ -293,12 +295,13 @@ defmodule QuickTrain.Assets.Storage.S3.Qualification do
   defp noncurrent_expiration(_nodes, _window), do: :invalid
 
   defp staging_filter?(rule) do
-    case {nodes_at(rule, "./Prefix"), nodes_at(rule, "./Filter")} do
+    case {xpath(rule, ~x"./Prefix"el), xpath(rule, ~x"./Filter"el)} do
       {[_prefix], []} ->
-        text_at(rule, "./Prefix/text()") == "assets/staging/"
+        xpath(rule, ~x"./Prefix/text()"s) == "assets/staging/"
 
       {[], [filter]} ->
-        children(filter) == ["Prefix"] and text_at(filter, "./Prefix/text()") == "assets/staging/"
+        children(filter) == ["Prefix"] and
+          xpath(filter, ~x"./Prefix/text()"s) == "assets/staging/"
 
       _invalid ->
         false
@@ -392,13 +395,13 @@ defmodule QuickTrain.Assets.Storage.S3.Qualification do
 
         entries =
           document
-          |> nodes_at("/ListVersionsResult/Version | /ListVersionsResult/DeleteMarker")
-          |> Enum.map(
-            &%{key: text_at(&1, "./Key/text()"), version_id: text_at(&1, "./VersionId/text()")}
+          |> xpath(~x"/ListVersionsResult/Version | /ListVersionsResult/DeleteMarker"el,
+            key: ~x"./Key/text()"s,
+            version_id: ~x"./VersionId/text()"s
           )
 
-        if text_at(document, "/ListVersionsResult/Name/text()") == config.bucket and
-             text_at(document, "/ListVersionsResult/IsTruncated/text()") == "false" and
+        if xpath(document, ~x"/ListVersionsResult/Name/text()"s) == config.bucket and
+             xpath(document, ~x"/ListVersionsResult/IsTruncated/text()"s) == "false" and
              Enum.all?(
                entries,
                &(&1.key in plan.keys and String.starts_with?(&1.key, prefix) and
@@ -466,7 +469,7 @@ defmodule QuickTrain.Assets.Storage.S3.Qualification do
     upload(config, post, plan.bytes) |> require_status([200, 201, 204], :descriptor_upload_failed)
     first = signed(config, :head, plan.staging)
     require_status(first, [200], :version_probe_failed)
-    version = header(first, "x-amz-version-id")
+    version = Req.Response.get_header(first, "x-amz-version-id") |> List.first()
     check(version not in [nil, "", "null"], :versioning_required)
 
     upload(config, post, plan.bytes <> "x")
@@ -497,7 +500,7 @@ defmodule QuickTrain.Assets.Storage.S3.Qualification do
     signed(config, :head, plan.checksum) |> require_status([403, 404], :checksum_not_enforced)
     url = object_url(config, plan.staging)
     raw(config, :get, url) |> require_status([403], :unsigned_read_allowed)
-    raw(config, :put, url, "unauthorized") |> require_status([403], :unsigned_write_allowed)
+    raw(config, :put, url, body: "unauthorized") |> require_status([403], :unsigned_write_allowed)
 
     {:ok, _publication} = S3.verify_and_publish(plan.staging, plan.sealed, expected, budget)
     {:ok, _existing} = S3.verify_and_publish(plan.staging, plan.sealed, expected, budget)
@@ -511,7 +514,7 @@ defmodule QuickTrain.Assets.Storage.S3.Qualification do
           {"content-disposition", "attachment"},
           {"cache-control", "no-store"}
         ] do
-      check(header(downloaded, name) == value, :download_headers_invalid)
+      check(Req.Response.get_header(downloaded, name) == [value], :download_headers_invalid)
     end
 
     raw(config, :get, object_url(config, plan.sealed))
@@ -539,7 +542,11 @@ defmodule QuickTrain.Assets.Storage.S3.Qualification do
     signed(config, :put, plan.sealed, body: replacement)
     |> require_status([403], :sealed_overwrite_allowed)
 
-    sealed_version = signed(config, :head, plan.sealed) |> header("x-amz-version-id")
+    sealed_version =
+      signed(config, :head, plan.sealed)
+      |> Req.Response.get_header("x-amz-version-id")
+      |> List.first()
+
     check(sealed_version not in [nil, "", "null"], :versioning_required)
     signed(config, :delete, plan.sealed) |> require_status([403], :sealed_delete_allowed)
 
@@ -557,15 +564,11 @@ defmodule QuickTrain.Assets.Storage.S3.Qualification do
   end
 
   defp upload(config, descriptor, bytes) do
-    encoded =
-      Req.new(
-        form_multipart:
-          Map.to_list(descriptor.form_fields) ++
-            [{descriptor.file_field, {bytes, filename: "qualification.bin"}}]
-      )
-      |> Req.Steps.encode_body()
-
-    raw(config, :post, URI.to_string(descriptor.uri), encoded.body, Req.get_headers_list(encoded))
+    raw(config, :post, URI.to_string(descriptor.uri),
+      form_multipart:
+        Map.to_list(descriptor.form_fields) ++
+          [{descriptor.file_field, {bytes, filename: "qualification.bin"}}]
+    )
   end
 
   defp signed(config, method, key, options \\ []) do
@@ -594,7 +597,7 @@ defmodule QuickTrain.Assets.Storage.S3.Qualification do
         query_params: Keyword.get(options, :query, [])
       )
 
-    raw(config, method, url, body, headers)
+    raw(config, method, url, body: body, headers: headers)
   end
 
   defp object_url(config, key) do
@@ -606,11 +609,11 @@ defmodule QuickTrain.Assets.Storage.S3.Qualification do
     signed |> URI.parse() |> Map.put(:query, nil) |> URI.to_string()
   end
 
-  defp raw(config, method, url, body \\ nil, headers \\ []) do
+  defp raw(config, method, url, options \\ []) do
     case Operation.run(@request_budget, fn _directory, _deadline ->
-           HTTPClient.request(method, url, body, headers,
-             tls_options: config.tls_options,
-             timeout: @request_budget
+           HTTPClient.request(
+             [method: method, url: url, tls_options: config.tls_options, timeout: @request_budget] ++
+               options
            )
          end) do
       {:ok, response} -> response
@@ -627,23 +630,17 @@ defmodule QuickTrain.Assets.Storage.S3.Qualification do
   end
 
   defp require_status(response, statuses, reason),
-    do: check(response.status_code in statuses, reason)
+    do: check(response.status in statuses, reason)
 
   defp check(true, _reason), do: :ok
   defp check(false, reason), do: throw({:qualification_error, reason})
-
-  defp header(response, name),
-    do:
-      Enum.find_value(response.headers, fn {key, value} ->
-        if String.downcase(key) == name, do: value
-      end)
 
   defp digest(value), do: :crypto.hash(:sha256, value) |> Base.encode16(case: :lower)
   defp nonempty?(value), do: is_binary(value) and String.trim(value) != ""
 
   defp absent_configuration?(name, body) do
     code = Map.get(@absent_codes, name)
-    is_binary(code) and text_at(parse(body), "/Error/Code/text()") == code
+    is_binary(code) and xpath(parse(body), ~x"/Error/Code/text()"s) == code
   rescue
     # reach:disable-next-line bare_rescue -- Treat unreadable provider errors as inspection failure.
     _exception -> false
@@ -656,26 +653,7 @@ defmodule QuickTrain.Assets.Storage.S3.Qualification do
   defp parse(body) when is_binary(body) and byte_size(body) <= 65_536,
     do: SweetXml.parse(body, dtd: :none, quiet: true)
 
-  defp text_at(node, path),
-    do: SweetXml.xpath(node, %SweetXpath{path: String.to_charlist(path), cast_to: :string})
-
-  defp texts_at(node, path),
-    do:
-      SweetXml.xpath(node, %SweetXpath{
-        path: String.to_charlist(path),
-        cast_to: :string,
-        is_list: true
-      })
-
-  defp nodes_at(node, path),
-    do:
-      SweetXml.xpath(node, %SweetXpath{
-        path: String.to_charlist(path),
-        is_list: true,
-        is_value: false
-      })
-
-  defp children(node), do: Enum.map(nodes_at(node, "./*"), &text_at(&1, "name(.)"))
+  defp children(node), do: Enum.map(xpath(node, ~x"./*"el), &xpath(&1, ~x"name(.)"s))
 
   defp allowed_children?(node, allowed) do
     names = children(node)

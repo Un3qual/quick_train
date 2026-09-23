@@ -191,6 +191,36 @@ All implementation and approved review tasks are complete. This active change is
 normal OpenSpec sync/archive workflow; its delta specifications have not been archived into the
 main specs yet.
 
+### Branch-scoped simplification review
+
+This review covers the HTTP storage feature range `5d77899..aa23adc`. The later
+repository-wide cleanup is outside this review's scope. The three reviewed S3 modules
+are 21 production lines shorter after these changes:
+
+- Qualification uses SweetXml's XPath sigils and native record mapping rather than
+  constructing XPath structs and mapping inventory nodes manually. Explicit bounded
+  parsing with `dtd: :none` remains necessary; the SDK's default inventory parser does
+  not provide that parsing boundary. Lifecycle validation still rejects unknown controls.
+- Transfer and qualification probes retain native Req responses and use its header API.
+  Only the ExAws callback converts them to the SDK response shape. Qualification POSTs
+  use `form_multipart` through the normal request pipeline instead of invoking an
+  encoding step and manually forwarding its encoded body and headers.
+- Signed download overrides derive from the existing delivery headers, keeping upload,
+  publication, and download metadata consistent without a second list.
+
+The architecture review retained the explicit credential configuration, version pinning,
+incremental size/hash verification, caller-owned spool cleanup, bounded control bodies,
+and separate operator identity. These enforce concrete storage contracts. Ash already
+owns the narrow asset/export transitions, locked claims, and readiness decisions; no
+additional persistence wrapper or resource is needed. The disposable runner's per-resource
+cleanup tracks partial startup so failures cannot affect development data or another run.
+
+Focused verification passed 32 tests (seed `728070`) and all 24 disposable HTTPS tests
+(seed `793018`). The existing upload test now exercises the same native multipart
+transport used by qualification; the cleanup fixture includes object versions and delete
+markers without assuming their order. Full verification is pending. AWS deployment
+qualification remains not performed.
+
 ## References
 
 - [ExAws.S3 policy signing, operations, and signed URLs](https://ex-aws-s3.hexdocs.pm/ExAws.S3.html)

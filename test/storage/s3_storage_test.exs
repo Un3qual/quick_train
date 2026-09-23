@@ -25,12 +25,15 @@ defmodule QuickTrain.Assets.S3StorageTest do
     assert DateTime.compare(upload.expires_at, expiry) in [:lt, :eq]
     refute Map.has_key?(upload.form_fields, "acl")
 
-    response =
-      Req.post!(ctx.request,
-        url: URI.to_string(upload.uri),
-        form_multipart:
-          Map.to_list(upload.form_fields) ++ [{upload.file_field, {bytes, filename: "file.html"}}]
-      )
+    assert {:ok, %Req.Response{} = response} =
+             S3.HTTPClient.request(
+               method: :post,
+               url: URI.to_string(upload.uri),
+               tls_options: ctx.s3_config.tls_options,
+               form_multipart:
+                 Map.to_list(upload.form_fields) ++
+                   [{upload.file_field, {bytes, filename: "file.html"}}]
+             )
 
     assert response.status in [200, 201, 204]
 

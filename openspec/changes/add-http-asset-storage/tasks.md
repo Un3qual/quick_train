@@ -50,3 +50,11 @@
 - [x] 8.3 Expose existing asset finalization update actions through Assets code interfaces and use the existing scoped asset read interface for locked/canonical lookups without changing publication or missing-record behavior.
 - [x] 8.4 Use native ExAws bucket inspection operations where available; make qualification request fixtures independent of the implementation and remove the test-only inspection-resource helper.
 - [x] 8.5 Review the combined changes, run focused checks and the full `mise run verify` gate, update implementation evidence, and commit the approved cleanup.
+
+## 9. Branch-scoped simplification review
+
+- [x] 9.1 Review the HTTP storage implementation range `5d77899..aa23adc`, including its configuration, transport, qualification, scripts, tests, and Ash lifecycle integration; exclude the later repository-wide cleanup from this review's scope.
+- [x] 9.2 Replace custom XPath construction and inventory mapping with SweetXml sigils and mapping; preserve bounded parsing, DTD rejection, complete inventory checks, and exact cleanup scope.
+- [x] 9.3 Keep native Req responses through transfer/probe code, adapt responses only at the ExAws callback, and use Req's header and multipart APIs. Derive signed download overrides from the existing delivery headers.
+- [x] 9.4 Verify focused fixtures and disposable HTTPS integration, including multipart encoding and cleanup of both object versions and delete markers; commit the simplifications.
+- [ ] 9.5 Run independent OpenSpec validation and the complete verification gate, record results, and commit closeout.

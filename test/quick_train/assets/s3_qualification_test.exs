@@ -306,15 +306,29 @@ defmodule QuickTrain.Assets.S3QualificationTest do
     assert Enum.all?(first.keys, &String.contains?(&1, "/#{first.run_id}/"))
   end
 
-  test "cleanup uses operator version deletes and reports denied cleanup precisely", context do
+  test "cleanup inventories versions and delete markers and reports denied deletes", context do
     plan = Qualification.probe_plan()
     object = %{key: plan.staging, version_id: "run-owned-version"}
+    marker = %{key: plan.staging, version_id: "run-owned-delete-marker"}
 
     responses = %{
       {:get, ["max-keys", "prefix", "versions"]} => fn uri ->
         prefix = URI.decode_query(uri.query)["prefix"]
         objects = if String.starts_with?(object.key, prefix), do: [object], else: []
-        versions_response(context.config.bucket, objects)
+        {:ok, response} = versions_response(context.config.bucket, objects)
+
+        body =
+          if objects == [] do
+            response.body
+          else
+            String.replace(
+              response.body,
+              "</ListVersionsResult>",
+              "<DeleteMarker><Key>#{marker.key}</Key><VersionId>#{marker.version_id}</VersionId></DeleteMarker></ListVersionsResult>"
+            )
+          end
+
+        {:ok, %{response | body: body}}
       end,
       {:delete, ["versionId"]} => {:ok, %{status_code: 403, body: "access denied", headers: []}}
     }
@@ -326,10 +340,16 @@ defmodule QuickTrain.Assets.S3QualificationTest do
 
     sdk = Map.put(context.config.sdk, :http_client, FixtureHTTPClient)
 
-    assert %{inventory_complete: true, deleted_versions: 0, remaining_versions: [^object]} =
+    assert %{
+             inventory_complete: true,
+             deleted_versions: 0,
+             remaining_versions: remaining
+           } =
              Qualification.cleanup(context.config, sdk, plan)
 
+    assert Enum.sort(remaining) == Enum.sort([object, marker])
     expected_path = "/#{context.config.bucket}/#{plan.staging}"
+    assert_receive {:inspection_request, :delete, _host, ^expected_path, ["versionId"]}
     assert_receive {:inspection_request, :delete, _host, ^expected_path, ["versionId"]}
     refute_receive {:inspection_request, :delete, _host, _path, []}
   end

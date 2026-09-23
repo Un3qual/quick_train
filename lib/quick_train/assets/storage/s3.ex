@@ -57,11 +57,7 @@ defmodule QuickTrain.Assets.Storage.S3 do
          {:ok, seconds} <- lifetime(expires_at) do
       start = DateTime.utc_now() |> DateTime.truncate(:second)
 
-      query = [
-        {"response-content-type", "application/octet-stream"},
-        {"response-content-disposition", "attachment"},
-        {"response-cache-control", "no-store"}
-      ]
+      query = Enum.map(@delivery_headers, fn {name, value} -> {"response-" <> name, value} end)
 
       with {:ok, url} <-
              ExAws.S3.presigned_url(config.sdk, :get, config.bucket, key,
@@ -122,19 +118,18 @@ defmodule QuickTrain.Assets.Storage.S3 do
 
   defp staging_version(config, key, expected, deadline) do
     case request(config, :head, key, [], nil, [], deadline) do
-      {:ok, %{status_code: 200, headers: headers}} ->
-        cond do
-          header(headers, "content-length") != Integer.to_string(expected.byte_size) ->
-            {:error, :content_mismatch}
-
-          header(headers, "x-amz-version-id") in [nil, "", "null"] ->
-            {:error, :storage_version_required}
-
-          true ->
-            {:ok, header(headers, "x-amz-version-id")}
+      {:ok, %{status: 200} = response} ->
+        if Req.Response.get_header(response, "content-length") ==
+             [Integer.to_string(expected.byte_size)] do
+          case Req.Response.get_header(response, "x-amz-version-id") do
+            [version] when version not in ["", "null"] -> {:ok, version}
+            _invalid -> {:error, :storage_version_required}
+          end
+        else
+          {:error, :content_mismatch}
         end
 
-      {:ok, %{status_code: 404}} ->
+      {:ok, %{status: 404}} ->
         {:error, :staging_missing}
 
       {:error, _reason} = error ->
@@ -152,8 +147,8 @@ defmodule QuickTrain.Assets.Storage.S3 do
     ]
 
     case put_file(config, key, path, expected.byte_size, expected.sha256, metadata, deadline) do
-      {:ok, %{status_code: status}} when status in [200, 201, 204, 412] -> :ok
-      {:ok, %{status_code: 409}} -> {:error, :storage_publication_conflict}
+      {:ok, %{status: status}} when status in [200, 201, 204, 412] -> :ok
+      {:ok, %{status: 409}} -> {:error, :storage_publication_conflict}
       {:error, _reason} = error -> error
       _failure -> {:error, :storage_write_failed}
     end
@@ -176,7 +171,7 @@ defmodule QuickTrain.Assets.Storage.S3 do
       into = fn data, context -> verify_chunk(data, context, expected, file, deadline, kind) end
 
       case request(config, :get, key, query, nil, [], deadline, into: into) do
-        {:ok, %{status_code: 200} = response} -> verify_response(response, expected, kind)
+        {:ok, %{status: 200} = response} -> verify_response(response, expected, kind)
         {:error, _reason} = error -> error
         _failure -> {:error, :storage_request_failed}
       end
@@ -209,19 +204,21 @@ defmodule QuickTrain.Assets.Storage.S3 do
     {size, hash} = Map.get(response.private, :content, {0, :crypto.hash_init(:sha256)})
 
     if size == expected.byte_size and :crypto.hash_final(hash) == expected.sha256 and
-         metadata_matches?(response.headers, expected, kind) do
+         metadata_matches?(response, expected, kind) do
       {:ok, expected}
     else
       {:error, mismatch(kind)}
     end
   end
 
-  defp metadata_matches?(_headers, _expected, :staging), do: true
+  defp metadata_matches?(_response, _expected, :staging), do: true
 
-  defp metadata_matches?(headers, expected, :sealed) do
-    Enum.all?(@delivery_headers, fn {name, value} -> header(headers, name) == value end) and
-      header(headers, "x-amz-meta-declared-media-type-sha256") ==
-        media_digest(expected.media_type)
+  defp metadata_matches?(response, expected, :sealed) do
+    Enum.all?(@delivery_headers, fn {name, value} ->
+      Req.Response.get_header(response, name) == [value]
+    end) and
+      Req.Response.get_header(response, "x-amz-meta-declared-media-type-sha256") ==
+        [media_digest(expected.media_type)]
   end
 
   defp request(config, method, key, query, body, headers, deadline, opts \\ []) do
@@ -239,11 +236,14 @@ defmodule QuickTrain.Assets.Storage.S3 do
            ),
          {:ok, response} <-
            HTTPClient.request(
-             method,
-             url,
-             body,
-             headers,
-             [tls_options: config.tls_options, timeout: timeout] ++ opts
+             [
+               method: method,
+               url: url,
+               body: body,
+               headers: headers,
+               tls_options: config.tls_options,
+               timeout: timeout
+             ] ++ opts
            ) do
       Operation.remaining(deadline)
       {:ok, response}
@@ -277,14 +277,14 @@ defmodule QuickTrain.Assets.Storage.S3 do
   defp spool_chunk(_bytes, _state, _file, _cap, _deadline),
     do: throw({:storage_error, :invalid_staging_write})
 
-  defp staging_result({:ok, %{status_code: status}}) when status in 200..299, do: :ok
+  defp staging_result({:ok, %{status: status}}) when status in 200..299, do: :ok
   defp staging_result({:error, _reason} = error), do: error
   defp staging_result(_failure), do: {:error, :storage_write_failed}
 
   defp with_file(nil, fun), do: fun.(nil)
 
   defp with_file(path, fun) do
-    File.open!(path, [:write, :binary, :raw, :exclusive], fn file -> fun.(file) end)
+    File.open!(path, [:write, :binary, :raw, :exclusive], fun)
   end
 
   defp valid_expected(%{sha256: hash, byte_size: size, media_type: type})
@@ -314,10 +314,6 @@ defmodule QuickTrain.Assets.Storage.S3 do
       referrer_policy: "no-referrer"
     }
   end
-
-  defp header(headers, name),
-    do:
-      Enum.find_value(headers, fn {key, value} -> if String.downcase(key) == name, do: value end)
 
   defp media_digest(type), do: :crypto.hash(:sha256, type) |> Base.encode16(case: :lower)
   defp mismatch(:staging), do: :content_mismatch
