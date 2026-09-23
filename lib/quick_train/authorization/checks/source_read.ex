@@ -47,10 +47,6 @@ defmodule QuickTrain.Authorization.Checks.SourceRead do
         do: ["assets.read", "datasets.read", "datasets.manage"],
         else: ["datasets.read", "datasets.manage"]
 
-    expr(
-      user_id == ^id and user.status == "active" and organization.status == "active" and
-        exists(role.role_capabilities, capability.key in ^capabilities) and
-        exists(organization.memberships, user_id == ^id and status == "active")
-    )
+    RoleAssignment.capability_filter(id, capabilities)
   end
 end

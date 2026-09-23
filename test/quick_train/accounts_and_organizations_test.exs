@@ -4,8 +4,9 @@ defmodule QuickTrain.AccountsAndOrganizationsTest do
   alias QuickTrain.{Accounts, Organizations}
 
   test "consumer accounts do not require an organization membership" do
-    assert {:ok, user} = Accounts.register_user("  CONSUMER@Example.COM  ", "Consumer")
+    assert {:ok, user} = Accounts.register_user("  CONSUMER@Example.COM  ", "  Consumer  ")
     assert user.email == "consumer@example.com"
+    assert user.display_name == "Consumer"
   end
 
   test "all sessions require a registered user" do
@@ -27,7 +28,12 @@ defmodule QuickTrain.AccountsAndOrganizationsTest do
 
   test "the same user can be an organization member and a consumer" do
     assert {:ok, user} = Accounts.register_user("member@example.com", "Member")
-    assert {:ok, organization} = Organizations.create_organization("Example Corp", "example-corp")
+
+    assert {:ok, organization} =
+             Organizations.create_organization("  Example Corp  ", "  EXAMPLE-corp  ")
+
+    assert organization.name == "Example Corp"
+    assert organization.slug == "example-corp"
     assert {:ok, membership} = Organizations.add_member(organization.id, user.id)
 
     assert membership.user_id == user.id

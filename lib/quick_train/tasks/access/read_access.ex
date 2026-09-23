@@ -82,13 +82,12 @@ defmodule QuickTrain.Tasks.Access.ReadAccess do
   end
 
   def result_authority(%{id: id}) do
+    authority = RoleAssignment.capability_filter(id, ["tasks.results.read"])
+
     expr(
       exists(
         RoleAssignment,
-        organization_id == parent(organization_id) and user_id == ^id and
-          user.status == "active" and organization.status == "active" and
-          exists(role.role_capabilities, capability.key == "tasks.results.read") and
-          exists(organization.memberships, user_id == ^id and status == "active")
+        organization_id == parent(organization_id) and ^authority
       )
     )
   end

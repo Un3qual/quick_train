@@ -29,17 +29,9 @@ defmodule QuickTrain.Authorization.Checks.OrganizationCapability do
 
   def match?(_actor, _context, _opts), do: false
 
-  defp organization_id(%Ash.Changeset{} = changeset) do
-    Ash.Subject.get_argument_or_attribute(changeset, :organization_id)
-  end
-
-  defp organization_id(%Ash.Query{} = query) do
-    Ash.Subject.get_argument(query, :organization_id)
-  end
-
-  defp organization_id(%Ash.ActionInput{} = input) do
-    Ash.Subject.get_argument(input, :organization_id)
-  end
+  defp organization_id(%type{} = subject)
+       when type in [Ash.Changeset, Ash.Query, Ash.ActionInput],
+       do: Ash.Subject.get_argument_or_attribute(subject, :organization_id)
 
   defp organization_id(_subject), do: nil
 

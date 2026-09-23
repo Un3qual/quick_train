@@ -50,11 +50,7 @@ defmodule QuickTrain.Organizations.Organization do
       primary? true
       accept [:name, :slug]
 
-      change update_change(:name, &String.trim/1)
-
-      change update_change(:slug, fn slug ->
-               slug |> String.trim() |> String.downcase()
-             end)
+      change update_change(:slug, &String.downcase/1)
     end
 
     update :update do

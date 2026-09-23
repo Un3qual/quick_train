@@ -1,6 +1,4 @@
 defmodule QuickTrain.Datasets.DatasetImportRow.Actions.Append do
-  # The nested branch mirrors the import-lock lifecycle and rollback decisions.
-  # credo:disable-for-this-file Credo.Check.Refactor.Nesting
   @moduledoc false
 
   alias QuickTrain.{DatasetAssetError, Datasets}
@@ -40,26 +38,26 @@ defmodule QuickTrain.Datasets.DatasetImportRow.Actions.Append do
         DatasetAssetError.invalid(:import_not_open)
 
       import ->
-        if DateTime.compare(import.open_expires_at, DateTime.utc_now()) != :gt do
-          DatasetAssetError.invalid(:import_expired)
-        else
-          schema = published_schema(import)
+        append_open(import, arguments, entries)
+    end
+  end
 
-          if schema do
-            fingerprint =
-              Fingerprint.import_row(
-                import.schema_version_id,
-                arguments.row_key,
-                arguments.external_key,
-                arguments.source_position,
-                entries
-              )
+  defp append_open(import, arguments, entries) do
+    with true <- DateTime.after?(import.open_expires_at, DateTime.utc_now()),
+         %{} = schema <- published_schema(import) do
+      fingerprint =
+        Fingerprint.import_row(
+          import.schema_version_id,
+          arguments.row_key,
+          arguments.external_key,
+          arguments.source_position,
+          entries
+        )
 
-            accept_or_retry(import, schema, arguments, entries, fingerprint)
-          else
-            DatasetAssetError.invalid(:invalid_schema)
-          end
-        end
+      accept_or_retry(import, schema, arguments, entries, fingerprint)
+    else
+      false -> DatasetAssetError.invalid(:import_expired)
+      nil -> DatasetAssetError.invalid(:invalid_schema)
     end
   end
 
