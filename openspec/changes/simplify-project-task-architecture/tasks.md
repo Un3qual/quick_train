@@ -100,21 +100,28 @@
 ## 19. Remove remaining review overhead
 
 - [x] 19.1 Remove unused slot-policy/worker-access indexes, the unused binding relationship and decision-number aggregate, and the unconsumed initial-review status map; use Ash's ordered bulk results for form copying, regenerate the unreleased schema artifacts, and verify fresh migrations and focused behavior.
-- [ ] 19.2 Pass independent OpenSpec validation and the full verification gate. OpenSpec validation passes; the full gate stops at the dependency audit because the unchanged Ash 3.33.0 pin is flagged by EEF-CVE-2026-86338 (GHSA-7qr8-wrvq-566q).
+- [x] 19.2 Pass independent OpenSpec validation and the full verification gate. The approved Ash 3.33.4 and Mint 1.10.1 security updates clear the dependency audit; the complete gate passes with all 374 tests.
 
 ## 20. Address captured source-access and export feedback
 
 - [x] 20.1 Serialize worker source authorization with attempt terminalization, preserve resource-defined export ordering, and apply nonblank skip-reason checks only when the project requires a reason; reproduce each finding and keep the specifications synchronized.
-- [x] 20.2 Run focused tests, independent OpenSpec validation, and the repository gate, recording any remaining blocker before publishing the review fixes. All 56 focused tests, 362 full-suite tests, 15 OpenSpec items, and production compilation pass; the gate's earlier checks pass, but the unchanged Ash dependency advisory still blocks 19.2.
+- [x] 20.2 Run focused tests, independent OpenSpec validation, and the repository gate, recording any remaining blocker before publishing the review fixes. All 56 focused tests, 362 full-suite tests, 15 OpenSpec items, and production compilation passed; the gate's earlier checks passed, but the unchanged Ash dependency advisory blocked 19.2 in that run.
 
 ## 21. Serialize work-bundle reads with attempt transitions
 
 - [x] 21.1 Reuse the existing Project/Task/Attempt lock order for work-bundle reads, reproduce concurrent release in the read tests, and synchronize the live-work contract.
-- [x] 21.2 Run focused tests, independent OpenSpec validation, and the repository gate; record any remaining blocker before publishing. All 21 focused tests, 363 full-suite tests, 15 OpenSpec items, and production compilation pass; the gate's earlier checks pass, but the unchanged Ash dependency advisory still blocks 19.2.
+- [x] 21.2 Run focused tests, independent OpenSpec validation, and the repository gate; record any remaining blocker before publishing. All 21 focused tests, 363 full-suite tests, 15 OpenSpec items, and production compilation passed; the gate's earlier checks passed, but the unchanged Ash dependency advisory blocked 19.2 in that run.
 
-## Closeout verification — 2026-09-22
+## Verification before security updates — 2026-09-22
 
 - All six delta specifications match the canonical requirements; removed requirements are absent. No specification merge is needed.
 - `mise run openspec.validate`: 16 items passed.
-- `mise run verify`: compilation, formatting, Ash code generation, boundary/compile-cycle checks, Credo, ExDNA, Reach, and Dialyzer passed. The dependency audit failed on Ash 3.33.0 (`EEF-CVE-2026-86338`) and Mint 1.10.0 (`EEF-CVE-2026-82672`), so task 19.2 remains open.
+- `mise run verify`: compilation, formatting, Ash code generation, boundary/compile-cycle checks, Credo, ExDNA, Reach, and Dialyzer passed. The dependency audit failed on Ash 3.33.0 (`EEF-CVE-2026-86338`) and Mint 1.10.0 (`EEF-CVE-2026-82672`), leaving task 19.2 open pending the security updates.
 - Ran the remaining gate stages independently: production compilation with warnings as errors passed; all 374 tests passed on the fresh `quick_train_c8c4_closeout` database (seed 714537).
+
+## Final closeout — 2026-09-22
+
+- The approved security closeout in `simplify-ash-domain-workflows` updates only Ash to 3.33.4 and Mint to 1.10.1; unrelated packages and the mise toolchain are unchanged.
+- Independent `mise run openspec.validate` passed all 16 active changes/specifications before archival.
+- `QUICK_TRAIN_TEST_DATABASE_NAME=quick_train_c8c4_closeout mise run verify` passed the complete gate without exceptions, including production compilation, a clean dependency audit, and all 374 tests (seed 203515).
+- All 26 added/modified requirements match the canonical specifications, and all four removed requirements are absent. No specification merge is needed for archival.

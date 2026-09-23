@@ -9,8 +9,9 @@ The approved thirteen-finding audit found duplicated Ash action ownership, incon
 - Reuse generated domain interfaces and declare attempt ownership/eligibility in policies as well as post-lock checks.
 - Share strict scalar normalization; load only relevant dataset fields and submission sources.
 - Resume already-published exports without regenerating bytes, narrow Task state loading to consumers, and use native existence/atomic operations for activation and completion.
+- Apply the approved closeout security patches for Ash and the transitive Mint dependency, clearing the dependency audit before archival.
 
-Non-goals: new product features, changes to normalized persistence, relaxed authorization or locks, persistent caches, new workflow frameworks, deferred maintenance/media work, or dependency upgrades.
+Non-goals: new product features, changes to normalized persistence, relaxed authorization or locks, persistent caches, new workflow frameworks, deferred maintenance/media work, or dependency upgrades beyond the approved Ash and Mint security patches.
 
 ## Capabilities
 
@@ -29,4 +30,4 @@ None.
 
 ## Impact
 
-Accounts/authentication, Datasets, Forms, Projects, Tasks and their GraphQL/domain callers and tests. No schema or dependency change is intended. The backend-only template and global User/optional membership model remain intact.
+Accounts/authentication, Datasets, Forms, Projects, Tasks and their GraphQL/domain callers and tests. No schema change is intended. Closeout updates Ash from 3.33.0 to 3.33.4 and Mint from 1.10.0 to 1.10.1 while retaining the existing mise toolchain. The backend-only template and global User/optional membership model remain intact.
