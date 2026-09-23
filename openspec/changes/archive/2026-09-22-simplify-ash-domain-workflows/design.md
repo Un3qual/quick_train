@@ -33,4 +33,6 @@ The user approved all thirteen audit findings at baseline `93cbe41`. See proposa
 
 ## Migration Plan
 
-No database migration is expected. Start with existing generated resources and use Ash generators for new change modules where practical. Update native callers in the same commits. Run focused behavior/concurrency tests, OpenSpec validation, and the full repository gate. Record existing dependency-advisory blockers without changing dependencies outside this approved scope.
+No database migration is expected. Start with existing generated resources and use Ash generators for new change modules where practical. Update native callers in the same commits. Run focused behavior/concurrency tests, OpenSpec validation, and the full repository gate.
+
+The approved closeout includes the minimum stable security patches: Ash 3.33.4 for `EEF-CVE-2026-86338` and Mint 1.10.1 for `EEF-CVE-2026-82672`. Update the exact Ash requirement and those two lock entries, retaining Mint as a transitive dependency and preserving unrelated packages and the existing mise toolchain. Run the full gate without audit exceptions before archiving this change and `simplify-project-task-architecture`.
