@@ -20,7 +20,11 @@ The system SHALL support AWS S3 in production and VersityGW in local development
 - **THEN** local configuration accepts it without requiring an AWS regional hostname
 
 ### Requirement: Uploads are capped by the receiving service
-Client upload access SHALL bind an exact private staging key, expiration, and a byte-size limit no larger than the registered asset size. The receiving service SHALL enforce the cap independently of the client and of later finalization. Altering the destination, extending the expiration, or weakening the size condition SHALL invalidate access. Successful upload SHALL NOT itself make an asset ready or grant download access. Access SHALL never permit writes to canonical published content.
+Client upload access SHALL bind an exact private staging key, expiration, and a byte-size limit no larger than the registered asset size. S3 POST descriptors and policies SHALL omit ACL fields/conditions, and backend PUTs SHALL omit ACL headers. Production AWS qualification SHALL require Bucket owner enforced Object Ownership, Block Public Access, and bucket/identity policies restricting access to required authenticated operations; an explicit `acl: private` SHALL NOT be the privacy mechanism. Local VersityGW SHALL enforce private bucket access using the same ACL-free upload requests without requiring AWS ownership-control APIs. Local and deployment checks SHALL verify signed upload success and rejection of unsigned object reads/writes. The receiving service SHALL enforce the cap independently of the client and of later finalization. Altering the destination, extending the expiration, or weakening the size condition SHALL invalidate access. Successful upload SHALL NOT itself make an asset ready or grant download access. Access SHALL never permit writes to canonical published content.
+
+#### Scenario: Production uploads use a bucket with ACLs disabled
+- **WHEN** a client submits only the issued POST descriptor and file to the qualified production bucket using Bucket owner enforced ownership
+- **THEN** the upload succeeds without an ACL field and the object remains inaccessible to unsigned reads or writes
 
 #### Scenario: A client exceeds its registered size
 - **WHEN** a client uploads more bytes than its issued access permits

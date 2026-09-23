@@ -1,11 +1,15 @@
 ## ADDED Requirements
 
 ### Requirement: Upload access describes the actual HTTP request
-Upload descriptors SHALL support raw PUT and multipart-form POST requests. Every descriptor SHALL identify its method, exact approved HTTPS destination, expiration, byte cap, and string-valued request headers. A POST descriptor SHALL additionally contain the required string-valued form fields and the name of the file form field. The signed policy SHALL fix the staging key, bound the permitted content size by the registered byte size, and expire no later than the requested access lifetime. It SHALL NOT allow caller-selected destinations, key prefixes, or success redirects. Clients SHALL submit the fields unchanged and let their HTTP client construct the multipart boundary; a raw PUT descriptor SHALL not carry POST form fields. GET download descriptors SHALL retain their existing representation and SHALL not carry upload fields. Ordinary registration SHALL validate the complete method-specific descriptor before persisting an Asset, while invalid access issuance for an existing task-owned Asset SHALL preserve its identity and lifecycle under the existing retry rules.
+Upload descriptors SHALL support raw PUT and multipart-form POST requests. Every descriptor SHALL identify its method, exact approved HTTPS destination, expiration, byte cap, and string-valued request headers. A POST descriptor SHALL additionally contain the required string-valued form fields and the name of the file form field. Every fixed object-header or metadata condition in the signed POST policy SHALL have its matching name/value in `form_fields`; policy conditions alone SHALL NOT substitute for submitted fields. Object Content-Type SHALL be a form field, leaving the multipart request Content-Type and boundary to the client's encoder. The signed policy SHALL fix the staging key, bound the permitted content size by the registered byte size, and expire no later than the requested access lifetime. It SHALL NOT allow caller-selected destinations, key prefixes, or success redirects. Clients SHALL submit the fields unchanged and let their HTTP client construct the multipart boundary; a raw PUT descriptor SHALL not carry POST form fields. GET download descriptors SHALL retain their existing representation and SHALL not carry upload fields. Ordinary registration SHALL validate the complete method-specific descriptor before persisting an Asset, while invalid access issuance for an existing task-owned Asset SHALL preserve its identity and lifecycle under the existing retry rules.
 
 #### Scenario: A client receives a POST upload
 - **WHEN** authorized registration returns multipart-form POST access
 - **THEN** the client can upload using only the descriptor and its file bytes, and the receiving service enforces the signed destination, size, and expiry conditions
+
+#### Scenario: A client omits or changes a fixed POST field
+- **WHEN** a client removes or changes a fixed object-header or metadata field required by the signed policy
+- **THEN** the receiver rejects the upload instead of relying on unstated client defaults
 
 #### Scenario: An existing adapter returns PUT access
 - **WHEN** authorized registration returns a valid raw PUT descriptor
