@@ -8,7 +8,7 @@
 ## 2. Verify and commit
 
 - [x] 2.1 Run focused authorization, normalization, import, and error-classification tests; review the diff and commit the verified simplifications.
-- [ ] 2.2 Run independent mise run openspec.validate and the full mise run verify gate, record the evidence and final code reduction, and commit closeout.
+- [x] 2.2 Run independent mise run openspec.validate and the full mise run verify gate, record the evidence and final code reduction, and commit closeout.
 
 ## Verification
 
@@ -16,4 +16,6 @@
 - Focused authorization, account/organization, import, schema, asset, task-read/result, and GraphQL suites: 111 tests passed (seed 571771).
 - After replacing the bound-value lookup, the task-read and collection GraphQL suites passed all 21 tests (seed 623786), including concurrent revocation.
 - Independent OpenSpec validation: all 16 active changes/specifications passed. Formatting and diff whitespace checks passed.
+- Full `mise run verify` passed: compilation, formatting, Ash code generation, boundaries, compile dependency cycles, Credo, duplication/architecture checks, Dialyzer, dependency audit, and production build.
+- The full backend suite passed all 411 tests (seed 116048); the disposable HTTPS storage integration suite passed all 24 tests (seed 87951).
 - Production code is 40 lines shorter across ten modules. No dependency, schema, or public API changes.
