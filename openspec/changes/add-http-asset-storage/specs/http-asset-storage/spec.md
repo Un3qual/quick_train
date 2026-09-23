@@ -48,6 +48,21 @@ Storage operations SHALL return within their configured operation deadline, rele
 - **WHEN** source enumeration fails, exceeds its byte cap, or misses its deadline
 - **THEN** no complete staging object is installed from its partial bytes and no download is issued
 
+### Requirement: Authorized downloads transfer directly from isolated storage
+After existing asset, attempt, or result authorization succeeds, the system SHALL issue a short-lived signed GET descriptor for the exact sealed object on the configured isolated storage host. The client SHALL retrieve the bytes directly from S3 or VersityGW. The service SHALL enforce the opaque-download response contract independently of client request headers and of the asset's declared media type. Response settings supplied in a signed URL SHALL be authenticated so changing them cannot authorize inline rendering or a different content type. Canonical object metadata SHALL also carry attachment disposition, octet-stream content type, and no-store. Local and deployment verification SHALL inspect actual transfer responses rather than infer compliance from the descriptor. Nosniff availability SHALL be recorded but SHALL NOT determine qualification for this isolated download path. This change SHALL require neither an application download route nor a CDN/proxy; GraphQL SHALL remain the only application API.
+
+#### Scenario: A client downloads declared HTML
+- **WHEN** an authorized client follows access for a sealed asset whose declared media type is HTML
+- **THEN** it receives the verified bytes directly from storage with attachment, octet-stream, and no-store response headers, and the absence of nosniff alone does not fail the transfer contract
+
+#### Scenario: A signed download is changed
+- **WHEN** a client changes the signed object key, expiry, or any signed response-header override
+- **THEN** storage rejects the altered request without serving asset bytes under the modified authorization
+
+#### Scenario: Download access expires
+- **WHEN** a client starts a download request after the descriptor's signed expiry
+- **THEN** storage denies the request even when the sealed object still exists
+
 ### Requirement: Exports use real storage without changing their evidence
 The S3 implementation SHALL support streaming backend writes for generated exports within the existing configured asset cap. It SHALL preserve the sealed export membership, deterministic bytes, result ownership, and existing retry/replacement rules. Export download access SHALL still require current result authority at issuance. Failures SHALL not expose a partial artifact, a new snapshot under the same identity, or provider secrets. Generated content SHALL pass the same integrity and canonical-publication checks as client uploads.
 
@@ -71,7 +86,7 @@ The documented local storage service SHALL use a pinned stable VersityGW release
 - **THEN** its cleanup cannot delete development objects or another test run's objects
 
 ### Requirement: Full verification requires no live cloud services
-The standard test command SHALL run ordinary tests with the in-memory adapter. The full repository verification command SHALL additionally exercise the real S3 adapter against local VersityGW, including HTTPS transfers, actual upload-cap enforcement, invalid/expired authorization, byte verification, immutable publication races, protected downloads, and export delivery. These commands SHALL require no AWS credentials, cloud storage account, or cloud API access; initial toolchain and container-image downloads are separate setup dependencies. Failure to start or reach required local integration services SHALL fail the full gate explicitly, rather than silently skip those checks.
+The standard test command SHALL run ordinary tests with the in-memory adapter. The full repository verification command SHALL additionally exercise the real S3 adapter against local VersityGW, including HTTPS transfers, actual upload-cap enforcement, invalid/expired authorization, byte verification, immutable publication races, direct downloads with mandatory response headers regardless of declared media type, rejection of modified signed download parameters, storage-host isolation, and export delivery. These commands SHALL require no AWS credentials, cloud storage account, or cloud API access; initial toolchain and container-image downloads are separate setup dependencies. Failure to start or reach required local integration services SHALL fail the full gate explicitly, rather than silently skip those checks.
 
 #### Scenario: Full verification on a machine without AWS credentials
 - **WHEN** dependencies and the pinned local images are available and full verification runs

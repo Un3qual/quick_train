@@ -7,12 +7,12 @@ QuickTrain already owns asset authorization, integrity, immutable publication, a
 - Implement one S3 storage adapter for AWS S3 in production and the approved VersityGW filesystem-backed S3 service in development and integration tests. Select endpoints and credentials through configuration, preserving the existing in-memory adapter for ordinary tests.
 - Add bounded browser uploads, verified immutable publication, authorized opaque downloads, and streaming publication of generated task exports through the existing Assets boundary.
 - Extend upload access descriptors with a signed multipart-form POST representation so the storage service can enforce the registered byte cap. **BREAKING:** clients using the S3 adapter must dispatch on the returned method and submit its form fields instead of assuming every upload is a raw PUT. Existing GET/PUT descriptors remain supported.
-- Provide a concrete download delivery path that enforces attachment/octet-stream/nosniff and short-lived access. Keep lifecycle and authorization decisions in existing Ash actions; resolve the transport choice in the design before implementation.
+- Use short-lived signed GET access for direct S3/VersityGW downloads from an isolated storage host. Require attachment disposition, octet-stream content type, and no-store responses. Make `nosniff` additional protection where available, rather than a prerequisite that forces a download proxy. Keep lifecycle and authorization decisions in existing Ash actions and GraphQL as the only application API.
 - Pin VersityGW, provide local HTTPS, preserve development files across service restarts, isolate integration-test storage, and add mise commands for service lifecycle and local storage verification.
 - Define remote timeout behavior honestly: return bounded failures without granting readiness, tolerate an uncertain remote write outcome, and reverify complete immutable bytes on retry.
 - Make local protocol tests part of `mise run verify`; keep live AWS deployment checks separate and explicitly invoked. Local compatibility evidence must not be represented as proof of AWS configuration.
 
-Explicit non-goals: image inspection or inline rendering, spatial task answers, a new asset lifecycle or storage plugin framework, a separate filesystem application adapter, automatic staging/credential/import maintenance, marketplace features, frontend work, and provisioning cloud infrastructure during development or CI.
+Explicit non-goals: a QuickTrain download-streaming route or required CDN/proxy, image inspection or inline rendering, spatial task answers, a new asset lifecycle or storage plugin framework, a separate filesystem application adapter, automatic staging/credential/import maintenance, marketplace features, frontend work, and provisioning cloud infrastructure during development or CI.
 
 ## Capabilities
 
@@ -22,7 +22,7 @@ Explicit non-goals: image inspection or inline rendering, spatial task answers, 
 
 ### Modified Capabilities
 
-- `assets`: Support method-specific upload descriptors and concrete protected opaque HTTP delivery while preserving existing organization, attempt, and result authority.
+- `assets`: Support method-specific upload descriptors and isolated direct downloads with mandatory attachment/binary/cache controls and optional `nosniff`, while preserving existing organization, attempt, and result authority.
 
 ## Impact
 
@@ -32,3 +32,15 @@ Explicit non-goals: image inspection or inline rendering, spatial task answers, 
 - Remains within the reusable backend foundation: one global User, optional membership for existing task-worker routes, and fail-closed scoped authorization. Detailed media still requires its own change before `add-project-task-media` can proceed; this change provides only the real opaque-storage prerequisite.
 
 The user approved HTTP storage, cloud-independent development/tests, and VersityGW. This is a planning change; the selected version's compatibility tests and runtime implementation have not yet run.
+
+## Proposed download decision
+
+Following the request to reconsider `nosniff`, this draft recommends direct signed downloads rather than adding a transfer route solely to inject that header. This revised download contract is proposed for review, not recorded as an approved implementation decision.
+
+S3 supports signed overrides for Content-Disposition, Content-Type, and Cache-Control, but not X-Content-Type-Options. Attachment disposition directs normal navigation toward downloading; it is not equivalent to the strict script/style MIME checks supplied by `nosniff`. A separate storage origin also does not make it safe to include uploaded bytes as scripts in the application. The contract therefore keeps files as opaque downloads, isolates the storage hostname from application credentials and cookies, and prohibits clients from treating storage as an executable-content or preview source. Providers that already supply `nosniff` retain it. Inline media remains a separate design decision.
+
+Keeping `nosniff` mandatory would instead require a compatible response-header layer, such as a CDN/proxy or an application streaming endpoint. That remains viable if the additional browser protection is required, but would add infrastructure or make QuickTrain carry download traffic.
+
+Implementation must reconcile the existing storage module documentation and README with the accepted contract. The main Assets spec remains unchanged until this change is applied and synchronized.
+
+References: [S3 GetObject response overrides](https://docs.aws.amazon.com/AmazonS3/latest/API/API_GetObject.html), [attachment disposition](https://www.rfc-editor.org/rfc/rfc6266.html#section-4.2), and [Fetch nosniff checks](https://fetch.spec.whatwg.org/#should-response-to-request-be-blocked-due-to-nosniff).
