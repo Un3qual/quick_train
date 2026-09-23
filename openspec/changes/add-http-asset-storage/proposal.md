@@ -11,7 +11,7 @@ QuickTrain already owns asset authorization, integrity, immutable publication, a
 - Pin VersityGW, provide local HTTPS, preserve development files across service restarts, isolate integration-test storage, and add mise commands for service lifecycle and local storage verification.
 - Define remote timeout behavior honestly: return bounded failures without granting readiness, tolerate an uncertain remote write outcome, and reverify complete immutable bytes on retry.
 - Require operator-configured native S3 lifecycle rules for production staging objects and their versions, verified by the separate deployment check; keep sealed objects outside expiration rules.
-- Make local protocol tests part of `mise run verify`; keep live AWS deployment checks separate and explicitly invoked. Local compatibility evidence must not be represented as proof of AWS configuration.
+- Make local protocol tests part of `mise run verify`; keep live AWS deployment checks separate and explicitly invoked against the exact configured production bucket and application identity, with isolated disposable probe objects. Local compatibility or a different bucket's results must not be represented as proof of that production configuration.
 
 Explicit non-goals: a QuickTrain download-streaming route or required CDN/proxy, image inspection or inline rendering, spatial task answers, a new asset lifecycle or storage plugin framework, a separate filesystem application adapter, application-managed staging/credential/import maintenance, marketplace features, frontend work, and provisioning cloud infrastructure during development or CI.
 
