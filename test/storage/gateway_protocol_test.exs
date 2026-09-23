@@ -1,12 +1,61 @@
 defmodule QuickTrain.Storage.GatewayProtocolTest do
   use ExUnit.Case, async: false
 
+  alias QuickTrain.Assets.Storage.S3.LocalSetup
+
   @moduletag :storage
 
   # This characterizes the exact provider invariants publication will rely on.
   setup_all do
     context = QuickTrain.S3Fixture.configure()
-    %{config: context.s3_config.sdk, request: context.request, bucket: context.s3_config.bucket}
+    Map.merge(context, %{config: context.s3_config.sdk, bucket: context.s3_config.bucket})
+  end
+
+  test "local bootstrap permits browser uploads only from configured localhost origins",
+       context do
+    url =
+      URI.to_string(context.s3_config.endpoint) <> "/#{context.bucket}/assets/staging/probe/cors"
+
+    preflight = fn origin ->
+      Req.request!(context.request,
+        method: :options,
+        url: url,
+        headers: [
+          {"origin", origin},
+          {"access-control-request-method", "POST"},
+          {"access-control-request-headers", "content-type"}
+        ]
+      )
+    end
+
+    allowed = preflight.("http://localhost:4005")
+    assert allowed.status == 200
+
+    assert Req.Response.get_header(allowed, "access-control-allow-origin") == [
+             "http://localhost:4005"
+           ]
+
+    denied = preflight.("https://untrusted.example")
+    assert denied.status == 403
+    assert Req.Response.get_header(denied, "access-control-allow-origin") == []
+  end
+
+  test "local bootstrap rejects AWS, non-loopback endpoints and non-local CORS origins",
+       context do
+    storage = context.s3_config
+
+    for target <- [
+          %{storage | profile: :aws},
+          %{storage | endpoint: %{storage.endpoint | host: "storage.example"}}
+        ] do
+      assert {:error, :local_storage_required} =
+               LocalSetup.run(target, ["http://localhost:4005"])
+    end
+
+    for origins <- [[], ["*"], ["https://untrusted.example"]] do
+      assert {:error, :invalid_local_cors_origins} =
+               LocalSetup.run(storage, origins)
+    end
   end
 
   test "POST accepts the exact file cap and rejects cap plus one", context do
@@ -55,13 +104,22 @@ defmodule QuickTrain.Storage.GatewayProtocolTest do
     end
   end
 
-  test "version-specific reads retain the selected staging bytes", context do
+  test "repeated local bootstrap preserves existing bytes and versioning", context do
     key = "assets/staging/probe/versioned"
     assert request(context, :put, key, body: "before").status == 200
     head = request(context, :head, key)
     [version] = Req.Response.get_header(head, "x-amz-version-id")
     refute version in ["", "null"]
+
+    assert :ok =
+             LocalSetup.run(context.s3_config, [
+               "http://localhost:4005"
+             ])
+
+    assert request(context, :get, key).body == "before"
     assert request(context, :put, key, body: "after").status == 200
+    [next_version] = Req.Response.get_header(request(context, :head, key), "x-amz-version-id")
+    refute next_version in ["", "null", version]
     assert request(context, :get, key, params: [{"versionId", version}]).body == "before"
     assert request(context, :get, key).body == "after"
   end

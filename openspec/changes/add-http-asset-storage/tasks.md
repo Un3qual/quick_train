@@ -42,3 +42,11 @@
 - [x] 7.1 Update README, storage callback documentation, and GraphQL examples for POST method dispatch, local setup/trust, persistent development data, direct downloads with optional nosniff, no-referrer/client credential handling, explicit application host/cookie-domain declarations, and production bucket/policy setup. Reconcile the Assets staging-expiry contract with provider-native retention while preserving expiry and finalizer-claim guarantees. Document native staging lifecycle qualification and its asynchronous retention limits separately from deferred application-managed maintenance and broader operator readiness. Keep inline media deferred.
 - [x] 7.2 Reconcile proposal/specs/design/tasks with the implementation and record the pinned gateway behaviors actually verified. Report AWS qualification as not performed unless separately run; use the normal OpenSpec sync/archive workflow only after implementation is complete.
 - [x] 7.3 Run focused storage/GraphQL/export checks and `mise run openspec.validate`, then finish with `mise run verify`. Fix failures, record evidence, and commit coherent milestones before publication or merge.
+
+## 8. Approved code-quality review follow-up
+
+- [x] 8.1 Share validated S3 configuration and one local bucket/versioning/CORS bootstrap between development setup and integration fixtures; exercise actual CORS acceptance/rejection and idempotence in the disposable gateway suite.
+- [x] 8.2 Replace the result-export catchall internal update with narrow named lifecycle actions and Tasks code interfaces, preserving locked records, transactions, retry behavior, and internal authorization.
+- [x] 8.3 Expose existing asset finalization update actions through Assets code interfaces and use the existing scoped asset read interface for locked/canonical lookups without changing publication or missing-record behavior.
+- [x] 8.4 Use native ExAws bucket inspection operations where available; make qualification request fixtures independent of the implementation and remove the test-only inspection-resource helper.
+- [x] 8.5 Review the combined changes, run focused checks and the full `mise run verify` gate, update implementation evidence, and commit the approved cleanup.

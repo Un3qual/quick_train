@@ -1,8 +1,6 @@
 defmodule QuickTrain.S3Fixture do
   @moduledoc false
 
-  alias ExAws.Operation
-  alias ExAws.S3, as: SDK
   alias QuickTrain.Assets.Storage.S3
 
   def configure do
@@ -29,24 +27,7 @@ defmodule QuickTrain.S3Fixture do
     end)
 
     {:ok, storage} = S3.Config.fetch()
-
-    case Operation.perform(SDK.head_bucket(storage.bucket), storage.sdk) do
-      {:ok, _response} ->
-        :ok
-
-      {:error, {:http_error, 404, _response}} ->
-        {:ok, _response} =
-          Operation.perform(SDK.put_bucket(storage.bucket, "us-east-1"), storage.sdk)
-    end
-
-    {:ok, _response} =
-      Operation.perform(
-        SDK.put_bucket_versioning(
-          storage.bucket,
-          "<VersioningConfiguration><Status>Enabled</Status></VersioningConfiguration>"
-        ),
-        storage.sdk
-      )
+    :ok = S3.LocalSetup.run(storage, ["http://localhost:4005"])
 
     %{
       s3_config: storage,

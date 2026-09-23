@@ -1,19 +1,11 @@
 defmodule QuickTrain.Assets.Storage.S3.Qualification do
   @moduledoc "Explicit qualification of the configured AWS bucket and application identity."
 
+  alias ExAws.S3, as: SDK
   alias QuickTrain.Assets.Storage.S3
   alias QuickTrain.Assets.Storage.S3.{Config, HTTPClient, Operation}
 
   @request_budget 10_000
-  @resources %{
-    versioning: "versioning",
-    ownership: "ownershipControls",
-    public_access: "publicAccessBlock",
-    lifecycle: "lifecycle",
-    object_lock: "object-lock",
-    replication: "replication",
-    location: "location"
-  }
   @absent_codes %{
     object_lock: "ObjectLockConfigurationNotFoundError",
     replication: "ReplicationConfigurationNotFoundError"
@@ -81,16 +73,20 @@ defmodule QuickTrain.Assets.Storage.S3.Qualification do
     end
   end
 
-  def inspection_resource(name), do: Map.fetch!(@resources, name)
-
   def inspect_bucket(config, operator) do
-    Enum.reduce_while(@resources, {:ok, %{}}, fn {name, resource}, {:ok, documents} ->
-      operation = %ExAws.Operation.S3{
-        http_method: :get,
-        bucket: config.bucket,
-        resource: resource
-      }
+    bucket = config.bucket
 
+    operations = [
+      versioning: SDK.get_bucket_versioning(bucket),
+      ownership: get_configuration(bucket, "ownershipControls"),
+      public_access: get_configuration(bucket, "publicAccessBlock"),
+      lifecycle: SDK.get_bucket_lifecycle(bucket),
+      object_lock: get_configuration(bucket, "object-lock"),
+      replication: SDK.get_bucket_replication(bucket),
+      location: SDK.get_bucket_location(bucket)
+    ]
+
+    Enum.reduce_while(operations, {:ok, %{}}, fn {name, operation}, {:ok, documents} ->
       case inspect_document(name, operation, operator) do
         {:ok, body} -> {:cont, {:ok, Map.put(documents, name, body)}}
         {:error, _reason} = error -> {:halt, error}
@@ -101,6 +97,10 @@ defmodule QuickTrain.Assets.Storage.S3.Qualification do
       error -> error
     end
   end
+
+  # These controls do not have operation constructors in ExAws.S3.
+  defp get_configuration(bucket, resource),
+    do: %ExAws.Operation.S3{http_method: :get, bucket: bucket, resource: resource}
 
   defp inspect_document(name, operation, operator) do
     case control(operation, operator) do
@@ -382,7 +382,7 @@ defmodule QuickTrain.Assets.Storage.S3.Qualification do
 
   defp inventory_prefix(config, operator, plan, prefix) do
     operation = %{
-      ExAws.S3.list_object_versions(config.bucket, prefix: prefix, max_keys: 1000)
+      SDK.list_object_versions(config.bucket, prefix: prefix, max_keys: 1000)
       | parser: &Function.identity/1
     }
 
@@ -420,7 +420,7 @@ defmodule QuickTrain.Assets.Storage.S3.Qualification do
         remaining =
           Enum.reject(versions, fn object ->
             operation =
-              ExAws.S3.delete_object(config.bucket, object.key, version_id: object.version_id)
+              SDK.delete_object(config.bucket, object.key, version_id: object.version_id)
 
             match?({:ok, %{status_code: 204}}, control(operation, operator))
           end)
@@ -525,7 +525,7 @@ defmodule QuickTrain.Assets.Storage.S3.Qualification do
     raw(config, :get, tampered) |> require_status([403], :download_signature_not_enforced)
 
     {:ok, expired} =
-      ExAws.S3.presigned_url(config.sdk, :get, config.bucket, plan.sealed,
+      SDK.presigned_url(config.sdk, :get, config.bucket, plan.sealed,
         expires_in: 1,
         start_datetime: DateTime.add(DateTime.utc_now(), -120),
         virtual_host: config.addressing == :virtual
@@ -587,7 +587,7 @@ defmodule QuickTrain.Assets.Storage.S3.Qualification do
       end
 
     {:ok, url} =
-      ExAws.S3.presigned_url(config.sdk, method, config.bucket, key,
+      SDK.presigned_url(config.sdk, method, config.bucket, key,
         expires_in: 60,
         virtual_host: config.addressing == :virtual,
         headers: headers,
@@ -599,7 +599,7 @@ defmodule QuickTrain.Assets.Storage.S3.Qualification do
 
   defp object_url(config, key) do
     {:ok, signed} =
-      ExAws.S3.presigned_url(config.sdk, :get, config.bucket, key,
+      SDK.presigned_url(config.sdk, :get, config.bucket, key,
         virtual_host: config.addressing == :virtual
       )
 

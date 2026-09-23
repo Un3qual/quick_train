@@ -52,11 +52,7 @@ defmodule QuickTrain.Tasks.Exports.ResultExporting do
         export = locked_export!(id)
 
         if is_nil(export.snapshot_at) and export.state != :ready,
-          do:
-            Ash.update!(export, %{state: :snapshotting},
-              action: :update_internal,
-              authorize?: false
-            ),
+          do: Tasks.begin_export_snapshot!(export, authorize?: false),
           else: export
       end)
 
@@ -88,10 +84,7 @@ defmodule QuickTrain.Tasks.Exports.ResultExporting do
            Ash.transact(ResultExport, fn ->
              current = locked_export!(export.id)
 
-             Ash.update!(current, %{state: :ready, asset_id: canonical.id, error_code: nil},
-               action: :update_internal,
-               authorize?: false
-             )
+             Tasks.complete_result_export!(current, %{asset_id: canonical.id}, authorize?: false)
            end) do
       :ok
     else
@@ -176,10 +169,7 @@ defmodule QuickTrain.Tasks.Exports.ResultExporting do
         authorize?: false
       )
 
-    Ash.update!(export, %{pending_asset_id: asset.id},
-      action: :update_internal,
-      authorize?: false
-    )
+    Tasks.attach_export_pending_asset!(export, %{pending_asset_id: asset.id}, authorize?: false)
 
     asset
   end
@@ -227,8 +217,7 @@ defmodule QuickTrain.Tasks.Exports.ResultExporting do
 
       if export.state != :ready,
         do:
-          Ash.update!(export, %{state: :failed, error_code: Atom.to_string(reason)},
-            action: :update_internal,
+          Tasks.fail_result_export!(export, %{error_code: Atom.to_string(reason)},
             authorize?: false
           )
     end)

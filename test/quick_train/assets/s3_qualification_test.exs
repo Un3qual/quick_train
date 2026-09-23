@@ -3,6 +3,16 @@ defmodule QuickTrain.Assets.S3QualificationTest do
 
   alias QuickTrain.Assets.Storage.S3.{Config, Qualification}
 
+  @inspection_resources %{
+    versioning: "versioning",
+    ownership: "ownershipControls",
+    public_access: "publicAccessBlock",
+    lifecycle: "lifecycle",
+    object_lock: "object-lock",
+    replication: "replication",
+    location: "location"
+  }
+
   defmodule FixtureHTTPClient do
     def request(method, url, _body, _headers, _options) do
       %{owner: owner, responses: responses} =
@@ -215,7 +225,7 @@ defmodule QuickTrain.Assets.S3QualificationTest do
   test "inspection uses only the runtime bucket and rejects inaccessible controls", context do
     responses =
       Enum.map(context.snapshot.documents, fn {name, xml} ->
-        resource = Qualification.inspection_resource(name)
+        resource = Map.fetch!(@inspection_resources, name)
 
         response =
           if xml == :absent,
@@ -235,9 +245,9 @@ defmodule QuickTrain.Assets.S3QualificationTest do
     assert {:ok, snapshot} = Qualification.inspect_bucket(context.config, sdk)
     assert {:ok, _} = Qualification.validate(snapshot, context.config, context.assets)
 
-    for _ <- 1..7 do
+    for resource <- Map.values(@inspection_resources) do
       assert_receive {:inspection_request, :get, "s3.us-west-2.amazonaws.com", "/runtime-bucket/",
-                      [_resource]}
+                      [^resource]}
     end
 
     denied =
@@ -260,7 +270,7 @@ defmodule QuickTrain.Assets.S3QualificationTest do
             do: absent(name),
             else: {:ok, %{status_code: 200, body: xml, headers: []}}
 
-        {{:get, [Qualification.inspection_resource(name)]}, response}
+        {{:get, [Map.fetch!(@inspection_resources, name)]}, response}
       end)
 
     sdk = Map.put(context.config.sdk, :http_client, FixtureHTTPClient)
@@ -269,7 +279,7 @@ defmodule QuickTrain.Assets.S3QualificationTest do
       malformed =
         Map.put(
           responses,
-          {:get, [Qualification.inspection_resource(name)]},
+          {:get, [Map.fetch!(@inspection_resources, name)]},
           {:ok, %{status_code: 404, body: "<private-provider-detail", headers: []}}
         )
 

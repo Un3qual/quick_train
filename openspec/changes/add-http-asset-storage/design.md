@@ -164,8 +164,32 @@ Final local validation passed:
   separately creates and removes its own UUID database.
 - The final integration run used ExUnit seed `714320`; its 22 tests completed in 8.5 seconds.
 
-All implementation tasks are complete. This active change is ready for the normal OpenSpec
-sync/archive workflow; its delta specifications have not been archived into the main specs yet.
+### Approved code-quality review follow-up
+
+The four approved review improvements are implemented. Development setup and integration fixtures
+now call `S3.LocalSetup` with the existing validated S3 configuration, sharing bucket creation,
+versioning, and scoped CORS setup. Result-export transitions use narrow named Ash update actions
+and Tasks interfaces. Asset finalization uses Assets interfaces for its existing update actions
+and scoped locked/canonical reads. Qualification uses ExAws inspection constructors where
+available, and its fixtures independently specify the expected protocol requests.
+
+The new allowed-origin CORS regression first failed with HTTP 403 against the old fixture; it
+passes through the shared bootstrap. Gateway tests also reject unapproved origins and non-local
+bootstrap targets and confirm that repeated bootstrap preserves stored bytes and version history.
+The shared setup removes 34 lines of duplicated setup/configuration code. An independent review
+found no actionable issues; existing public contracts, claim fencing, and transaction boundaries
+remain unchanged.
+
+Follow-up validation on 2026-09-23 passed 85 focused qualification/lifecycle/export/concurrency/
+GraphQL tests, then the complete
+`QUICK_TRAIN_TEST_DATABASE_NAME=quick_train_ae1a_root_test mise run verify` gate: all static/build
+checks, 409 ordinary tests, and 24 disposable HTTPS storage tests. The final integration seed was
+`913268`; its 25 MiB transfer measured 177 ms for staging and 494 ms for publication against the
+existing 30,000 ms per-operation budget. AWS qualification remains not performed.
+
+All implementation and approved review tasks are complete. This active change is ready for the
+normal OpenSpec sync/archive workflow; its delta specifications have not been archived into the
+main specs yet.
 
 ## References
 
