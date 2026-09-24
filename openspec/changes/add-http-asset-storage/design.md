@@ -60,7 +60,7 @@ The existing authorized access actions return SDK-signed GET descriptors for the
 
 Configure a storage hostname distinct from all application hostnames and outside application-cookie scope; another port on the application hostname is insufficient. Require machine-readable lists of application hostnames and session-cookie Domain scopes, including consuming frontends. An explicitly empty domain list declares that all application cookies are host-only; an omitted declaration cannot qualify. Normalize DNS names and cookie domains (including a leading dot), reject an application-host match, and reject a storage hostname equal to or ending in a dot plus any declared cookie domain. Thus `storage.example.com` with a `.example.com` application cookie is rejected even if the application uses `app.example.com`. Validate this configuration before issuing storage access; operators must keep the declarations accurate because the backend cannot inspect frontend runtime cookies. No cookie-discovery service is needed.
 
-Clients send no QuickTrain cookies or bearer token to storage, use no-referrer access handling, and never embed these URLs as scripts, styles, or inline content. If browser fetch uploads/downloads are used, configure CORS for explicit application origins and the required transfer methods/headers; do not treat CORS as authorization. Plain download navigation does not require a broad CORS policy.
+Clients send no QuickTrain cookies or bearer token to storage, use no-referrer access handling, and never embed these URLs as scripts, styles, or inline content. If browser fetch uploads/downloads are used, configure CORS for explicit application origins and the required transfer methods/headers; do not treat CORS as authorization. The server-side deployment check reports browser CORS as not checked. Operators must separately verify browser transfers from each actual application origin before enabling them, including response-header access and denial of an unapproved origin. Plain download navigation does not require a broad CORS policy.
 
 Nosniff remains welcome when the storage endpoint supplies it, but its absence does not disqualify this isolated download-only path. Attachment and isolation are not claimed to replicate its script/style protections. Do not add a CDN, proxy, Phoenix route, header-injection capability, or fake descriptor request header to manufacture it. GraphQL remains the only application API. A future inline-media change must define its own rendering contract.
 
@@ -252,6 +252,32 @@ tests (seed `553646`), independent OpenSpec validation (all 16 items), and the c
 static/build checks, 411 backend tests (seed `283997`), and 24 disposable HTTPS tests
 (seed `41802`). The 25 MiB transfer measured 195 ms for staging and 477 ms for publication
 against the existing 30,000 ms per-operation deadline. AWS qualification was not run.
+
+### PR #11 captured review follow-through
+
+The captured review contained ten threads with eight distinct findings. The fixes stay
+within the existing storage contract: reject dotted bucket names only for AWS virtual
+addressing, accept a local root-path endpoint consistently in bootstrap/startup, and let
+the fault proxy read up to the configured asset cap instead of an unrelated 1 MiB limit.
+Req retries a conditional PUT's HTTP 409 once, without logging provider details or
+resetting the operation deadline; persistent conflicts retain their retryable error.
+Browser CORS remains a separate explicit operator check, now stated in the JSON report
+and deployment instructions rather than adding an origin-policy interpreter.
+
+No multipart allowance was added: the POST condition limits file content, and existing
+exact-cap/cap-plus-one protocol tests cover that behavior. Connection waits remain bounded
+by the caller's task deadline. Requiring cleanup permission would contradict the approved
+optional operator deletion contract; exact remaining-version manifests remain mandatory.
+The fixed protocol fixture keys are isolated by disposable per-run gateway volumes.
+Generic docstring coverage suggestions do not justify documentation on private helpers.
+
+Before the fixes, the AWS configuration regression and four HTTPS assertions failed for
+the reported reasons. Afterward, all 32 focused backend tests and 14 focused HTTPS tests
+passed. On 2026-09-24, independent OpenSpec validation passed all 16 items, followed by
+the full `QUICK_TRAIN_TEST_DATABASE_NAME=quick_train_fde2_review mise run verify` gate:
+all static/build checks, 411 backend tests (seed `44611`), and 26 disposable HTTPS tests
+(seed `636794`). The 25 MiB transfer measured 173 ms staging and 426 ms publication
+against the existing 30,000 ms operation budget. AWS qualification remains unperformed.
 
 ## References
 

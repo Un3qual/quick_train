@@ -64,3 +64,10 @@
 - [x] 10.1 Replace lifecycle summary accumulation with native collection operations while retaining complete-rule validation; check multiple valid rules and mixed valid/invalid rules.
 - [x] 10.2 Simplify the private signed-request interface to named options without changing signing, streaming, deadlines, or error categories.
 - [x] 10.3 Review the resulting diff, run focused tests, independent OpenSpec validation, and the full verification gate; record evidence and commit.
+
+## 11. PR #11 review follow-through
+
+- [x] 11.1 Reproduce and fix AWS dotted virtual-host bucket acceptance, root-path local bootstrap rejection, and the fault fixture's undersized body limit.
+- [x] 11.2 Retry conditional PUT conflicts once with Req under the existing deadline; verify successful convergence and bounded persistent failure.
+- [x] 11.3 Clarify browser CORS as a separate deployment prerequisite; retain the approved optional-cleanup manifest, exact upload cap, and disposable test isolation.
+- [x] 11.4 Validate fixes and record evidence and captured-thread dispositions for publication. Reply to the captured threads during publication, then stop without fetching more reviews.

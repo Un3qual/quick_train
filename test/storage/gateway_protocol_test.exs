@@ -112,9 +112,12 @@ defmodule QuickTrain.Storage.GatewayProtocolTest do
     refute version in ["", "null"]
 
     assert :ok =
-             LocalSetup.run(context.s3_config, [
-               "http://localhost:4005"
-             ])
+             LocalSetup.run(
+               %{context.s3_config | endpoint: %{context.s3_config.endpoint | path: "/"}},
+               [
+                 "http://localhost:4005"
+               ]
+             )
 
     assert request(context, :get, key).body == "before"
     assert request(context, :put, key, body: "after").status == 200

@@ -336,8 +336,10 @@ Supply the exact deployment settings and application credentials through
 `QUICK_TRAIN_STORAGE_PROFILE=aws`, `QUICK_TRAIN_STORAGE_ENDPOINT`, `QUICK_TRAIN_STORAGE_REGION`,
 `QUICK_TRAIN_STORAGE_BUCKET`, `QUICK_TRAIN_STORAGE_ACCESS_KEY`, and
 `QUICK_TRAIN_STORAGE_SECRET_KEY`; use `QUICK_TRAIN_STORAGE_SESSION_TOKEN` for temporary credentials.
-Set `QUICK_TRAIN_STORAGE_ADDRESSING` to `path` or `virtual`. AWS uses normal verified TLS trust by
-default; `QUICK_TRAIN_STORAGE_CA_FILE` optionally supplies an explicit trusted CA file.
+Set `QUICK_TRAIN_STORAGE_ADDRESSING` to `path` or `virtual`; AWS buckets containing dots require
+`path` because the standard wildcard certificate does not cover their virtual hostname.
+AWS uses normal verified TLS trust by default; `QUICK_TRAIN_STORAGE_CA_FILE` optionally supplies
+an explicit trusted CA file.
 
 Declare every application/frontend hostname in `QUICK_TRAIN_STORAGE_APPLICATION_HOSTS_JSON`,
 and all session-cookie Domain scopes in `QUICK_TRAIN_STORAGE_COOKIE_DOMAINS_JSON`. An explicit
@@ -373,6 +375,14 @@ Only those run-owned keys and versions are eligible for operator cleanup. Failed
 reported as an exact key/version manifest; failed inventory reports the run's keys and fails
 qualification rather than claiming complete cleanup. Keep the JSON report for manual cleanup
 when operator deletion is unavailable.
+
+`storage.check` uses server-side requests and reports `browser_cors: "not_checked"`.
+Before enabling browser `fetch` transfers, separately configure and verify bucket CORS from
+each consuming application's actual origin: allow `POST` uploads and any `GET`/`HEAD` access
+the client uses, permit its request headers, and expose response headers the client reads.
+Verify both successful transfers and rejection of an unapproved origin in the browser.
+A `qualified` storage report alone does not establish browser compatibility; plain download
+navigation does not require CORS.
 
 The report identifies the endpoint, bucket, region, and a SHA-256 fingerprint of the application
 access-key identifier, without printing credentials or signed access descriptors. Re-run the check

@@ -27,7 +27,9 @@ defmodule QuickTrain.Assets.Storage.S3.HTTPClient do
     result =
       Req.request(
         options,
-        retry: false,
+        retry: &retry_conflict/2,
+        max_retries: 1,
+        retry_log_level: false,
         redirect: false,
         decode_body: false,
         raw: true,
@@ -52,6 +54,12 @@ defmodule QuickTrain.Assets.Storage.S3.HTTPClient do
   catch
     {:storage_error, reason} -> {:error, %{reason: reason}}
   end
+
+  defp retry_conflict(%{method: :put} = request, %{status: 409}) do
+    if Req.Request.get_header(request, "if-none-match") == ["*"], do: {:delay, 0}, else: false
+  end
+
+  defp retry_conflict(_request, _response), do: false
 
   def collect_control({:data, data}, {request, response}) do
     body = response.body <> data

@@ -82,7 +82,9 @@ defmodule QuickTrain.Assets.S3FailuresTest do
   end
 
   test "replacing staging after HEAD cannot change the version read or published", ctx do
-    assert :ok = S3.write_staging(ctx.key, ["four"], 4, 5_000)
+    bytes = :binary.copy("a", 2 * 1024 * 1024)
+    size = byte_size(bytes)
+    assert :ok = S3.write_staging(ctx.key, [bytes], size, 5_000)
     parent = self()
     upstream = ctx.options[:endpoint]
 
@@ -104,15 +106,67 @@ defmodule QuickTrain.Assets.S3FailuresTest do
       end)
 
     Application.put_env(:quick_train, :s3_storage, Keyword.put(ctx.options, :endpoint, endpoint))
-    expected = %{sha256: :crypto.hash(:sha256, "four"), byte_size: 4, media_type: "text/plain"}
+    expected = %{sha256: :crypto.hash(:sha256, bytes), byte_size: size, media_type: "text/plain"}
     sealed = String.replace(ctx.key, "/staging/", "/sealed/")
     operation = Task.async(fn -> S3.verify_and_publish(ctx.key, sealed, expected, 5_000) end)
     assert_receive {:selected_version, server}, 2_000
     # Use the direct gateway for the overwrite while publication retains its configuration.
     Application.put_env(:quick_train, :s3_storage, ctx.options)
-    assert :ok = S3.write_staging(ctx.key, ["five"], 4, 5_000)
+    assert :ok = S3.write_staging(ctx.key, [:binary.copy("b", size)], size, 5_000)
     send(server, :continue)
     assert {:ok, %{facts: ^expected}} = Task.await(operation, 6_000)
     assert {:ok, ^expected} = S3.verify_sealed(sealed, expected, 5_000)
+  end
+
+  test "a conditional conflict retries and verifies the winning canonical content", ctx do
+    assert :ok = S3.write_staging(ctx.key, ["four"], 4, 5_000)
+    parent = self()
+
+    endpoint =
+      Server.start(fn conn ->
+        {conn, response} = Server.forward(conn, ctx.options[:endpoint])
+
+        if conn.method == "PUT" do
+          send(parent, {:conditional_put, response.status})
+        end
+
+        if conn.method == "PUT" and response.status == 200,
+          do: Plug.Conn.send_resp(conn, 409, "conflict"),
+          else: Server.respond({conn, response})
+      end)
+
+    Application.put_env(:quick_train, :s3_storage, Keyword.put(ctx.options, :endpoint, endpoint))
+    expected = %{sha256: :crypto.hash(:sha256, "four"), byte_size: 4, media_type: "text/plain"}
+    sealed = String.replace(ctx.key, "/staging/", "/sealed/")
+    assert {:ok, %{facts: ^expected}} = S3.verify_and_publish(ctx.key, sealed, expected, 5_000)
+    assert_receive {:conditional_put, 200}
+    assert_receive {:conditional_put, 412}
+    refute_receive {:conditional_put, _status}
+  end
+
+  test "persistent conditional conflicts stop after one retry", ctx do
+    assert :ok = S3.write_staging(ctx.key, ["four"], 4, 5_000)
+    parent = self()
+
+    endpoint =
+      Server.start(fn conn ->
+        if conn.method == "PUT" do
+          send(parent, :conditional_conflict)
+          Plug.Conn.send_resp(conn, 409, "conflict")
+        else
+          conn |> Server.forward(ctx.options[:endpoint]) |> Server.respond()
+        end
+      end)
+
+    Application.put_env(:quick_train, :s3_storage, Keyword.put(ctx.options, :endpoint, endpoint))
+    expected = %{sha256: :crypto.hash(:sha256, "four"), byte_size: 4, media_type: "text/plain"}
+    sealed = String.replace(ctx.key, "/staging/", "/sealed/")
+
+    assert {:error, :storage_publication_conflict} =
+             S3.verify_and_publish(ctx.key, sealed, expected, 5_000)
+
+    assert_receive :conditional_conflict
+    assert_receive :conditional_conflict
+    refute_receive :conditional_conflict
   end
 end

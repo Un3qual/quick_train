@@ -37,7 +37,11 @@ defmodule QuickTrain.Assets.Storage.S3.Qualification do
   end
 
   defp run(config, operator_options) do
-    report = %{target: target(config), checked_at: DateTime.to_iso8601(DateTime.utc_now())}
+    report = %{
+      target: target(config),
+      checked_at: DateTime.to_iso8601(DateTime.utc_now()),
+      browser_cors: :not_checked
+    }
 
     with {:ok, operator} <- operator_sdk(config, operator_options),
          {:ok, snapshot} <- inspect_bucket(config, operator),

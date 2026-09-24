@@ -15,7 +15,7 @@ defmodule QuickTrain.Assets.Storage.S3.LocalSetup do
 
   defp local_storage?(%{profile: :local, addressing: :path, endpoint: endpoint}) do
     endpoint.scheme == "https" and endpoint.host == "127.0.0.1" and
-      endpoint.port in 1..65_535 and endpoint.path in [nil, ""] and
+      endpoint.port in 1..65_535 and endpoint.path in [nil, "", "/"] and
       is_nil(endpoint.userinfo) and is_nil(endpoint.query) and is_nil(endpoint.fragment)
   end
 

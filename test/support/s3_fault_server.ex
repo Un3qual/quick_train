@@ -25,7 +25,8 @@ defmodule QuickTrainWeb.S3FaultServer do
   end
 
   def forward(conn, upstream) do
-    {:ok, body, conn} = read_body(conn, length: 1024 * 1024)
+    limit = Application.fetch_env!(:quick_train, :assets) |> Keyword.fetch!(:max_bytes)
+    {:ok, body, conn} = read_body(conn, length: limit)
 
     url =
       upstream <>

@@ -148,6 +148,7 @@ defmodule QuickTrain.Assets.S3ConfigTest do
     assert result.host == "quick-train.storage.example.test"
     assert result.sdk.host == "storage.example.test"
     assert result.sdk.virtual_host == true
+    assert {:ok, _result} = StorageConfig.new(Keyword.put(config, :bucket, "local.bucket"))
 
     assert {:error, :invalid_storage_configuration} =
              StorageConfig.new(
@@ -169,6 +170,14 @@ defmodule QuickTrain.Assets.S3ConfigTest do
       |> Keyword.delete(:ca_file)
 
     assert {:ok, %{profile: :aws, tls_options: []}} = StorageConfig.new(config)
+
+    dotted = Keyword.put(config, :bucket, "assets.example")
+    assert {:ok, _result} = StorageConfig.new(dotted)
+
+    assert {:error, :invalid_storage_configuration} =
+             StorageConfig.new(Keyword.put(dotted, :addressing, :virtual))
+
+    assert {:ok, _result} = StorageConfig.new(Keyword.put(config, :addressing, :virtual))
 
     for endpoint <- [
           "https://s3.amazonaws.com",

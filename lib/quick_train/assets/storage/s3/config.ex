@@ -24,7 +24,7 @@ defmodule QuickTrain.Assets.Storage.S3.Config do
          {:ok, application_hosts} <- host_list(options[:application_hosts], :host),
          true <- application_hosts != [],
          {:ok, cookie_domains} <- host_list(options[:cookie_domains], :cookie_domain),
-         {:ok, host} <- storage_host(endpoint.host, options[:bucket], addressing),
+         {:ok, host} <- storage_host(endpoint.host, options[:bucket], addressing, profile),
          true <- isolated?(host, application_hosts, cookie_domains),
          {:ok, tls_options} <- tls_options(profile, options[:ca_file]) do
       {:ok,
@@ -84,10 +84,12 @@ defmodule QuickTrain.Assets.Storage.S3.Config do
 
   defp valid_region?(_value), do: false
 
-  defp storage_host(host, _bucket, :path), do: {:ok, host}
+  defp storage_host(host, _bucket, :path, _profile), do: {:ok, host}
 
-  defp storage_host(host, bucket, :virtual) do
-    if ip_address?(host), do: @invalid, else: normalize_host("#{bucket}.#{host}")
+  defp storage_host(host, bucket, :virtual, profile) do
+    if ip_address?(host) or (profile == :aws and String.contains?(bucket, ".")),
+      do: @invalid,
+      else: normalize_host("#{bucket}.#{host}")
   end
 
   defp host_list(values, kind) when is_list(values) do

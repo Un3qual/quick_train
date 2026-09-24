@@ -10,11 +10,12 @@ set -a
 source .storage/local.env
 set +a
 
-if [[ ! "${QUICK_TRAIN_STORAGE_ENDPOINT:-}" =~ ^https://127\.0\.0\.1:[0-9]+$ ]] ||
-   [[ "$QUICK_TRAIN_STORAGE_ENDPOINT" != "https://127.0.0.1:${QUICK_TRAIN_STORAGE_PORT:-55434}" ]]; then
+if [[ ! "${QUICK_TRAIN_STORAGE_ENDPOINT:-}" =~ ^https://127\.0\.0\.1:[0-9]+/?$ ]] ||
+   [[ "${QUICK_TRAIN_STORAGE_ENDPOINT%/}" != "https://127.0.0.1:${QUICK_TRAIN_STORAGE_PORT:-55434}" ]]; then
   echo 'Local storage requires https://127.0.0.1:<QUICK_TRAIN_STORAGE_PORT>.' >&2
   exit 1
 fi
+QUICK_TRAIN_STORAGE_ENDPOINT=${QUICK_TRAIN_STORAGE_ENDPOINT%/}
 if [[ -z "${ROOT_ACCESS_KEY:-}" || -z "${ROOT_SECRET_KEY:-}" ||
       "$ROOT_ACCESS_KEY" != "${QUICK_TRAIN_STORAGE_ACCESS_KEY:-}" ||
       "$ROOT_SECRET_KEY" != "${QUICK_TRAIN_STORAGE_SECRET_KEY:-}" ]]; then
