@@ -58,3 +58,9 @@
 - [x] 9.3 Keep native Req responses through transfer/probe code, adapt responses only at the ExAws callback, and use Req's header and multipart APIs. Derive signed download overrides from the existing delivery headers.
 - [x] 9.4 Verify focused fixtures and disposable HTTPS integration, including multipart encoding and cleanup of both object versions and delete markers; commit the simplifications.
 - [x] 9.5 Run independent OpenSpec validation and the complete verification gate, record results, and commit closeout.
+
+## 10. Second branch-scoped simplification pass
+
+- [x] 10.1 Replace lifecycle summary accumulation with native collection operations while retaining complete-rule validation; check multiple valid rules and mixed valid/invalid rules.
+- [x] 10.2 Simplify the private signed-request interface to named options without changing signing, streaming, deadlines, or error categories.
+- [x] 10.3 Review the resulting diff, run focused tests, independent OpenSpec validation, and the full verification gate; record evidence and commit.

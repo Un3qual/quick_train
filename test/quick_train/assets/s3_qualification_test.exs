@@ -56,6 +56,28 @@ defmodule QuickTrain.Assets.S3QualificationTest do
     assert result.current_expiration_days == [1]
     assert result.noncurrent_expiration_days == [1]
     assert result.expired_delete_marker_cleanup
+
+    lifecycle =
+      String.replace(context.snapshot.documents.lifecycle, "</LifecycleConfiguration>", """
+        <Rule><Status>Enabled</Status><Prefix>assets/staging/</Prefix>
+          <Expiration><Days>2</Days></Expiration>
+        </Rule>
+        <Rule><Status>Enabled</Status><Prefix>assets/staging/</Prefix>
+          <NoncurrentVersionExpiration><NoncurrentDays>3</NoncurrentDays></NoncurrentVersionExpiration>
+        </Rule>
+      </LifecycleConfiguration>
+      """)
+
+    assert {:ok, result} =
+             Qualification.validate(
+               put_in(context.snapshot, [:documents, :lifecycle], lifecycle),
+               context.config,
+               context.assets
+             )
+
+    assert Enum.sort(result.current_expiration_days) == [1, 2]
+    assert Enum.sort(result.noncurrent_expiration_days) == [1, 3]
+    assert result.expired_delete_marker_cleanup
   end
 
   test "another bucket's passing inspection cannot qualify runtime storage", context do

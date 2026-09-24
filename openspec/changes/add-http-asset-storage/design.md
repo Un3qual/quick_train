@@ -224,6 +224,35 @@ all static/build checks, 411 backend tests (seed `517590`), and 24 disposable HT
 (seed `957037`). Independent OpenSpec validation passed all 16 active changes/specifications.
 AWS deployment qualification remains not performed.
 
+### Second branch-scoped simplification pass
+
+The second pass retains the same feature scope with the previous cleanup applied.
+Lifecycle qualification now validates the rule list and collects expiration ages with
+`Enum.map/2`, `Enum.flat_map/2`, and `List.wrap/1`; the custom summary reducer and
+nil-handling helper are removed. The report retains every applicable expiration age,
+without assigning meaning to their order. Invalid rules still reject the entire
+configuration before summary extraction. The existing fixture also exercises separate
+current/noncurrent rules alongside the combined rule and delete-marker cleanup.
+
+The private S3 request helper accepts named request options instead of positional body,
+header, and query placeholders. Query parameters are consumed by the signer; the same
+headers used for signing and the body/stream callback pass directly to Req.
+
+The architecture review found no further useful Ash abstraction: existing actions own
+authorization, claims, and readiness, with network I/O outside transactions. Req's native
+checksum option applies to error responses too, so replacing the status-aware streaming
+verifier would require extra machinery to preserve retryable HTTP errors. The bounded
+collector and task deadline also remain necessary for capped responses and blocking
+enumerables. Splitting the operation helper solely to avoid unused temporary directories
+would add interfaces and cleanup paths for little benefit.
+
+This pass removes 25 production lines. Verification on 2026-09-24 passed 32 focused
+tests (seed `553646`), independent OpenSpec validation (all 16 items), and the complete
+`QUICK_TRAIN_TEST_DATABASE_NAME=quick_train_fde2_review mise run verify` gate: all
+static/build checks, 411 backend tests (seed `283997`), and 24 disposable HTTPS tests
+(seed `41802`). The 25 MiB transfer measured 195 ms for staging and 477 ms for publication
+against the existing 30,000 ms per-operation deadline. AWS qualification was not run.
+
 ## References
 
 - [ExAws.S3 policy signing, operations, and signed URLs](https://ex-aws-s3.hexdocs.pm/ExAws.S3.html)

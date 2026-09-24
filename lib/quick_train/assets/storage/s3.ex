@@ -117,7 +117,7 @@ defmodule QuickTrain.Assets.Storage.S3 do
   end
 
   defp staging_version(config, key, expected, deadline) do
-    case request(config, :head, key, [], nil, [], deadline) do
+    case request(config, :head, key, deadline) do
       {:ok, %{status: 200} = response} ->
         size = Integer.to_string(expected.byte_size)
 
@@ -162,14 +162,14 @@ defmodule QuickTrain.Assets.Storage.S3 do
           {"x-amz-checksum-sha256", Base.encode64(digest)}
         ]
 
-    request(config, :put, key, [], File.stream!(path, 64 * 1024), headers, deadline)
+    request(config, :put, key, deadline, body: File.stream!(path, 64 * 1024), headers: headers)
   end
 
   defp verify_object(config, key, query, expected, path, deadline, kind) do
     with_file(path, fn file ->
       into = fn data, context -> verify_chunk(data, context, expected, file, deadline, kind) end
 
-      case request(config, :get, key, query, nil, [], deadline, into: into) do
+      case request(config, :get, key, deadline, query: query, into: into) do
         {:ok, %{status: 200} = response} -> verify_response(response, expected, kind)
         {:error, _reason} = error -> error
         _failure -> {:error, :storage_request_failed}
@@ -220,8 +220,9 @@ defmodule QuickTrain.Assets.Storage.S3 do
         [media_digest(expected.media_type)]
   end
 
-  defp request(config, method, key, query, body, headers, deadline, opts \\ []) do
+  defp request(config, method, key, deadline, opts \\ []) do
     timeout = Operation.remaining(deadline)
+    {query, opts} = Keyword.pop(opts, :query, [])
 
     with {:ok, url} <-
            ExAws.S3.presigned_url(config.sdk, method, config.bucket, key,
@@ -230,7 +231,7 @@ defmodule QuickTrain.Assets.Storage.S3 do
              # still bounds work and does not promise remote cancellation.
              expires_in: div(timeout + 999, 1000) + 1,
              query_params: query,
-             headers: headers,
+             headers: Keyword.get(opts, :headers, []),
              virtual_host: config.addressing == :virtual
            ),
          {:ok, response} <-
@@ -238,8 +239,6 @@ defmodule QuickTrain.Assets.Storage.S3 do
              [
                method: method,
                url: url,
-               body: body,
-               headers: headers,
                tls_options: config.tls_options,
                timeout: timeout
              ] ++ opts

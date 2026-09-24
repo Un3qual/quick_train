@@ -203,46 +203,22 @@ defmodule QuickTrain.Assets.Storage.S3.Qualification do
     rules = xpath(document, ~x"/LifecycleConfiguration/Rule"el)
 
     with true <- rules != [] and children(document) == List.duplicate("Rule", length(rules)),
-         {:ok, summary} <- lifecycle_summary(rules, window),
-         true <-
-           summary.current_expiration_days != [] and summary.noncurrent_expiration_days != [] and
-             summary.expired_delete_marker_cleanup do
-      {:ok, summary}
+         rules <- Enum.map(rules, &lifecycle_rule(&1, window)),
+         false <- :invalid in rules,
+         [_ | _] = current <- Enum.flat_map(rules, &List.wrap(&1.current)),
+         [_ | _] = noncurrent <- Enum.flat_map(rules, &List.wrap(&1.noncurrent)),
+         true <- Enum.any?(rules, & &1.marker) do
+      {:ok,
+       %{
+         safety_window_seconds: window,
+         current_expiration_days: current,
+         noncurrent_expiration_days: noncurrent,
+         expired_delete_marker_cleanup: true
+       }}
     else
       _invalid -> {:error, :unsafe_staging_lifecycle}
     end
   end
-
-  defp lifecycle_summary(rules, window) do
-    initial = %{
-      safety_window_seconds: window,
-      current_expiration_days: [],
-      noncurrent_expiration_days: [],
-      expired_delete_marker_cleanup: false
-    }
-
-    Enum.reduce_while(rules, {:ok, initial}, fn rule, {:ok, summary} ->
-      case lifecycle_rule(rule, window) do
-        %{current: current, noncurrent: noncurrent, marker: marker} ->
-          {:cont,
-           {:ok,
-            %{
-              summary
-              | current_expiration_days:
-                  add_expiration_day(current, summary.current_expiration_days),
-                noncurrent_expiration_days:
-                  add_expiration_day(noncurrent, summary.noncurrent_expiration_days),
-                expired_delete_marker_cleanup: marker or summary.expired_delete_marker_cleanup
-            }}}
-
-        :invalid ->
-          {:halt, :invalid}
-      end
-    end)
-  end
-
-  defp add_expiration_day(nil, days), do: days
-  defp add_expiration_day(day, days), do: [day | days]
 
   defp lifecycle_rule(rule, window) do
     expiration = xpath(rule, ~x"./Expiration"el)
