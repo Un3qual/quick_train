@@ -61,12 +61,14 @@ defmodule QuickTrain.Assets.Asset.Actions.Finalize do
 
         true ->
           asset =
-            asset
-            |> Ash.Changeset.for_update(:claim_operation, %{
-              operation_claim_id: Ash.UUID.generate(),
-              operation_claim_expires_at: claim_expires_at
-            })
-            |> Ash.update!(authorize?: false)
+            Assets.claim_asset_operation!(
+              asset,
+              %{
+                operation_claim_id: Ash.UUID.generate(),
+                operation_claim_expires_at: claim_expires_at
+              },
+              authorize?: false
+            )
 
           {:claimed, asset}
       end
@@ -170,21 +172,17 @@ defmodule QuickTrain.Assets.Asset.Actions.Finalize do
             case ready_asset(asset) do
               nil ->
                 ready =
-                  asset
-                  |> Ash.Changeset.for_update(:complete_ready, %{
-                    sealed_key: sealed_key
-                  })
-                  |> Ash.update!(authorize?: false)
+                  Assets.complete_asset_ready!(asset, %{sealed_key: sealed_key},
+                    authorize?: false
+                  )
 
                 {:terminal, ready}
 
               canonical ->
                 duplicate =
-                  asset
-                  |> Ash.Changeset.for_update(:complete_duplicate, %{
-                    canonical_asset_id: canonical.id
-                  })
-                  |> Ash.update!(authorize?: false)
+                  Assets.complete_asset_duplicate!(asset, %{canonical_asset_id: canonical.id},
+                    authorize?: false
+                  )
 
                 {:terminal, duplicate}
             end
@@ -241,9 +239,7 @@ defmodule QuickTrain.Assets.Asset.Actions.Finalize do
   end
 
   defp complete_failed!(asset, reason) do
-    asset
-    |> Ash.Changeset.for_update(:complete_failed, %{failure_reason: reason})
-    |> Ash.update!(authorize?: false)
+    Assets.complete_asset_failed!(asset, %{failure_reason: reason}, authorize?: false)
   end
 
   defp ready_asset(asset) do
@@ -255,14 +251,17 @@ defmodule QuickTrain.Assets.Asset.Actions.Finalize do
   end
 
   defp locked_asset(asset_id, organization_id) do
-    Asset
-    |> Ash.Query.filter(id == ^asset_id and organization_id == ^organization_id)
-    |> Ash.Query.lock(:for_update)
-    |> Ash.read_one!(authorize?: false)
+    Assets.get_asset!(asset_id, organization_id,
+      query: [lock: :for_update],
+      not_found_error?: false,
+      authorize?: false
+    )
   end
 
   defp result(%{state: :duplicate_content} = asset) do
-    canonical = Asset |> Ash.get!(asset.canonical_asset_id, authorize?: false)
+    canonical =
+      Assets.get_asset!(asset.canonical_asset_id, asset.organization_id, authorize?: false)
+
     {:ok, AssetFinalizationResult.from(asset, canonical)}
   end
 

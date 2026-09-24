@@ -259,7 +259,7 @@ defmodule QuickTrainWeb.GraphqlApiTest do
              "DatasetValueFamily"
            ]) == %{
              "AssetState" => MapSet.new(~w(DUPLICATE_CONTENT FAILED PENDING READY)),
-             "AssetStorageMethod" => MapSet.new(~w(GET PUT)),
+             "AssetStorageMethod" => MapSet.new(~w(GET POST PUT)),
              "DatasetFieldCardinality" => MapSet.new(~w(SINGLE)),
              "DatasetImportLifecycle" =>
                MapSet.new(~w(COMPLETED FAILED OPEN PARTIALLY_FAILED PENDING)),

@@ -60,7 +60,7 @@ The existing authorized access actions return SDK-signed GET descriptors for the
 
 Configure a storage hostname distinct from all application hostnames and outside application-cookie scope; another port on the application hostname is insufficient. Require machine-readable lists of application hostnames and session-cookie Domain scopes, including consuming frontends. An explicitly empty domain list declares that all application cookies are host-only; an omitted declaration cannot qualify. Normalize DNS names and cookie domains (including a leading dot), reject an application-host match, and reject a storage hostname equal to or ending in a dot plus any declared cookie domain. Thus `storage.example.com` with a `.example.com` application cookie is rejected even if the application uses `app.example.com`. Validate this configuration before issuing storage access; operators must keep the declarations accurate because the backend cannot inspect frontend runtime cookies. No cookie-discovery service is needed.
 
-Clients send no QuickTrain cookies or bearer token to storage, use no-referrer access handling, and never embed these URLs as scripts, styles, or inline content. If browser fetch uploads/downloads are used, configure CORS for explicit application origins and the required transfer methods/headers; do not treat CORS as authorization. Plain download navigation does not require a broad CORS policy.
+Clients send no QuickTrain cookies or bearer token to storage, use no-referrer access handling, and never embed these URLs as scripts, styles, or inline content. If browser fetch uploads/downloads are used, configure CORS for explicit application origins and the required transfer methods/headers; do not treat CORS as authorization. The server-side deployment check reports browser CORS as not checked. Operators must separately verify browser transfers from each actual application origin before enabling them, including response-header access and denial of an unapproved origin. Plain download navigation does not require a broad CORS policy.
 
 Nosniff remains welcome when the storage endpoint supplies it, but its absence does not disqualify this isolated download-only path. Attachment and isolation are not claimed to replicate its script/style protections. Do not add a CDN, proxy, Phoenix route, header-injection capability, or fake descriptor request header to manufacture it. GraphQL remains the only application API. A future inline-media change must define its own rendering contract.
 
@@ -119,6 +119,165 @@ Test acceptance/rejection with deterministic configuration fixtures rather than 
 3. Reconcile `Storage` documentation, GraphQL examples, README, and verification commands with this approved contract. Run focused tests and the complete local gate.
 4. For deployment, have the operator provision a private versioned bucket, safe staging/version lifecycle rules, isolated endpoint, explicit application host/cookie-domain declarations, least-privilege credentials, and explicit CORS if needed. Run `storage.check` with the intended runtime configuration against that exact bucket before enabling storage access; only that checked target and application identity qualify. Never change bucket contents during ordinary application startup.
 5. Roll back by disabling new storage access or restoring the previous application release/configuration while retaining private objects and database facts. Do not substitute InMemory in production or delete storage to roll back. Already-issued signed capabilities retain their original expiry.
+
+## Implementation and verification evidence
+
+Implemented on 2026-09-23 with exact ExAws 2.7.0, ExAws.S3 2.5.9, and SweetXml 0.7.5
+dependencies, reusing Req 0.7.2. Existing Ash/Igniter generators were inspected; the access
+descriptor is an existing embedded resource, so it was edited directly without persistence
+generation or a migration. The runtime uses explicit SDK configuration maps and direct SDK
+operations so ambient ExAws configuration cannot select credentials or metadata discovery.
+
+The verified gateway is `versity/versitygw:v1.8.0@sha256:30292fc2eeacc67a36993b01f7a7a5e3361a19cced0e80c1d71cfa2a4b0a2499`.
+Local HTTPS checks demonstrated exact-cap multipart uploads, cap-plus-one rejection, fixed-field
+and signed-policy tampering rejection, expired POST/GET rejection, version-specific reads,
+checksum rejection, conditional PUT conflict behavior, denied unsigned access, and authenticated
+download response headers. Coordinated lifecycle and export tests exercise current claims,
+publication races, staging replacement, long/non-ASCII media types, stale claims, lost responses,
+delayed remote completion, and deterministic snapshot retries. Temporary verification HTTP
+failures preserve pending identity rather than being reported as permanent content conflicts.
+
+An isolated development setup/restart check preserved credentials, certificates, current bytes,
+and prior versions. CORS accepted the configured localhost origin and rejected another origin;
+plaintext requests failed. Concurrent disposable runs (one successful, one intentionally failed)
+removed only their own containers and volumes. A missing Docker endpoint caused an explicit
+integration failure. In the final gate, a measured 25 MiB staging write took 167 ms and publication took 468 ms,
+against the existing 30,000 ms budget per operation on this machine; these are observations,
+not a production latency guarantee.
+
+The deployment command is separate from local verification. Deterministic fixtures check exact
+runtime target binding, safe lifecycle/ownership/public-access controls, and cleanup isolation.
+AWS deployment qualification has **not been performed**. The live application-identity probes
+must run against the intended AWS configuration before that deployment is considered qualified.
+The independent review's three findings were fixed and verified: transient verification HTTP
+failures preserve retryability, protocol fixtures cannot merge ambient SDK credentials, and
+malformed inspection/inventory XML returns sanitized failures while preserving cleanup manifests.
+
+Final local validation passed:
+
+- `mise run openspec.validate`: all 15 changes/specifications valid.
+- `QUICK_TRAIN_TEST_DATABASE_NAME=quick_train_ae1a_root_test mise run verify`: formatting,
+  Ash code-generation check, compile boundaries/cycles, strict Credo/Reach, zero clone budget,
+  Dialyzer (zero errors), dependency audit (no retired/advisory packages), production compilation,
+  409 ordinary tests, and 22 disposable HTTPS storage tests all passed. The dedicated ordinary
+  test database avoids modifying unrelated development/test schemas; the integration runner
+  separately creates and removes its own UUID database.
+- The final integration run used ExUnit seed `714320`; its 22 tests completed in 8.5 seconds.
+
+### Approved code-quality review follow-up
+
+The four approved review improvements are implemented. Development setup and integration fixtures
+now call `S3.LocalSetup` with the existing validated S3 configuration, sharing bucket creation,
+versioning, and scoped CORS setup. Result-export transitions use narrow named Ash update actions
+and Tasks interfaces. Asset finalization uses Assets interfaces for its existing update actions
+and scoped locked/canonical reads. Qualification uses ExAws inspection constructors where
+available, and its fixtures independently specify the expected protocol requests.
+
+The new allowed-origin CORS regression first failed with HTTP 403 against the old fixture; it
+passes through the shared bootstrap. Gateway tests also reject unapproved origins and non-local
+bootstrap targets and confirm that repeated bootstrap preserves stored bytes and version history.
+The shared setup removes 34 lines of duplicated setup/configuration code. An independent review
+found no actionable issues; existing public contracts, claim fencing, and transaction boundaries
+remain unchanged.
+
+Follow-up validation on 2026-09-23 passed 85 focused qualification/lifecycle/export/concurrency/
+GraphQL tests, then the complete
+`QUICK_TRAIN_TEST_DATABASE_NAME=quick_train_ae1a_root_test mise run verify` gate: all static/build
+checks, 409 ordinary tests, and 24 disposable HTTPS storage tests. The final integration seed was
+`913268`; its 25 MiB transfer measured 177 ms for staging and 494 ms for publication against the
+existing 30,000 ms per-operation budget. AWS qualification remains not performed.
+
+All implementation and approved review tasks are complete. This active change is ready for the
+normal OpenSpec sync/archive workflow; its delta specifications have not been archived into the
+main specs yet.
+
+### Branch-scoped simplification review
+
+This review covers the HTTP storage feature range `5d77899..aa23adc`. The later
+repository-wide cleanup is outside this review's scope. The three reviewed S3 modules
+are 21 production lines shorter after these changes:
+
+- Qualification uses SweetXml's XPath sigils and native record mapping rather than
+  constructing XPath structs and mapping inventory nodes manually. Explicit bounded
+  parsing with `dtd: :none` remains necessary; the SDK's default inventory parser does
+  not provide that parsing boundary. Lifecycle validation still rejects unknown controls.
+- Transfer and qualification probes retain native Req responses and use its header API.
+  Only the ExAws callback converts them to the SDK response shape. Qualification POSTs
+  use `form_multipart` through the normal request pipeline instead of invoking an
+  encoding step and manually forwarding its encoded body and headers.
+- Signed download overrides derive from the existing delivery headers, keeping upload,
+  publication, and download metadata consistent without a second list.
+
+The architecture review retained the explicit credential configuration, version pinning,
+incremental size/hash verification, caller-owned spool cleanup, bounded control bodies,
+and separate operator identity. These enforce concrete storage contracts. Ash already
+owns the narrow asset/export transitions, locked claims, and readiness decisions; no
+additional persistence wrapper or resource is needed. The disposable runner's per-resource
+cleanup tracks partial startup so failures cannot affect development data or another run.
+
+Focused verification passed 32 tests (seed `728070`) and all 24 disposable HTTPS tests
+(seed `793018`). The existing upload test now exercises the same native multipart
+transport used by qualification; the cleanup fixture includes object versions and delete
+markers without assuming their order. The full
+`QUICK_TRAIN_TEST_DATABASE_NAME=quick_train_fde2_review mise run verify` gate then passed
+all static/build checks, 411 backend tests (seed `517590`), and 24 disposable HTTPS tests
+(seed `957037`). Independent OpenSpec validation passed all 16 active changes/specifications.
+AWS deployment qualification remains not performed.
+
+### Second branch-scoped simplification pass
+
+The second pass retains the same feature scope with the previous cleanup applied.
+Lifecycle qualification now validates the rule list and collects expiration ages with
+`Enum.map/2`, `Enum.flat_map/2`, and `List.wrap/1`; the custom summary reducer and
+nil-handling helper are removed. The report retains every applicable expiration age,
+without assigning meaning to their order. Invalid rules still reject the entire
+configuration before summary extraction. The existing fixture also exercises separate
+current/noncurrent rules alongside the combined rule and delete-marker cleanup.
+
+The private S3 request helper accepts named request options instead of positional body,
+header, and query placeholders. Query parameters are consumed by the signer; the same
+headers used for signing and the body/stream callback pass directly to Req.
+
+The architecture review found no further useful Ash abstraction: existing actions own
+authorization, claims, and readiness, with network I/O outside transactions. Req's native
+checksum option applies to error responses too, so replacing the status-aware streaming
+verifier would require extra machinery to preserve retryable HTTP errors. The bounded
+collector and task deadline also remain necessary for capped responses and blocking
+enumerables. Splitting the operation helper solely to avoid unused temporary directories
+would add interfaces and cleanup paths for little benefit.
+
+This pass removes 25 production lines. Verification on 2026-09-24 passed 32 focused
+tests (seed `553646`), independent OpenSpec validation (all 16 items), and the complete
+`QUICK_TRAIN_TEST_DATABASE_NAME=quick_train_fde2_review mise run verify` gate: all
+static/build checks, 411 backend tests (seed `283997`), and 24 disposable HTTPS tests
+(seed `41802`). The 25 MiB transfer measured 195 ms for staging and 477 ms for publication
+against the existing 30,000 ms per-operation deadline. AWS qualification was not run.
+
+### PR #11 captured review follow-through
+
+The captured review contained ten threads with eight distinct findings. The fixes stay
+within the existing storage contract: reject dotted bucket names only for AWS virtual
+addressing, accept a local root-path endpoint consistently in bootstrap/startup, and let
+the fault proxy read up to the configured asset cap instead of an unrelated 1 MiB limit.
+Req retries a conditional PUT's HTTP 409 once, without logging provider details or
+resetting the operation deadline; persistent conflicts retain their retryable error.
+Browser CORS remains a separate explicit operator check, now stated in the JSON report
+and deployment instructions rather than adding an origin-policy interpreter.
+
+No multipart allowance was added: the POST condition limits file content, and existing
+exact-cap/cap-plus-one protocol tests cover that behavior. Connection waits remain bounded
+by the caller's task deadline. Requiring cleanup permission would contradict the approved
+optional operator deletion contract; exact remaining-version manifests remain mandatory.
+The fixed protocol fixture keys are isolated by disposable per-run gateway volumes.
+Generic docstring coverage suggestions do not justify documentation on private helpers.
+
+Before the fixes, the AWS configuration regression and four HTTPS assertions failed for
+the reported reasons. Afterward, all 32 focused backend tests and 14 focused HTTPS tests
+passed. On 2026-09-24, independent OpenSpec validation passed all 16 items, followed by
+the full `QUICK_TRAIN_TEST_DATABASE_NAME=quick_train_fde2_review mise run verify` gate:
+all static/build checks, 411 backend tests (seed `44611`), and 26 disposable HTTPS tests
+(seed `636794`). The 25 MiB transfer measured 173 ms staging and 426 ms publication
+against the existing 30,000 ms operation budget. AWS qualification remains unperformed.
 
 ## References
 

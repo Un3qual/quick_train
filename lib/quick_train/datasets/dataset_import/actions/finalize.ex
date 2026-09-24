@@ -40,7 +40,7 @@ defmodule QuickTrain.Datasets.DatasetImport.Actions.Finalize do
       |> Ash.Query.filter(import_id == ^import.id and outcome == :pending)
       |> Ash.Query.sort(source_position: :asc, id: :asc)
       |> Ash.Query.select([:id])
-      |> Ash.read!(authorize?: false)
+      |> Ash.stream!(authorize?: false, batch_size: 100)
 
     sealed =
       QuickTrain.Datasets.seal_import_internal!(import, %{sealed_at: DateTime.utc_now()},
@@ -51,7 +51,7 @@ defmodule QuickTrain.Datasets.DatasetImport.Actions.Finalize do
     scheduler = scheduler()
 
     pending_rows
-    |> Enum.chunk_every(1000)
+    |> Stream.chunk_every(1000)
     |> Enum.each(&scheduler.enqueue_batch!/1)
 
     sealed

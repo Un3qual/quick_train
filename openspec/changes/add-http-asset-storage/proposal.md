@@ -33,7 +33,7 @@ Explicit non-goals: a QuickTrain download-streaming route or required CDN/proxy,
 - Extends Compose and mise tooling and documents the local/provider contract. No new business resource or database migration is expected; any necessary persistence change must be justified in the design and generated through Ash.
 - Remains within the reusable backend foundation: one global User, optional membership for existing task-worker routes, and fail-closed scoped authorization. Detailed media still requires its own change before `add-project-task-media` can proceed; this change provides only the real opaque-storage prerequisite.
 
-The user approved HTTP storage, cloud-independent development/tests, VersityGW, and optional nosniff for isolated direct downloads. This is a planning change; the selected version's compatibility tests and runtime implementation have not yet run.
+The user approved HTTP storage, cloud-independent development/tests, VersityGW, and optional nosniff for isolated direct downloads. The runtime implementation and pinned gateway protocol checks are implemented. Local verification evidence is recorded in the design; AWS deployment qualification has not been performed.
 
 ## Approved download decision
 

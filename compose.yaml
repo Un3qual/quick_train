@@ -1,4 +1,29 @@
 services:
+  storage:
+    image: versity/versitygw:v1.8.0@sha256:30292fc2eeacc67a36993b01f7a7a5e3361a19cced0e80c1d71cfa2a4b0a2499
+    profiles: [storage]
+    network_mode: bridge
+    env_file:
+      - path: .storage/local.env
+        required: false
+    command:
+      - --quiet
+      - --cert
+      - /certs/server.pem
+      - --key
+      - /certs/server.key
+      - --health
+      - /healthz
+      - posix
+      - --versioning-dir
+      - /versions
+      - /data
+    ports:
+      - "127.0.0.1:${QUICK_TRAIN_STORAGE_PORT:-55434}:7070"
+    volumes:
+      - ./.storage/certs:/certs:ro
+      - quick_train_storage:/data
+      - quick_train_storage_versions:/versions
   postgres:
     image: postgres:18.4-alpine3.22
     environment:
@@ -24,4 +49,6 @@ networks:
         - subnet: 10.253.0.0/24
 
 volumes:
+  quick_train_storage:
+  quick_train_storage_versions:
   quick_train_postgres:

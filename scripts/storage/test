@@ -1,0 +1,75 @@
+#!/usr/bin/env bash
+# Each invocation owns exactly one container and two volumes, never development data.
+set -euo pipefail
+cd "$(dirname "$0")/../.."
+image='versity/versitygw:v1.8.0@sha256:30292fc2eeacc67a36993b01f7a7a5e3361a19cced0e80c1d71cfa2a4b0a2499'
+run_id="quicktrain-storage-test-$(uuidgen | tr '[:upper:]' '[:lower:]')"
+export QUICK_TRAIN_TEST_DATABASE_NAME="${run_id//-/_}"
+export MIX_TEST_PARTITION=""
+echo "Storage integration run: $run_id"
+cert_dir=$(mktemp -d "${TMPDIR:-/tmp}/quicktrain-storage.XXXXXX")
+data_created=false
+versions_created=false
+container_attempted=false
+database_attempted=false
+cleanup() {
+  result=$?
+  trap - EXIT
+  set +e
+  failed=false
+  if [[ "$database_attempted" == true ]]; then
+    mise exec -- env MIX_ENV=test mix ecto.drop --quiet >/dev/null 2>&1 || failed=true
+  fi
+  if [[ "$container_attempted" == true ]]; then
+    docker rm -f "$run_id" >/dev/null 2>&1 || failed=true
+  fi
+  if [[ "$data_created" == true ]]; then
+    docker volume rm "${run_id}-data" >/dev/null 2>&1 || failed=true
+  fi
+  if [[ "$versions_created" == true ]]; then
+    docker volume rm "${run_id}-versions" >/dev/null 2>&1 || failed=true
+  fi
+  rm -rf "$cert_dir" || failed=true
+  if [[ "$failed" == true ]]; then
+    echo "Cleanup incomplete for disposable run $run_id; inspect only that run's resources." >&2
+    if [[ "$result" == 0 ]]; then result=1; fi
+  fi
+  exit "$result"
+}
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+scripts/storage/certificates "$cert_dir"
+export QUICK_TRAIN_STORAGE_ACCESS_KEY="local-test-$(openssl rand -hex 12)"
+export QUICK_TRAIN_STORAGE_SECRET_KEY
+QUICK_TRAIN_STORAGE_SECRET_KEY=$(openssl rand -hex 32)
+export QUICK_TRAIN_STORAGE_CA_FILE="$cert_dir/ca.pem"
+export QUICK_TRAIN_STORAGE_BUCKET=quicktrain-test
+export ROOT_ACCESS_KEY="$QUICK_TRAIN_STORAGE_ACCESS_KEY"
+export ROOT_SECRET_KEY="$QUICK_TRAIN_STORAGE_SECRET_KEY"
+docker volume create "${run_id}-data" >/dev/null
+data_created=true
+docker volume create "${run_id}-versions" >/dev/null
+versions_created=true
+container_attempted=true
+docker run -d --name "$run_id" -p 127.0.0.1::7070 \
+  -e ROOT_ACCESS_KEY -e ROOT_SECRET_KEY \
+  -v "$cert_dir:/certs:ro" -v "${run_id}-data:/data" -v "${run_id}-versions:/versions" \
+  "$image" --quiet --cert /certs/server.pem --key /certs/server.key \
+  --health /healthz posix --versioning-dir /versions /data >/dev/null
+port=$(docker port "$run_id" 7070/tcp | cut -d: -f2)
+export QUICK_TRAIN_STORAGE_ENDPOINT="https://127.0.0.1:$port"
+ready=false
+for attempt in $(seq 1 50); do
+  if curl --silent --fail --max-time 1 --cacert "$cert_dir/ca.pem" "$QUICK_TRAIN_STORAGE_ENDPOINT/healthz" >/dev/null; then
+    ready=true
+    break
+  fi
+  sleep 0.1
+done
+if [[ "$ready" != true ]]; then
+  echo 'Local storage failed to start; integration checks cannot be skipped.' >&2
+  exit 1
+fi
+database_attempted=true
+mise exec -- env MIX_ENV=test mix test --only storage "$@"

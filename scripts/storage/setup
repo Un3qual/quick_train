@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+set -euo pipefail
+cd "$(dirname "$0")/../.."
+umask 077
+
+mkdir -p .storage
+scripts/storage/certificates .storage/certs
+
+if [[ ! -e .storage/local.env ]]; then
+  access_key="quicktrain-local-$(openssl rand -hex 12)"
+  secret_key=$(openssl rand -hex 32)
+  port=${QUICK_TRAIN_STORAGE_PORT:-55434}
+  if [[ ! "$port" =~ ^[0-9]+$ ]] || (( port < 1 || port > 65535 )); then
+    echo 'QUICK_TRAIN_STORAGE_PORT must be a port from 1 to 65535.' >&2
+    exit 1
+  fi
+  cat > .storage/local.env <<ENV
+# Local development only. Keep this file and the certificate keys out of Git.
+ROOT_ACCESS_KEY=$access_key
+ROOT_SECRET_KEY=$secret_key
+QUICK_TRAIN_STORAGE_PROFILE=local
+QUICK_TRAIN_STORAGE_PORT=$port
+QUICK_TRAIN_STORAGE_ENDPOINT=https://127.0.0.1:$port
+QUICK_TRAIN_STORAGE_REGION=us-east-1
+QUICK_TRAIN_STORAGE_BUCKET=quicktrain-dev
+QUICK_TRAIN_STORAGE_ACCESS_KEY=$access_key
+QUICK_TRAIN_STORAGE_SECRET_KEY=$secret_key
+QUICK_TRAIN_STORAGE_CA_FILE=.storage/certs/ca.pem
+QUICK_TRAIN_STORAGE_ADDRESSING=path
+QUICK_TRAIN_STORAGE_APPLICATION_HOSTS_JSON='["localhost"]'
+QUICK_TRAIN_STORAGE_COOKIE_DOMAINS_JSON='[]'
+QUICK_TRAIN_STORAGE_CORS_ORIGINS_JSON='["http://localhost:4005"]'
+ENV
+fi
+
+scripts/storage/start

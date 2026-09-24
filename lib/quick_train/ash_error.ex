@@ -2,39 +2,27 @@ defmodule QuickTrain.AshError do
   @moduledoc false
 
   def constraint?(error, constraint_names) do
-    constraint_names = MapSet.new(constraint_names)
-
-    Enum.any?(leaf_errors(error), fn leaf_error ->
+    any_error?(error, fn leaf_error ->
       case constraint_name(leaf_error) do
         nil -> false
-        constraint_name -> MapSet.member?(constraint_names, constraint_name)
+        constraint_name -> constraint_name in constraint_names
       end
     end)
   end
 
   def reason?(error, reason) do
-    Enum.any?(leaf_errors(error), fn
+    any_error?(error, fn
       %{category: ^reason} -> true
       _error -> false
     end)
   end
 
-  defp leaf_errors(error) do
-    error
-    |> Ash.Error.traverse_errors(& &1)
-    |> flatten_traversal()
-  end
+  defp any_error?(%{errors: errors}, predicate), do: any_error?(errors, predicate)
 
-  defp flatten_traversal(%_{} = leaf_error), do: [leaf_error]
+  defp any_error?(errors, predicate) when is_list(errors),
+    do: Enum.any?(errors, &any_error?(&1, predicate))
 
-  defp flatten_traversal(map) when is_map(map) do
-    map
-    |> Map.values()
-    |> Enum.flat_map(&flatten_traversal/1)
-  end
-
-  defp flatten_traversal(list) when is_list(list), do: Enum.flat_map(list, &flatten_traversal/1)
-  defp flatten_traversal(_other), do: []
+  defp any_error?(error, predicate), do: predicate.(error)
 
   defp constraint_name(%{private_vars: private_vars}) when is_list(private_vars) do
     Keyword.get(private_vars, :constraint)

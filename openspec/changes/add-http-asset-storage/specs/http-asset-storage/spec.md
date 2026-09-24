@@ -123,6 +123,10 @@ The change SHALL record which behaviors were verified against the pinned local s
 - **WHEN** local verification passes but the AWS deployment check has not run
 - **THEN** the result reports local compatibility success and AWS deployment verification as not performed
 
+#### Scenario: A deployment uses browser fetch transfers
+- **WHEN** a deployment uses browser fetch uploads or downloads
+- **THEN** the server-side qualification report identifies browser CORS as not checked, and the operator must separately configure and verify transfers from each actual application origin before enabling browser access
+
 #### Scenario: A different bucket passed qualification
 - **WHEN** a disposable bucket passes checks but the configured runtime bucket lacks required versioning, retention, or sealed-object protection
 - **THEN** the deployment remains unqualified until checks pass against the runtime bucket and application identity

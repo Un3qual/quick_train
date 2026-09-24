@@ -86,6 +86,11 @@ defmodule QuickTrain.Tasks do
       define :get_result_export_internal, action: :read, get_by: [:id], not_found_error?: false
       define :process_result_export, action: :process, args: [:id]
       define :seal_export_snapshot, action: :seal_snapshot, args: [:id]
+      define :begin_export_snapshot, action: :begin_snapshot
+      define :complete_export_snapshot, action: :complete_snapshot
+      define :attach_export_pending_asset, action: :attach_pending_asset
+      define :complete_result_export, action: :complete_export
+      define :fail_result_export, action: :fail_export
 
       define :request_result_export,
         action: :request_export,

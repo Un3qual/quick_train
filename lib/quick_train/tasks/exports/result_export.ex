@@ -113,15 +113,30 @@ defmodule QuickTrain.Tasks.Exports.ResultExport do
                  stable_sort: [id: :asc]
     end
 
-    update :update_internal do
-      accept [
-        :state,
-        :snapshot_at,
-        :record_count,
-        :error_code,
-        :asset_id,
-        :pending_asset_id
-      ]
+    update :begin_snapshot do
+      accept []
+      change set_attribute(:state, :snapshotting)
+    end
+
+    update :complete_snapshot do
+      accept [:snapshot_at, :record_count]
+      change set_attribute(:state, :writing)
+      change set_attribute(:error_code, nil)
+    end
+
+    update :attach_pending_asset do
+      accept [:pending_asset_id]
+    end
+
+    update :complete_export do
+      accept [:asset_id]
+      change set_attribute(:state, :ready)
+      change set_attribute(:error_code, nil)
+    end
+
+    update :fail_export do
+      accept [:error_code]
+      change set_attribute(:state, :failed)
     end
   end
 
@@ -130,7 +145,14 @@ defmodule QuickTrain.Tasks.Exports.ResultExport do
       authorize_if {OrganizationCapability, capability: "tasks.results.read"}
     end
 
-    policy action([:read, :update_internal]) do
+    policy action([
+             :read,
+             :begin_snapshot,
+             :complete_snapshot,
+             :attach_pending_asset,
+             :complete_export,
+             :fail_export
+           ]) do
       forbid_if always()
     end
   end

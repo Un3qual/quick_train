@@ -11,6 +11,8 @@ defmodule QuickTrain.Authorization.RoleAssignment do
   alias QuickTrain.Authorization.Role
   alias QuickTrain.Organizations.{Membership, Organization}
 
+  import Ash.Expr
+
   postgres do
     table "role_assignments"
     repo QuickTrain.Repo
@@ -57,19 +59,10 @@ defmodule QuickTrain.Authorization.RoleAssignment do
         %{user_id: user_id, organization_id: organization_id, capability_key: capability_key} =
           input.arguments
 
+        authority = capability_filter(user_id, [capability_key])
+
         Ash.exists(input.resource,
-          query: [
-            filter:
-              expr(
-                user_id == ^user_id and organization_id == ^organization_id and
-                  user.status == "active" and organization.status == "active" and
-                  exists(role.role_capabilities, capability.key == ^capability_key) and
-                  exists(
-                    organization.memberships,
-                    user_id == parent(user_id) and status == "active"
-                  )
-              )
-          ],
+          query: [filter: expr(organization_id == ^organization_id and ^authority)],
           authorize?: false
         )
       end
@@ -103,5 +96,14 @@ defmodule QuickTrain.Authorization.RoleAssignment do
 
   identities do
     identity :organization_user_role, [:organization_id, :user_id, :role_id]
+  end
+
+  # Callers scope the assignment's organization, including when correlating a nested read.
+  def capability_filter(user_id, capabilities) do
+    expr(
+      user_id == ^user_id and user.status == "active" and organization.status == "active" and
+        exists(role.role_capabilities, capability.key in ^capabilities) and
+        exists(organization.memberships, user_id == ^user_id and status == "active")
+    )
   end
 end

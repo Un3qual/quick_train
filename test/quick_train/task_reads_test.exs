@@ -95,6 +95,7 @@ defmodule QuickTrain.Tasks.TaskReadsTest do
       )
 
     refute bound.missing
+    assert bound.revision_id == input.revision_id
     value = Ash.load!(bound.value, [:text_value, :field_definition], actor: ctx.worker)
     assert value.text_value.value =~ "Body"
     assert value.field_definition.id == ctx.source.field.id

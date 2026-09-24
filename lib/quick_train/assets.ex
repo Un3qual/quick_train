@@ -22,6 +22,10 @@ defmodule QuickTrain.Assets do
   resources do
     resource Asset do
       define :create_pending_asset, action: :create_pending
+      define :claim_asset_operation, action: :claim_operation
+      define :complete_asset_ready, action: :complete_ready
+      define :complete_asset_duplicate, action: :complete_duplicate
+      define :complete_asset_failed, action: :complete_failed
 
       define :get_accessible_asset_internal,
         action: :resolve_ready_internal,
