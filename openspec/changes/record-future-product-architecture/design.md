@@ -8,7 +8,7 @@ This change has `skip_specs: true`. Everything below is a durable, non-normative
 
 On 2026-09-12, the Projects and Tasks scope was promoted into [add-project-task-collection](../archive/2026-09-13-add-project-task-collection/proposal.md), with its own design, capability deltas, and implementation tasks. That proposal selects a new project for later enrollment, records offered question sets per attempt, and specifies immutable export snapshots. The user then selected core collection before detailed media: image presentation/choice, spatial answers, and mask uploads now belong to [add-project-task-media](../add-project-task-media/proposal.md). Only that follow-up depends on verified media support; core collection can be implemented and archived first. For the MVP, the user subsequently deferred proposal-added count/byte ceilings and mask quota accounting until actual usage informs them. The current [database-identities specification](../../specs/database-identities/spec.md) supersedes the archived proposal's PostgreSQL-generated identity design: use Ash `uuid_primary_key` for backend records and `Ash.UUID.generate/0` for internal UUIDs while retaining separate caller-supplied retry tokens. The dedicated proposals retain existing foundation behavior and published form constraints and govern their respective scope; core collection is now implemented with typed evidence, review, and sealed exports, while image-dependent execution remains deferred to the media change.
 
-On 2026-10-05, worker reputation, project access restrictions, and reputation-based compensation were approved for documentation after competitor research. Sections K and L record those decisions and supersede the earlier fixed-only reputation calculation, global/organization-only profile scope, and deferral of dynamic compensation. This approval records future product direction; it does not implement Reputation or Finance or change the current collection contract.
+On 2026-10-05, the approved worker reputation system was promoted into [add-worker-reputation](../add-worker-reputation/proposal.md). That change owns its proposal, design, behavioral deltas, implementation tasks, competitor research, and future compensation integration contract. It supersedes the earlier fixed-only calculation, global/organization-only assessment scope, and deferral of reputation-based pay. Reputation is planned, not implemented; Finance remains separately scoped.
 
 ## Goals / Non-Goals
 
@@ -224,91 +224,21 @@ Approved `QuickTrain.Finance` concepts:
 
 Organization price and worker payout are separate amounts. Future rate models may pay per accepted response, per accepted question, via base plus components, quality bonuses, qualification bands, or zero-cost internal work. The exact commercial model and payment provider remain intentionally unresolved for the Finance change.
 
-Optional reputation-based pay bands and quality bonuses are approved. Organizations provide defaults and projects may override them; activation resolves and freezes the project's rate rules. A project may offer a standard rate and higher rates to workers with sufficiently established project- or organization-scoped quality evidence. Initial pay upgrades use known-answer accuracy and substantive human review, with minimum evidence requirements. Peer agreement remains a monitoring and eligibility signal until its suitability for compensation has been established for that project. Public competitor pay amounts and thresholds are not QuickTrain defaults.
-
-Historical reputation selects the rate for the next offer. A quality bonus can reward performance on the offered work according to criteria disclosed with that offer. Eligibility for better-paid projects is a separate use of reputation and does not imply a different rate for identical work. Access restrictions, answer acceptance/rejection, and monetary settlement remain separate decisions.
-
-Fetching paid work must reserve the maximum organization charge atomically, including any promised conditional bonus, so QuickTrain does not offer work it cannot pay for. Skips, rejections, and partial answers remain neutral task facts; the pinned rate terms determine monetary treatment. A worker's quoted rate and any bonus criteria are shown and frozen at fetch, along with enough evidence to explain the selected band. Later reputation or configuration changes affect future offers; they cannot change an issued offer's quoted rate or bonus rules.
+Optional reputation-based pay bands, quality bonuses, and their frozen-offer requirements are recorded in [the reputation change's Finance integration contract](../add-worker-reputation/design.md#6-keep-compensation-commitments-in-finance). Finance owns offers, maximum-charge reservations, settlement, and payouts; that integration does not make Finance a prerequisite for reputation.
 
 Money uses integer minor units and explicit currencies, never floats. Ledger transactions balance within one currency. Corrections use reversal postings. Worker earnings and external payouts are separate so payout failure never erases earned money. Provider deposits, transfers, fees, refunds, disputes, and webhooks reconcile to the internal ledger with idempotency keys.
 
-### L. Reputation uses explainable, scoped, rebuildable signals
+### L. Reputation is owned by its dedicated change
 
-#### Evidence and assessment scope
-
-WorkerReputation is a rebuildable assessment of the existing global User. Project reputation is the most specific assessment, organization reputation summarizes evidence within that organization, and a global assessment follows platform-controlled rules for eligible evidence and calculation. Locally configured scores are not averaged into a global score, and one organization's settings cannot rewrite another organization's assessment or the global calculation.
-
-Keep known-answer accuracy, substantive human review, peer agreement, reliability, and experience distinguishable, even when a configured calculation combines signals. Show the contributing counts and evidence window with a score, such as 46 of 50 known-answer checks passed. Insufficient history means unknown or provisional, not poor quality or established excellence. Known-answer correctness carries more weight than peer agreement. Strong correctness evidence paired with unusual disagreement should prompt investigation before a strong penalty.
-
-Attempts, submitted QuestionResponses, skips, ReviewDecisions, and the known-answer keys described below are authoritative evidence. Preserve review provenance: under the current [task-review contract](../../specs/task-review/spec.md), automatic review accepts every answered submission, so those acceptances do not count as independent positive quality judgments. A rejection is likewise a review fact, not a substitute for an answer key. Skips remain visible but are not automatically negative because they may reflect unsuitable source data or a bad question.
-
-#### Organization-authored known-answer checks
-
-Organizations can include quality-check questions among ordinary work in a batch/project and provide the expected answers. Each key belongs to the exact published question and immutable task input revisions, including the relevant option/input identities. A reusable form question alone cannot identify the correct answer for every dataset item. Checks use the ordinary worker presentation; their designation and answer keys are hidden from worker-facing responses and GraphQL traversal.
-
-Use the existing typed answer families with deliberate matching rules: exact matching for objectively checkable choices and booleans, and configured tolerance for numeric answers. Begin with objectively checkable answers. Free-text semantic grading and spatial matching require separately specified grading behavior before contributing to reputation; no universal text or geometry comparator is implied.
-
-Preserve the key and matching rule used for an evaluation. Authorized corrections or disabling a faulty key retain its prior provenance, recalculate affected assessments, and reevaluate restrictions. Worker submissions remain immutable. Widespread missed or contested checks should surface potential key or instruction problems for organization review, alongside individual worker quality concerns.
-
-#### Persistent peer disagreement
-
-Compare distinct workers' submitted answers to the same question and exact task inputs under the same pinned contract. Exclude the assessed worker's own answer and prevent repeat attempts from giving one peer multiple votes. Compare stable input identities rather than randomized display labels. Skips and absent answers do not count as disagreeing answers.
-
-A comparison contributes only after a minimum number of peers have answered and the other workers agree strongly enough. Ties, split opinion, and sparse evidence provide no negative signal. For example, disagreement with nine peers choosing A and one choosing B is more informative than a five-to-five split; these numbers illustrate the principle and are not default thresholds. Numeric comparisons use a robust center such as the median and an appropriate tolerance. Free text and spatial annotations need separately designed comparison rules.
-
-Measure repeated disagreement over recent comparable answers, with a minimum worker sample and a bounded, weaker contribution than known-answer accuracy. A single unusual answer does not establish poor reputation. Agreement measures consistency and cannot by itself establish correctness, particularly on subjective preference questions. Subjective projects can disable its contribution and enforcement.
-
-This is a derived quality signal, not a canonical-answer or adjudication layer. It does not select a final answer, rewrite responses, or reject individual submissions. Collection completion remains governed by the current [submission-target and review contract](../../specs/task-review/spec.md); reputation does not create replacement demand or reopen satisfied tasks.
-
-#### Organization defaults and project overrides
-
-Use one application-owned calculation with a small set of typed settings. Organizations provide defaults; projects can override them to suit task semantics. Resolve and freeze the effective project configuration at activation, consistent with the [project contract](../../specs/projects/spec.md). Later organization-default edits do not silently alter active projects.
-
-| Setting | Purpose |
-| --- | --- |
-| Enabled signals and bounded weights | Choose contributions while keeping agreement weaker than known-answer correctness |
-| Minimum evidence | Require sufficient worker history and peer samples before meaningful scoring or enforcement |
-| Agreement threshold and numeric tolerance | Distinguish meaningful disagreement from ambiguity and small differences |
-| Recent-history window | Let improvement affect the assessment |
-| Admission thresholds and evidence scope | Select the qualifying assessment and minimum standard for future work |
-| Action per signal | Inform reviewers or suspend new project work |
-
-Store direct settings and the evidence needed to explain evaluations. There is no customer-authored formula language, general reputation-policy engine or version-table hierarchy, duplicate reputation-event stream, or arbitrary ReputationAdjustment resource. Retained answer-key provenance, frozen project configuration, and immutable WorkOffers serve their own responsibilities. Correct evidence through its owning workflow; rebuild projections after corrections or application calculation changes.
-
-#### Project access restrictions and recovery
-
-Support both informing organization reviewers and automatic suspension from new project work. Known-answer failures may trigger configured automatic suspension after the minimum evidence requirement is met. Persistent disagreement defaults to informing reviewers, with explicit project opt-in to automatic suspension where agreement is an appropriate quality measure. Each signal's enforcement action is independent of whether it contributes to the displayed assessment.
-
-Enforce suspensions on both fetch and direct assignment. The automatic restriction is scoped to the project, not a platform-wide ban. A reputation-only suspension does not revoke already issued attempts, reject their submissions, erase accepted results, or change promised pay. Existing account, organization, audience, explicit-block, lifecycle, ownership, and lease rules still govern those attempts.
-
-Make the reason and supporting evidence available to authorized organization reviewers, support deliberate reinstatement, and reevaluate restrictions when faulty keys or reviews are corrected. Worker-facing explanations must not disclose hidden keys or other workers' answers. Reviewer inspection remains limited to evidence they are authorized to access within the organization; neither view grants access to another organization's private evidence. Ordinary reputation scores and restrictions remain separate from platform account enforcement.
-
-#### Compensation integration
-
-Section K owns optional project pay bands, quality bonuses, and frozen offers. Reputation supplies scoped evidence for quoting; Finance owns the offer, maximum funding reservation, settlement, and payment. A later score change can alter future eligibility or future pay offers while preserving issued financial commitments.
-
-#### Research rationale and implementation follow-up
-
-The following first-party sources were reviewed on 2026-10-05. They explain the selected capabilities; their numeric thresholds, irreversible exclusions, and commercial terms are not adopted as QuickTrain requirements.
-
-- [Appen Quality Flow](https://success.appen.com/appen-success-center/settings/guide-to-test-questions-in-quality-flow) couples known-answer accuracy with job access and restores scores/access after faulty keys are corrected. Its [test-question guidance](https://success.appen.com/appen-success-center/settings/guide-to-test-questions-in-quality-flow/test-question-best-practices) also describes pausing a job when widespread failures and contests indicate potential question problems. This supports recoverable enforcement and review of question quality.
-- [Toloka Quorum](https://platform.toloka.ai/docs/reference/nodes/quorum/) demonstrates automatic exclusion from future work for repeated disagreement, separately from grading existing answers. [MTurk eligibility](https://docs.aws.amazon.com/AWSMechTurk/latest/AWSMechanicalTurkRequester/SelectingEligibleWorkers.html) and [consensus policies](https://docs.aws.amazon.com/AWSMechTurk/latest/AWSMturkAPI/ApiReference_HITReviewPolicies.html) separate access requirements from optional scoring actions and exclude inconclusive questions from worker agreement scores.
-- [Labelbox's quality strategy](https://labelbox.com/guides/how-to-create-a-quality-strategy-for-your-data-labeling-project/) emphasizes investigation, feedback, and retraining and distinguishes subjective agreement from accuracy. [Prolific's quality controls](https://researcher-help.prolific.com/en/articles/445223-bulk-rejecting-exceptionally-fast-submissions) illustrate reviewer information with optional automation. These support a review-only action and conservative disagreement defaults.
-- [Toloka's marketplace pricing documentation](https://github.com/Toloka/docs/blob/main/en/guide/concepts/dynamic-pricing.md) describes skill-dependent pay bands fixed at assignment. This is an older marketplace precedent; availability in its newer node-based platform was not confirmed. [MTurk bonuses](https://docs.aws.amazon.com/AWSMechTurk/latest/AWSMechanicalTurkRequester/IntroCoreConcepts.html) and [Prolific performance payments](https://researcher-help.prolific.com/en/articles/445234-can-i-make-partial-payments-to-participants) support base pay plus performance bonuses. [Remotasks](https://www.remotasks.com/en/projects/90551) describes quality unlocking better-paid tasks. [Outlier](https://outlier.ai/) advertises quality-based rewards but does not expose a precise historical-score-to-rate formula in the public pages reviewed. These are distinct compensation mechanisms, not evidence for one universal reputation multiplier.
-
-Future Reputation and Finance changes must turn these approved directions into behavioral specs and implementation tasks. Exact formulas, numerical thresholds, windows, cold-start admission behavior, global evidence eligibility, correction/reinstatement semantics, supported grading families, review notifications, and pay-band/bonus schedules remain to be specified there. This record does not invent default values or a generic policy framework to settle those details.
+[add-worker-reputation](../add-worker-reputation/proposal.md) owns known-answer checks, repeated peer disagreement, scoped assessments, organization defaults/project overrides, reviewer information, and recoverable new-work restrictions. Its [design](../add-worker-reputation/design.md) retains the approved compensation integration terms and competitor research; its [specs](../add-worker-reputation/specs/worker-reputation/spec.md) and [tasks](../add-worker-reputation/tasks.md) govern future implementation. This record retains the cross-domain boundary only and does not maintain a second reputation plan.
 
 ### M. Authorization and GraphQL boundaries for later domains
 
 Organization management actions use the shared organization-capability path and require an active account, active organization, active membership, and explicit capabilities such as dataset, form, and project management, task review, and finance management.
 
-Reputation settings, answer-key authoring/correction, assessment inspection, and reinstatement use explicit organization scope and appropriate management or review authority. Project/organization assessments and their underlying evidence are private to authorized readers in that scope. Global summaries follow platform-defined disclosure rules and do not grant access to another organization's raw evidence. Known-answer keys and check designations are excluded from worker work bundles and nested GraphQL reads.
-
 Worker actions use the separate project-worker eligibility and attempt-ownership path that the future Projects and Tasks capabilities must specify normatively. `fetch_work` requires an active account, organization, and project, then applies the configured audience route, eligibility, explicit blocks, and funding checks; only the organization-member route requires membership. Workers cannot browse arbitrary datasets or unallocated tasks. A successful fetch returns a leased attempt, and only that attempt relationship grants its owner narrowly scoped reads of the allocated dataset values and assets plus writes to its draft response. Submitted evidence is immutable. Reviewers cannot edit worker answers.
 
 All application API behavior is GraphQL except `/healthz`. APIs expose deliberate lifecycle actions rather than generic mutation of immutable revisions, tasks, responses, reviews, reputation projections, or ledger postings.
-
-The reputation suspension in section L is a new-work eligibility check. Future implementation must keep it distinct from the continuing authorization checks on an existing attempt, so an automatic score change does not cancel previously issued work.
 
 ### N. Concurrency, idempotency, jobs, and verification
 
@@ -318,13 +248,9 @@ Every question write and submit action locks the Response parent. Review and set
 
 Task progress, item coverage, adaptive ratings, and reputation are rebuildable projections. Accepted task evidence and ledger postings are authoritative.
 
-Future reputation integration must serialize allocation with applicable restriction changes and atomically pin the reputation-based rate and funding reservation when issuing an offer. Key/review corrections and assessment rebuilds must converge without duplicate effects or stale overwrites. The implementation change must define projection freshness and race handling so delayed scoring cannot silently defeat configured access rules, while issued offers retain their original terms.
-
 Synchronous paths include fetch, draft save, submit, review, and ledger settlement. Oban handles large imports, asset processing, exports, projection reconciliation, provider collection or payouts, and webhook follow-through through responsibility-specific workers.
 
 Future tests cover lifecycle actions, policies, GraphQL integration, normalized type constraints, immutable revisions, form bindings, selection invariants, concurrent claims, save or submit races, skip and escalation, review, geometry and span bounds, ledger balance and idempotency, reputation projections, exports, and job idempotency. Selection tests assert invariants rather than brittle exact random sequences. Concurrency tests use independent database connections and deliberate barriers.
-
-Reputation/Finance verification must additionally cover hidden-key reads, exact-input matching, provisional histories, sparse or split peer evidence, self/duplicate-vote exclusion, automatic versus substantive review provenance, project-default freezing, scoped suspension and reinstatement, corrected-key recalculation, allocation/restriction races, and frozen pay/bonus terms across later score changes. These are future verification requirements, not implementation tasks for this documentation-only change.
 
 ### O. Explicit exclusions preserved for future changes
 
@@ -336,7 +262,7 @@ Reputation/Finance verification must additionally cover hidden-key reads, exact-
 - King-of-the-hill and Elo selection implementations; only their extension boundary is established initially.
 - Audio or video range annotations.
 - Canonical resolution or final-answer synthesis. Derived peer-agreement measurements for reputation are permitted by section L.
-- Customer-authored reputation formulas, generic policy/version engines, arbitrary reputation adjustments, or duplicate reputation-event streams. Direct scoped settings, answer-key provenance, and frozen offer terms are permitted by sections K and L.
+- Customer-authored reputation formulas, generic policy/version engines, arbitrary reputation adjustments, or duplicate reputation-event streams. The dedicated reputation change owns scoped settings, answer-key provenance, and future offer integration.
 - A final commercial rate model or payment provider in the core Tasks change.
 - Frontend implementation.
 
@@ -345,10 +271,6 @@ Reputation/Finance verification must additionally cover hidden-key reads, exact-
 - **[Deferred decisions may become stale]** -> Each future change must revalidate the relevant sections against current product evidence before treating them as requirements.
 - **[A broad record can look normative]** -> `skip_specs: true`, the proposal non-goals, and this context explicitly make it non-normative and non-blocking.
 - **[Future changes may duplicate text]** -> Duplication is intentional when converting a selected decision into a self-contained capability contract; this record remains historical context.
-- **[Majority agreement can reward conformity]** -> Require enough distinct peers and clear agreement, keep the signal weaker than known-answer correctness, and default disagreement enforcement to reviewer information. Pay upgrades initially use known-answer accuracy and substantive review.
-- **[Faulty keys or small samples can misclassify workers]** -> Show sample counts, retain unknown/provisional assessments, surface widespread key failures for review, and support corrections, recalculation, and reinstatement.
-- **[Local scoring rules can make global scores misleading]** -> Preserve scoped evidence and platform-owned global rules instead of averaging differently configured scores.
-- **[Changing scores can make compensation unpredictable]** -> Freeze rates and bonus rules in funded offers; apply later changes to future work.
 
 ## Migration Plan
 

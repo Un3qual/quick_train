@@ -6,12 +6,12 @@ QuickTrain has approved cross-domain decisions for Forms, Projects, Tasks, Finan
 
 - Record the approved product-domain boundaries, dependency direction, and named cross-domain workflows.
 - Preserve approved decisions for versioned forms, dataset bindings, project cohorts, fetch-time task selection, worker audiences, attempts, responses, skips, reviews, exports, advanced annotations, finance, and reputation.
-- Record the 2026-10-05 reputation decisions: known-answer checks, repeated peer disagreement, organization defaults with project overrides, reversible project access restrictions, and optional reputation-based pay bands and quality bonuses with frozen offer terms.
+- Link the dedicated `add-worker-reputation` change, which now owns the approved reputation decisions, behavioral specs, implementation plan, competitor research, and future compensation integration contract.
 - Record deferred format-aware file rendering and reachable HTTP storage integration; MVP retains opaque downloads.
 - Mark every recorded decision as deferred architecture rather than a current behavioral requirement or implementation task.
 - Require each future product change to restate and validate the relevant decisions in its own proposal, specs, design, and tasks before implementation.
 
-The Projects and Tasks scope is restated in [add-project-task-collection](../archive/2026-09-13-add-project-task-collection/proposal.md) for independently completable core collection and [add-project-task-media](../add-project-task-media/proposal.md) for image-dependent execution after detailed media support. Those changes own their behavioral requirements and plans; this record remains historical context. Finance, Reputation, and the detailed-media/storage foundation remain separate.
+The Projects and Tasks scope is restated in [add-project-task-collection](../archive/2026-09-13-add-project-task-collection/proposal.md) for independently completable core collection and [add-project-task-media](../add-project-task-media/proposal.md) for image-dependent execution after detailed media support. Those changes own their behavioral requirements and plans; this record remains historical context. Reputation is restated in [add-worker-reputation](../add-worker-reputation/proposal.md), including its future compensation integration terms. Finance and the detailed-media/storage foundation remain separately scoped.
 
 Explicit non-goals:
 
@@ -34,4 +34,4 @@ None.
 - Adds only OpenSpec planning artifacts.
 - Removes future-product architecture from the implementation-focused dataset/assets design while keeping the approved decisions discoverable in the same durable planning system.
 - Leaves the reusable backend template and runtime behavior unchanged.
-- Supersedes the earlier fixed-only reputation calculation and deferred dynamic-compensation decisions while retaining application-owned scoring and rebuildable projections. Future Reputation and Finance changes own the behavioral specs and implementation plans.
+- Retains only a reputation cross-reference here; `add-worker-reputation` supersedes the earlier fixed-only calculation and deferred dynamic-compensation decisions and owns the detailed plan. Finance implementation remains separate.
