@@ -57,7 +57,7 @@ A known-answer check SHALL mean a question with an organization-supplied expecte
 - **THEN** those observations do not satisfy the evaluated-answer minimum and the assessment reports the actual eligible count
 
 ### Requirement: Keys and check designations remain private
-Worker presentation SHALL use the ordinary question/input contract without disclosing the answer key or the designation of a question as a quality check. Worker-facing APIs, nested GraphQL traversal, errors, and reputation explanations SHALL NOT reveal hidden keys, other workers' answers, or another organization's private evidence. A worker account SHALL NOT gain manager access by holding an attempt. Authorized organization reviewers SHALL be able to inspect only the supporting evidence permitted by their scoped authority.
+Worker presentation SHALL use the ordinary question/input contract without disclosing the answer key or the designation of a question as a quality check. Worker-facing APIs, nested GraphQL traversal, errors, and work-access outcomes SHALL NOT reveal hidden keys, other workers' answers, or another organization's private evidence. A worker account SHALL NOT gain manager access by holding an attempt. Authorized organization reviewers SHALL be able to inspect only the supporting evidence permitted by their scoped authority. Detailed worker-facing reputation explanations and dispute workflows are deferred; organization reviewer evidence and recovery actions remain in scope.
 
 #### Scenario: An external worker inspects a work bundle
 - **WHEN** an eligible external worker reads a task containing a known-answer check
@@ -150,7 +150,7 @@ Each enabled signal SHALL support a configured action to inform reviewers or sus
 
 #### Scenario: Known-answer failures cross an enforced threshold
 - **WHEN** enough evaluated checks establish failure under a project's configured automatic action
-- **THEN** the worker is suspended from new work in that project with an inspectable reason
+- **THEN** the worker is suspended from new work in that project with a reason inspectable by authorized organization reviewers
 
 #### Scenario: Repeated disagreement uses the default action
 - **WHEN** disagreement exceeds its threshold without explicit automatic-suspension opt-in

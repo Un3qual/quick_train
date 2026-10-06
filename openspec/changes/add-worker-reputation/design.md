@@ -22,6 +22,7 @@ The 2026-10-06 review fixes below settle five gaps: actual known-answer exposure
 - A second worker identity, a general rules engine, duplicated task/review event history, or a free-form score-adjustment resource.
 - A canonical-answer layer or an algorithm that mistakes majority opinion for ground truth.
 - Runtime Finance structures, speculative payment-provider adapters, or a generic compensation plugin interface.
+- Worker-facing reputation explanations and dispute workflows; these are approved future work recorded in [future-features.md](../../future-features.md#worker-explanations-and-disputes).
 
 ## Decisions
 
@@ -45,7 +46,7 @@ This deliberately avoids adding another allocator or silently increasing task de
 
 Start with exact choice/boolean matching and configured numeric tolerance. Reuse existing answer-family validation; do not silently interpret arbitrary strings or geometry. Ranking, set/order semantics, and numeric boundary details must be listed explicitly in the supported matching contract before enabling those families. Semantic text and spatial grading remain separate future scope.
 
-Author checks through explicit organization/project management actions. Keep key data and the check designation out of worker-facing form/task/attempt schemas and nested GraphQL traversals, including mutation results and errors. A hidden flag on a generally readable resource is not an authorization boundary. Managers/reviewers may inspect only evidence covered by their capabilities; worker explanations cannot expose answer keys or peer answers.
+Author checks through explicit organization/project management actions. Keep key data and the check designation out of worker-facing form/task/attempt schemas and nested GraphQL traversals, including mutation results and errors. A hidden flag on a generally readable resource is not an authorization boundary. Managers/reviewers may inspect only evidence covered by their capabilities; worker-facing outputs cannot expose answer keys or peer answers.
 
 Retain key authorship and one first-disclosure fact per check/user, shared across that check's key revisions. Record disclosure before returning key-bearing data through any permitted API path, including nested reads and exports; fail the disclosure if the fact cannot be retained. Serialize the first-disclosure boundary with submission, then use the committed order when evaluating whether an answer was blind. A key author or a user exposed before submission cannot contribute quality evidence for that check as either assessed worker or peer. Later permission revocation or key correction does not erase exposure, and later human review cannot turn that same answer into independent quality evidence. Disclosure after a blind submission does not retroactively invalidate it. Deny key creation/correction/disabling by anyone who has submitted an answer to that exact task/question; an independent authorized actor can make a legitimate change. These narrow exposure facts support evidence eligibility, not a duplicate task-event stream or a general audit framework. Other task results and collection counts remain intact.
 
@@ -119,6 +120,8 @@ Alternative rejected: retroactive rate reductions or adding a payment subsystem 
 Generate the Reputation domain/resources and migrations with the installed Ash tooling, then tailor them to the approved scope. Keep settings, keys/history, assessments, and recoverable restrictions distinct only where their lifecycles or authorization require it; do not create a generic policy-resource family. Use Ash UUID identities, explicit organization/project references, database constraints, and native actions/domain interfaces. No direct-Ecto exception is proposed.
 
 Reuse the organization-capability path for management and review operations with explicit grants and fail-closed scope. Preserve external worker access through existing audience/attempt authority. Expose deliberate bounded GraphQL reads and mutations; authoring authority does not imply general read access. Do not expose global raw evidence or let a local setting change platform-owned calculations. Exact capability names and global-summary disclosure must be fixed in the implementation contract.
+
+The explanations delivered by this change are for authorized organization reviewers. Detailed worker-facing reputation explanations and worker-initiated disputes are deferred. Workers still receive ordinary work-access outcomes; this does not add a personal evidence breakdown or an appeal action. Organization reviewers retain evidence inspection, key correction, and reinstatement without depending on a future dispute workflow.
 
 Use responsibility-specific Oban jobs for affected-scope recalculation and repair. Keep small source changes transactional with their invalidation/scheduling facts; repeated delivery must converge. Prefer rebuilding from source facts over incremental counters that cannot be reconciled.
 

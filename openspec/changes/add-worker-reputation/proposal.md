@@ -21,6 +21,7 @@ Explicit non-goals:
 - Canonical answer synthesis, automatic rejection based on disagreement, replacement demand, or changes to immutable worker responses and sealed exports.
 - Customer-authored formulas, generic policy/version engines, duplicate reputation-event streams, or arbitrary score adjustments.
 - Semantic free-text or spatial grading, media execution, or a Finance/payment-provider implementation.
+- Worker-facing reputation explanations and dispute workflows are deferred to [future features](../../future-features.md#worker-explanations-and-disputes). Organization reviewer evidence, key correction, and reinstatement remain in scope.
 - Guaranteed per-worker test distribution, qualification tests, and the future question-authoring capabilities in [future-features.md](../../future-features.md). Qualification/requalification has its own intentionally incomplete [discussion skeleton](../add-qualification-tests/proposal.md); question-level scoring controls will require a coordinated reputation follow-up.
 
 ## Capabilities
