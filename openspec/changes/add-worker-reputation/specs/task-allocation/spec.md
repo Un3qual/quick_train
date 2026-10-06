@@ -37,7 +37,7 @@ Attempts SHALL transition from claimed/assigned to in-progress on start or first
 ## ADDED Requirements
 
 ### Requirement: Reputation admission is atomic and shared by allocation routes
-Pool fetch and direct assignment SHALL enforce the same frozen project reputation rules and effective restrictions for the target worker before issuing new work. Assignment permission or an audience allow entry SHALL NOT bypass a reputation restriction. Restriction changes, reinstatement, and issuance SHALL have a consistent transactional order: an issuance that commits before suspension retains its issued contract; issuance ordered after suspension SHALL fail without creating an attempt or presentation. An assessment known to require recalculation SHALL be refreshed for the decision or produce a retryable outcome. These checks SHALL NOT alter task capacity, require replacement answers, or change existing review verdicts. A restriction SHALL affect only its project and SHALL remain separate from explicit account or audience blocks.
+Pool fetch and direct assignment SHALL enforce the same frozen project reputation rules and effective restrictions for the target worker before issuing new work. Assignment permission or an audience allow entry SHALL NOT bypass a reputation restriction. Restriction changes, reinstatement, and issuance SHALL have a consistent transactional order: an issuance that commits before suspension retains its issued contract; issuance ordered after suspension SHALL fail without creating an attempt or presentation. An assessment known to require recalculation, including one past its next time-dependent invalidation, SHALL be refreshed for the decision or produce a retryable outcome after lock waits. Pending peer comparisons SHALL NOT be mistaken for stale computation or used for enforcement. These checks SHALL NOT alter task capacity, require replacement answers, or change existing review verdicts. A restriction SHALL affect only its project and SHALL remain separate from explicit account or audience blocks.
 
 #### Scenario: A manager attempts to assign suspended work
 - **WHEN** an authorized assignment manager targets a worker suspended by that project's reputation rules
@@ -54,3 +54,7 @@ Pool fetch and direct assignment SHALL enforce the same frozen project reputatio
 #### Scenario: An explicit block follows a reputation-only suspension
 - **WHEN** an authorized manager additionally blocks the worker through the existing project access override
 - **THEN** the original block semantics still revoke existing-attempt access as well as new issuance
+
+#### Scenario: A lock wait crosses the evidence expiration boundary
+- **WHEN** allocation starts with a current assessment but its evidence window expires before the issuance check obtains its locks
+- **THEN** allocation refreshes or retries rather than issuing or denying new work from the expired score

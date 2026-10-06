@@ -6,6 +6,8 @@ Core collection already supplies immutable TaskInputs, submitted QuestionRespons
 
 The [worker-reputation delta](specs/worker-reputation/spec.md) defines the new behavior; [projects](specs/projects/spec.md) and [task-allocation](specs/task-allocation/spec.md) extend the implemented collection contract. This change does not depend on media execution or Finance.
 
+The 2026-10-06 review fixes below settle five gaps: actual known-answer exposure, precedence over peer disagreement, prior key exposure, unfinished comparisons, and evidence expiration. A “known-answer check” means the organization's expected-answer question, not a separate kind of worker task. Its “coverage” means how many eligible known-answer questions a particular worker has actually answered; use those explicit words in API descriptions and reports.
+
 ## Goals / Non-Goals
 
 **Goals:**
@@ -37,9 +39,15 @@ Alternative rejected: a single opaque reputation percentage or a global average 
 
 In the current product, a batch is represented by a Project and its authored Tasks. Add keys for a Task plus its published question and exact immutable input contract; there is no need for a new Batch resource. Store typed expected answers using the existing option/input identities. An expected answer on a reusable form question alone is insufficient because correctness depends on the input revisions.
 
+Keep distribution on ordinary task allocation for this release. Check-bearing tasks share the project's submission target and can be exhausted before later workers see them. This is best-effort evidence collection, not a guarantee that each worker sees a quiz or a configured frequency of known-answer questions. Activation must reject impossible project-local minima by comparing the required count with the number of enabled scoreable task/question keys one worker could answer, and return an advisory about shared capacity for feasible configurations. Prior organization/global evidence must be assessed under its declared scope rather than assumed absent. Show actual evaluated counts and the minimum in authorized worker assessments; skips and excluded/disabled evaluations are not tests passed or failed. Too little evidence remains unknown and cannot itself create a failure-based suspension. A separate admission rule requiring established evidence can still deny admission under its explicit cold-start policy.
+
+This deliberately avoids adding another allocator or silently increasing task demand. Guaranteed per-worker check delivery would require a separately scoped allocation design. [Qualification tests](../add-qualification-tests/proposal.md) now have an incomplete discussion skeleton and do not implicitly supply that missing guarantee.
+
 Start with exact choice/boolean matching and configured numeric tolerance. Reuse existing answer-family validation; do not silently interpret arbitrary strings or geometry. Ranking, set/order semantics, and numeric boundary details must be listed explicitly in the supported matching contract before enabling those families. Semantic text and spatial grading remain separate future scope.
 
 Author checks through explicit organization/project management actions. Keep key data and the check designation out of worker-facing form/task/attempt schemas and nested GraphQL traversals, including mutation results and errors. A hidden flag on a generally readable resource is not an authorization boundary. Managers/reviewers may inspect only evidence covered by their capabilities; worker explanations cannot expose answer keys or peer answers.
+
+Retain key authorship and one first-disclosure fact per check/user, shared across that check's key revisions. Record disclosure before returning key-bearing data through any permitted API path, including nested reads and exports; fail the disclosure if the fact cannot be retained. Serialize the first-disclosure boundary with submission, then use the committed order when evaluating whether an answer was blind. A key author or a user exposed before submission cannot contribute quality evidence for that check as either assessed worker or peer. Later permission revocation or key correction does not erase exposure, and later human review cannot turn that same answer into independent quality evidence. Disclosure after a blind submission does not retroactively invalidate it. Deny key creation/correction/disabling by anyone who has submitted an answer to that exact task/question; an independent authorized actor can make a legitimate change. These narrow exposure facts support evidence eligibility, not a duplicate task-event stream or a general audit framework. Other task results and collection counts remain intact.
 
 Retain evaluated key/matching-rule history. Correction or disabling records actor and reason, invalidates affected derived assessments, and reevaluates restrictions while preserving immutable submissions. Reuse the repository's deliberate action and retry conventions. Surface widespread check failures for key/instruction investigation; do not introduce automatic project pausing merely because a competitor does it.
 
@@ -48,6 +56,10 @@ Alternative rejected: overwriting a key and losing the reason for earlier scores
 ### 3. Derive agreement only from comparable distinct peers
 
 Group by the exact task/question/pinned input contract. Exclude the assessed worker, deduplicate peers, and ignore skips and missing answers. Compare stable identities rather than randomized presentation labels. Require both enough peers and a strong enough peer consensus before a comparison contributes. Ties and split opinion are inconclusive, not errors. Numeric comparison uses a robust center such as the median with an explicit tolerance and a concentration requirement; a median alone does not prove consensus.
+
+For a question designated as a known-answer check, use the eligible known-answer grade and exclude that question from peer-derived scoring, peer sample counts, and restrictions. This removes both contradictory penalties and double counting. Reviewers can still investigate raw key-versus-peer disagreement as a question-quality concern. Disabling a key removes its grading contribution; it does not automatically turn the same designated check into peer-scored evidence. Correcting the key repairs assessments under the same precedence rule.
+
+Only compare completed evidence for scoring and enforcement: the task must have reached its frozen submission target, with enough distinct eligible peers and sufficient agreement. Earlier comparisons are provisional reviewer information only. A project closed before a task reaches its target does not make that partial evidence enforceable. A current calculation may have pending comparisons; that is different from a stale calculation and does not by itself force allocation retries. This keeps a changing early majority from suspending workers and preserves the existing submission-target contract.
 
 Measure repeated disagreement over recent comparable answers with a minimum worker sample and bounded influence weaker than correctness. A project can disable agreement scoring and enforcement for subjective questions. The normal submission target remains unchanged: a project with too few responses has no usable peer signal rather than automatically collecting additional answers.
 
@@ -82,6 +94,10 @@ Preserve the issuance boundary under races. Allocation currently locks the Proje
 
 Assessments used for enforcement need explicit freshness. Correction/submission/review transactions must identify affected assessments as needing recalculation, with retry-safe scheduling. Before new issuance, refresh a known-stale access decision or return `retry_later`; delayed scoring must not silently bypass a configured restriction. Readers distinguish pending recalculation from a current assessment. Ordinary submission and review retain their current acceptance semantics.
 
+Time itself can make a calculation stale. For a time window of duration W at server cutoff T, include evidence whose original event time is in (T-W, T]. Answer-derived evidence uses the original submission time; later key/review correction or completion of a peer set does not reset that age. Other time-windowed evidence uses the original event time specified for its signal, not the recalculation/job time. Retain the evaluation cutoff and the next time-dependent invalidation, no later than the earliest included observation's expiry. Schedule recalculation for that boundary and also check it on assessment reads and after allocation lock waits, so correctness does not depend on job timeliness. Calculations with an older evidence revision or cutoff cannot overwrite a newer publication. A count-only window has no clock-driven expiration, but must still use a deterministic original-event order.
+
+On expiration, recompute the score, sample minimum, and every affected automatic restriction reason. Remove a reason that no longer meets its threshold or minimum; keep other active reasons and explicit blocks. If insufficient evidence remains, the assessment becomes unknown/provisional. This is not a positive qualification: an independent admission rule requiring established evidence still applies. The same original observations cannot regain recency merely through correction or repeated recalculation. Manual reinstatement semantics remain a separate pre-implementation decision.
+
 Use independent database connections and deliberate barriers to verify suspension versus issuance, stale versus corrected publication, key/default edits versus activation, and retry recovery. Replaying an already committed allocation after a reputation-only suspension must return its currently authorized result, not attempt new issuance or extend the lease.
 
 Alternative rejected: cancellation of in-flight work, reusing the shared audience block, or trusting an arbitrarily stale cached score for admission. Each violates an approved boundary.
@@ -106,6 +122,12 @@ Reuse the organization-capability path for management and review operations with
 
 Use responsibility-specific Oban jobs for affected-scope recalculation and repair. Keep small source changes transactional with their invalidation/scheduling facts; repeated delivery must converge. Prefer rebuilding from source facts over incremental counters that cannot be reconciled.
 
+### Future question capabilities
+
+[Multiple acceptable known answers and question-level scoring controls](../../future-features.md) are recorded outside this change. Acceptable-answer sets belong to question/key authoring and grading; reputation will consume their grading outcome when implemented.
+
+Question-level controls are approved future work requiring a published-question contract change. That work must also modify reputation's question selection, denominators and minimum-evidence counts, scoring and enforcement eligibility, explanations, and rebuild behavior. Resolve the controls through the pinned question version and effective project configuration, preserving already-active contracts. This release retains project-level settings; for a form mixing factual and subjective questions, disable agreement scoring/enforcement for the whole project until selective controls exist rather than treating every question as objective. No question schema or extra override hierarchy is introduced here.
+
 ## Research Rationale
 
 These first-party sources were reviewed during the approved discussion on 2026-10-05. This change relocates that research; competitor numerical thresholds, permanent exclusions, and commercial terms are not QuickTrain requirements.
@@ -119,7 +141,11 @@ These first-party sources were reviewed during the approved discussion on 2026-1
 
 - **[Majority agreement can reward conformity]** → Exclude ambiguous comparisons, require sufficient distinct peers and worker history, bound agreement below correctness, and default enforcement to reviewer information.
 - **[Faulty keys or small samples misclassify workers]** → Preserve provisional states, counts, key history, broad-failure evidence, and correction/reinstatement workflows.
-- **[Late peer answers change earlier comparisons]** → Recalculate every affected worker using the current eligible peer set and explicit evaluation provenance; do not append a second penalty for the same observation.
+- **[Workers encounter too few known-answer questions]** → Validate structurally impossible local minima, advise managers that ordinary allocation does not guarantee delivery, and expose actual evidence counts without treating missing evidence as failure.
+- **[Correct answers conflict with peers]** → Use known-answer grades for designated checks and keep their peer disagreement diagnostic-only, including after key disabling.
+- **[Privileged workers know a key]** → Retain authorship/first-disclosure eligibility, forbid changing a key for one's own submitted answer, and exclude affected quality evidence in every scope.
+- **[Late peer answers change earlier comparisons]** → Keep unfinished comparisons provisional and out of scores/enforcement; evaluate only after the task reaches its target, without adding collection demand.
+- **[A window expires while a worker is inactive]** → Track the next invalidation, schedule repair, and check server time on reads/admission even when no job or new submission arrives.
 - **[Source corrections race admission or recalculation]** → Mark affected access decisions stale, prevent obsolete publication, and order restriction changes with issuance under database locks.
 - **[Scoring and enforcement become a generic rules system]** → Keep a bounded configuration and application-owned algorithm; add only lifecycle-specific resources.
 - **[Global scores combine incompatible local assumptions]** → Evaluate eligible evidence under platform rules instead of averaging local scores; keep private organization evidence inaccessible.
@@ -137,10 +163,10 @@ Test migration up/down/reapply in a disposable database containing existing coll
 
 The discussion approved the behavior and boundaries above, not a calibrated formula. The first task must record these choices and reconcile the affected scenarios before runtime work begins:
 
-- Exact score normalization/combination, reliability semantics, valid weight bounds, minimum sample defaults, recent-window definition, and threshold inclusivity. Unknown signals must not silently become zero or renormalize into established excellence.
+- Exact score normalization/combination, reliability semantics and original-event timestamps, valid weight bounds, minimum sample defaults, window duration/count defaults, and score-threshold inclusivity. The time-window boundary and expiration behavior are settled above. Unknown signals must not silently become zero or renormalize into established excellence.
 - Supported choice cardinality/order matching, numeric tolerance boundaries and consensus concentration, and which effective peer answers qualify. Free-text/spatial semantic grading remains out of scope.
 - Organization aggregation and global eligible-evidence/disclosure rules; avoid aggregating differently configured local scores. Define how the chosen evidence scope applies to admission and how newcomers can acquire evidence without a circular eligibility barrier.
 - Exact authorized capability mapping, reviewer query/notification delivery, key correction concurrency/retry inputs, and recovery semantics when reinstatement meets unchanged versus new negative evidence.
-- Concrete invalidation/freshness marker and lock ordering for source changes, multi-worker peer recalculation, restriction publication, and allocation. Prove compatibility with current Project/User/Task/Attempt and review locking.
+- Concrete source-revision/freshness storage and lock ordering for key disclosure/submission, source changes, completed-peer recalculation, restriction publication, and allocation. Implement the specified time invalidation and prove compatibility with current Project/User/Task/Attempt and review locking.
 
 These are visible pre-implementation decisions, not approvals implied by documenting this change. Pay-band amounts, commercial schedules, bonus settlement details, and payment-provider selection remain in the future Finance change.

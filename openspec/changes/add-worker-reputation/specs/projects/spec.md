@@ -40,6 +40,17 @@ Reputation configuration SHALL support organization defaults and draft-project o
 - **WHEN** activation encounters invalid weights, insufficient comparison settings, or an unsupported grading family
 - **THEN** it returns scoped validation issues and leaves the project editable in draft
 
+### Requirement: Activation identifies impossible project-local evidence settings
+For reputation rules using only this project's evidence, activation SHALL reject a known-answer enforcement minimum greater than the number of enabled scoreable task/question checks that one worker could answer through ordinary allocation. This theoretical maximum SHALL NOT be presented as a promise of per-worker delivery. Validation SHALL report the available count and required minimum to authorized managers. When known-answer scoring or enforcement is enabled, activation SHALL also return an advisory that shared task capacity can leave individual workers with fewer observations, including none. Requirements relying on eligible preexisting organization/global evidence SHALL be evaluated against that declared scope rather than incorrectly rejected for lacking local checks. This validation SHALL NOT alter submission targets, create qualification attempts, or reserve additional check capacity.
+
+#### Scenario: A project cannot supply its own configured minimum
+- **WHEN** project-local known-answer enforcement requires ten evaluated questions but the authored project contains only four enabled scoreable checks
+- **THEN** activation fails with the four-versus-ten explanation and leaves the project draft
+
+#### Scenario: A feasible total does not guarantee every worker is tested
+- **WHEN** the project has enough authored checks in theory and activates
+- **THEN** managers receive the ordinary-allocation advisory and individual assessments still report actual evidence counts
+
 ### Requirement: Introducing reputation preserves existing active projects
 Deploying reputation SHALL NOT silently enable new admission thresholds or automatic restrictions on projects already activated under the previous contract. Their frozen collection configuration and issued evidence SHALL be preserved. New reputation enforcement SHALL be selected through the activation contract rather than a migration that opts existing active projects into changed rules.
 
