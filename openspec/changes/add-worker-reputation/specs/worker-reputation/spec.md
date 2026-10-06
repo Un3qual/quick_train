@@ -56,6 +56,21 @@ A known-answer check SHALL mean a question with an organization-supplied expecte
 - **WHEN** a worker skips known-answer questions or their evaluations are excluded
 - **THEN** those observations do not satisfy the evaluated-answer minimum and the assessment reports the actual eligible count
 
+### Requirement: Organizations can inspect known-answer evidence and question quality
+Authorized organization reviewers SHALL have scoped reports showing each worker's evaluated known-answer count, correct and incorrect counts, accuracy when the evaluated count is nonzero, configured minimum, and whether that minimum is met. They SHALL also have outcome summaries for each exact task/question with evaluated count, correct and incorrect counts, and match rate when evaluable answers exist, allowing investigation of widespread failures. Reports SHALL identify the applicable key/configuration provenance, evidence window, and freshness. Skipped, disabled, and exposure-excluded evaluations SHALL NOT enter current scoring denominators. A zero denominator SHALL yield unavailable accuracy rather than a success or failure rate, and insufficient worker history SHALL retain its unknown/provisional status. Question outcome summaries SHALL be diagnostic: widespread failure alone SHALL NOT declare a key invalid, disable it, pause a project, or add an automatic worker restriction. Reviewers SHALL use the authorized key correction/disabling and recalculation actions when investigation warrants a change. These reports SHALL NOT require extra worker interactions or disclose protected evidence to workers.
+
+#### Scenario: Perfect accuracy has little supporting evidence
+- **WHEN** one worker answers eighteen of twenty known-answer questions correctly and another answers two of two correctly
+- **THEN** reviewers see both counts and the corresponding 90% and 100% accuracy, together with each worker's minimum-evidence status
+
+#### Scenario: A worker has no evaluated known-answer responses
+- **WHEN** the organization reads that worker's known-answer evidence report
+- **THEN** it shows zero evaluated answers, unavailable accuracy, and unknown/provisional history rather than implying that the worker passed or failed
+
+#### Scenario: Most workers disagree with a supplied key
+- **WHEN** only ten of one hundred eligible evaluated responses match a question's key
+- **THEN** authorized reviewers can inspect the counts and 10% match rate to investigate the key or instructions, without the report automatically changing the key, project state, or worker restrictions
+
 ### Requirement: Keys and check designations remain private
 Worker presentation SHALL use the ordinary question/input contract without disclosing the answer key or the designation of a question as a quality check. Worker-facing APIs, nested GraphQL traversal, errors, and work-access outcomes SHALL NOT reveal hidden keys, other workers' answers, or another organization's private evidence. A worker account SHALL NOT gain manager access by holding an attempt. Authorized organization reviewers SHALL be able to inspect only the supporting evidence permitted by their scoped authority. Detailed worker-facing reputation explanations and dispute workflows are deferred; organization reviewer evidence and recovery actions remain in scope.
 
