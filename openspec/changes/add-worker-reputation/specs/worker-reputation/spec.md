@@ -216,7 +216,7 @@ An authorized reinstatement SHALL identify the project, worker, selected project
 - **THEN** it retains its original cutoff and effect rather than restarting the evidence period
 
 ### Requirement: Assessments and automatic access reasons publish together
-Each project/worker assessment SHALL publish its scores, evidence provenance, freshness, and automatic admission/restriction reasons together as one derived result of the same effective inputs, including applicable reinstatement cutoffs for access rules. Automatic reasons SHALL NOT be maintained as independently updated suspension state. Correction, expiration, and ordinary recalculation SHALL replace this result through the same atomic publication path, conditional on current evidence/configuration and reinstatement inputs. A project result using organization/global assessments SHALL retain their input provenance and become stale when its contributing inputs change. Admission SHALL use a current publication together with applicable manual reinstatement and existing authorization rules. Manual reinstatement SHALL remain separately attributable and serialized with publication/admission; it SHALL NOT rewrite evidence or scores. A calculation using a superseded reinstatement input SHALL NOT restore an obsolete reason.
+Each project/worker assessment SHALL publish its scores, evidence provenance, freshness, and automatic admission/restriction reasons together as one derived result of the same effective inputs, including applicable reinstatement cutoffs for access rules. Automatic reasons SHALL NOT be maintained as independently updated suspension state. Correction, expiration, and ordinary recalculation SHALL replace this result through the same atomic publication path, conditional on current evidence/configuration and reinstatement inputs. A project result using organization/global assessments SHALL retain their input provenance and mark its calculation as needing refresh when contributing inputs change. Admission SHALL use the latest completed publication together with applicable manual reinstatement and existing authorization rules, even while a replacement is pending. Manual reinstatement SHALL remain separately attributable and serialized with publication/admission; it SHALL NOT rewrite evidence or scores. A calculation using a superseded reinstatement input SHALL NOT restore an obsolete reason.
 
 #### Scenario: A faulty key is repaired
 - **WHEN** recalculation removes the evidence supporting an automatic suspension
@@ -224,18 +224,29 @@ Each project/worker assessment SHALL publish its scores, evidence provenance, fr
 
 #### Scenario: Publication fails partway through
 - **WHEN** publishing a new project/worker assessment fails before commit
-- **THEN** neither its scores nor its automatic reasons become effective, and the previous publication cannot be treated as current if its inputs are stale
+- **THEN** neither its scores nor its automatic reasons become effective; the previous completed decision remains effective, and readers can see that its calculation needs updating
 
-### Requirement: Project decisions inherit supporting assessment freshness
-A project access result using organization/global signal inputs SHALL be stale when any contributing input is pending recalculation, has expired, or has changed its effective inputs/publication. This SHALL take effect even if the contributing assessment's stored score and last published version have not yet changed. Assessment reads SHALL expose pending report updates, and publication/admission SHALL verify the freshness of supporting access-relevant inputs along with local access inputs under the decision's required concurrency ordering. The access result's effective freshness deadline SHALL NOT outlive a contributing input's deadline. Pending reviewer-only evidence SHALL NOT invalidate otherwise current access inputs. Publication SHALL NOT turn pending access-relevant evidence into a current project access result. Admission SHALL refresh the affected inputs and derived project result or return a retryable outcome; correctness SHALL NOT depend on a background job first rewriting every dependent project row.
+### Requirement: Pending recalculation preserves completed access decisions
+A project assessment SHALL retain the provenance and as-of cutoff of contributing organization/global inputs. Pending recalculation, source corrections, and time-window expiry SHALL mark affected calculations as needing refresh without withdrawing the last completed access decision. Authorized reads SHALL expose pending updates rather than present the old calculation as fresh. Recalculation SHALL check contributing inputs and condition publication on their revisions, scope settings, reinstatement inputs, and time boundaries; obsolete work SHALL NOT overwrite newer results. Fetch and direct assignment SHALL continue using the latest completed project decision with applicable reinstatement while replacement work is pending or delayed. A previously allowed worker SHALL NOT receive a new restriction, a reputation-updating retry response, or a grace-period timeout solely because recalculation is incomplete. Existing restrictions SHALL remain effective until replaced or reinstated; ordinary account, organization, audience, explicit-block, lease, and capacity rules SHALL remain effective. Newly published automatic restrictions SHALL affect only subsequent issuance and SHALL NOT invalidate already-issued work.
 
 #### Scenario: A global assessment is awaiting repair
 - **WHEN** a key correction marks a contributing global assessment stale but its recalculation is delayed and its stored score remains unchanged
-- **THEN** the dependent project decision is also stale and new-work admission refreshes or retries instead of relying on the old global number
+- **THEN** reports show the pending update while admission continues using the last completed project decision; the updated score and automatic reasons take effect together when the replacement publishes
 
 #### Scenario: Supporting evidence expires before local evidence
 - **WHEN** a contributing organization/global assessment reaches its expiration boundary while the project's local evidence remains current
-- **THEN** the project decision requires refresh or retry even if no new score has been published upstream
+- **THEN** recalculation is due, but the last completed project decision remains effective until replacement rather than causing a temporary pause
+
+#### Scenario: An existing suspension awaits recalculation
+- **WHEN** a suspended worker's supporting evidence needs recalculation
+- **THEN** the pending job alone neither lifts nor adds a restriction; the existing reason remains until a completed replacement or applicable reinstatement removes it
+
+### Requirement: First access does not depend on a queued initial calculation
+If no project assessment has been published, admission SHALL calculate and publish an initial decision using the shared calculation and latest completed supporting assessments. If a required supporting assessment has never been calculated, the ordinary admission path SHALL calculate it from eligible source evidence rather than wait for a queued job or classify unprocessed history as absent. Initial publication SHALL use the same concurrency and input-provenance rules. If completed supporting inputs await refresh, it SHALL retain their pending/as-of metadata without postponing the initial access decision. Genuinely insufficient evidence SHALL follow the existing scope rules: provisional project-local participation and any configured organization/global entry requirement. This SHALL NOT create a warm-up lifecycle, qualification attempt, or reputation-updating retry outcome.
+
+#### Scenario: Eligible prior history has not been assessed yet
+- **WHEN** a worker requests their first task in a project and required eligible organization/global evidence exists but its initial assessment job has not run
+- **THEN** admission calculates the missing initial assessment and project decision in the request instead of requiring the worker to wait for the queued job
 
 ### Requirement: Reputation operations fail closed within organization scope
 Organization settings, keys, assessments, reviewer information, and restriction management SHALL require explicit organization scope and operation-appropriate management or review authority. Organization management SHALL require an active authenticated account, active organization, active membership, and explicit capability grants. Foreign and nonexistent targets SHALL fail without distinguishable disclosure. Worker sessions SHALL require an account while retaining existing optional-membership audience routes. Platform-controlled global summaries SHALL NOT disclose other organizations' raw evidence or grant management access.
@@ -249,7 +260,7 @@ Organization settings, keys, assessments, reviewer information, and restriction 
 - **THEN** the mutation fails closed without partial changes
 
 ### Requirement: Recalculation is reproducible and safe to repeat
-Assessments SHALL be rebuildable from retained authoritative evidence and the applicable scoped configuration. Equivalent evidence and calculation inputs SHALL yield equivalent assessments. Repeated calculation, submission retries, key corrections, and review retries SHALL NOT double-count evidence or duplicate restriction effects. Readers SHALL be able to distinguish a pending recalculation from a current assessment. New-work admission SHALL NOT silently use an assessment known to be stale when that assessment determines access; it SHALL obtain a current decision or return a retryable outcome.
+Assessments SHALL be rebuildable from retained authoritative evidence and the applicable scoped configuration. Equivalent evidence and calculation inputs SHALL yield equivalent assessments. Repeated calculation, submission retries, key corrections, and review retries SHALL NOT double-count evidence or duplicate restriction effects. Readers SHALL be able to distinguish a pending recalculation from an up-to-date calculation and identify the completed decision still effective for access. Repeated jobs SHALL preserve that completed decision until a replacement publishes; pending work SHALL NOT itself create or clear a restriction.
 
 #### Scenario: A rebuild runs twice
 - **WHEN** the same evidence and configuration are evaluated again
@@ -257,18 +268,18 @@ Assessments SHALL be rebuildable from retained authoritative evidence and the ap
 
 #### Scenario: Admission needs an assessment under repair
 - **WHEN** corrected evidence makes the access decision stale before a worker fetches new work
-- **THEN** allocation obtains a current decision or returns a retryable outcome without issuing work based on the known-stale result
+- **THEN** allocation uses the latest completed decision with applicable reinstatement and ordinary authorization while the repaired result is calculated
 
 ### Requirement: Time windows expire evidence without requiring a new submission
-Each time-windowed assessment SHALL record its evaluation cutoff and next time-dependent invalidation, if any. Answer-derived observations SHALL be dated by the original answer's submission time; other time-windowed evidence SHALL use its signal's original event timestamp rather than job time. Key correction, delayed peer completion, and review correction SHALL NOT restart an observation's age. For duration W at cutoff T, eligible observations SHALL have original event times greater than T minus W and no later than T. The next invalidation SHALL be no later than the earliest included observation's original event time plus W. At or after that boundary, reads SHALL identify the cached assessment as stale and new-work admission SHALL refresh it or return a retryable result, even if no evidence write or background job has occurred. Scheduled recalculation SHALL publish the updated assessment and its automatic access reasons together. An expired failure-based reason SHALL cease to suspend once its current threshold or minimum-evidence condition is no longer met; other active reasons, explicit blocks, and separate established organization/global entry requirements SHALL remain effective. Insufficient remaining local history SHALL become unknown/provisional with provisional participation, never a success score.
+Each time-windowed assessment SHALL record its evaluation cutoff and next time-dependent invalidation, if any. Answer-derived observations SHALL be dated by the original answer's submission time; other time-windowed evidence SHALL use its signal's original event timestamp rather than job time. Key correction, delayed peer completion, and review correction SHALL NOT restart an observation's age. For duration W at cutoff T, eligible observations SHALL have original event times greater than T minus W and no later than T. The next invalidation SHALL be no later than the earliest included observation's original event time plus W. At or after that boundary, reads SHALL identify the calculation as needing refresh; scheduled recalculation and detection of a missed boundary SHALL request repair without requiring a new submission. Pending repair SHALL NOT pause allocation or expire the last completed access decision. Recalculation SHALL publish updated metrics and automatic reasons together, retaining reinstatement cutoffs. That completed publication SHALL remove failure-based reasons whose threshold or minimum is no longer met, preserving other active reasons, explicit blocks, and separate established organization/global entry requirements. Insufficient remaining local history SHALL become unknown/provisional with provisional participation, never a success score.
 
 #### Scenario: A suspended worker produces no new answers
 - **WHEN** the evidence supporting an automatic suspension expires out of the window
-- **THEN** time-driven recalculation or the next access decision reevaluates it without requiring a new submission, removing the unsupported reason while retaining any other valid restriction
+- **THEN** time-driven recalculation reevaluates it without requiring a new submission, and its completed publication removes the unsupported reason while retaining any other valid restriction
 
 #### Scenario: The expiration job is delayed
 - **WHEN** a worker requests work at or after the recorded invalidation time before the job runs
-- **THEN** admission refreshes the assessment or returns a retryable result instead of treating the expired score as current
+- **THEN** the missed refresh is detectable and repair is requested, while admission keeps using the last completed decision without a temporary pause
 
 #### Scenario: A key correction concerns an old response
 - **WHEN** correction occurs after that response's submission time has left the current window
