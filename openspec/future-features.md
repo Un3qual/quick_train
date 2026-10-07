@@ -29,3 +29,11 @@ The future change must define what workers can see, how they submit a dispute, h
 ## Qualification tests and requalification
 
 Discussion placeholder only: [add-qualification-tests](changes/add-qualification-tests/proposal.md). Its authoring, grading, retry, eligibility, and reputation integration details remain for a future discussion.
+
+## Organization and project score weights
+
+Status: deferred on 2026-10-07; outside the current reputation change.
+
+Allow organizations to choose signal weights, with project overrides if needed. The initial reputation implementation keeps weights centrally defined in application code and supplies them explicitly to the shared calculation, making developer adjustments straightforward without exposing customer controls. Other approved organization/project settings remain in scope.
+
+Before exposing weights, specify valid combinations, treatment of missing evidence, activation-time freezing, and how local weighting remains independent of platform-controlled global reputation. Reuse the existing calculation and effective-configuration model rather than introducing customer-authored formulas or another scoring engine.

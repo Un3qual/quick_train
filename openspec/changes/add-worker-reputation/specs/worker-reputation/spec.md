@@ -15,6 +15,17 @@ Reputation SHALL assess the existing global User at project, organization, and p
 - **WHEN** two organizations give the same worker different local assessments
 - **THEN** each assessment retains its scope and provenance, and neither local score overwrites the other or becomes an unqualified global average
 
+### Requirement: Application-owned weights are explicit calculation inputs
+Score weights SHALL be defined centrally in application code and supplied explicitly to the shared reputation calculation. Organization/project management SHALL NOT accept customer-provided weight overrides in this release. Project activation SHALL retain the effective application weight values with the frozen configuration; subsequent default-weight changes SHALL NOT silently reweight active projects. Organization/global assessments SHALL retain their effective platform-owned weight values and calculation provenance. A platform weight change for those scopes SHALL invalidate affected assessments and use the normal recalculation/publication path. Equivalent evidence, effective settings, and weight inputs SHALL produce the same result across reads, jobs, reports, and admission. Global reputation SHALL remain independent of organization/project configuration. Adjustable customer weights are deferred; numerical defaults and missing-signal arithmetic remain pre-implementation decisions.
+
+#### Scenario: Application weights change after project activation
+- **WHEN** developers change the central weight definition
+- **THEN** new project activations use the new weights while already-active projects retain their frozen values, and rebuilt results remain attributable to the effective inputs used
+
+#### Scenario: An organization attempts to override weights
+- **WHEN** an authorized manager supplies score weights through organization or project configuration
+- **THEN** the unsupported override is rejected rather than changing the calculation or global reputation
+
 ### Requirement: Review and task facts retain their meaning
 Assessments SHALL derive from authoritative submitted answers, attempts, known-answer keys, and review evidence. Automatic acceptance of submitted answers SHALL NOT count as independent evidence of correctness. Human-review evidence SHALL retain its effective verdict and provenance; a rejection SHALL NOT be treated as an answer key. Skips SHALL remain distinguishable and SHALL NOT automatically reduce quality. Reputation SHALL NOT rewrite worker answers, issue review verdicts, select canonical answers, change submission targets, create replacement demand, or reopen satisfied tasks.
 
@@ -45,8 +56,8 @@ Authorized organization managers SHALL be able to include known-answer checks am
 - **WHEN** an author requests semantic free-text or spatial grading without an implemented grading contract
 - **THEN** key authoring fails with a scoped validation error and creates no scoreable check
 
-### Requirement: Known-answer evidence reflects actual worker exposure
-A known-answer check SHALL mean a question with an organization-supplied expected answer for its exact task inputs. Such questions SHALL follow ordinary task allocation and submission capacity; this release SHALL NOT guarantee a check frequency or minimum number of checks for each worker. Authorized assessment reads SHALL report each worker's actual evaluated known-answer count, its configured minimum, and whether that minimum is met. Skipped, disabled, and exposure-excluded checks SHALL NOT count as evaluated successes or failures. Exhaustion of authored checks or insufficient observations SHALL leave the signal unknown/provisional and SHALL NOT itself trigger a poor-quality suspension. This SHALL NOT bypass a separately configured admission requirement for established evidence. Reports SHALL NOT imply that every worker was tested merely because the project contains known-answer questions.
+### Requirement: Known-answer evidence reflects actual evaluated answers
+A known-answer check SHALL mean a question with an organization-supplied expected answer for its exact task inputs. Such questions SHALL follow ordinary task allocation and submission capacity; this release SHALL NOT guarantee a check frequency or minimum number of checks for each worker. Authorized assessment reads SHALL report each worker's actual evaluated known-answer count, its configured minimum, and whether that minimum is met. Skipped and disabled checks SHALL NOT count as evaluated successes or failures. Exhaustion of authored checks or insufficient observations SHALL leave the signal unknown/provisional and SHALL NOT itself trigger a poor-quality suspension. Insufficient project-local history SHALL permit provisional participation, without bypassing a separately configured requirement for established organization/global evidence or any other valid access restriction. Reports SHALL NOT imply that every worker was tested merely because the project contains known-answer questions.
 
 #### Scenario: Earlier workers consume the available known-answer tasks
 - **WHEN** ordinary allocation satisfies those tasks before another worker encounters them
@@ -57,7 +68,7 @@ A known-answer check SHALL mean a question with an organization-supplied expecte
 - **THEN** those observations do not satisfy the evaluated-answer minimum and the assessment reports the actual eligible count
 
 ### Requirement: Organizations can inspect known-answer evidence and question quality
-Authorized organization reviewers SHALL have scoped reports showing each worker's evaluated known-answer count, correct and incorrect counts, accuracy when the evaluated count is nonzero, configured minimum, and whether that minimum is met. They SHALL also have outcome summaries for each exact task/question with evaluated count, correct and incorrect counts, and match rate when evaluable answers exist, allowing investigation of widespread failures. Reports SHALL identify the applicable key/configuration provenance, evidence window, and freshness. Skipped, disabled, and exposure-excluded evaluations SHALL NOT enter current scoring denominators. A zero denominator SHALL yield unavailable accuracy rather than a success or failure rate, and insufficient worker history SHALL retain its unknown/provisional status. Question outcome summaries SHALL be diagnostic: widespread failure alone SHALL NOT declare a key invalid, disable it, pause a project, or add an automatic worker restriction. Reviewers SHALL use the authorized key correction/disabling and recalculation actions when investigation warrants a change. These reports SHALL NOT require extra worker interactions or disclose protected evidence to workers.
+Authorized organization reviewers SHALL have scoped reports showing each worker's evaluated known-answer count, correct and incorrect counts, accuracy when the evaluated count is nonzero, configured minimum, and whether that minimum is met. They SHALL also have outcome summaries for each exact task/question with evaluated count, correct and incorrect counts, and match rate when evaluable answers exist, allowing investigation of widespread failures. Reports SHALL identify the applicable key/configuration provenance, evidence window, and freshness. Skipped and disabled evaluations SHALL NOT enter current scoring denominators. A zero denominator SHALL yield unavailable accuracy rather than a success or failure rate, and insufficient worker history SHALL retain its unknown/provisional status. Question outcome summaries SHALL be diagnostic: widespread failure alone SHALL NOT declare a key invalid, disable it, pause a project, or add an automatic worker restriction. Reviewers SHALL use the authorized key correction/disabling and recalculation actions when investigation warrants a change. These reports SHALL NOT require extra worker interactions or disclose protected evidence to workers.
 
 #### Scenario: Perfect accuracy has little supporting evidence
 - **WHEN** one worker answers eighteen of twenty known-answer questions correctly and another answers two of two correctly
@@ -74,6 +85,8 @@ Authorized organization reviewers SHALL have scoped reports showing each worker'
 ### Requirement: Keys and check designations remain private
 Worker presentation SHALL use the ordinary question/input contract without disclosing the answer key or the designation of a question as a quality check. Worker-facing APIs, nested GraphQL traversal, errors, and work-access outcomes SHALL NOT reveal hidden keys, other workers' answers, or another organization's private evidence. A worker account SHALL NOT gain manager access by holding an attempt. Authorized organization reviewers SHALL be able to inspect only the supporting evidence permitted by their scoped authority. Detailed worker-facing reputation explanations and dispute workflows are deferred; organization reviewer evidence and recovery actions remain in scope.
 
+Authorized key authors/readers who also perform work SHALL follow the ordinary reputation evidence rules. Prior key knowledge alone SHALL NOT exclude their answers or prohibit an otherwise authorized key edit. No key-disclosure tracking or special reveal workflow is required. Existing organization authorization, key-change attribution, and human-review rules remain effective.
+
 #### Scenario: An external worker inspects a work bundle
 - **WHEN** an eligible external worker reads a task containing a known-answer check
 - **THEN** ordinary task content is available without organization membership, while check designation, key, and manager-only relationships remain inaccessible
@@ -82,24 +95,9 @@ Worker presentation SHALL use the ordinary question/input contract without discl
 - **WHEN** a worker requests key data or other workers' answers through an attempt, task, question, or assessment relationship
 - **THEN** the request grants no access to that protected evidence
 
-### Requirement: Prior key exposure cannot manufacture quality evidence
-The system SHALL retain attributable key authorship and the first platform disclosure of each check's key to each user. An answer submitted by a key author, or by a user to whom that key was disclosed before or during submission, SHALL be excluded from quality reputation evidence for that check in every assessment scope. It SHALL also be excluded from peer comparisons as either the assessed answer or a peer vote. Revoking management permissions or correcting the key SHALL NOT erase prior exposure. A later authorized disclosure SHALL NOT invalidate an already-submitted blind answer solely because it occurred later. Creating, correcting, or disabling a key SHALL be denied when the acting user has already submitted an answer to that exact task/question; another authorized actor must perform the change. Disclosure and submission SHALL have a consistent transactional order so concurrent reads cannot create apparently blind evidence. Source answers, reviewability, and collection counts SHALL remain unchanged.
-
-#### Scenario: An author later performs the work
-- **WHEN** a key author submits an answer to the corresponding question
-- **THEN** collection retains the answer but it earns no quality reputation evidence from that check, including through a subsequent human review
-
-#### Scenario: Key access is revoked before work
-- **WHEN** a user has already retrieved a key and later answers the question after losing key access
-- **THEN** the retained disclosure still excludes that answer from the relevant quality evidence
-
-#### Scenario: A manager attempts to grade their own prior answer
-- **WHEN** a user tries to create, correct, or disable a key for a task/question they have answered
-- **THEN** the action fails without changing the key or assessment; another authorized actor can perform a legitimate correction
-
-#### Scenario: Disclosure races submission
-- **WHEN** a worker's submission competes with an authorized read of the corresponding key
-- **THEN** the ordering either records prior exposure and excludes the answer, or establishes that submission preceded disclosure; permission changes cannot erase that ordering
+#### Scenario: A key author also performs work
+- **WHEN** an otherwise eligible user who authored a key submits an evaluable answer to that question
+- **THEN** the answer follows ordinary grading and reputation rules without an exclusion based on authorship
 
 ### Requirement: Key corrections preserve history and repair assessments
 Authorized corrections or disabling a faulty key SHALL retain the prior key, matching rule, actor, reason, and evaluation provenance. Correcting keys SHALL NOT mutate submitted answers. A correction SHALL cause affected assessments and reputation restrictions to be reevaluated under the repaired evidence; obsolete evaluations SHALL NOT remain effective after recalculation or overwrite a newer result. Review corrections SHALL likewise feed recalculation. Reviewers SHALL have evidence to identify widespread key failures and investigate potentially incorrect keys or instructions.
@@ -150,7 +148,7 @@ A question designated as a known-answer check SHALL use its eligible known-answe
 - **THEN** its grading stops contributing and the same question does not become a new source of peer-based penalties
 
 ### Requirement: Unfinished peer comparisons cannot restrict work
-Peer comparisons SHALL become eligible for reputation scoring and enforcement only when the task reaches its frozen submission target and the final distinct-peer sample satisfies the configured minimum and consensus threshold. Earlier comparisons SHALL be labeled provisional and available only as authorized reviewer information; they SHALL NOT contribute to scores or admission/restriction decisions. Completing a project before a task meets its target SHALL NOT convert that partial comparison into enforceable evidence. A current assessment containing pending comparisons SHALL remain distinguishable from a stale calculation; unfinished evidence alone SHALL NOT cause indefinite allocation retries. Existing insufficient-history admission rules SHALL still apply.
+Peer comparisons SHALL become eligible for reputation scoring and enforcement only when the task reaches its frozen submission target and the final distinct-peer sample satisfies the configured minimum and consensus threshold. Earlier comparisons SHALL be labeled provisional and available only as authorized reviewer information; they SHALL NOT contribute to scores or admission/restriction decisions. Completing a project before a task meets its target SHALL NOT convert that partial comparison into enforceable evidence. A current assessment containing pending comparisons SHALL remain distinguishable from a stale calculation; unfinished evidence alone SHALL NOT cause indefinite allocation retries. Insufficient local history SHALL permit provisional participation; separately configured established organization/global entry requirements SHALL still apply.
 
 #### Scenario: An early majority reverses
 - **WHEN** early submitted answers favor one option but the final submitted set favors another
@@ -175,6 +173,17 @@ Each enabled signal SHALL support a configured action to inform reviewers or sus
 - **WHEN** an actor with reinstatement authority acts on a project restriction
 - **THEN** the action records its reason and effect without granting access in another project or changing historical task evidence
 
+### Requirement: Assessments and automatic access reasons publish together
+Each project/worker assessment SHALL publish its scores, evidence provenance, freshness, and automatic admission/restriction reasons together as one derived result of the same effective inputs. Automatic reasons SHALL NOT be maintained as independently updated suspension state. Correction, expiration, and ordinary recalculation SHALL replace this result through the same atomic publication path, conditional on current evidence/configuration. A project result using organization/global assessments SHALL retain their input provenance and become stale when those inputs change. Admission SHALL use a current publication together with applicable manual reinstatement and existing authorization rules. Manual reinstatement SHALL remain separately attributable and serialized with publication/admission; it SHALL NOT rewrite evidence or scores.
+
+#### Scenario: A faulty key is repaired
+- **WHEN** recalculation removes the evidence supporting an automatic suspension
+- **THEN** the corrected score and removal of that automatic reason become visible together, while unrelated valid reasons and explicit blocks remain effective
+
+#### Scenario: Publication fails partway through
+- **WHEN** publishing a new project/worker assessment fails before commit
+- **THEN** neither its scores nor its automatic reasons become effective, and the previous publication cannot be treated as current if its inputs are stale
+
 ### Requirement: Reputation operations fail closed within organization scope
 Organization settings, keys, assessments, reviewer information, and restriction management SHALL require explicit organization scope and operation-appropriate management or review authority. Organization management SHALL require an active authenticated account, active organization, active membership, and explicit capability grants. Foreign and nonexistent targets SHALL fail without distinguishable disclosure. Worker sessions SHALL require an account while retaining existing optional-membership audience routes. Platform-controlled global summaries SHALL NOT disclose other organizations' raw evidence or grant management access.
 
@@ -198,7 +207,7 @@ Assessments SHALL be rebuildable from retained authoritative evidence and the ap
 - **THEN** allocation obtains a current decision or returns a retryable outcome without issuing work based on the known-stale result
 
 ### Requirement: Time windows expire evidence without requiring a new submission
-Each time-windowed assessment SHALL record its evaluation cutoff and next time-dependent invalidation, if any. Answer-derived observations SHALL be dated by the original answer's submission time; other time-windowed evidence SHALL use its signal's original event timestamp rather than job time. Key correction, delayed peer completion, and review correction SHALL NOT restart an observation's age. For duration W at cutoff T, eligible observations SHALL have original event times greater than T minus W and no later than T. The next invalidation SHALL be no later than the earliest included observation's original event time plus W. At or after that boundary, reads SHALL identify the cached assessment as stale and new-work admission SHALL refresh it or return a retryable result, even if no evidence write or background job has occurred. Scheduled recalculation SHALL reevaluate the assessment and its automatic restrictions. An expired failure-based reason SHALL cease to suspend once its current threshold or minimum-evidence condition is no longer met; other active reasons, explicit blocks, and separate established-evidence admission requirements SHALL remain effective. Insufficient remaining history SHALL become unknown/provisional, never a success score.
+Each time-windowed assessment SHALL record its evaluation cutoff and next time-dependent invalidation, if any. Answer-derived observations SHALL be dated by the original answer's submission time; other time-windowed evidence SHALL use its signal's original event timestamp rather than job time. Key correction, delayed peer completion, and review correction SHALL NOT restart an observation's age. For duration W at cutoff T, eligible observations SHALL have original event times greater than T minus W and no later than T. The next invalidation SHALL be no later than the earliest included observation's original event time plus W. At or after that boundary, reads SHALL identify the cached assessment as stale and new-work admission SHALL refresh it or return a retryable result, even if no evidence write or background job has occurred. Scheduled recalculation SHALL publish the updated assessment and its automatic access reasons together. An expired failure-based reason SHALL cease to suspend once its current threshold or minimum-evidence condition is no longer met; other active reasons, explicit blocks, and separate established organization/global entry requirements SHALL remain effective. Insufficient remaining local history SHALL become unknown/provisional with provisional participation, never a success score.
 
 #### Scenario: A suspended worker produces no new answers
 - **WHEN** the evidence supporting an automatic suspension expires out of the window
