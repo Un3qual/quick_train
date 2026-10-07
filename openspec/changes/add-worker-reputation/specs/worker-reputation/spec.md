@@ -27,7 +27,7 @@ Score weights SHALL be defined centrally in application code and supplied explic
 - **THEN** the unsupported override is rejected rather than changing the calculation or global reputation
 
 ### Requirement: Disabled and insufficient signals have distinct scoring outcomes
-A scoring signal disabled by the effective configuration SHALL be not applicable and contribute neither a value nor weight to the combined calculation. An enabled contributing signal with insufficient evidence SHALL remain provisional; it SHALL NOT receive a zero/success value or have its weight silently redistributed among established signals. A combined score SHALL be established and usable for admission only when every contributing enabled signal meets its minimum. Otherwise the combined numeric score SHALL be unavailable while individual established metrics and all applicable counts remain inspectable. A configuration with no contributing signals SHALL yield a not-applicable combined result. Established individual signals SHALL remain eligible for their own configured actions without waiting for unrelated signals. Insufficient combined evidence SHALL follow the existing provisional project-local and established organization/global admission rules.
+A scoring signal disabled by the effective configuration SHALL be not applicable and contribute neither a value nor weight to the combined calculation. Each combined result SHALL identify its contributing signal set; an admission result SHALL exclude reviewer-only signals and their minimum-evidence requirements. An enabled contributing signal with insufficient evidence SHALL remain provisional; it SHALL NOT receive a zero/success value or have its weight silently redistributed among established signals. A combined score SHALL be established only when every contributing enabled signal meets its minimum. Otherwise the combined numeric score SHALL be unavailable while individual established metrics and all applicable counts remain inspectable. A configuration with no contributing signals SHALL yield a not-applicable combined result. Established individual signals SHALL remain eligible for their own configured actions without waiting for unrelated signals. Insufficient combined admission evidence SHALL follow the existing provisional project-local and established organization/global admission rules.
 
 #### Scenario: Human-review scoring is disabled
 - **WHEN** the effective configuration disables human-review scoring and all other contributing signals have sufficient evidence
@@ -174,7 +174,7 @@ Peer comparisons SHALL become eligible for reputation scoring and enforcement on
 - **THEN** its peer comparison remains non-enforcing and collection is not reopened to obtain more answers
 
 ### Requirement: Signal actions support review and recoverable project suspension
-Each enabled signal SHALL support a configured action to inform reviewers or suspend new project work after its minimum evidence and threshold conditions are met. Its enforcement action SHALL be distinct from its scoring contribution. Known-answer failures SHALL support automatic suspension. Disagreement SHALL default to informing reviewers and SHALL require explicit project opt-in for automatic suspension. Automatic restrictions SHALL be project-scoped and SHALL NOT impose platform-wide account bans. Authorized reviewers SHALL receive the reason and supporting evidence; authorized managers SHALL be able to reinstate a worker without changing the underlying answers or fabricating a score adjustment. Reinstatement and recalculation SHALL have attributable, repeatable outcomes.
+Each enabled signal SHALL support a configured action to inform reviewers or suspend new project work after its minimum evidence and threshold conditions are met. Reviewer-only signals MAY contribute to authorized reviewer summaries, but SHALL NOT restrict work directly or indirectly through combined admission scores, minimum-evidence requirements, or pending recalculation. Every automatic access calculation SHALL use only the contributing signals enabled for that purpose in the frozen project configuration. Organization/global entry rules SHALL use the eligible per-signal inputs rather than an aggregate containing excluded signals; this SHALL NOT alter the independent organization/global assessment. Known-answer failures SHALL support automatic suspension. Disagreement SHALL default to informing reviewers and SHALL require explicit project opt-in for any automatic access effect. Automatic restrictions SHALL be project-scoped and SHALL NOT impose platform-wide account bans. Authorized reviewers SHALL receive the reason and supporting evidence; authorized managers SHALL be able to reinstate selected project-local automatic rules without changing the underlying answers or fabricating a score adjustment. Reinstatement and recalculation SHALL have attributable, repeatable outcomes.
 
 #### Scenario: Known-answer failures cross an enforced threshold
 - **WHEN** enough evaluated checks establish failure under a project's configured automatic action
@@ -182,14 +182,41 @@ Each enabled signal SHALL support a configured action to inform reviewers or sus
 
 #### Scenario: Repeated disagreement uses the default action
 - **WHEN** disagreement exceeds its threshold without explicit automatic-suspension opt-in
-- **THEN** authorized reviewers receive the concern while the concern alone does not suspend the worker
+- **THEN** authorized reviewers receive the concern, but disagreement does not affect automatic admission or suspension, including through a combined score
+
+#### Scenario: A broader score includes reviewer-only disagreement
+- **WHEN** a project's entry rule uses global evidence but treats disagreement as reviewer-only
+- **THEN** it uses only the eligible global signal inputs for admission rather than the aggregate containing disagreement, without changing the global assessment
+
+#### Scenario: Only reviewer-only evidence is missing or pending
+- **WHEN** the worker satisfies the project's automatic rules using current access-relevant evidence but a reviewer-only signal lacks enough evidence or awaits recalculation
+- **THEN** that signal remains labeled appropriately for reviewers without making admission provisional, denied, or retryable
 
 #### Scenario: A reviewer reinstates a worker
 - **WHEN** an actor with reinstatement authority acts on a project restriction
 - **THEN** the action records its reason and effect without granting access in another project or changing historical task evidence
 
+### Requirement: Reinstatement evaluates selected rules using subsequent evidence
+An authorized reinstatement SHALL identify the project, worker, selected project-local automatic rule(s), actor, explanation, related prior decision, and effective cutoff. Each selected rule SHALL evaluate only eligible evidence with an original source-event time after its latest reinstatement cutoff, within its existing history window and using its existing minimum samples and threshold. Answer-derived evidence SHALL use the original answer submission time; later review, peer completion, key correction, or rebuilding SHALL NOT renew that time. Insufficient post-reinstatement evidence SHALL permit provisional participation for that rule; sufficient new evidence SHALL be eligible to trigger it again. A selected combined rule SHALL require its eligible contributors' existing minima from that subsequent evidence. Historical reputation and reviewer metrics SHALL remain unchanged by reinstatement, and unselected automatic rules, explicit blocks, and independent organization/global entry requirements SHALL remain effective. Replaying the same reinstatement request SHALL retain the original cutoff. Recalculation and expiration SHALL preserve the cutoff; a deliberate later reinstatement MAY establish a new one. No separate recovery thresholds, recovery score, or blanket exemption duration SHALL be introduced.
+
+#### Scenario: Rebuilding old failures after reinstatement
+- **WHEN** a worker has been reinstated for a known-answer failure rule and its old answers are regraded or rebuilt
+- **THEN** historical reputation reflects those answers but they cannot satisfy the selected rule's post-reinstatement minimum or restore its old suspension
+
+#### Scenario: New evidence reaches the existing failure threshold
+- **WHEN** enough eligible post-reinstatement answers meet the selected rule's existing minimum and fail its configured threshold
+- **THEN** the rule can suspend new work again with attributable evidence, without a new recovery policy
+
+#### Scenario: Another rule still denies entry
+- **WHEN** reinstatement clears one rule but another automatic rule, explicit block, or independent organization/global entry requirement still denies access
+- **THEN** the remaining rule continues to deny entry and the reinstatement does not grant a general access override
+
+#### Scenario: A reinstatement request is retried
+- **WHEN** the same successful reinstatement request is replayed after additional answers arrive
+- **THEN** it retains its original cutoff and effect rather than restarting the evidence period
+
 ### Requirement: Assessments and automatic access reasons publish together
-Each project/worker assessment SHALL publish its scores, evidence provenance, freshness, and automatic admission/restriction reasons together as one derived result of the same effective inputs. Automatic reasons SHALL NOT be maintained as independently updated suspension state. Correction, expiration, and ordinary recalculation SHALL replace this result through the same atomic publication path, conditional on current evidence/configuration. A project result using organization/global assessments SHALL retain their input provenance and become stale when those inputs change. Admission SHALL use a current publication together with applicable manual reinstatement and existing authorization rules. Manual reinstatement SHALL remain separately attributable and serialized with publication/admission; it SHALL NOT rewrite evidence or scores.
+Each project/worker assessment SHALL publish its scores, evidence provenance, freshness, and automatic admission/restriction reasons together as one derived result of the same effective inputs, including applicable reinstatement cutoffs for access rules. Automatic reasons SHALL NOT be maintained as independently updated suspension state. Correction, expiration, and ordinary recalculation SHALL replace this result through the same atomic publication path, conditional on current evidence/configuration and reinstatement inputs. A project result using organization/global assessments SHALL retain their input provenance and become stale when its contributing inputs change. Admission SHALL use a current publication together with applicable manual reinstatement and existing authorization rules. Manual reinstatement SHALL remain separately attributable and serialized with publication/admission; it SHALL NOT rewrite evidence or scores. A calculation using a superseded reinstatement input SHALL NOT restore an obsolete reason.
 
 #### Scenario: A faulty key is repaired
 - **WHEN** recalculation removes the evidence supporting an automatic suspension
@@ -200,7 +227,7 @@ Each project/worker assessment SHALL publish its scores, evidence provenance, fr
 - **THEN** neither its scores nor its automatic reasons become effective, and the previous publication cannot be treated as current if its inputs are stale
 
 ### Requirement: Project decisions inherit supporting assessment freshness
-A project result using organization/global assessments SHALL be stale when any contributing assessment is pending recalculation, has expired, or has changed its effective inputs/publication. This SHALL take effect even if the contributing assessment's stored score and last published version have not yet changed. Assessment reads SHALL expose that stale state, and publication/admission SHALL verify supporting-assessment freshness along with local freshness under the decision's required concurrency ordering. A project's effective freshness deadline SHALL NOT outlive a contributing assessment's deadline. Publication SHALL NOT turn pending supporting evidence into a current project result. Admission SHALL refresh the affected inputs and derived project result or return a retryable outcome; correctness SHALL NOT depend on a background job first rewriting every dependent project row.
+A project access result using organization/global signal inputs SHALL be stale when any contributing input is pending recalculation, has expired, or has changed its effective inputs/publication. This SHALL take effect even if the contributing assessment's stored score and last published version have not yet changed. Assessment reads SHALL expose pending report updates, and publication/admission SHALL verify the freshness of supporting access-relevant inputs along with local access inputs under the decision's required concurrency ordering. The access result's effective freshness deadline SHALL NOT outlive a contributing input's deadline. Pending reviewer-only evidence SHALL NOT invalidate otherwise current access inputs. Publication SHALL NOT turn pending access-relevant evidence into a current project access result. Admission SHALL refresh the affected inputs and derived project result or return a retryable outcome; correctness SHALL NOT depend on a background job first rewriting every dependent project row.
 
 #### Scenario: A global assessment is awaiting repair
 - **WHEN** a key correction marks a contributing global assessment stale but its recalculation is delayed and its stored score remains unchanged
