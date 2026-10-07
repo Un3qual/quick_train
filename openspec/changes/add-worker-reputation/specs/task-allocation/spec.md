@@ -37,31 +37,43 @@ Attempts SHALL transition from claimed/assigned to in-progress on start or first
 ## ADDED Requirements
 
 ### Requirement: Reputation admission is atomic and shared by allocation routes
-Pool fetch and direct assignment SHALL enforce the same frozen project reputation rules using the target worker's latest completed project assessment and its jointly published automatic access reasons, with applicable manual reinstatement. Assignment permission or an audience allow entry SHALL NOT bypass a reputation restriction. Assessment/access publication, reinstatement, and issuance SHALL have a consistent transactional order: an issuance that commits before suspension retains its issued contract; issuance ordered after suspension SHALL fail without creating an attempt or presentation. After lock waits, allocation SHALL read the latest completed decision and applicable reinstatement. Pending recalculation, time-window expiry, or changed supporting organization/global inputs SHALL NOT pause new issuance or produce a reputation-updating retry response. The completed decision SHALL remain effective until replacement; first-time calculations SHALL be prepared in the ordinary request before its allocation transaction and locks rather than deferred to a background job. The locked phase SHALL recheck authorization, project state/configuration, the request key, the latest completed decision, and applicable reinstatement; it SHALL conditionally publish a valid prepared result when still needed before issuance. A protection-input change requiring recalculation SHALL release allocation locks before re-preparation. No evidence scan or scoring SHALL execute while allocation locks are held. Insufficient local history SHALL permit participation while separately configured established organization/global entry requirements remain effective. Pending peer comparisons SHALL NOT be mistaken for stale computation or used for enforcement. Reviewer-only signals SHALL NOT affect automatic admission through their values, missing evidence, or pending recalculation. These checks SHALL NOT alter task capacity, require replacement answers, or change existing review verdicts. A restriction SHALL affect only its project and SHALL remain separate from explicit account or audience blocks.
+Pool fetch and direct assignment SHALL evaluate the same frozen project reputation rules for each new issuance using the target worker's latest completed assessment inputs in every required scope and applicable manual reinstatement. Assignment permission or an audience allow entry SHALL NOT bypass a reputation restriction. A historical allow/deny result SHALL NOT replace this evaluation. Assessment publication, reinstatement, and issuance SHALL have a consistent transactional order across all consulted scopes: issuance ordered before a newly failing assessment retains its issued contract; issuance ordered after it SHALL evaluate the new inputs and fail if the rules deny access, without creating an attempt or presentation.
+
+After lock waits, allocation SHALL recheck authorization, project state/configuration, the request key, latest completed project/organization/global inputs, and applicable reinstatement before evaluating admission. Pending recalculation or time-window expiry SHALL NOT withdraw completed inputs or produce a reputation-updating retry response. Changed completed broader inputs SHALL be used immediately without requiring a separate project decision refresh. Missing initial assessments SHALL be prepared in the ordinary request before its allocation transaction and locks, then conditionally published if still needed. A protection-input change invalidating a needed initial candidate SHALL release allocation locks before re-preparation. Evidence scans, peer comparisons, and full history calculations SHALL remain outside those locks; the locked evaluation SHALL use bounded completed metrics and frozen rules. The recorded decision SHALL identify the inputs actually used, and a denied request SHALL retain its outcome as scoped history without creating an attempt or latching that denial for subsequent requests.
+
+Insufficient local history SHALL permit participation while separately configured established organization/global entry requirements remain effective. Pending peer comparisons SHALL NOT be mistaken for stale computation or used for enforcement. Reviewer-only signals SHALL NOT affect automatic admission through their values, missing evidence, or pending recalculation. These checks SHALL NOT alter task capacity, require replacement answers, or change existing review verdicts. A restriction SHALL affect only its project and SHALL remain separate from explicit account or audience blocks.
 
 #### Scenario: Another calculation publishes during first-time preparation
-- **WHEN** an initial request prepares a candidate outside allocation locks and a concurrent calculation publishes a completed project decision before the request obtains those locks
-- **THEN** the locked phase uses the completed decision rather than overwriting it with the candidate or running scoring again under the locks
+- **WHEN** an initial request prepares a missing assessment outside allocation locks and a concurrent calculation publishes it before the request obtains those locks
+- **THEN** the locked phase uses the completed assessment when evaluating admission rather than overwriting it with the candidate or scanning evidence again under the locks
 
 #### Scenario: Authority is revoked during preparation
 - **WHEN** initial reputation preparation begins while authorized but the relevant account, audience access, or assignment permission is revoked before issuance
 - **THEN** locked revalidation denies issuance without an attempt or presentation, regardless of the prepared reputation result
 
-#### Scenario: A correction invalidates the only prepared initial result
-- **WHEN** locked revalidation finds that a correction or reinstatement invalidated the candidate and no completed project decision is available
+#### Scenario: A correction invalidates a needed initial result
+- **WHEN** locked revalidation finds that a correction or reinstatement invalidated a candidate and its required scope still has no completed assessment
 - **THEN** it releases allocation locks before preparing again within the request, without moving the expensive calculation into the locked phase or waiting for a background scoring job
 
 #### Scenario: A manager attempts to assign suspended work
-- **WHEN** an authorized assignment manager targets a worker suspended by that project's reputation rules
-- **THEN** the assignment creates no attempt or presentation
+- **WHEN** an authorized assignment manager targets a worker whose latest completed inputs and applicable reinstatement fail the project's reputation rules
+- **THEN** the assignment creates no attempt or presentation and retains the denial as decision history
 
-#### Scenario: Suspension races a new fetch
-- **WHEN** the suspension and allocation transactions compete
-- **THEN** either issuance commits first and is preserved, or suspension takes effect first and issuance is denied without partial work
+#### Scenario: A failing assessment races a new fetch
+- **WHEN** a publication that establishes a failing reputation rule competes with allocation
+- **THEN** either issuance is ordered first and preserved, or publication is ordered first and allocation evaluates the failing inputs and denies issuance without partial work
+
+#### Scenario: A broader update commits during an allocation lock wait
+- **WHEN** a global assessment changes before the waiting request obtains the locks protecting its admission evaluation
+- **THEN** the request evaluates the newly completed global inputs and records that revision, even if its earlier preparation or the local project assessment used an older result
+
+#### Scenario: A worker retries after broader reputation improves
+- **WHEN** a worker denied by Project B later satisfies its broader entry requirement through newly completed reputation from other work and requests new work in B
+- **THEN** both fetch and direct assignment use that improved assessment without a B-specific refresh job, retain the earlier denial as history, and permit issuance if the remaining rules and capacity allow it
 
 #### Scenario: Another project remains available
-- **WHEN** a worker is suspended in one project but satisfies another project's account, audience, and reputation rules
-- **THEN** the first project's suspension alone does not prevent allocation in the second
+- **WHEN** a worker fails one project's rules but satisfies another project's account, audience, and reputation rules
+- **THEN** the first project's denial alone does not prevent allocation in the second
 
 #### Scenario: An explicit block follows a reputation-only suspension
 - **WHEN** an authorized manager additionally blocks the worker through the existing project access override
@@ -69,12 +81,12 @@ Pool fetch and direct assignment SHALL enforce the same frozen project reputatio
 
 #### Scenario: A lock wait crosses the evidence expiration boundary
 - **WHEN** allocation starts with a current assessment but its evidence window expires before the issuance check obtains its locks
-- **THEN** allocation uses the latest completed decision after acquiring its locks, while the passed boundary triggers refresh without pausing work
+- **THEN** allocation evaluates the latest completed inputs after acquiring its locks, while the passed boundary triggers refresh without pausing work
 
 #### Scenario: A required global input remains pending
-- **WHEN** a previously eligible worker fetches or is assigned work while a contributing global signal awaits recalculation
-- **THEN** allocation continues under the last completed project decision, subject to ordinary authorization and capacity checks, without returning a reputation-updating retry
+- **WHEN** a previously eligible worker fetches or is assigned work while a contributing global signal awaits recalculation and the completed inputs still satisfy the rules
+- **THEN** allocation continues using those completed inputs, subject to ordinary authorization and capacity checks, without returning a reputation-updating retry
 
-#### Scenario: A replacement decision introduces a restriction
-- **WHEN** recalculation publishes a project decision that suspends a worker who continued working under the previous decision
-- **THEN** subsequent issuance observes the new restriction while already-issued work remains available under its existing authorization and lease rules
+#### Scenario: A completed assessment introduces a restriction
+- **WHEN** recalculation publishes evidence that fails the project's configured rules after work was issued using previous completed inputs
+- **THEN** subsequent issuance observes that failure while already-issued work remains available under its existing authorization and lease rules

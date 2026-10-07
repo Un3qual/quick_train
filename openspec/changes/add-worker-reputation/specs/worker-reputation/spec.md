@@ -5,7 +5,7 @@ Give organizations explainable worker-quality evidence and recoverable control o
 ## ADDED Requirements
 
 ### Requirement: Scoped assessments preserve evidence and uncertainty
-Reputation SHALL assess the existing global User at project, organization, and platform-controlled global scope. Assessments SHALL distinguish known-answer correctness, substantive human review, peer agreement, reliability, and experience, and expose contributing counts, the evidence window, and calculation provenance to authorized readers. Evidence state SHALL be exactly one of not applicable, insufficient evidence, or established. Disabled/unselected contributors SHALL be not applicable; enabled contributors below their minimum SHALL have insufficient evidence, including at zero observations; contributors meeting the minimum SHALL be established. Counts SHALL distinguish zero observations from a small sample without another evidence state. As-of cutoff and pending refresh SHALL be separate metadata; a pending update SHALL NOT by itself change the evidence state or access decision. Global calculations SHALL use platform-defined eligible evidence and SHALL NOT average scores calculated under different local settings. One organization's settings SHALL NOT change another organization's assessment or the global calculation.
+Reputation SHALL assess the existing global User at project, organization, and platform-controlled global scope. Assessments SHALL distinguish known-answer correctness, substantive human review, peer agreement, reliability, and experience, and expose contributing counts, the evidence window, and calculation provenance to authorized readers. Evidence state SHALL be exactly one of not applicable, insufficient evidence, or established. Disabled/unselected contributors SHALL be not applicable; enabled contributors below their minimum SHALL have insufficient evidence, including at zero observations; contributors meeting the minimum SHALL be established. Counts SHALL distinguish zero observations from a small sample without another evidence state. As-of cutoff and pending refresh SHALL be separate metadata; a pending update SHALL NOT by itself change the evidence state or deny access. Admission SHALL evaluate the latest completed inputs from each required scope on each new work request. Global calculations SHALL use platform-defined eligible evidence and SHALL NOT average scores calculated under different local settings. One organization's settings SHALL NOT change another organization's assessment or the global calculation.
 
 #### Scenario: A new worker has insufficient history
 - **WHEN** the worker has fewer observations than the configured minimum for a signal
@@ -21,7 +21,7 @@ Reputation SHALL assess the existing global User at project, organization, and p
 
 #### Scenario: An established assessment awaits an update
 - **WHEN** an established published assessment needs recalculation
-- **THEN** its evidence state remains established as of its recorded cutoff, with pending refresh reported separately and its completed access decision still effective
+- **THEN** its evidence state remains established as of its recorded cutoff, with pending refresh reported separately and that completed assessment still usable by a fresh admission evaluation
 
 ### Requirement: Application-owned weights are explicit calculation inputs
 Score weights SHALL be defined centrally in application code and supplied explicitly to the shared reputation calculation. Organization/project management SHALL NOT accept customer-provided weight overrides in this release. Project activation SHALL retain the effective application weight values with the frozen configuration; subsequent default-weight changes SHALL NOT silently reweight active projects. Organization/global assessments SHALL retain their effective platform-owned weight values and calculation provenance. A platform weight change for those scopes SHALL invalidate affected assessments and use the normal recalculation/publication path. Equivalent evidence, effective settings, and weight inputs SHALL produce the same result across reads, jobs, reports, and admission. Global reputation SHALL remain independent of organization/project configuration. Adjustable customer weights are deferred; numerical defaults and normalization for established inputs remain pre-implementation decisions.
@@ -97,10 +97,14 @@ A known-answer check SHALL mean a question with an organization-supplied expecte
 - **THEN** those observations do not satisfy the evaluated-answer minimum and the assessment reports the actual eligible count
 
 ### Requirement: Organizations can inspect known-answer evidence and question quality
-Authorized organization reviewers SHALL have scoped reports showing each worker's evaluated known-answer count, correct and incorrect counts, accuracy when the evaluated count is nonzero, configured minimum, and whether that minimum is met. They SHALL also have outcome summaries for each exact task/question with evaluated count, correct and incorrect counts, and match rate when evaluable answers exist, allowing investigation of widespread failures. Reports SHALL identify the applicable key/configuration provenance, evidence window, and freshness. Skipped and disabled evaluations SHALL NOT enter current scoring denominators. A zero denominator SHALL yield unavailable accuracy rather than a success or failure rate, and insufficient worker history SHALL retain its insufficient-evidence status. Question outcome summaries SHALL be diagnostic: widespread failure alone SHALL NOT declare a key invalid, disable it, pause a project, or add an automatic worker restriction. Reviewers SHALL use the authorized key correction/disabling and recalculation actions when investigation warrants a change. These reports SHALL NOT require extra worker interactions or disclose protected evidence to workers.
+Authorized organization reviewers SHALL have scoped worker reports showing evaluated known-answer count, correct and incorrect counts, accuracy when the evaluated count is nonzero, configured minimum, and whether that minimum is met. Worker reports SHALL use the worker assessment's configured history window and identify its configuration, key provenance, evaluation cutoff, and freshness.
+
+Question-quality reports SHALL instead summarize all evaluable submitted answers to one exact task/question/input contract through the report cutoff, independently of workers' reputation windows and reinstatement cutoffs. They SHALL report evaluated, correct, and incorrect counts and match rate when evaluable answers exist. They SHALL identify the evaluated key revision, all-history sample, cutoff, and freshness; a report SHALL NOT mix evaluations from different key revisions. Corrections and enabled-state changes SHALL refresh these reports through the existing recalculation path. A completed report awaiting refresh SHALL identify its pending update and evaluated key rather than present obsolete grading as current. No additional configurable report window SHALL be introduced. Work on other questions or the passage of a worker's history-window boundary SHALL NOT remove answers from this question's sample.
+
+Skipped and disabled evaluations SHALL NOT enter current accuracy denominators. A zero denominator SHALL yield unavailable accuracy rather than a success or failure rate, and insufficient worker history SHALL retain its insufficient-evidence status. Question outcome summaries SHALL be diagnostic: widespread failure alone SHALL NOT declare a key invalid, disable it, pause a project, or add an automatic worker restriction. Reviewers SHALL use the authorized key correction/disabling/re-enabling and recalculation actions when investigation warrants a change. These reports SHALL NOT require extra worker interactions, change reputation windows or source retention, or disclose protected evidence to workers.
 
 #### Scenario: Perfect accuracy has little supporting evidence
-- **WHEN** one worker answers eighteen of twenty known-answer questions correctly and another answers two of two correctly
+- **WHEN** one worker answers eighteen of twenty known-answer questions correctly and another answers two of two correctly within their assessment windows
 - **THEN** reviewers see both counts and the corresponding 90% and 100% accuracy, together with each worker's minimum-evidence status
 
 #### Scenario: A worker has no evaluated known-answer responses
@@ -110,6 +114,14 @@ Authorized organization reviewers SHALL have scoped reports showing each worker'
 #### Scenario: Most workers disagree with a supplied key
 - **WHEN** only ten of one hundred eligible evaluated responses match a question's key
 - **THEN** authorized reviewers can inspect the counts and 10% match rate to investigate the key or instructions, without the report automatically changing the key, project state, or worker restrictions
+
+#### Scenario: Workers move on to later questions
+- **WHEN** two of ten answers match a question's key and those workers later answer enough other questions to move the original answers outside their reputation windows
+- **THEN** the question report still shows two of ten matching that key, while worker reports follow their own windows and all source answers remain stored
+
+#### Scenario: A key correction changes the question report
+- **WHEN** a corrected key changes which stored answers match
+- **THEN** the refreshed question report evaluates the same all-history sample under the corrected key, identifies its revision, and does not mix old and new grades or restore expired answers to worker reputation windows
 
 ### Requirement: Keys and check designations remain private
 Worker presentation SHALL use the ordinary question/input contract without disclosing the answer key or the designation of a question as a quality check. Worker-facing APIs, nested GraphQL traversal, errors, and work-access outcomes SHALL NOT reveal hidden keys, other workers' answers, or another organization's private evidence. A worker account SHALL NOT gain manager access by holding an attempt. Authorized organization reviewers SHALL be able to inspect only the supporting evidence permitted by their scoped authority. Detailed worker-facing reputation explanations and dispute workflows are deferred; organization reviewer evidence and recovery actions remain in scope.
@@ -237,8 +249,10 @@ An authorized reinstatement SHALL identify the project, worker, selected project
 - **WHEN** the same successful reinstatement request is replayed after additional answers arrive
 - **THEN** it retains its original cutoff and effect rather than restarting the evidence period
 
-### Requirement: Assessments and automatic access reasons publish together
-Each project/worker assessment SHALL publish its scores, evidence provenance, freshness, and automatic admission/restriction reasons together from one coherent fixed snapshot of source evidence, supporting assessments, evaluation cutoff, effective settings, and applicable reinstatement inputs. Automatic reasons SHALL NOT be independently maintained suspension state. Publication SHALL advance the completed snapshot by captured input order rather than job completion time, without regressing the published source frontier or evaluation cutoff. Ordinary new answers or a time-window refresh boundary reached after capture SHALL NOT invalidate an otherwise valid result; they SHALL request a follow-up calculation and retain pending-refresh metadata. Key/review corrections, key disabling or re-enabling, changes to effective settings, or reinstatement SHALL invalidate affected prepared results. A result using superseded protection inputs or an older snapshot SHALL NOT replace the effective publication. Admission SHALL use the latest completed publication with applicable manual reinstatement and existing authorization while replacement work is pending. Reinstatement SHALL remain separately attributable and serialized with publication/admission without rewriting evidence or historical scores.
+### Requirement: Assessments publish coherent completed results
+Each scoped assessment SHALL publish its scores, contributing counts, evidence provenance, and freshness together from one coherent fixed snapshot of source evidence, evaluation cutoff, effective settings, and applicable reinstatement inputs. Project assessments SHALL retain any rule-specific post-reinstatement inputs with that same publication. Project assessments SHALL NOT cache organization/global admission outcomes that must be refreshed before those newer scoped assessments can be used. Automatic access reasons SHALL be derived from completed assessment inputs during admission, not maintained as separate suspension state.
+
+Publication SHALL advance the completed snapshot by captured input order rather than job completion time, without regressing the published source frontier or evaluation cutoff. Ordinary new answers or a time-window refresh boundary reached after capture SHALL NOT invalidate an otherwise valid result; they SHALL request a follow-up calculation and retain pending-refresh metadata. Key/review corrections, key disabling or re-enabling, changes to effective settings, or reinstatement SHALL invalidate affected prepared results. A result using superseded protection inputs or an older snapshot SHALL NOT replace the effective publication. Reinstatement SHALL remain separately attributable and serialized with publication/admission without rewriting evidence or historical scores.
 
 #### Scenario: New answers arrive during calculation
 - **WHEN** a calculation has captured its inputs and more ordinary answers arrive before it finishes
@@ -246,40 +260,61 @@ Each project/worker assessment SHALL publish its scores, evidence provenance, fr
 
 #### Scenario: A correction invalidates a prepared calculation
 - **WHEN** a key/review correction, key disabling or re-enabling, effective-setting change, or reinstatement supersedes inputs used by a prepared result
-- **THEN** that result is discarded and preparation repeats under the new inputs without overwriting a newer publication or pausing access under an existing completed decision
+- **THEN** that result is discarded and preparation repeats under the new inputs without overwriting a newer publication or pausing admission using completed assessments
 
 #### Scenario: A faulty key is repaired
-- **WHEN** recalculation removes the evidence supporting an automatic suspension
-- **THEN** the corrected score and removal of that automatic reason become visible together, while unrelated valid reasons and explicit blocks remain effective
+- **WHEN** a completed recalculation removes the evidence supporting an automatic suspension
+- **THEN** the next admission evaluation uses the repaired assessment and no longer derives that failure reason, while unrelated valid reasons and explicit blocks remain effective
 
 #### Scenario: Publication fails partway through
-- **WHEN** publishing a new project/worker assessment fails before commit
-- **THEN** neither its scores nor its automatic reasons become effective; the previous completed decision remains effective, and readers can see that its calculation needs updating
+- **WHEN** publishing a new assessment fails before commit
+- **THEN** none of its updated metrics become effective; admission continues to evaluate the previous completed inputs, and readers can see that the assessment needs updating
 
-### Requirement: Pending recalculation preserves completed access decisions
-A project assessment SHALL retain the provenance and as-of cutoff of contributing organization/global inputs. Pending recalculation, source corrections, and time-window expiry SHALL mark affected calculations as needing refresh without withdrawing the last completed access decision. Authorized reads SHALL expose pending updates rather than present the old calculation as fresh. Recalculation SHALL use the fixed-snapshot publication rule, retaining contributing revisions and cutoff without requiring ordinary new observations or the current wall clock to match the captured snapshot. Fetch and direct assignment SHALL continue using the latest completed project decision with applicable reinstatement while replacement work is pending or delayed. A previously allowed worker SHALL NOT receive a new restriction, a reputation-updating retry response, or a grace-period timeout solely because recalculation is incomplete. Existing restrictions SHALL remain effective until replaced or reinstated; ordinary account, organization, audience, explicit-block, lease, and capacity rules SHALL remain effective. Newly published automatic restrictions SHALL affect only subsequent issuance and SHALL NOT invalidate already-issued work.
+### Requirement: New work evaluates the latest completed assessments
+Each request for new project work SHALL evaluate the frozen project's automatic rules using the latest completed assessment inputs in each required project, organization, or global scope, together with applicable reinstatement and current ordinary authorization. It SHALL select only access-relevant signals and apply their existing minima, weights, and thresholds. A prior denial SHALL NOT be a lasting restriction independent of those inputs. Once a required organization/global assessment improves enough, a new request SHALL be able to qualify without a separate project refresh job or manual clearing of that earlier denial. Newly completed evidence establishing failure SHALL likewise affect subsequent issuance without waiting for a project-specific copy of the broader result.
+
+Access evaluations SHALL retain their outcome, reasons, time, effective settings, assessment references/as-of cutoffs, and reinstatement provenance as scoped decision history. Retaining an earlier outcome SHALL NOT make it authoritative for a later new-work request. Replaying an already committed allocation SHALL retain the existing allocation retry contract instead of rechecking reputation for new issuance.
+
+#### Scenario: A denied worker earns enough broader reputation
+- **WHEN** Project B previously denied a worker for insufficient broader reputation, a new organization/global assessment now satisfies that requirement, and the worker requests new work in B
+- **THEN** admission uses the improved completed assessment without a B-specific refresh or manual reinstatement, permits work if all other requirements are met, and retains the previous denial as history
+
+#### Scenario: Broader reputation now fails an entry rule
+- **WHEN** a previously qualifying worker's latest completed organization/global assessment fails the project's configured entry rule
+- **THEN** a new work request is denied using that result even if the project's local assessment has not changed, without revoking issued work
+
+### Requirement: Pending recalculation keeps completed assessment inputs usable
+Pending recalculation, source corrections, and time-window expiry SHALL mark affected assessments as needing refresh without withdrawing their completed inputs from admission. Authorized reads and decision history SHALL expose each input's as-of cutoff and pending update rather than present an old calculation as fresh. Fetch and direct assignment SHALL evaluate the latest completed inputs from each required scope even if another required scope awaits refresh. A pending scope SHALL NOT prevent use of a newer completed assessment in another scope.
+
+A previously allowed worker SHALL NOT receive a new restriction, a reputation-updating retry response, or a grace-period timeout solely because recalculation is incomplete. With unchanged completed inputs, effective rules, and reinstatement, the reputation outcome SHALL remain unchanged. A prior denial SHALL continue only while the rules evaluated against those inputs still deny access. Ordinary account, organization, audience, explicit-block, lease, and capacity rules SHALL remain effective. Changed outcomes from newly completed assessments SHALL affect only subsequent issuance and SHALL NOT invalidate already-issued work.
 
 #### Scenario: A global assessment is awaiting repair
-- **WHEN** a key correction marks a contributing global assessment stale but its recalculation is delayed and its stored score remains unchanged
-- **THEN** reports show the pending update while admission continues using the last completed project decision; the updated score and automatic reasons take effect together when the replacement publishes
+- **WHEN** a key correction marks a contributing global assessment stale but recalculation is delayed
+- **THEN** reports show the pending update and admission uses its last completed inputs alongside the latest completed inputs in other required scopes, without a scoring pause
 
 #### Scenario: Supporting evidence expires before local evidence
-- **WHEN** a contributing organization/global assessment reaches its expiration boundary while the project's local evidence remains current
-- **THEN** recalculation is due, but the last completed project decision remains effective until replacement rather than causing a temporary pause
+- **WHEN** a required organization/global assessment reaches its expiration boundary while local evidence remains current
+- **THEN** refresh is requested and admission continues to use completed inputs without a temporary pause
 
 #### Scenario: An existing suspension awaits recalculation
-- **WHEN** a suspended worker's supporting evidence needs recalculation
-- **THEN** the pending job alone neither lifts nor adds a restriction; the existing reason remains until a completed replacement or applicable reinstatement removes it
+- **WHEN** the assessments behind a denial await recalculation and their completed inputs, applicable reinstatement, and effective rules remain unchanged
+- **THEN** another request produces the same reputation outcome; the pending job alone neither lifts nor adds a restriction
+
+#### Scenario: Global reputation improves while local refresh remains pending
+- **WHEN** a previously denied worker's global assessment now satisfies the entry rule and the completed local inputs already permit participation but await refresh
+- **THEN** a new request can qualify using those completed inputs without waiting for the local refresh
 
 ### Requirement: First access does not depend on a queued initial calculation
-If no project assessment has been published, the ordinary admission request SHALL authorize preparation, detect committed allocation retries, and calculate a candidate using the shared calculation before entering the allocation transaction or taking its Project/User/task locks. Missing initial supporting assessments SHALL also be prepared from eligible source evidence outside those locks, rather than waiting for a queued job or classifying unprocessed history as absent. Completed supporting inputs awaiting refresh SHALL retain their pending/as-of metadata without postponing the initial decision. Under allocation locks, the request SHALL recheck current authorization, project state/configuration, the request key, latest completed publication, and reinstatement. It SHALL use a concurrent completed result when available; otherwise it SHALL validate and publish the prepared candidate under the fixed-snapshot guards. If a guard changed and no usable publication exists, it SHALL release allocation locks before preparing again in the request. Evidence scans and scoring SHALL NOT run while allocation locks are held. Insufficient local evidence SHALL permit participation while configured organization/global entry requirements remain effective. No queued warm-up lifecycle, qualification attempt, or reputation-updating retry outcome SHALL be introduced.
+If any required initial assessment is missing, the ordinary admission request SHALL authorize preparation, detect committed allocation retries, and calculate the missing assessment from eligible evidence before entering the allocation transaction or taking its Project/User/task locks. Unprocessed history SHALL NOT be classified as absent or require a queued-job wait. Completed inputs awaiting refresh SHALL remain usable with their pending/as-of metadata.
+
+Under allocation locks, the request SHALL recheck current authorization, project state/configuration, the request key, the latest completed assessments in all required scopes, and reinstatement. It SHALL use concurrently completed assessments when available; otherwise it SHALL validate and publish the needed prepared candidates under the fixed-snapshot guards before evaluating admission. If a guard changed and a required completed assessment is still missing, it SHALL release allocation locks before preparing again in the request. Evidence scans, peer comparisons, and full history calculations SHALL NOT run while allocation locks are held; bounded rule evaluation over completed assessment metrics SHALL be permitted. Insufficient local evidence SHALL permit participation while configured organization/global entry requirements remain effective. No queued warm-up lifecycle, qualification attempt, or reputation-updating retry outcome SHALL be introduced.
 
 #### Scenario: Eligible prior history has not been assessed yet
 - **WHEN** a worker requests their first task in a project and required eligible organization/global evidence exists but its initial assessment job has not run
-- **THEN** admission prepares the missing assessments outside allocation locks, then revalidates and publishes or uses a concurrent completed result before issuance without waiting for the queued job
+- **THEN** admission prepares the missing assessments outside allocation locks, then revalidates and publishes or uses concurrent completed assessments before evaluating issuance without waiting for the queued job
 
 ### Requirement: Reputation operations fail closed within organization scope
-Organization settings, keys, assessments, reviewer information, and restriction management SHALL require explicit organization scope and operation-appropriate management or review authority. Organization management SHALL require an active authenticated account, active organization, active membership, and explicit capability grants. Foreign and nonexistent targets SHALL fail without distinguishable disclosure. Worker sessions SHALL require an account while retaining existing optional-membership audience routes. Platform-controlled global summaries SHALL NOT disclose other organizations' raw evidence or grant management access.
+Organization settings, keys, assessments, access-decision history, reviewer information, and restriction management SHALL require explicit organization scope and operation-appropriate management or review authority. Organization management SHALL require an active authenticated account, active organization, active membership, and explicit capability grants. Foreign and nonexistent targets SHALL fail without distinguishable disclosure. Worker sessions SHALL require an account while retaining existing optional-membership audience routes. Platform-controlled global summaries SHALL NOT disclose other organizations' raw evidence or grant management access.
 
 #### Scenario: A reviewer supplies another organization's assessment
 - **WHEN** an otherwise authorized reviewer substitutes a foreign organization, project, worker assessment, or key reference
@@ -290,15 +325,15 @@ Organization settings, keys, assessments, reviewer information, and restriction 
 - **THEN** the mutation fails closed without partial changes
 
 ### Requirement: Recalculation is reproducible and safe to repeat
-Assessments SHALL be rebuildable from retained authoritative evidence and the applicable scoped configuration. Equivalent evidence and calculation inputs SHALL yield equivalent assessments. Repeated calculation, submission retries, key corrections, and review retries SHALL NOT double-count evidence or duplicate restriction effects. Readers SHALL be able to distinguish a pending recalculation from an up-to-date calculation and identify the completed decision still effective for access. Repeated jobs SHALL preserve that completed decision until a replacement publishes; pending work SHALL NOT itself create or clear a restriction.
+Assessments SHALL be rebuildable from retained authoritative evidence and the applicable scoped configuration. Equivalent evidence and calculation inputs SHALL yield equivalent assessments. Repeated calculation, submission retries, key corrections, and review retries SHALL NOT double-count evidence or duplicate restriction effects. Readers SHALL be able to distinguish a pending recalculation from an up-to-date calculation and identify the completed inputs used for each access evaluation. Repeated jobs SHALL preserve completed inputs until a replacement publishes; pending work SHALL NOT itself create or clear a restriction, and historical denials SHALL NOT override a fresh admission evaluation.
 
 #### Scenario: A rebuild runs twice
 - **WHEN** the same evidence and configuration are evaluated again
 - **THEN** scores, counts, and effective restriction outcomes converge without duplicate penalties
 
 #### Scenario: Admission needs an assessment under repair
-- **WHEN** corrected evidence makes the access decision stale before a worker fetches new work
-- **THEN** allocation uses the latest completed decision with applicable reinstatement and ordinary authorization while the repaired result is calculated
+- **WHEN** corrected evidence makes a required assessment stale before a worker fetches new work
+- **THEN** allocation evaluates the latest completed assessment inputs with applicable reinstatement and ordinary authorization while the repaired result is calculated
 
 ### Requirement: Count windows select recent eligible observations per signal
 For a count-only window with positive integer limit N, each signal SHALL independently select at most N eligible observations from the captured evidence snapshot. Selection SHALL first apply the declared scope, signal eligibility, source deduplication, evaluation cutoff, and any applicable reinstatement cutoff, then take the most recent observations by original source-event time. Equal event times SHALL use a stable source-observation identity as a deterministic tie-breaker, consistently across calculations and rebuilds. Correct and incorrect eligible known-answer evaluations SHALL both count; ineligible evidence and evidence for other signals SHALL NOT consume that signal's slots. If fewer than N observations qualify, the calculation SHALL use the actual available count and retain the existing minimum-evidence rules.
@@ -326,15 +361,15 @@ Answer-derived observations SHALL use original answer submission time; other sig
 - **THEN** selection excludes it before applying the count limit and uses the next most recent eligible observation if available, without deleting the excluded source evidence
 
 ### Requirement: Time windows expire evidence without requiring a new submission
-Each time-windowed assessment SHALL record its evaluation cutoff and next time-dependent invalidation, if any. Answer-derived observations SHALL be dated by the original answer's submission time; other time-windowed evidence SHALL use its signal's original event timestamp rather than job time. Key correction, delayed peer completion, and review correction SHALL NOT restart an observation's age. For duration W at cutoff T, eligible observations SHALL have original event times greater than T minus W and no later than T. The next invalidation SHALL be no later than the earliest included observation's original event time plus W. At or after that boundary, reads SHALL identify the calculation as needing refresh; scheduled recalculation and detection of a missed boundary SHALL request repair without requiring a new submission. Pending repair SHALL NOT pause allocation or expire the last completed access decision. Recalculation SHALL publish updated metrics and automatic reasons together, retaining reinstatement cutoffs. That completed publication SHALL remove failure-based reasons whose threshold or minimum is no longer met, preserving other active reasons, explicit blocks, and separate established organization/global entry requirements. If remaining local history falls below the minimum, the replacement SHALL report insufficient evidence and permit participation under that local rule, without fabricating a success score.
+Each time-windowed assessment SHALL record its evaluation cutoff and next time-dependent invalidation, if any. Answer-derived observations SHALL be dated by the original answer's submission time; other time-windowed evidence SHALL use its signal's original event timestamp rather than job time. Key correction, delayed peer completion, and review correction SHALL NOT restart an observation's age. For duration W at cutoff T, eligible observations SHALL have original event times greater than T minus W and no later than T. The next invalidation SHALL be no later than the earliest included observation's original event time plus W. At or after that boundary, reads SHALL identify the calculation as needing refresh; scheduled recalculation and detection of a missed boundary SHALL request repair without requiring a new submission. Pending repair SHALL NOT pause allocation or make completed inputs unusable. Recalculation SHALL publish updated metrics with retained reinstatement cutoffs. Admission SHALL use those completed metrics to remove failure-based reasons whose threshold or minimum is no longer met, preserving other valid reasons, explicit blocks, and separate established organization/global entry requirements. If remaining local history falls below the minimum, the replacement SHALL report insufficient evidence and admission SHALL permit participation under that local rule, without fabricating a success score.
 
 #### Scenario: A suspended worker produces no new answers
 - **WHEN** the evidence supporting an automatic suspension expires out of the window
-- **THEN** time-driven recalculation reevaluates it without requiring a new submission, and its completed publication removes the unsupported reason while retaining any other valid restriction
+- **THEN** time-driven recalculation reevaluates it without requiring a new submission, and a fresh admission evaluation uses the completed result to remove the unsupported reason while retaining any other valid restriction
 
 #### Scenario: The expiration job is delayed
 - **WHEN** a worker requests work at or after the recorded invalidation time before the job runs
-- **THEN** the missed refresh is detectable and repair is requested, while admission keeps using the last completed decision without a temporary pause
+- **THEN** the missed refresh is detectable and repair is requested, while admission evaluates the latest completed inputs without a temporary pause
 
 #### Scenario: A key correction concerns an old response
 - **WHEN** correction occurs after that response's submission time has left the current window

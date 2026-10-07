@@ -5,11 +5,11 @@ Organizations need to distinguish demonstrated correctness from agreement and ex
 ## What Changes
 
 - Add explainable project, organization, and platform-controlled global assessments with separate quality signals, evidence counts, time-based or per-signal count-based history windows, and refresh status.
-- Support private known-answer questions in ordinary work, retained key corrections and explicit disabling/re-enabling, and organization reports of worker accuracy and question quality. Distribution remains best-effort.
+- Support private known-answer questions in ordinary work, retained key corrections and explicit disabling/re-enabling, and organization reports of worker accuracy within configured windows and question quality across all evaluable answers to each exact task/question. Distribution remains best-effort.
 - Detect repeated peer disagreement conservatively, with known-answer grading taking precedence and unfinished comparisons available only to reviewers.
 - Freeze organization defaults and project overrides at activation. Reject impossible automatic evidence requirements and advise on reviewer-only limits. Keep weights application-owned and evidence availability explicit.
-- Let signals inform reviewers or, when configured, restrict future project work. Preserve issued work, support attributable reinstatement, and keep completed access decisions effective during recalculation.
-- Integrate reputation into fetch and direct assignment, including an initial calculation when needed. Permit workers to earn project-local history and support entry based on established organization/global evidence.
+- Let signals inform reviewers or, when configured, restrict future project work. Preserve issued work, support attributable reinstatement, and keep completed reputation inputs usable during recalculation.
+- Evaluate each new fetch/direct assignment against the latest completed scoped reputation, including an initial calculation when needed. Retain earlier access outcomes as history without requiring a project refresh after broader reputation improves. Permit workers to earn project-local history and support entry based on established organization/global evidence.
 - Retain optional pay bands and quality bonuses as a [future Finance integration contract](design.md#6-keep-compensation-commitments-in-finance); reputation ships independently.
 
 The specs define [reputation behavior](specs/worker-reputation/spec.md), [project configuration](specs/projects/spec.md), and [allocation](specs/task-allocation/spec.md). The [design](design.md) owns implementation choices and rationale; the [tasks](tasks.md) track delivery and verification.
