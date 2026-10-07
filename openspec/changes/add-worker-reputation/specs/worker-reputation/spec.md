@@ -8,7 +8,7 @@ Give organizations explainable worker-quality evidence and recoverable control o
 Reputation SHALL assess the existing global User at project, organization, and platform-controlled global scope. Assessments SHALL distinguish known-answer correctness, substantive human review, peer agreement, reliability, and experience, and expose contributing counts, the evidence window, and calculation provenance to authorized readers. Evidence state SHALL be exactly one of not applicable, insufficient evidence, or established. Disabled/unselected contributors SHALL be not applicable; enabled contributors below their minimum SHALL have insufficient evidence, including at zero observations; contributors meeting the minimum SHALL be established. Counts SHALL distinguish zero observations from a small sample without another evidence state. As-of cutoff and pending refresh SHALL be separate metadata; a pending update SHALL NOT by itself change the evidence state or deny access. Admission SHALL evaluate the latest completed inputs from each required scope on each new work request. Global calculations SHALL use platform-defined eligible evidence and SHALL NOT average scores calculated under different local settings. One organization's settings SHALL NOT change another organization's assessment or the global calculation.
 
 #### Scenario: A new worker has insufficient history
-- **WHEN** the worker has fewer observations than the configured minimum for a signal
+- **WHEN** the worker has fewer observations than the configured minimum for an enabled signal
 - **THEN** that signal has insufficient evidence and reports its actual count, without a fabricated success or failure score
 
 #### Scenario: Organizations use different settings
@@ -16,7 +16,7 @@ Reputation SHALL assess the existing global User at project, organization, and p
 - **THEN** each assessment retains its scope and provenance, and neither local score overwrites the other or becomes an unqualified global average
 
 #### Scenario: Zero observations and a small sample use one state
-- **WHEN** one enabled signal has no observations and another has some observations below its configured minimum
+- **WHEN** one enabled signal has no observations and another enabled signal has some observations below its configured minimum
 - **THEN** both have insufficient evidence with their actual counts rather than separate states
 
 #### Scenario: An established assessment awaits an update
@@ -86,10 +86,10 @@ Authorized organization managers SHALL be able to include known-answer checks am
 - **THEN** key authoring fails with a scoped validation error and creates no scoreable check
 
 ### Requirement: Known-answer evidence reflects actual evaluated answers
-A known-answer check SHALL mean a question with an organization-supplied expected answer for its exact task inputs. Such questions SHALL follow ordinary task allocation and submission capacity; this release SHALL NOT guarantee a check frequency or minimum number of checks for each worker. Authorized assessment reads SHALL report each worker's actual evaluated known-answer count, its configured minimum, and whether that minimum is met. Skipped and disabled checks SHALL NOT count as evaluated successes or failures. Exhaustion of authored checks or insufficient observations SHALL leave the signal in the insufficient-evidence state and SHALL NOT itself trigger a poor-quality suspension. Insufficient project-local history SHALL permit participation, without bypassing a separately configured requirement for established organization/global evidence or any other valid access restriction. Reports SHALL NOT imply that every worker was tested merely because the project contains known-answer questions.
+A known-answer check SHALL mean a question with an organization-supplied expected answer for its exact task inputs. Such questions SHALL follow ordinary task allocation and submission capacity; this release SHALL NOT guarantee a check frequency or minimum number of checks for each worker. Authorized assessment reads SHALL report each worker's actual evaluated known-answer count, its configured minimum, and whether that minimum is met. Skipped and disabled checks SHALL NOT count as evaluated successes or failures. When known-answer scoring is enabled, exhaustion of authored checks or insufficient observations SHALL leave the signal in the insufficient-evidence state and SHALL NOT itself trigger a poor-quality suspension. Insufficient project-local history SHALL permit participation, without bypassing a separately configured requirement for established organization/global evidence or any other valid access restriction. Reports SHALL NOT imply that every worker was tested merely because the project contains known-answer questions.
 
 #### Scenario: Earlier workers consume the available known-answer tasks
-- **WHEN** ordinary allocation satisfies those tasks before another worker encounters them
+- **WHEN** known-answer scoring is enabled and ordinary allocation satisfies those tasks before another worker encounters them
 - **THEN** the later worker's known-answer count remains zero and the signal has insufficient evidence, without a fabricated score or a failure-based suspension
 
 #### Scenario: A worker sees questions but does not produce evaluable answers
@@ -97,19 +97,23 @@ A known-answer check SHALL mean a question with an organization-supplied expecte
 - **THEN** those observations do not satisfy the evaluated-answer minimum and the assessment reports the actual eligible count
 
 ### Requirement: Organizations can inspect known-answer evidence and question quality
-Authorized organization reviewers SHALL have scoped worker reports showing evaluated known-answer count, correct and incorrect counts, accuracy when the evaluated count is nonzero, configured minimum, and whether that minimum is met. Worker reports SHALL use the worker assessment's configured history window and identify its configuration, key provenance, evaluation cutoff, and freshness.
+Authorized organization reviewers SHALL have scoped worker reports showing evaluated known-answer count, correct and incorrect counts, accuracy when the evaluated count is nonzero, configured minimum, and whether that minimum is met. Worker reports SHALL use the worker assessment's configured history window and identify its configuration, key provenance, evaluation cutoff, and freshness. Reports SHALL reuse the assessment's evidence state: disabled/unselected scoring SHALL be not applicable, while enabled scoring below its minimum SHALL have insufficient evidence. A zero count alone SHALL NOT determine that state or make a disabled signal appear to have an unmet minimum.
 
 Question-quality reports SHALL instead summarize all evaluable submitted answers to one exact task/question/input contract through the report cutoff, independently of workers' reputation windows and reinstatement cutoffs. They SHALL report evaluated, correct, and incorrect counts and match rate when evaluable answers exist. They SHALL identify the evaluated key revision, all-history sample, cutoff, and freshness; a report SHALL NOT mix evaluations from different key revisions. Corrections and enabled-state changes SHALL refresh these reports through the existing recalculation path. A completed report awaiting refresh SHALL identify its pending update and evaluated key rather than present obsolete grading as current. No additional configurable report window SHALL be introduced. Work on other questions or the passage of a worker's history-window boundary SHALL NOT remove answers from this question's sample.
 
-Skipped and disabled evaluations SHALL NOT enter current accuracy denominators. A zero denominator SHALL yield unavailable accuracy rather than a success or failure rate, and insufficient worker history SHALL retain its insufficient-evidence status. Question outcome summaries SHALL be diagnostic: widespread failure alone SHALL NOT declare a key invalid, disable it, pause a project, or add an automatic worker restriction. Reviewers SHALL use the authorized key correction/disabling/re-enabling and recalculation actions when investigation warrants a change. These reports SHALL NOT require extra worker interactions, change reputation windows or source retention, or disclose protected evidence to workers.
+Skipped and disabled evaluations SHALL NOT enter current accuracy denominators. A zero denominator SHALL yield unavailable accuracy rather than a success or failure rate, and enabled scoring with insufficient worker history SHALL retain its insufficient-evidence status. Question outcome summaries SHALL be diagnostic: widespread failure alone SHALL NOT declare a key invalid, disable it, pause a project, or add an automatic worker restriction. Reviewers SHALL use the authorized key correction/disabling/re-enabling and recalculation actions when investigation warrants a change. These reports SHALL NOT require extra worker interactions, change reputation windows or source retention, or disclose protected evidence to workers.
 
 #### Scenario: Perfect accuracy has little supporting evidence
 - **WHEN** one worker answers eighteen of twenty known-answer questions correctly and another answers two of two correctly within their assessment windows
 - **THEN** reviewers see both counts and the corresponding 90% and 100% accuracy, together with each worker's minimum-evidence status
 
-#### Scenario: A worker has no evaluated known-answer responses
-- **WHEN** the organization reads that worker's known-answer evidence report
+#### Scenario: Enabled known-answer scoring has no evaluated responses
+- **WHEN** known-answer scoring is enabled and the organization reads a worker's report with no evaluated known-answer responses
 - **THEN** it shows zero evaluated answers, unavailable accuracy, and insufficient-evidence history rather than implying that the worker passed or failed
+
+#### Scenario: Known-answer scoring is disabled
+- **WHEN** the organization reads a worker's report under a configuration that disables known-answer scoring
+- **THEN** the report reuses the assessment's not-applicable state without presenting an unmet minimum, including when the evaluated count is zero
 
 #### Scenario: Most workers disagree with a supplied key
 - **WHEN** only ten of one hundred eligible evaluated responses match a question's key
