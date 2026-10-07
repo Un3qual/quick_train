@@ -7,7 +7,7 @@ Organizations need to distinguish demonstrated correctness from agreement and ex
 - Add explainable project, organization, and platform-controlled global assessments with separate quality signals, evidence counts, history windows, and refresh status.
 - Support private known-answer questions in ordinary work, retained key corrections, and organization reports of worker accuracy and question quality. Distribution remains best-effort.
 - Detect repeated peer disagreement conservatively, with known-answer grading taking precedence and unfinished comparisons available only to reviewers.
-- Freeze organization defaults and project overrides at activation. Keep weights application-owned and evidence availability explicit.
+- Freeze organization defaults and project overrides at activation. Reject impossible automatic evidence requirements and advise on reviewer-only limits. Keep weights application-owned and evidence availability explicit.
 - Let signals inform reviewers or, when configured, restrict future project work. Preserve issued work, support attributable reinstatement, and keep completed access decisions effective during recalculation.
 - Integrate reputation into fetch and direct assignment, including an initial calculation when needed. Permit workers to earn project-local history and support entry based on established organization/global evidence.
 - Retain optional pay bands and quality bonuses as a [future Finance integration contract](design.md#6-keep-compensation-commitments-in-finance); reputation ships independently.

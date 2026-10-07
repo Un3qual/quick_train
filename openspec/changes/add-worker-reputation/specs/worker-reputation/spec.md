@@ -52,6 +52,8 @@ A scoring signal disabled by the effective configuration SHALL be not applicable
 ### Requirement: Review and task facts retain their meaning
 Assessments SHALL derive from authoritative submitted answers, attempts, known-answer keys, and review evidence. Automatic acceptance of submitted answers SHALL NOT count as independent evidence of correctness. Human-review evidence SHALL retain its effective verdict and provenance; a rejection SHALL NOT be treated as an answer key. Skips SHALL remain distinguishable and SHALL NOT automatically reduce quality. Reputation SHALL NOT rewrite worker answers, issue review verdicts, select canonical answers, change submission targets, create replacement demand, or reopen satisfied tasks.
 
+History windows SHALL select inputs for a calculation, not define source-data retention. Excluding evidence from a window SHALL NOT delete submitted answers, review history, or retained key history.
+
 #### Scenario: Automatic review accepts every answer
 - **WHEN** an automatically reviewed project accepts a worker's submissions
 - **THEN** those acceptances do not increase substantive human-review quality or substitute for known-answer grading
@@ -59,6 +61,10 @@ Assessments SHALL derive from authoritative submitted answers, attempts, known-a
 #### Scenario: A quality concern follows task completion
 - **WHEN** reputation detects repeated disagreement after a task reaches its submission target
 - **THEN** the task stays satisfied and its responses, review verdicts, and sealed exports remain unchanged
+
+#### Scenario: A calculation uses only part of the stored history
+- **WHEN** a history window selects twenty observations from a larger stored history
+- **THEN** only the selected observations enter that calculation while the unselected source evidence remains stored and unchanged
 
 ### Requirement: Known-answer checks bind to exact task evidence
 Authorized organization managers SHALL be able to include known-answer checks among ordinary project work. Each key SHALL identify the exact published question, task, immutable revision inputs, and relevant option or input identities. A key SHALL NOT apply to every instance of a reusable form question merely because its question identity matches. Initial supported checks SHALL use exact choice/boolean matching and configured numeric tolerance. Unsupported grading families SHALL be rejected explicitly rather than silently scored; semantic free-text and spatial grading SHALL remain unsupported until separately specified.

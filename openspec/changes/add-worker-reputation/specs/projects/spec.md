@@ -47,6 +47,8 @@ Reputation configuration SHALL support organization defaults and draft-project o
 ### Requirement: Activation identifies impossible project-local evidence settings
 For reputation rules using only this project's evidence, activation SHALL reject a known-answer enforcement minimum greater than the number of enabled scoreable task/question checks that one worker could answer through ordinary allocation. This theoretical maximum SHALL NOT be presented as a promise of per-worker delivery. Validation SHALL report the available count and required minimum to authorized managers. When known-answer scoring or enforcement is enabled, activation SHALL also return an advisory that shared task capacity can leave individual workers with fewer observations, including none. Activation SHALL validate an organization/global entry requirement's declared scope rather than reject it for lacking local checks; each worker's eligible broader history SHALL be evaluated at admission. This validation SHALL NOT alter submission targets, create qualification attempts, or reserve additional check capacity.
 
+For automatic access rules, including contributors required by a combined admission score, activation SHALL also reject an evidence minimum greater than the applicable count-window limit. A project-local automatic peer rule SHALL be rejected when its minimum number of other workers exceeds `submission_target - 1`. Limits SHALL be evaluated for the rule's declared evidence scope; organization/global entry requirements SHALL NOT be rejected merely because the target project's local checks or submission target cannot supply that broader evidence. If an impossible minimum affects only reviewer information, activation SHALL return an advisory rather than reject the project. Both errors and advisories SHALL identify the required minimum and applicable upper bound. Meeting an upper bound SHALL pass that feasibility check without guaranteeing actual delivery, evaluable answers, or consensus. Validation SHALL NOT change configured windows, minima, or submission targets automatically.
+
 #### Scenario: A project cannot supply its own configured minimum
 - **WHEN** project-local known-answer enforcement requires ten evaluated questions but the authored project contains only four enabled scoreable checks
 - **THEN** activation fails with the four-versus-ten explanation and leaves the project draft
@@ -54,6 +56,26 @@ For reputation rules using only this project's evidence, activation SHALL reject
 #### Scenario: A feasible total does not guarantee every worker is tested
 - **WHEN** the project has enough authored checks in theory and activates
 - **THEN** managers receive the ordinary-allocation advisory and individual assessments still report actual evidence counts
+
+#### Scenario: A count window cannot satisfy an automatic rule's minimum
+- **WHEN** an automatic rule requires thirty observations but its applicable history window includes at most twenty
+- **THEN** activation fails with the thirty-versus-twenty explanation, leaving the project draft and its settings unchanged
+
+#### Scenario: A peer rule requires more other workers than the task can supply
+- **WHEN** a project-local automatic peer rule requires three other workers but the submission target is three
+- **THEN** activation fails because each worker can have at most two other workers to compare against, without increasing the submission target
+
+#### Scenario: Only reviewer information has an impossible minimum
+- **WHEN** a reviewer-only signal requires thirty observations from a window capped at twenty and no automatic access rule depends on it
+- **THEN** activation returns an advisory explaining the limit without failing solely for that minimum or fabricating an established score
+
+#### Scenario: Configured minima equal the applicable upper bounds
+- **WHEN** an automatic rule's minimum equals its count-window limit and a local peer minimum equals the submission target minus one
+- **THEN** those bound checks pass, while actual evidence and consensus still determine whether the rules become usable
+
+#### Scenario: Prior peer evidence comes from other projects
+- **WHEN** a project's entry rule uses eligible global peer evidence but its own submission target is one
+- **THEN** activation validates the global evidence limits rather than rejecting the entry rule for having no local peers
 
 ### Requirement: Reputation admission provides a path to initial project evidence
 Admission rules SHALL declare their evidence scope and minimum. A project-local rule SHALL permit otherwise-eligible workers to participate while its local evidence is insufficient; its threshold SHALL apply once its minimum is met. Activation SHALL reject a project-only established-history requirement that denies insufficient local history. Projects requiring established reputation before the first task SHALL use eligible organization/global evidence that can be earned outside the target project. Genuinely missing broader evidence MAY deny admission when that requirement is explicitly configured. An unprocessed initial assessment SHALL NOT be treated as missing evidence or require a queued-job wait; the ordinary admission request SHALL prepare it outside allocation locks when no completed assessment exists, then revalidate under those locks before issuance. Participation with insufficient local evidence SHALL NOT bypass account/audience restrictions, another rule whose failure conditions are met, or a separately configured organization/global entry requirement. This SHALL use the existing assessment and allocation lifecycle without introducing qualification attempts or guaranteeing known-answer delivery.
