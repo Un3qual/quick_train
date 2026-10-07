@@ -16,7 +16,7 @@ Reputation SHALL assess the existing global User at project, organization, and p
 - **THEN** each assessment retains its scope and provenance, and neither local score overwrites the other or becomes an unqualified global average
 
 ### Requirement: Application-owned weights are explicit calculation inputs
-Score weights SHALL be defined centrally in application code and supplied explicitly to the shared reputation calculation. Organization/project management SHALL NOT accept customer-provided weight overrides in this release. Project activation SHALL retain the effective application weight values with the frozen configuration; subsequent default-weight changes SHALL NOT silently reweight active projects. Organization/global assessments SHALL retain their effective platform-owned weight values and calculation provenance. A platform weight change for those scopes SHALL invalidate affected assessments and use the normal recalculation/publication path. Equivalent evidence, effective settings, and weight inputs SHALL produce the same result across reads, jobs, reports, and admission. Global reputation SHALL remain independent of organization/project configuration. Adjustable customer weights are deferred; numerical defaults and missing-signal arithmetic remain pre-implementation decisions.
+Score weights SHALL be defined centrally in application code and supplied explicitly to the shared reputation calculation. Organization/project management SHALL NOT accept customer-provided weight overrides in this release. Project activation SHALL retain the effective application weight values with the frozen configuration; subsequent default-weight changes SHALL NOT silently reweight active projects. Organization/global assessments SHALL retain their effective platform-owned weight values and calculation provenance. A platform weight change for those scopes SHALL invalidate affected assessments and use the normal recalculation/publication path. Equivalent evidence, effective settings, and weight inputs SHALL produce the same result across reads, jobs, reports, and admission. Global reputation SHALL remain independent of organization/project configuration. Adjustable customer weights are deferred; numerical defaults and normalization for established inputs remain pre-implementation decisions.
 
 #### Scenario: Application weights change after project activation
 - **WHEN** developers change the central weight definition
@@ -25,6 +25,21 @@ Score weights SHALL be defined centrally in application code and supplied explic
 #### Scenario: An organization attempts to override weights
 - **WHEN** an authorized manager supplies score weights through organization or project configuration
 - **THEN** the unsupported override is rejected rather than changing the calculation or global reputation
+
+### Requirement: Disabled and insufficient signals have distinct scoring outcomes
+A scoring signal disabled by the effective configuration SHALL be not applicable and contribute neither a value nor weight to the combined calculation. An enabled contributing signal with insufficient evidence SHALL remain provisional; it SHALL NOT receive a zero/success value or have its weight silently redistributed among established signals. A combined score SHALL be established and usable for admission only when every contributing enabled signal meets its minimum. Otherwise the combined numeric score SHALL be unavailable while individual established metrics and all applicable counts remain inspectable. A configuration with no contributing signals SHALL yield a not-applicable combined result. Established individual signals SHALL remain eligible for their own configured actions without waiting for unrelated signals. Insufficient combined evidence SHALL follow the existing provisional project-local and established organization/global admission rules.
+
+#### Scenario: Human-review scoring is disabled
+- **WHEN** the effective configuration disables human-review scoring and all other contributing signals have sufficient evidence
+- **THEN** the combined score is calculated from the selected signals without including human review as a zero or missing requirement
+
+#### Scenario: Human-review scoring is enabled but has too little evidence
+- **WHEN** known-answer accuracy is established but an enabled contributing human-review signal has not met its minimum
+- **THEN** known-answer accuracy remains inspectable and eligible for its configured action, while the combined score is provisional with no usable numeric value
+
+#### Scenario: No scoring signals are selected
+- **WHEN** the effective configuration contains no contributing scoring signals
+- **THEN** the combined result is not applicable rather than zero or perfect reputation
 
 ### Requirement: Review and task facts retain their meaning
 Assessments SHALL derive from authoritative submitted answers, attempts, known-answer keys, and review evidence. Automatic acceptance of submitted answers SHALL NOT count as independent evidence of correctness. Human-review evidence SHALL retain its effective verdict and provenance; a rejection SHALL NOT be treated as an answer key. Skips SHALL remain distinguishable and SHALL NOT automatically reduce quality. Reputation SHALL NOT rewrite worker answers, issue review verdicts, select canonical answers, change submission targets, create replacement demand, or reopen satisfied tasks.
@@ -183,6 +198,17 @@ Each project/worker assessment SHALL publish its scores, evidence provenance, fr
 #### Scenario: Publication fails partway through
 - **WHEN** publishing a new project/worker assessment fails before commit
 - **THEN** neither its scores nor its automatic reasons become effective, and the previous publication cannot be treated as current if its inputs are stale
+
+### Requirement: Project decisions inherit supporting assessment freshness
+A project result using organization/global assessments SHALL be stale when any contributing assessment is pending recalculation, has expired, or has changed its effective inputs/publication. This SHALL take effect even if the contributing assessment's stored score and last published version have not yet changed. Assessment reads SHALL expose that stale state, and publication/admission SHALL verify supporting-assessment freshness along with local freshness under the decision's required concurrency ordering. A project's effective freshness deadline SHALL NOT outlive a contributing assessment's deadline. Publication SHALL NOT turn pending supporting evidence into a current project result. Admission SHALL refresh the affected inputs and derived project result or return a retryable outcome; correctness SHALL NOT depend on a background job first rewriting every dependent project row.
+
+#### Scenario: A global assessment is awaiting repair
+- **WHEN** a key correction marks a contributing global assessment stale but its recalculation is delayed and its stored score remains unchanged
+- **THEN** the dependent project decision is also stale and new-work admission refreshes or retries instead of relying on the old global number
+
+#### Scenario: Supporting evidence expires before local evidence
+- **WHEN** a contributing organization/global assessment reaches its expiration boundary while the project's local evidence remains current
+- **THEN** the project decision requires refresh or retry even if no new score has been published upstream
 
 ### Requirement: Reputation operations fail closed within organization scope
 Organization settings, keys, assessments, reviewer information, and restriction management SHALL require explicit organization scope and operation-appropriate management or review authority. Organization management SHALL require an active authenticated account, active organization, active membership, and explicit capability grants. Foreign and nonexistent targets SHALL fail without distinguishable disclosure. Worker sessions SHALL require an account while retaining existing optional-membership audience routes. Platform-controlled global summaries SHALL NOT disclose other organizations' raw evidence or grant management access.
