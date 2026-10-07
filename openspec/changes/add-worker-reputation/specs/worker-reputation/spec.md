@@ -292,6 +292,31 @@ Assessments SHALL be rebuildable from retained authoritative evidence and the ap
 - **WHEN** corrected evidence makes the access decision stale before a worker fetches new work
 - **THEN** allocation uses the latest completed decision with applicable reinstatement and ordinary authorization while the repaired result is calculated
 
+### Requirement: Count windows select recent eligible observations per signal
+For a count-only window with positive integer limit N, each signal SHALL independently select at most N eligible observations from the captured evidence snapshot. Selection SHALL first apply the declared scope, signal eligibility, source deduplication, evaluation cutoff, and any applicable reinstatement cutoff, then take the most recent observations by original source-event time. Equal event times SHALL use a stable source-observation identity as a deterministic tie-breaker, consistently across calculations and rebuilds. Correct and incorrect eligible known-answer evaluations SHALL both count; ineligible evidence and evidence for other signals SHALL NOT consume that signal's slots. If fewer than N observations qualify, the calculation SHALL use the actual available count and retain the existing minimum-evidence rules.
+
+Answer-derived observations SHALL use original answer submission time; other signals SHALL use their defined original event time. Corrections SHALL update the same logical observation without adding a duplicate, changing its original event time, or changing its source-identity tie-breaker. An eligibility change SHALL rerun selection, allowing the next most recent eligible observation to fill an available slot. Count-only windows SHALL have no clock-driven expiration. Window selection SHALL preserve source history and SHALL NOT alter submission targets.
+
+#### Scenario: Ordinary answers do not crowd out known-answer evidence
+- **WHEN** a worker has more than twenty eligible graded known-answer responses interspersed with ordinary answers, skips, and disabled-key evaluations, with a count limit of twenty
+- **THEN** the known-answer signal uses its twenty most recent eligible graded responses, including correct and incorrect answers, while other signals select their own evidence independently
+
+#### Scenario: Reinstatement leaves fewer eligible observations than the window limit
+- **WHEN** a selected local rule has five eligible observations after its reinstatement cutoff and a count limit of twenty
+- **THEN** it uses those five without filling the remaining slots from pre-reinstatement evidence, applies its existing minimum, and leaves historical reputation unchanged
+
+#### Scenario: Observations share a timestamp at the selection boundary
+- **WHEN** more eligible observations share the boundary timestamp than fit in the remaining slots
+- **THEN** the stable source-identity tie-breaker selects the same observations on equivalent rebuilds regardless of query or job completion order
+
+#### Scenario: A correction changes an eligible answer's grade
+- **WHEN** an answer is regraded and remains eligible
+- **THEN** its corrected grade occupies the same original observation and ordering position rather than becoming a new recent observation or a second contribution
+
+#### Scenario: A key is disabled for a selected observation
+- **WHEN** disabling a key makes a selected known-answer observation ineligible
+- **THEN** selection excludes it before applying the count limit and uses the next most recent eligible observation if available, without deleting the excluded source evidence
+
 ### Requirement: Time windows expire evidence without requiring a new submission
 Each time-windowed assessment SHALL record its evaluation cutoff and next time-dependent invalidation, if any. Answer-derived observations SHALL be dated by the original answer's submission time; other time-windowed evidence SHALL use its signal's original event timestamp rather than job time. Key correction, delayed peer completion, and review correction SHALL NOT restart an observation's age. For duration W at cutoff T, eligible observations SHALL have original event times greater than T minus W and no later than T. The next invalidation SHALL be no later than the earliest included observation's original event time plus W. At or after that boundary, reads SHALL identify the calculation as needing refresh; scheduled recalculation and detection of a missed boundary SHALL request repair without requiring a new submission. Pending repair SHALL NOT pause allocation or expire the last completed access decision. Recalculation SHALL publish updated metrics and automatic reasons together, retaining reinstatement cutoffs. That completed publication SHALL remove failure-based reasons whose threshold or minimum is no longer met, preserving other active reasons, explicit blocks, and separate established organization/global entry requirements. If remaining local history falls below the minimum, the replacement SHALL report insufficient evidence and permit participation under that local rule, without fabricating a success score.
 
