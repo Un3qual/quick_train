@@ -39,7 +39,9 @@ Use ordinary allocation and the [activation feasibility checks](specs/projects/s
 
 Enforce [key privacy](specs/worker-reputation/spec.md#requirement-keys-and-check-designations-remain-private) through scoped management actions and worker-facing GraphQL boundaries, including form/task/attempt traversal and mutation results. A hidden flag on a generally readable resource is insufficient. Authorized staff who also work follow the ordinary rules; no key-knowledge tracking is needed.
 
-Retain key/matching-rule history for [correction and repair](specs/worker-reputation/spec.md#requirement-key-corrections-preserve-history-and-repair-assessments), using existing deliberate-action and retry conventions. Build the two [organization reports](specs/worker-reputation/spec.md#requirement-organizations-can-inspect-known-answer-evidence-and-question-quality) as bounded read views over evaluation evidence. Use “known-answer evidence” and “question-quality reporting” in API descriptions, rather than unexplained “coverage” or “health” labels. A check is an expected-answer question within ordinary work; the reports add no worker interaction or separate test.
+Retain key/matching-rule and enabled-state history for [correction and repair](specs/worker-reputation/spec.md#requirement-key-corrections-preserve-history-and-repair-assessments), using existing deliberate-action and retry conventions. Corrections preserve enabled status; explicit disabling/re-enabling uses the same history, publication guards, and recalculation path without a separate recovery lifecycle.
+
+Build the two [organization reports](specs/worker-reputation/spec.md#requirement-organizations-can-inspect-known-answer-evidence-and-question-quality) as bounded read views over evaluation evidence. Use “known-answer evidence” and “question-quality reporting” in API descriptions, rather than unexplained “coverage” or “health” labels. A check is an expected-answer question within ordinary work; the reports add no worker interaction or separate test.
 
 Alternative rejected: overwriting a key and losing the reason for earlier scores, or using a generic form-level answer key across different tasks.
 

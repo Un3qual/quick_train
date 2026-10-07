@@ -1,7 +1,7 @@
 ## MODIFIED Requirements
 
 ### Requirement: Activation freezes collection configuration
-Activation SHALL atomically validate and freeze authored tasks and inputs, bindings, slot counts/order policy, audience/external-access mode, review mode, submission target, project-wide skip rules, lease duration, and effective reputation configuration. Dataset/schema/form identities SHALL be immutable from creation, including in draft. Each task SHALL require the project's positive `submission_target` (default 1, maximum 2,147,483,647). `skip_allowed` and `reason_required` SHALL default to false and apply to the whole form. Review SHALL be automatic or manual; leases SHALL be 1–120 minutes with a 30-minute default. Tasks and TaskInputs SHALL exist as draft configuration before activation. Activation SHALL create no attempts, coverage rows, or progress projections. Child edits and activation SHALL serialize under the Project lock. After activation only title, lifecycle, and per-user allow/block overrides SHALL be editable as ordinary project configuration. Scoped known-answer corrections/disabling and reputation reinstatement SHALL remain available through their dedicated authorized operations without reopening the frozen collection configuration.
+Activation SHALL atomically validate and freeze authored tasks and inputs, bindings, slot counts/order policy, audience/external-access mode, review mode, submission target, project-wide skip rules, lease duration, and effective reputation configuration. Dataset/schema/form identities SHALL be immutable from creation, including in draft. Each task SHALL require the project's positive `submission_target` (default 1, maximum 2,147,483,647). `skip_allowed` and `reason_required` SHALL default to false and apply to the whole form. Review SHALL be automatic or manual; leases SHALL be 1–120 minutes with a 30-minute default. Tasks and TaskInputs SHALL exist as draft configuration before activation. Activation SHALL create no attempts, coverage rows, or progress projections. Child edits and activation SHALL serialize under the Project lock. After activation only title, lifecycle, and per-user allow/block overrides SHALL be editable as ordinary project configuration. Scoped known-answer corrections, disabling/re-enabling existing keys, and reputation reinstatement SHALL remain available through their dedicated authorized operations without reopening the frozen collection configuration.
 
 #### Scenario: A draft edit races activation
 - **WHEN** task authoring or policy editing competes with activation
@@ -18,6 +18,10 @@ Activation SHALL atomically validate and freeze authored tasks and inputs, bindi
 #### Scenario: A key is corrected after activation
 - **WHEN** an authorized manager corrects a known-answer key
 - **THEN** retained key history and reputation are updated through the correction workflow while published questions, task inputs, submission targets, and frozen scoring settings stay unchanged
+
+#### Scenario: An existing key is re-enabled after activation
+- **WHEN** an authorized manager explicitly re-enables an existing corrected key
+- **THEN** its retained history and reputation are updated through the key workflow without reopening frozen collection configuration
 
 ## ADDED Requirements
 

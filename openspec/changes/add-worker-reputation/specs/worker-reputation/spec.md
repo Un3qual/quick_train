@@ -129,7 +129,7 @@ Authorized key authors/readers who also perform work SHALL follow the ordinary r
 - **THEN** the answer follows ordinary grading and reputation rules without an exclusion based on authorship
 
 ### Requirement: Key corrections preserve history and repair assessments
-Authorized corrections or disabling a faulty key SHALL retain the prior key, matching rule, actor, reason, and evaluation provenance. Correcting keys SHALL NOT mutate submitted answers. A correction SHALL cause affected assessments and reputation restrictions to be reevaluated under the repaired evidence; obsolete evaluations SHALL NOT remain effective after recalculation or overwrite a newer result. Review corrections SHALL likewise feed recalculation. Reviewers SHALL have evidence to identify widespread key failures and investigate potentially incorrect keys or instructions.
+Authorized corrections, disabling, or explicit re-enabling of an existing key SHALL retain the prior key, matching rule, enabled/disabled state, actor, reason, and evaluation provenance. An ordinary correction SHALL preserve the key's enabled/disabled state; correcting a disabled key SHALL NOT silently resume grading. An authorized manager SHALL be able to explicitly re-enable an existing corrected key. Corrections and enabled-state changes SHALL use the same retained history and recalculation workflow without mutating submitted answers. Re-enabling SHALL restore eligible grading under the current key and existing scope/window rules, preserving each answer's original observation identity and submission time. Repeated action requests SHALL NOT duplicate transitions or contributions. Each correction or enabled-state change SHALL cause affected assessments and reputation restrictions to be reevaluated; obsolete evaluations SHALL NOT remain effective after recalculation or overwrite a newer result. Review corrections SHALL likewise feed recalculation. Reviewers SHALL have evidence to identify widespread key failures and investigate potentially incorrect keys or instructions.
 
 #### Scenario: A wrong expected answer penalizes workers
 - **WHEN** an authorized manager corrects or disables that key
@@ -138,6 +138,14 @@ Authorized corrections or disabling a faulty key SHALL retain the prior key, mat
 #### Scenario: A stale recalculation finishes later
 - **WHEN** a calculation using an older key or review finishes after a calculation using its correction
 - **THEN** it cannot restore the obsolete assessment or restriction
+
+#### Scenario: A disabled key is corrected
+- **WHEN** an authorized manager corrects a disabled key's expected answer or matching rule
+- **THEN** the correction is retained while the key remains disabled and contributes no current known-answer grading
+
+#### Scenario: A corrected key is explicitly re-enabled
+- **WHEN** an authorized manager re-enables an existing corrected key
+- **THEN** the attributed state change triggers normal recalculation using the current key and eligible stored answers, preserving original observation identities and submission times rather than duplicating contributions or making old answers recent
 
 ### Requirement: Peer comparison requires sufficient comparable evidence
 Peer agreement SHALL compare submitted answers from distinct workers to the same question and exact task inputs under the same pinned contract. It SHALL exclude the assessed worker's answer, duplicate votes from one peer, skips, and absent answers. A comparison SHALL contribute only when the configured minimum number of peers and agreement threshold are met. Ties, sparse evidence, and split opinion SHALL provide no negative disagreement signal. Identity comparisons SHALL use canonical option/input identities; supported numeric comparisons SHALL use a robust center and configured tolerance.
@@ -230,14 +238,14 @@ An authorized reinstatement SHALL identify the project, worker, selected project
 - **THEN** it retains its original cutoff and effect rather than restarting the evidence period
 
 ### Requirement: Assessments and automatic access reasons publish together
-Each project/worker assessment SHALL publish its scores, evidence provenance, freshness, and automatic admission/restriction reasons together from one coherent fixed snapshot of source evidence, supporting assessments, evaluation cutoff, effective settings, and applicable reinstatement inputs. Automatic reasons SHALL NOT be independently maintained suspension state. Publication SHALL advance the completed snapshot by captured input order rather than job completion time, without regressing the published source frontier or evaluation cutoff. Ordinary new answers or a time-window refresh boundary reached after capture SHALL NOT invalidate an otherwise valid result; they SHALL request a follow-up calculation and retain pending-refresh metadata. Key/review corrections, key disabling, changes to effective settings, or reinstatement SHALL invalidate affected prepared results. A result using superseded protection inputs or an older snapshot SHALL NOT replace the effective publication. Admission SHALL use the latest completed publication with applicable manual reinstatement and existing authorization while replacement work is pending. Reinstatement SHALL remain separately attributable and serialized with publication/admission without rewriting evidence or historical scores.
+Each project/worker assessment SHALL publish its scores, evidence provenance, freshness, and automatic admission/restriction reasons together from one coherent fixed snapshot of source evidence, supporting assessments, evaluation cutoff, effective settings, and applicable reinstatement inputs. Automatic reasons SHALL NOT be independently maintained suspension state. Publication SHALL advance the completed snapshot by captured input order rather than job completion time, without regressing the published source frontier or evaluation cutoff. Ordinary new answers or a time-window refresh boundary reached after capture SHALL NOT invalidate an otherwise valid result; they SHALL request a follow-up calculation and retain pending-refresh metadata. Key/review corrections, key disabling or re-enabling, changes to effective settings, or reinstatement SHALL invalidate affected prepared results. A result using superseded protection inputs or an older snapshot SHALL NOT replace the effective publication. Admission SHALL use the latest completed publication with applicable manual reinstatement and existing authorization while replacement work is pending. Reinstatement SHALL remain separately attributable and serialized with publication/admission without rewriting evidence or historical scores.
 
 #### Scenario: New answers arrive during calculation
 - **WHEN** a calculation has captured its inputs and more ordinary answers arrive before it finishes
 - **THEN** its valid result can publish if it advances the completed snapshot, retaining its original cutoff and pending refresh for the additional answers instead of repeatedly restarting
 
 #### Scenario: A correction invalidates a prepared calculation
-- **WHEN** a key/review correction, key disabling, effective-setting change, or reinstatement supersedes inputs used by a prepared result
+- **WHEN** a key/review correction, key disabling or re-enabling, effective-setting change, or reinstatement supersedes inputs used by a prepared result
 - **THEN** that result is discarded and preparation repeats under the new inputs without overwriting a newer publication or pausing access under an existing completed decision
 
 #### Scenario: A faulty key is repaired
