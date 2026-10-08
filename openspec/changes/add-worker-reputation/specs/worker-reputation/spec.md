@@ -316,7 +316,41 @@ Authorized corrections, disabling, or explicit re-enabling of an existing key SH
 - **THEN** the attributed state change triggers normal recalculation using the current key and eligible stored answers, preserving original observation identities and submission times rather than duplicating contributions or making old answers recent
 
 ### Requirement: Peer comparison requires sufficient comparable evidence
-Peer agreement SHALL compare submitted answers from distinct workers to the same question and exact task inputs under the same pinned contract. It SHALL exclude the assessed worker's answer, duplicate votes from one peer, skips, and absent answers. A comparison SHALL contribute only when the configured minimum number of peers and agreement threshold are met. Ties, sparse evidence, and split opinion SHALL provide no negative disagreement signal. Identity comparisons SHALL use canonical option/input identities; supported numeric comparisons SHALL use a robust center and configured tolerance.
+Peer agreement SHALL compare submitted answers from distinct workers to the same question and exact task inputs under the same pinned contract. It SHALL exclude the assessed worker's answer, duplicate votes from one peer, skips, and absent answers. A comparison SHALL contribute only when the response-count-dependent peer minimum and consensus threshold are met. Ties, sparse evidence, and split opinion SHALL contribute neither scored agreement nor disagreement nor worker minimum-evidence credit. Identity comparisons SHALL use canonical option/input identities; supported numeric comparisons SHALL use a robust center and configured tolerance.
+
+For each comparison, T SHALL be the source task's frozen submission target, including the assessed worker. With peer count floor F and peer coverage fraction P from the assessed scope's effective settings, the minimum eligible other-worker count SHALL be `max(F, ceil(P * (T - 1)))`. Initial project, organization, and global defaults SHALL set F to two, P to eighty percent, and the separate consensus threshold to eighty percent. The floor SHALL be at least two and the coverage fraction SHALL be positive and no greater than one. Coverage SHALL use the requested count rather than the number of non-skipped answers observed, so widespread skips cannot lower its denominator. Organization/global comparisons SHALL use each source task's T with their own effective peer parameters, not the target of a new project requesting broader reputation or the pooled scope's observation count. Project parameters SHALL be frozen at activation; organization parameters SHALL follow its current settings and global parameters SHALL remain platform-controlled.
+
+Once coverage is met and the source task has reached its frozen target, consensus SHALL use all eligible distinct other-worker answers, not a selected subset equal to the minimum. For exact choice/boolean comparisons, a common answer SHALL meet the consensus threshold inclusively; at the initial threshold, at least eighty percent of those actual eligible answers SHALL match. Coverage and consensus SHALL remain separate inputs and SHALL NOT silently change together when one is overridden. Numeric matching and concentration SHALL use their supported comparison contract while preserving the same coverage boundary; exact numeric tolerance/center rules remain to be finalized before implementation. A skipped or absent assessed answer SHALL produce no scored comparison.
+
+Each eligible assessed-worker answer to one exact task/question/input contract SHALL contribute at most one peer observation per assessment scope, regardless of the number of peers. The initial thirty-comparison worker minimum SHALL therefore require thirty eligible question comparisons, not thirty pairwise votes from one question. Initial targets of one or two SHALL supply no scored peer comparison because they cannot meet the two-peer floor. Missing coverage or consensus SHALL leave the comparison unavailable without treating a skip as failure, creating replacement work, increasing the submission target, or converting unfinished comparisons into scored evidence.
+
+#### Scenario: Coverage scales with requested responses
+- **WHEN** the initial peer parameters apply to tasks with frozen submission targets of three, five, ten, thirty, and three hundred
+- **THEN** their minimum eligible other-worker counts are respectively two, four, eight, twenty-four, and two hundred forty
+
+#### Scenario: A small task supplies unanimous peers
+- **WHEN** a task with target three reaches its target and both eligible other workers give the same choice answer
+- **THEN** both coverage and the initial consensus threshold are met, and the assessed worker's answered response supplies one agreement or disagreement observation according to its match
+
+#### Scenario: Too few peers answer a completed large task
+- **WHEN** a task with target three hundred reaches its submission target but only two hundred thirty-nine eligible other workers answer the question under the initial parameters
+- **THEN** coverage is not met and the comparison supplies neither agreement nor disagreement nor worker minimum-evidence credit, even if those answers are unanimous
+
+#### Scenario: Coverage and consensus have different denominators
+- **WHEN** a completed task with target ten has eight eligible other answers, six matching A and two matching B, under the initial parameters
+- **THEN** coverage is met but the seventy-five-percent consensus is insufficient, so the comparison contributes no scored observation; seven matching A out of those eight would meet the consensus threshold
+
+#### Scenario: Consensus uses all eligible peers
+- **WHEN** a completed task with target ten has nine eligible other answers, seven matching A and two matching B, under the initial parameters
+- **THEN** the comparison is unavailable because seven out of nine is below eighty percent, rather than selecting eight peers whose seven matching answers would meet it
+
+#### Scenario: A large peer group supplies one worker observation
+- **WHEN** a worker's answer meets the comparison conditions against two hundred ninety-nine eligible other answers
+- **THEN** it supplies one peer observation for that worker rather than two hundred ninety-nine observations or automatic satisfaction of the thirty-comparison worker minimum
+
+#### Scenario: The target cannot supply two other workers
+- **WHEN** a task with target one or two completes under the initial parameters
+- **THEN** no scored peer comparison is available, while other eligible reputation evidence and ordinary submitted-task counting retain their existing meanings
 
 #### Scenario: The worker would create their own majority
 - **WHEN** the assessed worker's answer would cause a label to pass the agreement threshold
