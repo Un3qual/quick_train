@@ -48,6 +48,14 @@ Reputation configuration SHALL support organization defaults and draft-project o
 - **WHEN** draft configuration requires a combined answer-quality score but selects no eligible quality signals configured for automatic access decisions, including when all quality signals are reviewer-only or only reliability/experience is selected
 - **THEN** activation rejects the unusable requirement rather than producing permanently insufficient admission evidence or a fabricated passing score
 
+#### Scenario: Human review is omitted by default
+- **WHEN** a project activates without an explicit organization-default or draft-project selection of human-review scoring
+- **THEN** its frozen configuration excludes human review from the combined quality score and its minimum-evidence requirements, while existing human review decisions remain retained
+
+#### Scenario: An organization explicitly includes human review
+- **WHEN** an authorized organization default or draft-project override selects human review as a quality contributor
+- **THEN** activation freezes that selection and its minimum alongside the other effective settings, without requiring a review quota or later removing that contribution merely because reviews are sparse
+
 ### Requirement: Activation identifies impossible project-local evidence settings
 For reputation rules using only this project's evidence, activation SHALL reject a known-answer enforcement minimum greater than the number of enabled scoreable task/question checks that one worker could answer through ordinary allocation. This theoretical maximum SHALL NOT be presented as a promise of per-worker delivery. Validation SHALL report the available count and required minimum to authorized managers. When known-answer scoring or enforcement is enabled, activation SHALL also return an advisory that shared task capacity can leave individual workers with fewer observations, including none. Activation SHALL validate an organization/global entry requirement's declared scope rather than reject it for lacking local checks; each worker's eligible broader history SHALL be evaluated at admission. This validation SHALL NOT alter submission targets, create qualification attempts, or reserve additional check capacity.
 

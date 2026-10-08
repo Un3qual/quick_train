@@ -108,6 +108,29 @@ A scoring signal disabled by the effective configuration SHALL be not applicable
 - **WHEN** the effective configuration contains no contributing scoring signals
 - **THEN** the combined result is not applicable rather than zero or perfect reputation
 
+### Requirement: Human review is supplementary worker evidence
+Initial organization/project reputation defaults SHALL leave human-review scoring unselected. Authorized organization defaults or draft-project overrides SHALL be able to explicitly select it under the existing activation-freezing contract. Unselected human review SHALL contribute neither a value, weight, nor minimum-evidence requirement to combined quality, while authoritative review decisions and their actual counts SHALL remain retained and available to authorized readers. Platform-controlled global settings SHALL select eligible human-review evidence independently; a local omission SHALL NOT change the global calculation or erase source review history.
+
+Human-review quality SHALL use only the assessed worker's eligible answers with effective substantive human accept/reject decisions within the declared scope and history window. Unreviewed answers and automatic acceptances SHALL contribute neither successes, failures, nor observations toward its minimum. Authorized worker summaries SHALL identify the reviewed-answer count, effective accept/reject counts, scope, window, and evidence state. The acceptance rate SHALL describe the reviewed answers rather than imply that every submission was evaluated. A configured minimum SHALL be an evidence requirement for establishing the metric, not a requirement to review that many answers per worker. An explicitly selected contributor below its minimum SHALL follow the existing insufficient-evidence rules rather than have its weight silently redistributed.
+
+Project-wide or batch-wide review samples and acceptance rates SHALL NOT be assigned to individual workers or substitute for their own eligible evidence. Sparse or absent local review evidence SHALL NOT by itself establish poor quality. If no selected quality contributor is established, reliability, experience, and eligible broader assessments SHALL remain separately inspectable under their existing scope and authorization rules. Review sampling and budget management SHALL remain a future review capability; reputation SHALL NOT create review quotas, issue verdicts for unreviewed answers, or change the existing automatic/manual review lifecycle.
+
+#### Scenario: Sparse reviews do not add a default quality requirement
+- **WHEN** human-review scoring is unselected by default, known-answer correctness is established, and a worker has only two substantive reviews
+- **THEN** the combined result follows its selected contributors without waiting for more human reviews, while those two decisions and their actual counts remain inspectable
+
+#### Scenario: Human review evaluates only the sampled answers
+- **WHEN** human-review scoring is selected, nineteen of a worker's twenty human-reviewed answers are accepted, the configured minimum is met, and another three hundred eighty answers have no substantive human review
+- **THEN** the human-review metric is 95% from nineteen accepted and one rejected answer, with twenty observations; the other answers contribute no human-review success, failure, or minimum-evidence credit
+
+#### Scenario: A pooled review sample does not establish every worker's quality
+- **WHEN** reviewers inspect one hundred responses across three hundred workers and some workers have no reviewed responses
+- **THEN** each worker's human-review count reflects only their own eligible reviewed answers; the sample's acceptance rate is not copied to unreviewed workers, and workers with selected human-review scoring below its minimum retain insufficient evidence
+
+#### Scenario: Local omission preserves broader evidence
+- **WHEN** a project omits human-review scoring and the worker has eligible human-review history contributing to a platform-controlled global assessment
+- **THEN** the local omission does not remove that source history or reconfigure the independent global assessment
+
 ### Requirement: Review and task facts retain their meaning
 Assessments SHALL derive from authoritative submitted answers, attempts, known-answer keys, and review evidence. Automatic acceptance of submitted answers SHALL NOT count as independent evidence of correctness. Human-review evidence SHALL retain its effective verdict and provenance; a rejection SHALL NOT be treated as an answer key. Skips SHALL remain distinguishable and SHALL NOT automatically reduce quality. Reputation SHALL NOT rewrite worker answers, issue review verdicts, select canonical answers, change submission targets, create replacement demand, or reopen satisfied tasks.
 
@@ -143,6 +166,10 @@ Authorized organization managers SHALL be able to include known-answer checks am
 #### Scenario: An unsupported key is supplied
 - **WHEN** an author requests semantic free-text or spatial grading without an implemented grading contract
 - **THEN** key authoring fails with a scoped validation error and creates no scoreable check
+
+#### Scenario: Many workers answer one keyed question
+- **WHEN** three hundred distinct workers submit evaluable answers to the same keyed task/question/input contract through its configured ordinary allocation capacity
+- **THEN** the same applicable key grades each answer without requiring three hundred human review decisions, changing submission demand, or promising that every worker encounters other keyed questions
 
 ### Requirement: Known-answer evidence reflects actual evaluated answers
 A known-answer check SHALL mean a question with an organization-supplied expected answer for its exact task inputs. Such questions SHALL follow ordinary task allocation and submission capacity; this release SHALL NOT guarantee a check frequency or minimum number of checks for each worker. Authorized assessment reads SHALL report each worker's actual evaluated known-answer count, its configured minimum, and whether that minimum is met. Skipped and disabled checks SHALL NOT count as evaluated successes or failures. When known-answer scoring is enabled, exhaustion of authored checks or insufficient observations SHALL leave the signal in the insufficient-evidence state and SHALL NOT itself trigger a poor-quality suspension. Insufficient project-local history SHALL permit participation, without bypassing a separately configured requirement for established organization/global evidence or any other valid access restriction. Reports SHALL NOT imply that every worker was tested merely because the project contains known-answer questions.
@@ -240,9 +267,15 @@ Peer agreement SHALL compare submitted answers from distinct workers to the same
 ### Requirement: Repeated disagreement is weaker than correctness
 Disagreement assessments SHALL require a minimum worker sample and repeated comparable observations within the configured recent-history window. One unusual answer SHALL NOT establish consistently poor reputation. Agreement's scoring contribution SHALL be bounded and weaker than known-answer correctness. Projects SHALL be able to disable agreement scoring and enforcement when consensus does not represent quality. Conflicting strong correctness and unusual disagreement SHALL remain distinguishable to reviewers.
 
+When agreement is disabled for subjective preference collection, differing opinions SHALL NOT contribute quality failures or restrictions. Authorized reviewers SHALL be able to inspect the differing submitted answers without reputation converting the majority preference into an answer key or an effective human-review verdict.
+
 #### Scenario: A subjective preference project disables agreement
 - **WHEN** its workers give differing opinions
 - **THEN** those differences do not reduce reputation or trigger disagreement-based restrictions
+
+#### Scenario: A minority preference follows the instructions
+- **WHEN** agreement scoring is disabled for a preference project and a worker chooses a less popular image while providing the requested explanation
+- **THEN** reputation does not infer a correctness failure or human rejection from the minority preference, and the submitted answer remains available to authorized reviewers
 
 #### Scenario: A correct worker disagrees with peers
 - **WHEN** a worker has strong known-answer accuracy and repeated peer disagreement
