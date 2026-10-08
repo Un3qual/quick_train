@@ -548,6 +548,30 @@ Peer comparisons SHALL become eligible for reputation scoring and enforcement on
 - **WHEN** completion cancels remaining capacity before the task's submission target is met
 - **THEN** its peer comparison remains non-enforcing and collection is not reopened to obtain more answers
 
+### Requirement: Reputation thresholds use inclusive minimums
+Percentage thresholds for known-answer correctness, substantive human-review acceptance, worker peer agreement, combined answer quality, and reliability SHALL mean a minimum acceptable value: an established value greater than or equal to the configured threshold SHALL meet the requirement, and a lower value SHALL trigger only the rule's configured action. Percentage thresholds SHALL represent finite values from zero through one hundred inclusive. Comparisons SHALL use the underlying rate or score at an equivalent scale with precision preserved before display rounding. Reporting disagreement SHALL NOT reverse this rule: a peer rule SHALL compare the worker's agreement rate with its configured minimum agreement percentage.
+
+Threshold evaluation SHALL first apply the assessed rule's existing selection, evidence eligibility, history, minima, and evidence-state requirements. Disabled/not-applicable and insufficient values SHALL NOT be treated as zero, passing scores, or established below-threshold failures. Combined quality SHALL retain its selected-contributor minima and reviewer-only admission exclusions. This boundary SHALL NOT bypass separately configured established organization/global entry requirements or change the existing project-local insufficient-history path. Reviewer-only concerns SHALL remain reviewer information; automatic action SHALL require the existing explicit eligible configuration and affect only new work in its project.
+
+Experience entry requirements SHALL use an inclusive minimum integer count of eligible submitted answered questions in the declared scope/history: a count equal to or greater than N SHALL meet an at-least-N requirement. Configured experience minimums SHALL be positive integers under existing feasibility validation, and SHALL NOT contribute answer-quality points. Actual counts, including zero, SHALL remain reportable under the existing evidence-state rules. Supporting reports SHALL identify the applicable threshold, evidence counts/state, and enough score precision to explain a near-boundary decision rather than imply that rounded equality met it.
+
+#### Scenario: Equality meets a quality requirement
+- **WHEN** an established known-answer metric has eighteen correct answers out of twenty and a configured reviewer threshold of ninety percent
+- **THEN** its exact ninety-percent rate meets the requirement and supplies no below-threshold concern; seventeen correct out of twenty would fall below that threshold and trigger the configured reviewer concern
+
+#### Scenario: Display rounding cannot turn a concern into a passing score
+- **WHEN** established reviewer-reported combined quality selects eighteen-of-twenty correctness and twenty-six-of-thirty peer agreement, excludes human review, uses the initial sixty/ten relative weights, and has a ninety-percent reviewer threshold
+- **THEN** its unrounded quality is approximately 89.5238 percent and triggers the reviewer concern even if a presentation rounds it to ninety percent, with precision/counts explaining the result
+- **AND** reviewer-only inputs still cannot affect automatic admission through that combined report
+
+#### Scenario: A perfect insufficient sample cannot satisfy a threshold
+- **WHEN** enabled known-answer correctness has two correct answers out of two under the initial twenty-answer minimum and a configured ninety-percent threshold
+- **THEN** it remains insufficient without a threshold pass or established below-threshold failure, while actual counts and the existing local/broader admission rules remain available
+
+#### Scenario: An experience requirement accepts its exact minimum
+- **WHEN** a configured organization-history entry requirement asks for at least thirty eligible submitted answered questions
+- **THEN** thirty questions meet that count requirement and twenty-nine do not, without changing answer quality or other admission rules
+
 ### Requirement: Signal actions support review and recoverable project suspension
 Each enabled answer-quality signal and the separate reliability metric SHALL support a configured action to inform reviewers or suspend new project work after its minimum evidence and threshold conditions are met. Experience SHALL support reporting and explicitly configured broader-history entry requirements without becoming a weighted quality signal. Reviewer-only signals MAY contribute to authorized reviewer summaries, but SHALL NOT restrict work directly or indirectly through combined admission scores, minimum-evidence requirements, or pending recalculation. Every automatic access calculation SHALL use only the contributing signals enabled for that purpose in the frozen project configuration. Organization/global entry rules SHALL use the eligible per-signal inputs rather than an aggregate containing excluded signals; this SHALL NOT alter the independent organization/global assessment. Known-answer failures SHALL support automatic suspension. Disagreement SHALL default to informing reviewers and SHALL require explicit project opt-in for any automatic access effect. Automatic restrictions SHALL be project-scoped and SHALL NOT impose platform-wide account bans. Authorized reviewers SHALL receive the reason and supporting evidence; authorized managers SHALL be able to reinstate selected project-local automatic rules without changing the underlying answers or fabricating a score adjustment. Reinstatement and recalculation SHALL have attributable, repeatable outcomes.
 
@@ -556,7 +580,7 @@ Each enabled answer-quality signal and the separate reliability metric SHALL sup
 - **THEN** the worker is suspended from new work in that project with a reason inspectable by authorized organization reviewers
 
 #### Scenario: Repeated disagreement uses the default action
-- **WHEN** disagreement exceeds its threshold without explicit automatic-suspension opt-in
+- **WHEN** established worker agreement falls below its configured minimum agreement percentage without explicit automatic-suspension opt-in
 - **THEN** authorized reviewers receive the concern, but disagreement does not affect automatic admission or suspension, including through a combined score
 
 #### Scenario: A broader score includes reviewer-only disagreement
