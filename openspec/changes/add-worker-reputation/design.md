@@ -149,6 +149,8 @@ Question-level controls are approved future work requiring a published-question 
 
 [Spatial grading](../../future-features.md#spatial-grading-for-bounding-boxes-and-segmentation) will define type-appropriate comparisons for reference annotations and peers. Reputation should consume supported grading/comparison outcomes through the existing eligibility, provenance, minimum-evidence, and correction boundaries; it should not own box/mask geometry or acquire a generic grader plugin framework in advance. Semantic free-text grading remains separately out of scope. [Review sampling](../../future-features.md#review-sampling-and-budgets) must preserve worker-specific evidence and distinguish routine samples from targeted investigations without changing reputation's source ownership.
 
+Spatial partial credit is approved future work. Its future change must extend the grading inputs, quality aggregation, reports, and scoped pooling to preserve fractional credit, distinguishing earned credit from actual evaluated-question counts and retaining correction provenance. Do not count multiple objects in one question as extra worker observations or round partial grades into fabricated full successes/failures. Exact spatial formulas, overlap thresholds, and object-versus-class segmentation rules remain undecided. The current non-spatial matching, binary success/count calculations, relative weights, and minima stay as approved; no spatial grading implementation or speculative generic grader is introduced here.
+
 ## Research Rationale
 
 These first-party sources were reviewed during the approved discussion on 2026-10-05. This change relocates that research; competitor numerical thresholds, permanent exclusions, and commercial terms are not QuickTrain requirements.
