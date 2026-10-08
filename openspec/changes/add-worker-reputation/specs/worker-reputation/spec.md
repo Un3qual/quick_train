@@ -426,6 +426,28 @@ Authorized key authors/readers who also perform work SHALL follow the ordinary r
 ### Requirement: Key corrections preserve history and repair assessments
 Authorized corrections, disabling, or explicit re-enabling of an existing key SHALL retain the prior key, matching rule, enabled/disabled state, actor, reason, and evaluation provenance. An ordinary correction SHALL preserve the key's enabled/disabled state; correcting a disabled key SHALL NOT silently resume grading. An authorized manager with `projects.manage` SHALL be able to explicitly re-enable an existing corrected key. Corrections and enabled-state changes SHALL use the same retained history and recalculation workflow without mutating submitted answers. Re-enabling SHALL restore eligible grading under the current key and existing scope/window rules, preserving each answer's original observation identity and submission time. Repeated action requests SHALL NOT duplicate transitions or contributions. Each correction or enabled-state change SHALL cause affected assessments and reputation restrictions to be reevaluated; obsolete evaluations SHALL NOT remain effective after recalculation or overwrite a newer result. Review corrections SHALL likewise feed recalculation. Reviewers SHALL have evidence to identify widespread key failures and investigate potentially incorrect keys or instructions.
 
+Each correction, disabling, or re-enabling request for an existing key SHALL require a nonblank explanation, the expected current key-revision identity viewed by the manager, and a caller-supplied UUID request key. All three operations SHALL share the same ordered key/matching-rule/enabled-state history: a valid change SHALL append a retained successor to the expected current revision, and that successor SHALL become effective. A new request with an obsolete expected revision SHALL conflict without changing the effective key, history, or recalculation inputs. Concurrent requests against the same current revision SHALL permit one valid successor; another manager SHALL inspect the newer revision before deliberately retrying with a fresh request key.
+
+Request keys SHALL be scoped to the exact known-answer key and requesting actor. Every operation, including replay, SHALL recheck current active account, owning organization, active membership, and `projects.manage` authority. After current authorization, an identical successful replay SHALL be recognized before checking its now-obsolete expected revision and SHALL return the original retained result without another append, duplicate reputation evidence, or reapplication of that change. Replaying an earlier result after a later correction/state change SHALL leave the latest effective revision unchanged. Different request content under the same scoped key SHALL conflict. Invalid UUIDs, blank explanations, missing/foreign expected revisions, and failed authority SHALL produce no partial change.
+
+Revision/predecessor validation, current authorization, the history append, and the corresponding recalculation invalidation/scheduling facts SHALL be coherent with the committed key change. This SHALL preserve the existing correction-state rule: a correction of a disabled key SHALL remain disabled, and a stale correction SHALL NOT overwrite a newer disabling or re-enabling. Concrete guard storage and lock ordering SHALL follow the shared publication/allocation design rather than create a separate key-recovery lifecycle.
+
+#### Scenario: Two managers correct the same key revision
+- **WHEN** Alice and Bob both inspect revision three and submit valid corrections expecting that revision, and Alice's correction commits as revision four first
+- **THEN** Bob's new request conflicts without another append or overwriting revision four; he must inspect that revision before submitting a deliberate correction with a fresh request key
+
+#### Scenario: A successful correction is retried after another change
+- **WHEN** a manager successfully corrects revision three to revision four, a later authorized change creates revision five, and the manager identically retries the earlier successful request under current authority
+- **THEN** the replay returns its original revision-four result before checking the old expectation, while revision five remains effective and no correction or reputation observation is duplicated
+
+#### Scenario: A correction races key disabling
+- **WHEN** a correction and a disabling request both expect the same revision and disabling commits first
+- **THEN** the stale correction conflicts without re-enabling the key; a deliberate correction of the newly disabled revision preserves its disabled state
+
+#### Scenario: Key-change input or replay authority is invalid
+- **WHEN** a change has a blank explanation, invalid UUID, missing/foreign expected revision, or changed content under an existing scoped request key, or a replay loses current management authority
+- **THEN** it fails without appending history, changing the effective key, or partially changing recalculation inputs
+
 #### Scenario: A wrong expected answer penalizes workers
 - **WHEN** an authorized manager corrects or disables that key
 - **THEN** its old evaluation remains explainable, affected assessments are recalculated, and restrictions based on the faulty evidence are reevaluated without editing submissions
