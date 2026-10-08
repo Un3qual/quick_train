@@ -34,6 +34,8 @@ Peer settings SHALL initially use a count floor of two, an eighty-percent covera
 
 Numeric peer tolerance SHALL be an absolute, finite, nonnegative numeric distance, initially zero for exact matching, under the [typed matching contract](../worker-reputation/spec.md#requirement-supported-answer-matching-uses-typed-values). Activation SHALL validate and freeze its effective value; it SHALL NOT inherit a known-answer key's tolerance or reconfigure another assessment scope. Scoped keys SHALL retain their own authored tolerance through the existing key-authoring and correction contract.
 
+Reliability SHALL initially require twenty eligible task attempts in the assessed scope's selected history under the [reliability contract](../worker-reputation/spec.md#requirement-reliability-includes-unexcused-returns-and-excludes-legitimate-returns), using its completion/expiration/unexcused-return denominator rather than all observed attempts. The positive-integer minimum SHALL be adjustable through authorized organization defaults and draft-project overrides, validated against the applicable history bound, and frozen at project activation. Organization and global assessments SHALL each use an explicit initial minimum of twenty under their own settings; global settings SHALL remain platform-controlled, and project overrides SHALL NOT change broader minima. Excused returns, returns awaiting review, cancellations, and unstarted direct assignments SHALL NOT satisfy this minimum. The default count window SHALL remain one hundred eligible observations per signal.
+
 #### Scenario: A project overrides organization defaults
 - **WHEN** a draft project overrides the disagreement action and then activates
 - **THEN** activation freezes that explicit action together with the resolved remaining defaults
@@ -41,6 +43,10 @@ Numeric peer tolerance SHALL be an absolute, finite, nonnegative numeric distanc
 #### Scenario: Organization defaults change later
 - **WHEN** an authorized manager edits defaults after a project activates
 - **THEN** the active project's effective settings remain unchanged while later activations can use the revised defaults
+
+#### Scenario: A project overrides its reliability minimum
+- **WHEN** an authorized draft override sets the reliability minimum to twenty-five while organization and global minima remain at their initial twenty
+- **THEN** activation validates and freezes twenty-five for that project without changing either broader assessment's minimum or counting excluded outcomes toward it
 
 #### Scenario: Defaults change concurrently with activation
 - **WHEN** a defaults update races project activation

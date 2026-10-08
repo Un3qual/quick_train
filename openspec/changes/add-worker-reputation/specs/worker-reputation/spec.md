@@ -90,6 +90,24 @@ Experience SHALL be reported as counts of relevant completed work, with scope an
 ### Requirement: Reliability includes unexcused returns and excludes legitimate returns
 Within the declared scope and configured history window, established reliability SHALL equal C / (C + E + U), where C is successful completed attempts, E is eligible expirations of work voluntarily claimed or started, and U is eligible returned attempts classified as unexcused. Each attempt SHALL contribute at most once. Organization/system cancellations, live attempts awaiting an outcome, and direct assignments never started SHALL be excluded. Returns of unstarted direct assignments SHALL remain inspectable but SHALL NOT become scored failures merely through classification. Excused returns and returns awaiting review SHALL contribute neither completion credit nor failure to the calculation or its minimum-evidence count. Successful valid submissions containing allowed skips SHALL count as completions while answer-quality evidence follows its own rules. With enabled reliability and a zero denominator or fewer eligible outcomes than its configured minimum, the result SHALL have insufficient evidence and no usable enforcement score; disabled reliability SHALL remain not applicable. Reliability SHALL NOT change the combined answer-quality score.
 
+Initial project, organization, and global reliability defaults SHALL require twenty eligible task attempts in the assessed scope's selected history before reliability is established. The minimum SHALL use the same C + E + U denominator as the score, counting each eligible attempt once after scope filtering, deduplication, cutoff, and configured history selection. Excluded outcomes SHALL NOT satisfy the minimum; their retained facts and authorized reporting SHALL remain available. Below the minimum, enabled reliability SHALL report insufficient evidence with actual counts rather than a usable percentage, without making an otherwise established answer-quality result unavailable. The reliability minimum SHALL be a positive integer adjustable through authorized organization settings and draft-project overrides under the existing validation and activation-freezing contract. Global settings SHALL remain platform-controlled and independent of project overrides. The existing default count window of one hundred eligible observations per signal SHALL also apply to reliability; twenty SHALL be an evidence minimum, not a replacement window or a new automatic restriction rule.
+
+#### Scenario: Twenty eligible attempts establish reliability
+- **WHEN** the selected history contains eighteen successful completions, one eligible expiration, and one eligible return confirmed as unexcused under the initial reliability minimum
+- **THEN** reliability is established at ninety percent using eighteen completions divided by twenty eligible attempts
+
+#### Scenario: Neutral outcomes do not establish reliability
+- **WHEN** the selected history contains eighteen successful completions and two excused returns, with any additional returns awaiting review or organization/system cancellations
+- **THEN** only eighteen attempts satisfy the initial minimum, reliability remains insufficient without a usable percentage, and authorized reports retain the actual completion and excluded-outcome counts
+
+#### Scenario: Broader history meets the reliability minimum
+- **WHEN** a worker has ten eligible completions in each of two projects owned by one organization, all within the applicable selected histories and using the initial reliability minima
+- **THEN** each project has insufficient reliability evidence while the organization's pooled twenty attempts establish one-hundred-percent reliability; eligible global history applies its independent scoped rules
+
+#### Scenario: A corrected return drops reliability below its minimum
+- **WHEN** the selected history contains eighteen completions, one eligible expiration, and one unexcused return, and a reviewer corrects that return to excused without other eligible attempts available in the window
+- **THEN** recalculation uses nineteen eligible attempts and reports insufficient reliability evidence under the initial minimum, retaining the corrected return, its prior classification, and the actual counts
+
 #### Scenario: Excused returns do not lower reliability
 - **WHEN** the selected evidence contains ninety completions, five eligible expirations, five unexcused returns, and ten excused returns
 - **THEN** reliability is ninety percent when its minimum is met, using ninety completions divided by one hundred eligible outcomes and showing the ten excused returns separately
