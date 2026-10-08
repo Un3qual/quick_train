@@ -32,6 +32,8 @@ Initial project defaults SHALL use minimum worker samples of twenty evaluated kn
 
 Peer settings SHALL initially use a count floor of two, an eighty-percent coverage fraction applied to the source task's frozen target minus one with rounding up, and a separate eighty-percent consensus threshold over all eligible actual other answers, as defined by the [peer-comparison contract](../worker-reputation/spec.md#requirement-peer-comparison-requires-sufficient-comparable-evidence). Activation SHALL validate and retain these effective values with the frozen project configuration. Authorized defaults/draft overrides SHALL be able to adjust the bounded peer parameters independently; changing coverage SHALL NOT implicitly change consensus or the worker's separate comparison minimum. The peer count floor SHALL be an integer of at least two, and coverage SHALL be positive and no greater than one.
 
+Numeric peer tolerance SHALL be an absolute, finite, nonnegative numeric distance, initially zero for exact matching, under the [typed matching contract](../worker-reputation/spec.md#requirement-supported-answer-matching-uses-typed-values). Activation SHALL validate and freeze its effective value; it SHALL NOT inherit a known-answer key's tolerance or reconfigure another assessment scope. Scoped keys SHALL retain their own authored tolerance through the existing key-authoring and correction contract.
+
 #### Scenario: A project overrides organization defaults
 - **WHEN** a draft project overrides the disagreement action and then activates
 - **THEN** activation freezes that explicit action together with the resolved remaining defaults
