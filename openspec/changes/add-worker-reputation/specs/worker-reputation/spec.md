@@ -69,10 +69,10 @@ Assessments SHALL retain all five signals while distinguishing answer quality, c
 
 Reliability SHALL measure completion of work the worker deliberately takes on and SHALL remain separately inspectable and eligible for its own configured action. Reliability SHALL NOT contribute to the combined answer-quality score or its evidence minimum. Its evidence SHALL distinguish successful submissions, eligible expirations, excused and unexcused returns, returns awaiting review, organization/system cancellations, and direct assignments the worker never started. Reliability SHALL use the completion formula and return-classification rules below; exact original-event timestamp definitions remain to be finalized before implementation. Valid skips SHALL retain their existing meaning rather than automatically becoming poor answer quality.
 
-Experience SHALL be reported as counts of relevant completed work, with scope and history window identified, and SHALL carry no answer-quality weight. It SHALL NOT improve or lower the answer-quality score, substitute for the contributing quality signals' minimum samples, or make that combined result unavailable. Explicit broader-history entry requirements MAY use experience counts under the existing organization/global admission rules; project-local insufficient history SHALL continue to permit participation under that local rule. Authorized reports SHALL show quality, reliability, and experience separately without collapsing them into an overall weighted score.
+Experience SHALL be reported as counts of answered questions from successfully submitted work under the experience contract below, with scope and history window identified, and SHALL carry no answer-quality weight. It SHALL NOT improve or lower the answer-quality score, substitute for the contributing quality signals' minimum samples, or make that combined result unavailable. Explicit broader-history entry requirements MAY use experience counts under the existing organization/global admission rules; project-local insufficient history SHALL continue to permit participation under that local rule. Authorized reports SHALL show quality, reliability, and experience separately without collapsing them into an overall weighted score.
 
 #### Scenario: More experience does not award quality points
-- **WHEN** two workers have equivalent established quality metrics, contributing signals, and effective weights but different completed-work counts
+- **WHEN** two workers have equivalent established quality metrics, contributing signals, and effective weights but different submitted answered-question counts
 - **THEN** their answer-quality scores are equal while their experience counts remain distinguishable
 
 #### Scenario: Good answers accompany inconsistent completion
@@ -84,8 +84,35 @@ Experience SHALL be reported as counts of relevant completed work, with scope an
 - **THEN** the combined answer-quality result remains available, while separately configured access requirements are still evaluated on their own inputs
 
 #### Scenario: A broader-history rule uses experience
-- **WHEN** a project explicitly requires a minimum amount of eligible organization/global completed-work history
+- **WHEN** a project explicitly requires a minimum number of eligible organization/global submitted answered questions
 - **THEN** admission evaluates that requirement using scoped experience counts without adding quality points or treating the count as evidence that answers were correct
+
+### Requirement: Experience counts submitted answered questions
+Experience SHALL count valid answered QuestionResponses belonging to the assessed worker's successfully submitted attempts under the pinned task/question/input contract. Each authoritative submitted answered question SHALL contribute at most one experience observation per assessment scope, regardless of how many selections, objects, annotations, or other parts its answer contains. Submission or calculation retries SHALL NOT create duplicate experience. Skips, missing answers, saved drafts, unfinished/unsubmitted outcomes, and answers saved in returned, expired, or cancelled attempts SHALL NOT qualify. Successful submission SHALL suffice without waiting for the source task's full submission target to be reached.
+
+Awaiting review, automatic acceptance, effective human acceptance, and effective human rejection SHALL follow the same experience eligibility. Review decisions/corrections, key correctness, peer agreement, and local quality-signal selection SHALL NOT change an otherwise eligible answered question's experience contribution. Experience SHALL describe submitted work performed rather than certification that its answers were correct. An allowed all-skipped submission SHALL count as one successful completion for reliability while supplying no experience observations.
+
+Each scope SHALL apply its existing source filtering, deduplication, cutoff, and configured history window before reporting the experience count or evaluating a permitted broader-history requirement. Answered-question observations SHALL retain original submission time and stable source identity. Organization/global experience SHALL pool authoritative eligible answered questions under their own settings, without summing project counts that already applied local windows. The initial count window of one hundred SHALL therefore cap the selected experience count at one hundred answered questions, while all submitted source history remains retained. Authorized reports SHALL identify the count's question unit, scope, window, and supporting dates; a selected-window count SHALL NOT be presented as a lifetime total.
+
+#### Scenario: A mixed submission adds question experience and one completion
+- **WHEN** a worker successfully submits eight answered questions and two allowed skips, the selected history includes those answers, and the source task has not yet reached its full submission target
+- **THEN** the submission contributes eight experience observations and one completed reliability attempt, without requiring further submissions or review
+
+#### Scenario: Review corrections do not change experience
+- **WHEN** eligible submitted answers include pending, automatically accepted, human-accepted, and human-rejected outcomes, and a human acceptance is later corrected to rejection
+- **THEN** each answered question still contributes once to experience under the same selected history, while substantive human-review quality updates separately
+
+#### Scenario: Many answer parts remain one question
+- **WHEN** one eligible submitted question contains multiple selections or annotations and its submission is retried
+- **THEN** the question contributes one experience observation, with no extra observations from its answer parts or retry
+
+#### Scenario: All skips complete work without adding question experience
+- **WHEN** a worker successfully submits a task with every question explicitly skipped under the frozen skip rules
+- **THEN** the attempt supplies one completion for reliability and no experience observations, while its immutable skipped outcomes remain retained
+
+#### Scenario: The experience count reflects its selected history
+- **WHEN** a worker has one hundred twenty eligible submitted answered questions in a scope using the initial count window
+- **THEN** experience reports the selected one hundred answered questions with that scope/window identified, retaining all one hundred twenty source answers without presenting one hundred as a lifetime total
 
 ### Requirement: Reliability includes unexcused returns and excludes legitimate returns
 Within the declared scope and configured history window, established reliability SHALL equal C / (C + E + U), where C is successful completed attempts, E is eligible expirations of work voluntarily claimed or started, and U is eligible returned attempts classified as unexcused. Each attempt SHALL contribute at most once. Organization/system cancellations, live attempts awaiting an outcome, and direct assignments never started SHALL be excluded. Returns of unstarted direct assignments SHALL remain inspectable but SHALL NOT become scored failures merely through classification. Excused returns and returns awaiting review SHALL contribute neither completion credit nor failure to the calculation or its minimum-evidence count. Successful valid submissions containing allowed skips SHALL count as completions while answer-quality evidence follows its own rules. With enabled reliability and a zero denominator or fewer eligible outcomes than its configured minimum, the result SHALL have insufficient evidence and no usable enforcement score; disabled reliability SHALL remain not applicable. Reliability SHALL NOT change the combined answer-quality score.
