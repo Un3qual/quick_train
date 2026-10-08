@@ -36,6 +36,8 @@ Numeric peer tolerance SHALL be an absolute, finite, nonnegative numeric distanc
 
 Reliability SHALL initially require twenty eligible task attempts in the assessed scope's selected history under the [reliability contract](../worker-reputation/spec.md#requirement-reliability-includes-unexcused-returns-and-excludes-legitimate-returns), using its completion/expiration/unexcused-return denominator rather than all observed attempts. The positive-integer minimum SHALL be adjustable through authorized organization defaults and draft-project overrides, validated against the applicable history bound, and frozen at project activation. Organization and global assessments SHALL each use an explicit initial minimum of twenty under their own settings; global settings SHALL remain platform-controlled, and project overrides SHALL NOT change broader minima. Excused returns, returns awaiting review, cancellations, and unstarted direct assignments SHALL NOT satisfy this minimum. The default count window SHALL remain one hundred eligible observations per signal.
 
+Count-based history SHALL remain the initial mode with a limit of one hundred eligible observations per signal. The initial duration for optional time-based history SHALL be a positive elapsed-time duration of ninety days under the [time-window contract](../worker-reputation/spec.md#requirement-time-windows-expire-evidence-without-requiring-a-new-submission). Authorized organization settings and draft-project overrides SHALL be able to adjust that duration through the existing precedence: a draft override takes priority over its applicable organization default, with ninety days used when neither supplies a duration. Activation SHALL freeze the selected mode and its resolved count or duration, without combining the two limits. Organization and global assessments SHALL have their own explicit initial ninety-day duration when time mode is selected without a configured duration; global configuration SHALL remain platform-controlled. Choosing or overriding a project's time window SHALL NOT change broader settings or reopen active project contracts.
+
 #### Scenario: A project overrides organization defaults
 - **WHEN** a draft project overrides the disagreement action and then activates
 - **THEN** activation freezes that explicit action together with the resolved remaining defaults
@@ -72,9 +74,17 @@ Reliability SHALL initially require twenty eligible task attempts in the assesse
 - **WHEN** an otherwise valid draft activates without overriding the initial worker minima or history window
 - **THEN** its frozen settings retain the twenty/twenty/thirty worker minima and a count limit of one hundred per signal, with human review unselected and its minimum inactive unless explicitly selected
 
+#### Scenario: Time mode resolves its initial duration
+- **WHEN** an otherwise valid draft selects time-based history and neither applicable organization defaults nor draft overrides supply a duration
+- **THEN** activation freezes time mode with a ninety-day duration, leaving the initial count mode unchanged for projects that did not select time mode and leaving independent broader assessments unchanged
+
 #### Scenario: An organization selects a different history window
-- **WHEN** authorized organization defaults or a draft-project override select a time-based window with an explicit duration and valid evidence minima
+- **WHEN** authorized organization defaults or a draft-project override select a time-based window with an explicit thirty-day duration and valid evidence minima
 - **THEN** activation freezes those configured values instead of the initial count-window default, without changing the application-owned weights or independent broader assessments
+
+#### Scenario: A configured organization duration takes precedence over the starting duration
+- **WHEN** applicable organization defaults select a thirty-day time window and an otherwise valid draft supplies no duration override
+- **THEN** activation freezes the inherited thirty-day duration rather than replacing it with the ninety-day starting duration
 
 #### Scenario: Initial peer parameters scale with the source target
 - **WHEN** a draft project with submission target ten activates under the initial peer defaults

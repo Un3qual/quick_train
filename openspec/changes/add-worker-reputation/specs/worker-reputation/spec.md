@@ -680,6 +680,24 @@ Initial project, organization, and global settings SHALL each default to N equal
 ### Requirement: Time windows expire evidence without requiring a new submission
 Each time-windowed assessment SHALL record its evaluation cutoff and next time-dependent invalidation, if any. Answer-derived observations SHALL be dated by the original answer's submission time; other time-windowed evidence SHALL use its signal's original event timestamp rather than job time. Key correction, delayed peer completion, and review correction SHALL NOT restart an observation's age. For duration W at cutoff T, eligible observations SHALL have original event times greater than T minus W and no later than T. The next invalidation SHALL be no later than the earliest included observation's original event time plus W. At or after that boundary, reads SHALL identify the calculation as needing refresh; scheduled recalculation and detection of a missed boundary SHALL request repair without requiring a new submission. Pending repair SHALL NOT pause allocation or make completed inputs unusable. Recalculation SHALL publish updated metrics with retained reinstatement cutoffs. Admission SHALL use those completed metrics to remove failure-based reasons whose threshold or minimum is no longer met, preserving other valid reasons, explicit blocks, and separate established organization/global entry requirements. If remaining local history falls below the minimum, the replacement SHALL report insufficient evidence and admission SHALL permit participation under that local rule, without fabricating a success score.
 
+Initial project, organization, and global history SHALL remain count-based with one hundred eligible observations per signal. When time-based mode is selected without an otherwise configured duration under the existing scoped default/override resolution, its explicit initial duration SHALL be ninety days. Authorized organization settings and draft-project overrides SHALL be able to adjust that positive duration under the existing validation and activation-freezing contract; global settings SHALL remain independently platform-controlled. Time-based selection SHALL use all eligible observations whose original event times fall within the interval above, without applying the count-mode limit of one hundred. Each metric's ordinary evidence minimum SHALL apply to the resulting selected history. Excluded older source evidence SHALL remain retained. Count and time modes SHALL remain alternatives rather than simultaneous limits, and choosing time mode SHALL NOT create clock-driven expiration for unchanged count-mode assessments.
+
+#### Scenario: Time mode starts at ninety days independently in each scope
+- **WHEN** a project, organization, or global assessment selects time mode without an otherwise configured duration in its applicable scoped settings
+- **THEN** that scope uses its explicit initial ninety-day duration under its own settings, without changing other scopes or the default mode of count-based assessments
+
+#### Scenario: Time mode includes more than one hundred eligible answers
+- **WHEN** an enabled known-answer metric has one hundred fifty eligible evaluated answers within its selected ninety-day interval
+- **THEN** it uses all one hundred fifty answers and their underlying success/count rate, without truncating the sample to the count-mode limit of one hundred
+
+#### Scenario: The ninety-day interval has precise boundaries
+- **WHEN** a ninety-day time-windowed assessment evaluates at cutoff T
+- **THEN** an observation at exactly T minus ninety days is excluded, one at T is included, and one after T is excluded, using original event times rather than correction or calculation times
+
+#### Scenario: Older evidence leaves too little selected history
+- **WHEN** enabled known-answer accuracy has nineteen eligible answers inside its selected ninety-day interval and one older answer outside it under the initial twenty-answer minimum
+- **THEN** that metric reports insufficient evidence with nineteen selected answers rather than a success/failure percentage, while the older answer and source history remain retained
+
 #### Scenario: A suspended worker produces no new answers
 - **WHEN** the evidence supporting an automatic suspension expires out of the window
 - **THEN** time-driven recalculation reevaluates it without requiring a new submission, and a fresh admission evaluation uses the completed result to remove the unsupported reason while retaining any other valid restriction
