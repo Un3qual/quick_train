@@ -157,11 +157,11 @@ Use responsibility-specific Oban jobs for affected-scope recalculation and repai
 
 ### Technical design pass: proposed for review
 
-This section proposes the remaining engineering contract against the current source. It is pending user review; documenting it does not authorize runtime implementation or complete task 1.1. Product behavior, weights, thresholds, eligibility, and history windows remain as approved. The source inspection establishes integration points, not a tested concurrency guarantee.
+This section records the technical design pass against the current source. The user has approved the storage split between a small current record per worker/scope, retained immutable completed calculations, and admission decisions referencing the calculations actually used. Concrete snapshot guards, lock integration and scheduling remain proposed for review; storage approval does not authorize runtime implementation or complete task 1.1. Product behavior, weights, thresholds, eligibility, and history windows remain as approved. The source inspection establishes integration points, not a tested concurrency guarantee.
 
 #### Storage and ownership
 
-Use the following bounded storage model. Names identify responsibilities; generators can determine ordinary module/table naming during implementation.
+Use the approved current-record/completed-calculation/decision-history split. Actual answers remain in their native records; changing the current calculation reference preserves the results and evidence references used by earlier admission decisions. The table places that split alongside the already-required settings, keys, return decisions and reinstatements. Guard fields, constraints and concurrency details below remain part of the technical discussion. Names identify responsibilities; generators can determine ordinary module/table naming during implementation.
 
 | Record | Stored responsibility |
 | --- | --- |
@@ -280,6 +280,6 @@ Test migration up/down/reapply in a disposable database containing existing coll
 
 The behavior and initial defaults specified above are approved. The [existing-key correction protocol](specs/worker-reputation/spec.md#requirement-key-corrections-preserve-history-and-repair-assessments) also defines explanation, expected-revision, concurrent-edit, and authorized-retry semantics. The [technical design pass](#technical-design-pass-proposed-for-review) now proposes concrete storage, snapshot guards, history references, lock ordering and scheduling against the existing source. Task 1.1 remains unchecked until that proposal is reviewed and reconciled before runtime work begins:
 
-- Review the proposed per-worker/scope head and immutable completed assessments, dedicated read-only snapshot transaction with its narrow transaction-control exception, final owner → settings → head lock phases, compatible allocation worker-lock mode, transactional refresh jobs and committed decision-history handling. Revise any rejected choice without reopening approved product behavior. Runtime concurrency proof belongs to the implementation tasks, not this source-inspection pass.
+- Preserve the approved current-record/completed-calculation/decision-history split. Review its concrete scope constraints and guard fields, the dedicated read-only snapshot transaction with its narrow transaction-control exception, final owner → settings → head lock phases, compatible allocation worker-lock mode, transactional refresh jobs and committed decision-history handling. Revise any rejected choice without reopening approved product behavior. Runtime concurrency proof belongs to the implementation tasks, not this source-inspection pass.
 
 These are visible pre-implementation decisions, not approvals implied by documenting this change. Pay-band amounts, commercial schedules, bonus settlement details, and payment-provider selection remain in the future Finance change.
