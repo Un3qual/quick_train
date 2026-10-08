@@ -4,7 +4,7 @@ Organizations need to distinguish demonstrated correctness from agreement and ex
 
 ## What Changes
 
-- Add explainable project, organization, and platform-controlled global assessments with separate quality signals, evidence counts, time-based or per-signal count-based history windows, and refresh status.
+- Add explainable project, organization, and platform-controlled global assessments with an answer-quality score from known-answer correctness, substantive human review, and peer agreement; separate completion reliability; and experience counts without a quality-score weight. Preserve evidence counts, time-based or per-signal count-based history windows, and refresh status.
 - Support private known-answer questions in ordinary work, retained key corrections and explicit disabling/re-enabling, and organization reports of worker accuracy within configured windows and question quality across all evaluable answers to each exact task/question. Distribution remains best-effort.
 - Detect repeated peer disagreement conservatively, with known-answer grading taking precedence and unfinished comparisons available only to reviewers.
 - Freeze organization defaults and project overrides at activation. Reject impossible automatic evidence requirements and advise on reviewer-only limits. Keep weights application-owned and evidence availability explicit.

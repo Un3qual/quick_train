@@ -29,7 +29,11 @@ Add `QuickTrain.Reputation` for derived assessments and their evaluation workflo
 
 The [scoped-assessment contract](specs/worker-reputation/spec.md#requirement-scoped-assessments-preserve-evidence-and-uncertainty) defines separate metrics, the three evidence states, and independent refresh metadata. The [source-fact contract](specs/worker-reputation/spec.md#requirement-review-and-task-facts-retain-their-meaning) distinguishes substantive human review from automatic acceptance. Global calculations use platform rules instead of averaging incompatible local scores.
 
-Alternative rejected: a single opaque reputation percentage or a global average of organization scores. Either would hide uncertainty and combine incompatible judgments.
+Apply the [signal-role contract](specs/worker-reputation/spec.md#requirement-answer-quality-reliability-and-experience-have-distinct-roles) within those same scoped assessments: combine eligible correctness, human review, and peer agreement into answer quality, retain completion reliability separately, and expose experience as completed-work counts. Only the three quality contributors enter the weight map or combined-quality evidence requirements. Separate reliability actions and permitted broader-history requirements reuse ordinary admission evaluation; no extra assessment lifecycle is needed.
+
+This keeps a worker's answer accuracy visible even when completion is inconsistent, and prevents volume of work from compensating for incorrect answers. Reliability's precise treatment of successful submissions, unfinished expirations, deliberate returns, organization/system cancellations, and unstarted direct assignments remains a product decision; retaining the distinction does not approve a failure penalty for each category.
+
+Alternative rejected: a single opaque percentage combining quality, reliability, and experience, or a global average of organization scores. Either would hide uncertainty and combine different meanings.
 
 ### 2. Put known answers beside exact authored task contracts
 
@@ -152,7 +156,8 @@ Test migration up/down/reapply in a disposable database containing existing coll
 
 The discussion approved the behavior and boundaries above, not a calibrated formula. The first task must record these choices and reconcile the affected scenarios before runtime work begins:
 
-- Exact score normalization/combination for established inputs, reliability semantics and original-event timestamps, application-owned weight values and validation, minimum sample defaults, window duration/count defaults, and score-threshold inclusivity. Central weights, the three evidence states, separate pending-refresh metadata, combined-score availability, per-signal count-window selection, time-window boundaries, and expiration behavior are settled above.
+- Exact answer-quality normalization/combination and application-owned weights for correctness, human review, and peer agreement; minimum sample defaults, window duration/count defaults, and score-threshold inclusivity. The three quality contributors, strongest known-answer weight, separate reliability metric, unweighted experience counts, central weight definition, evidence states, combined-score availability, and history-window behavior are settled above.
+- Reliability eligibility, denominator, original-event timestamps, and treatment of successful submissions, unfinished expirations, deliberate returns, organization/system cancellations, and unstarted direct assignments. Define the experience counting unit and eligible completed-work history; preserve its reporting and permitted broader-entry roles without quality points.
 - Supported choice cardinality/order matching, numeric tolerance boundaries and consensus concentration, and which effective peer answers qualify. Free-text/spatial semantic grading remains out of scope.
 - Organization aggregation and global eligible-evidence/disclosure rules; avoid aggregating differently configured local scores. Preserve project-local participation with insufficient evidence and independent organization/global entry evidence as specified above.
 - Exact authorized capability mapping, reviewer query/notification delivery, and key correction concurrency/retry inputs. Reviewer-only access exclusion and reinstatement's new-evidence cutoff semantics are settled above.
