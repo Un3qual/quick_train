@@ -39,6 +39,43 @@ Attempts SHALL transition from claimed/assigned to in-progress on start or first
 ### Requirement: Worker returns capture reasons without waiting for classification
 An authorized worker's release operation SHALL retain the supplied return reason with the released attempt in the same transaction, preserving current owner authorization, lock, lease, terminal-state, and capacity rules. Review of the reason SHALL NOT delay release or keep task capacity reserved. An actual released attempt SHALL be a returned-work observation; a release attempted after the lease deadline SHALL retain the ordinary expired outcome rather than become a second returned observation. A repeated release SHALL preserve the original reason and outcome without duplicating evidence or rewriting a terminal attempt. Return classification SHALL be a separate authorized organization-review operation and SHALL NOT replace ordinary task-answer review or reopen collection.
 
+For a new return, the worker SHALL explicitly select one main `reason_code` from the shared application-defined choices below; no reason SHALL be preselected. Selecting `other` SHALL expose a required nonblank `other_reason` text field. Other choices SHALL NOT accept `other_reason`. A separate optional `comment` field SHALL be available for every choice, including Other. Each text field SHALL accept at most one thousand characters independently, not a shared combined limit. An omitted or blank comment SHALL be valid. The selected code, custom reason if present, and comment SHALL remain distinct retained worker-provided source fields, separate from a reviewer's classification and decision reason.
+
+| Reason code | Initial worker-facing choice |
+| --- | --- |
+| `input_problem` | Input is missing, broken, or unusable. |
+| `instructions_problem` | Instructions are unclear or conflicting. |
+| `time_limit` | Cannot finish within the task's time limit. |
+| `cannot_continue` | Cannot continue right now. |
+| `work_preference` | Prefer different work. |
+| `other` | Other. |
+
+A live unexpired release SHALL validate this input and persist it atomically with the actual released outcome; invalid input SHALL NOT partially release the attempt or persist a reason. Successful release SHALL still free capacity immediately and start awaiting review. Choosing any preset or entering custom text SHALL NOT automatically excuse or penalize the return. Identical retries SHALL preserve the original selected code and both text fields without duplicating a return; a terminal retry SHALL NOT replace those fields with later input. Historical returns without captured reason fields SHALL remain retained without fabricated preset choices or custom text and SHALL retain the existing awaiting-review behavior until an authorized decision establishes a classification.
+
+#### Scenario: A preset return includes optional details
+- **WHEN** an authorized worker selects `input_problem`, provides a comment describing the broken image, and releases a live unexpired attempt without Other text
+- **THEN** release retains that selected reason and separate comment atomically, frees capacity immediately, and leaves classification awaiting review
+
+#### Scenario: Other retains its reason separately from comments
+- **WHEN** an authorized worker selects `other` with nonblank custom reason text and an optional additional comment
+- **THEN** the released attempt retains the code, custom reason, and comment as separate source fields without assigning an automatic excused/unexcused classification
+
+#### Scenario: Invalid reason input cannot partially release work
+- **WHEN** a live unexpired release omits the selected code, supplies an unknown/multiple choice, selects Other with missing/blank custom text, supplies Other text for a preset, or exceeds one thousand characters in either text field
+- **THEN** validation fails without releasing the attempt or persisting partial reason fields
+
+#### Scenario: Each text field has its own limit
+- **WHEN** an otherwise valid Other return supplies one thousand characters of custom reason and one thousand characters of comments
+- **THEN** both fields are accepted under their independent limits; omitted or blank comments also remain valid
+
+#### Scenario: Selecting work preference awaits a reviewer decision
+- **WHEN** a worker returns an eligible attempt selecting `work_preference`
+- **THEN** the return remains awaiting review with its selected reason visible, and contributes no reliability failure until an authorized reviewer establishes an unexcused classification
+
+#### Scenario: Release retry preserves worker-provided fields
+- **WHEN** the already-released attempt is retried with the original payload or later input
+- **THEN** its original code, Other text, comment, and terminal outcome remain unchanged without another return observation
+
 #### Scenario: A return needs investigation
 - **WHEN** an authorized worker releases a live unexpired attempt with a reason requiring reviewer investigation
 - **THEN** release and reason capture commit together, capacity is freed under ordinary rules, and classification remains awaiting review without blocking release
