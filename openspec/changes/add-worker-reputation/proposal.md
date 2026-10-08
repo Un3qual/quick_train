@@ -7,6 +7,7 @@ Organizations need to distinguish demonstrated correctness from agreement and ex
 - Add explainable project, organization, and platform-controlled global assessments with an answer-quality score from known-answer correctness, substantive human review, and peer agreement; separate completion reliability; and experience counts without a quality-score weight. Preserve evidence counts, time-based or per-signal count-based history windows, and refresh status.
 - Support private known-answer questions in ordinary work, retained key corrections and explicit disabling/re-enabling, and organization reports of worker accuracy within configured windows and question quality across all evaluable answers to each exact task/question. Distribution remains best-effort.
 - Detect repeated peer disagreement conservatively, with known-answer grading taking precedence and unfinished comparisons available only to reviewers.
+- Capture worker return reasons and let organization reviewers classify them as excused, unexcused, or awaiting review. Reliability uses completions divided by completions plus eligible expirations and unexcused returns; excused/unreviewed returns remain visible without lowering the score, and corrections repair derived results.
 - Freeze organization defaults and project overrides at activation. Reject impossible automatic evidence requirements and advise on reviewer-only limits. Keep weights application-owned and evidence availability explicit.
 - Let signals inform reviewers or, when configured, restrict future project work. Preserve issued work, support attributable reinstatement, and keep completed reputation inputs usable during recalculation.
 - Evaluate each new fetch/direct assignment against the latest completed scoped reputation, including an initial calculation when needed. Retain earlier access outcomes as history without requiring a project refresh after broader reputation improves. Permit workers to earn project-local history and support entry based on established organization/global evidence.
@@ -34,8 +35,8 @@ Explicit non-goals:
 
 ### Modified Capabilities
 
-- `projects`: authorize scoped reputation configuration, validate feasible project-local evidence minima, and freeze effective organization defaults/project overrides at activation while permitting key correction, explicit disabling/re-enabling of existing keys, and reinstatement after activation.
-- `task-allocation`: apply reputation admission only to new issuance, preserving both allocation paths, durable retries, and existing-attempt authorization.
+- `projects`: authorize scoped reputation configuration, validate feasible project-local evidence minima, and freeze effective organization defaults/project overrides at activation while permitting key correction, explicit disabling/re-enabling of existing keys, return classification/correction, and reinstatement after activation.
+- `task-allocation`: apply reputation admission only to new issuance, preserving both allocation paths, durable retries, and existing-attempt authorization; capture return reasons through ordinary release without waiting for classification.
 
 ## Impact
 

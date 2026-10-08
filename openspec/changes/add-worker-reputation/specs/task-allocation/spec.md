@@ -36,6 +36,17 @@ Attempts SHALL transition from claimed/assigned to in-progress on start or first
 
 ## ADDED Requirements
 
+### Requirement: Worker returns capture reasons without waiting for classification
+An authorized worker's release operation SHALL retain the supplied return reason with the released attempt in the same transaction, preserving current owner authorization, lock, lease, terminal-state, and capacity rules. Review of the reason SHALL NOT delay release or keep task capacity reserved. An actual released attempt SHALL be a returned-work observation; a release attempted after the lease deadline SHALL retain the ordinary expired outcome rather than become a second returned observation. A repeated release SHALL preserve the original reason and outcome without duplicating evidence or rewriting a terminal attempt. Return classification SHALL be a separate authorized organization-review operation and SHALL NOT replace ordinary task-answer review or reopen collection.
+
+#### Scenario: A return needs investigation
+- **WHEN** an authorized worker releases a live unexpired attempt with a reason requiring reviewer investigation
+- **THEN** release and reason capture commit together, capacity is freed under ordinary rules, and classification remains awaiting review without blocking release
+
+#### Scenario: Release occurs after the deadline
+- **WHEN** the release operation obtains its locks after the attempt's deadline
+- **THEN** the attempt retains the ordinary expired outcome and contributes no additional returned-work observation
+
 ### Requirement: Reputation admission is atomic and shared by allocation routes
 Pool fetch and direct assignment SHALL evaluate the same frozen project reputation rules for each new issuance using the target worker's latest completed assessment inputs in every required scope and applicable manual reinstatement. Assignment permission or an audience allow entry SHALL NOT bypass a reputation restriction. A historical allow/deny result SHALL NOT replace this evaluation. Assessment publication, reinstatement, and issuance SHALL have a consistent transactional order across all consulted scopes: issuance ordered before a newly failing assessment retains its issued contract; issuance ordered after it SHALL evaluate the new inputs and fail if the rules deny access, without creating an attempt or presentation.
 
