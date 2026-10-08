@@ -375,6 +375,37 @@ Skipped and disabled evaluations SHALL NOT enter current accuracy denominators. 
 - **WHEN** a corrected key changes which stored answers match
 - **THEN** the refreshed question report evaluates the same all-history sample under the corrected key, identifies its revision, and does not mix old and new grades or restore expired answers to worker reputation windows
 
+### Requirement: Reviewers can list current reputation concerns and inspect worker detail
+Organization reviewers with `tasks.review` SHALL have bounded paginated project reputation queries under the [operation mapping](#requirement-reputation-operations-fail-closed-within-organization-scope). Each query SHALL declare its owning organization and project and return at most one row per related worker in that project, grouping the worker's current concerns rather than emitting a new alert for every answer or recalculation. Worker relationships SHALL come from retained ordinarily authorized work requests or performed work in that project; ordinary membership or an arbitrary User identity SHALL NOT create reputation browsing authority.
+
+The list SHALL support filters for workers with established metrics below applicable configured thresholds, workers with insufficient evidence, and workers with returns awaiting classification. Insufficient/disabled/not-applicable metrics and unfinished preliminary peer comparisons SHALL NOT become below-threshold quality concerns. An awaiting-review return SHALL remain separately visible without counting as a confirmed reliability failure or satisfying the eligible-attempt minimum. A worker MAY appear in more than one filter because different metrics or return states apply.
+
+Worker detail SHALL identify each concern's metric, supporting eligible counts, unrounded rate/score with sufficient presentation precision, applicable threshold, configured action, and declared evidence scope/history. It SHALL expose calculation cutoff, supporting original observation dates, pending-refresh metadata, and permitted supporting evidence and retained source/correction/access-decision history. Broader inputs SHALL retain their assessed scope and the [bounded global disclosure contract](#requirement-global-summary-disclosure-requires-an-organization-work-relationship); the project list SHALL NOT expose other organizations' evidence or reconfigure their assessments. All list/detail reads SHALL recheck current scoped authority without broadening worker or general source-read access.
+
+Current concerns SHALL follow the latest completed applicable calculation and rule configuration. A pending update SHALL remain labeled and SHALL NOT fabricate a new concern or silently clear an existing one. Once a completed calculation no longer supports a concern, that concern SHALL disappear from the current list/filter without deleting its supporting source or decision history. Reads SHALL derive current concerns from completed assessment inputs and ordinary configured rules, rather than add an independently managed concern lifecycle or duplicate event stream. Reviewer-only concerns SHALL remain informational with their existing admission exclusions; list filters and detail reads SHALL NOT change work access, source evidence, or return classifications.
+
+Delivery in this change SHALL be through the scoped backend queries for organization applications to display. Reputation email/webhook notifications and acknowledgment, dismissal, or escalation workflows SHALL remain outside this change. No frontend or notification subsystem SHALL be required to make the reviewer information available.
+
+#### Scenario: A worker has several current concerns
+- **WHEN** a project's applicable rules identify established correctness and peer-agreement concerns for the same worker
+- **THEN** its paginated list contains one worker row with both concerns, and detail exposes their respective counts, thresholds, actions, scopes, and freshness rather than duplicate worker alerts
+
+#### Scenario: Worker agreement falls below the initial reviewer threshold
+- **WHEN** a reviewer-only agreement rule has twenty-three agreements across thirty eligible comparisons under its initial eighty-percent threshold
+- **THEN** the worker's row/detail shows approximately 76.7 percent agreement, twenty-three of thirty, the eighty-percent threshold, and reviewer-only action without restricting work
+
+#### Scenario: Few comparisons are insufficient rather than poor quality
+- **WHEN** a worker has five peer comparisons under the initial thirty-comparison minimum and no other established below-threshold metric
+- **THEN** the worker is available through the insufficient-evidence filter without a poor-quality concern or inclusion in the below-threshold filter
+
+#### Scenario: A return awaits reviewer classification
+- **WHEN** a worker has a released attempt whose effective classification is awaiting review
+- **THEN** the worker is available through the awaiting-classification filter and the permitted return detail remains inspectable, without treating that return as an unexcused reliability outcome
+
+#### Scenario: A completed update resolves a concern
+- **WHEN** a worker has a current below-threshold concern and a replacement completed calculation no longer supports it
+- **THEN** the current concern/filter entry clears while retained source and decision history remain inspectable; while that replacement is merely pending, the previous completed concern remains labeled with its pending update
+
 ### Requirement: Keys and check designations remain private
 Worker presentation SHALL use the ordinary question/input contract without disclosing the answer key or the designation of a question as a quality check. Worker-facing APIs, nested GraphQL traversal, errors, and work-access outcomes SHALL NOT reveal hidden keys, other workers' answers, or another organization's private evidence. A worker account SHALL NOT gain manager access by holding an attempt. Organization reviewers with `tasks.review` SHALL be able to inspect supporting own-organization evidence, including relevant keys/history, under the [explicit operation mapping](#requirement-reputation-operations-fail-closed-within-organization-scope). Managers with `projects.manage` SHALL be able to inspect scoped keys/history for management without gaining general reputation-report or submitted-answer access. Detailed worker-facing reputation explanations and dispute workflows are deferred; organization reviewer evidence and recovery actions remain in scope.
 
