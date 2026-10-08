@@ -572,6 +572,34 @@ Experience entry requirements SHALL use an inclusive minimum integer count of el
 - **WHEN** a configured organization-history entry requirement asks for at least thirty eligible submitted answered questions
 - **THEN** thirty questions meet that count requirement and twenty-nine do not, without changing answer quality or other admission rules
 
+### Requirement: Configured rules have explicit starting thresholds
+Configured reviewer/action and admission rules SHALL initially use the following minimum acceptable percentages under the [inclusive comparison contract](#requirement-reputation-thresholds-use-inclusive-minimums):
+
+| Metric | Initial minimum |
+| --- | --- |
+| Known-answer correctness | 90% |
+| Substantive human-review acceptance, when selected | 90% |
+| Worker peer agreement | 80% |
+| Combined answer quality | 90% |
+| Reliability | 95% |
+
+These SHALL be starting values for explicitly configured rules, including project entry rules that consult organization/global metrics, rather than new score-calculation inputs or automatic restrictions. Authorized organization defaults and draft-project overrides SHALL be able to adjust the bounded thresholds independently through ordinary configuration resolution and activation freezing. Project overrides SHALL NOT change independent organization/global calculation settings, and global settings SHALL remain platform-controlled. Human-review scoring SHALL remain unselected by default. The eighty-percent worker agreement minimum SHALL measure the worker's rate across eligible scored question comparisons, separately from the coverage and consensus percentages needed to make each question comparison eligible.
+
+Each rule SHALL retain its evidence minimum, selected contributors, declared scope/history, reviewer-only admission exclusions, and configured action. No starting threshold SHALL select a signal, enable an automatic action, or introduce a platform-wide restriction. Experience SHALL have no default entry gate; any supported broader-history experience requirement SHALL explicitly choose its positive answered-question minimum. Existing active projects SHALL retain their prior frozen contracts.
+
+#### Scenario: Initial reliability tolerates one failure among twenty eligible attempts
+- **WHEN** a configured reliability rule uses its initial ninety-five-percent threshold and twenty-attempt minimum, with nineteen completions and one eligible expiration or confirmed unexcused return in its selected history
+- **THEN** its established ninety-five-percent reliability meets the threshold; eighteen completions and two such outcomes establish ninety percent and trigger only the rule's configured action
+- **AND** excused returns and returns awaiting review remain excluded from the scoring denominator and minimum, without disappearing from reviewer reports
+
+#### Scenario: Initial worker agreement uses scored questions rather than the consensus vote
+- **WHEN** a reviewer-only agreement rule has thirty eligible question comparisons, twenty-four of which agree with the established peers
+- **THEN** its eighty-percent worker agreement meets the starting threshold without changing any question's separate coverage or consensus requirements, and fewer than twenty-four agreements would raise only the configured reviewer concern
+
+#### Scenario: Starting values do not activate optional rules
+- **WHEN** a project retains the starting thresholds without selecting human-review scoring, enabling an automatic action, or explicitly choosing an experience entry requirement
+- **THEN** the ninety-percent human-review threshold creates no scoring requirement, the stored thresholds enable no automatic restriction, and answered-question counts remain reportable without a default experience gate
+
 ### Requirement: Signal actions support review and recoverable project suspension
 Each enabled answer-quality signal and the separate reliability metric SHALL support a configured action to inform reviewers or suspend new project work after its minimum evidence and threshold conditions are met. Experience SHALL support reporting and explicitly configured broader-history entry requirements without becoming a weighted quality signal. Reviewer-only signals MAY contribute to authorized reviewer summaries, but SHALL NOT restrict work directly or indirectly through combined admission scores, minimum-evidence requirements, or pending recalculation. Every automatic access calculation SHALL use only the contributing signals enabled for that purpose in the frozen project configuration. Organization/global entry rules SHALL use the eligible per-signal inputs rather than an aggregate containing excluded signals; this SHALL NOT alter the independent organization/global assessment. Known-answer failures SHALL support automatic suspension. Disagreement SHALL default to informing reviewers and SHALL require explicit project opt-in for any automatic access effect. Automatic restrictions SHALL be project-scoped and SHALL NOT impose platform-wide account bans. Authorized reviewers SHALL receive the reason and supporting evidence; authorized managers SHALL be able to reinstate selected project-local automatic rules without changing the underlying answers or fabricating a score adjustment. Reinstatement and recalculation SHALL have attributable, repeatable outcomes.
 
