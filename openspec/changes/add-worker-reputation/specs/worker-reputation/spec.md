@@ -174,6 +174,16 @@ Initial project, organization, and global reliability defaults SHALL use a minim
 - **WHEN** lifetime evidence contains ninety completions, five eligible expirations, five unexcused returns, and ten excused returns
 - **THEN** lifetime reliability is ninety percent when its minimum is met, using ninety completions divided by one hundred eligible outcomes; the ten excused returns remain separately visible and contribute neither weight nor rank advancement to EWMA
 
+#### Scenario: Frequent neutral returns remain visible without lowering reliability
+- **WHEN** the worker has one hundred successful completions, twenty excused returns or twenty returns awaiting review, and no eligible expirations or unexcused returns under the initial reliability settings
+- **THEN** both reliability views remain established at one hundred percent using only the one hundred completions, and all twenty returns remain visible with their reasons and classification breakdown
+- **AND** the returns supply no completion credit, failure, minimum-evidence contribution or EWMA rank advancement, and their frequency alone supplies no reliability restriction
+
+#### Scenario: Confirmed unexcused returns lower reliability independently of answer quality
+- **WHEN** the worker has one hundred successful completions, ten excused returns, ten eligible voluntarily claimed or started returns classified unexcused, and no expirations under the initial settings
+- **THEN** lifetime reliability is approximately 90.9091 percent over one hundred ten eligible outcomes, below its ninety-four-percent threshold; EWMA uses those same eligible outcomes with their original event ordering and its own rate
+- **AND** correcting an unexcused classification to excused removes that return's failure contribution through recalculation while retaining the prior decision and original release time, without completion credit or an answer-quality adjustment
+
 #### Scenario: A direct assignment was never started
 - **WHEN** the worker returns or lets expire a direct assignment without starting it
 - **THEN** that attempt contributes no reliability failure, while its actual outcome and any return classification remain inspectable
