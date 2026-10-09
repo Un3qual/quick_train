@@ -37,6 +37,15 @@ These are development/release verification checks before enabling optional autom
 
 Recovery follows those same weights and thresholds as newer eligible outcomes arrive. The worked recovery count is illustrative, not a quota, counter or waiting period. Reviewer-only rules permit continued work; authorized reinstatement of a selected project-local automatic rule uses its existing subsequent-evidence contract while historical performance retains earlier failures.
 
+#### Approved calibration cases
+
+The following expected behavior was approved on 2026-10-09 for eligible known-answer evaluations under the initial settings, with clear instructions and trustworthy typed references. These are synthetic development fixtures, not empirical claims about every task type. Keep other metrics and independently configured entry requirements separate.
+
+| Eligible history | Expected correctness behavior |
+| --- | --- |
+| Twenty correct answers followed by one incorrect answer | Count the mistake normally and retain it for inspection. Both views meet the initial correctness threshold with sufficient evidence, so this metric raises no below-threshold concern or restriction. Use the existing [isolated-mistake scenario](specs/worker-reputation/spec.md#requirement-configured-rules-have-explicit-starting-thresholds); add no first-mistake exception. |
+| Four correct answers followed by one incorrect answer | Show actual counts and diagnostic rates with insufficient evidence in both views. The lifetime diagnostic rate does not establish poor reputation or trigger a project-local correctness restriction; the error remains inspectable. Use the [small-sample scenario](specs/worker-reputation/spec.md#requirement-configured-rules-have-explicit-starting-thresholds). |
+
 ### 1. Separate evidence dimensions and assessment scope
 
 Add `QuickTrain.Reputation` for derived assessments and their evaluation workflows. Keep the global User and authoritative Attempts, QuestionResponses and ReviewDecisions in their existing domains, retaining source references rather than a parallel event store. The [assessment contract](specs/worker-reputation/spec.md#requirement-scoped-assessments-preserve-evidence-and-uncertainty) owns metric/evidence states and the independent freshness metadata.

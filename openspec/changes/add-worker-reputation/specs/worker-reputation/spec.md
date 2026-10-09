@@ -756,7 +756,13 @@ Score recovery SHALL use the ordinary calculation for the chosen view and the sa
 #### Scenario: Initial EWMA correctness tolerates an isolated mistake in a short history
 - **WHEN** a configured known-answer rule uses EWMA, the initial half-life one hundred, effective-sample minimum twenty and ninety-percent threshold, and has twenty correct outcomes followed by one incorrect outcome
 - **THEN** its twenty-one actual observations establish approximately 20.963 effective observations and 94.9008-percent correctness, meeting the threshold
+- **AND** lifetime correctness is twenty out of twenty-one, approximately 95.2381 percent, with sufficient evidence; the incorrect answer remains counted and inspectable without a below-threshold correctness concern or restriction under these settings
 - **AND** a separate history with nineteen correct outcomes followed by two incorrect outcomes has the same evidence size but approximately 89.8368-percent correctness, falling below the threshold and triggering only its configured action
+
+#### Scenario: A small imperfect sample does not establish poor correctness
+- **WHEN** a project-local known-answer rule uses the initial evidence minimum and thresholds, and a worker has four correct eligible answers followed by one incorrect answer
+- **THEN** both lifetime and EWMA have insufficient evidence, with five actual evaluations and their own non-enforcing diagnostic rates; lifetime reports 80% accuracy without an established below-threshold correctness concern or project-local correctness restriction
+- **AND** the incorrect answer remains counted and inspectable, while independently configured broader-history entry requirements retain their existing insufficient-evidence behavior
 
 #### Scenario: Recent incorrect answers lower established EWMA correctness
 - **WHEN** the same initial known-answer rule has two hundred correct outcomes followed by ten incorrect outcomes
