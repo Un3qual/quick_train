@@ -771,6 +771,12 @@ Score recovery SHALL use the ordinary calculation for the chosen view and the sa
 - **AND** a reviewer-only action reports that concern without restricting work, while an explicitly enabled automatic action affects only new project work under the existing admission contract and preserves already-issued work
 - **AND** these counts illustrate the ordinary weighted calculation rather than a fixed allowed-error count or consecutive-error rule
 
+#### Scenario: Consistent correct work recovers EWMA after a poor start
+- **WHEN** a worker able to continue working has eleven correct eligible known answers followed by ten incorrect answers and then sixty correct answers, under the initial EWMA half-life, evidence minimum and ninety-percent correctness threshold
+- **THEN** historical EWMA correctness is approximately 89.7160 percent and still supports a below-threshold concern, while lifetime correctness is approximately 87.6543 percent
+- **AND** two further correct answers raise EWMA correctness to approximately 90.0397 percent, clearing that concern once the completed assessment publishes, while lifetime correctness is approximately 87.9518 percent and independently configured lifetime rules retain their own behavior
+- **AND** earlier mistakes remain retained and weighted; recovery uses the same threshold without a reset, waiting period or fixed sixty-two-answer requirement, and other rules or selected-rule reinstatement inputs remain independent
+
 #### Scenario: Selected substantive human review uses the same quality threshold
 - **WHEN** a selected substantive human-review rule uses EWMA, the initial half-life one hundred, effective-sample minimum twenty and ninety-percent threshold, and has nineteen eligible accepted outcomes followed by two eligible rejected outcomes
 - **THEN** its established acceptance rate is approximately 89.8368 percent and triggers only its configured action; automatic initial acceptance supplies no eligible review outcome
