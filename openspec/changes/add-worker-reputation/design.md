@@ -23,6 +23,12 @@ Follow the [proposal's scope exclusions](proposal.md#what-changes). In particula
 
 ## Decisions
 
+### Lifetime and recent reputation: planning update
+
+Worker reputation must provide both lifetime and recent answer-quality and completion-reliability views. Lifetime performance uses eligible performance evidence across the worker's history in the assessed scope; it is distinct from the all-history submitted-question experience count and from retained past assessments. Providing both performance views is approved product scope.
+
+The recent-history calculation remains under discussion: one configurable count/time window versus recency-weighted history. Admission rules' choice of history basis and the resulting settings-feasibility checks must also be agreed. The detailed window-only specs and calculation/read/storage contracts below describe the existing baseline; reconcile them with both views after these choices are made and before implementation. Preserve the approved source eligibility, separate quality/reliability/experience roles, evidence safeguards and scope privacy.
+
 ### 1. Separate evidence dimensions and assessment scope
 
 Add `QuickTrain.Reputation` for derived assessments and their evaluation workflows. Keep the global User and authoritative Attempts, QuestionResponses and ReviewDecisions in their existing domains, retaining source references rather than a parallel event store. The [assessment contract](specs/worker-reputation/spec.md#requirement-scoped-assessments-preserve-evidence-and-uncertainty) owns metric/evidence states and the independent freshness metadata.
@@ -282,7 +288,7 @@ Test migration up/down/reapply in a disposable database containing existing coll
 
 ## Implementation Readiness
 
-The behavior, initial defaults and [technical design pass](#technical-design-pass-approved) are approved and reconciled. Approval of planning does not start runtime implementation. All eighteen tasks remain unchecked; task 1.1 checks the approved plan against actual source/tooling before implementation.
+The existing behavior, initial defaults and [technical design pass](#technical-design-pass-approved) are approved, but the [lifetime and recent reputation update](#lifetime-and-recent-reputation-planning-update) requires further history/admission decisions and artifact reconciliation before implementation. Approval of planning does not start runtime implementation. All eighteen tasks remain unchecked; task 1.1 resolves that planning update and checks the resulting plan against actual source/tooling before implementation.
 
 - Begin implementation by checking the approved source integration points and installed Ash generator/constraint APIs, then generate the resources and additive migrations. Ordinary module/table names and equivalent native API syntax are implementation details. Preserve the approved behavior, ownership, provenance, capture/publication guards, coordination, scheduling, admission-history and integrity contracts.
 - Prove concurrency, migrations, authorization/privacy and query/scoring performance with the focused implementation checks before the final repository gate. Record actual interfaces and results in these artifacts; planning validation is not runtime verification.

@@ -2,6 +2,8 @@
 
 Give organizations explainable worker-quality evidence and recoverable control over future project work while preserving submitted answers, existing attempts, and organization privacy.
 
+**Planning status:** Both lifetime and recent quality/reliability views are approved scope under the [history planning update](../../design.md#lifetime-and-recent-reputation-planning-update). The window-only requirements below remain the existing baseline until recent-history calculation and admission history selection are agreed and reconciled across the artifacts; they are not yet the complete implementation contract for both views.
+
 ## ADDED Requirements
 
 ### Requirement: Scoped assessments preserve evidence and uncertainty

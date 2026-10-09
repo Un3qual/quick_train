@@ -1,6 +1,6 @@
 ## 1. Finalize the Implementation Contract and Generate Resources
 
-- [ ] 1.1 At implementation start, check the approved [technical design](design.md#technical-design-pass-approved) and [readiness](design.md#implementation-readiness) against actual source and installed Ash tooling. Preserve the [approved scope](proposal.md#what-changes); planning approval does not complete this runtime task.
+- [ ] 1.1 Before implementation, resolve and reconcile the [lifetime and recent reputation update](design.md#lifetime-and-recent-reputation-planning-update) across proposal, specs, design and tasks, including recent-history calculation, admission history selection and settings feasibility. Then check the approved [technical design](design.md#technical-design-pass-approved) and [readiness](design.md#implementation-readiness) against actual source and installed Ash tooling. Preserve the [approved scope](proposal.md#what-changes); planning approval does not complete this runtime task.
 - [ ] 1.2 Inspect `mise exec -- mix help ash.gen.domain` and `mise exec -- mix help ash.gen.resource`; generate the Reputation domain, minimum resources and additive migrations from [storage and integrity design](design.md#storage-and-ownership). Verify scoped identities/references, append-only history, valid states/bounds, concurrent initialization and retained-history protection.
 
 ## 2. Author Settings and Private Known-Answer Evidence
