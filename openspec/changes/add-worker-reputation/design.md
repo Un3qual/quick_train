@@ -29,6 +29,8 @@ Provide equal-weight lifetime and observation-based EWMA performance alongside t
 
 The selected model replaces hard count/time windows and their time-expiry scheduling. A single decay parameter gives gradual recency weighting without several overlapping periods or an invented prior. The [normalized finite-history EWMA definition](https://pandas.pydata.org/docs/reference/api/pandas.DataFrame.ewm.html) provides the mathematical reference; this introduces no pandas/runtime dependency. Its evidence size measures weight concentration rather than a confidence guarantee. The defaults remain product starting values, not measured optimal parameters.
 
+The [starting reliability threshold scenarios](specs/worker-reputation/spec.md#requirement-configured-rules-have-explicit-starting-thresholds) calibrate tolerance for an isolated eligible failure near the initial evidence minimum while identifying a recent failure streak. Keep the shared half-life and ordinary outcome weights; add no first-failure exception or separate grace counter. Thresholds still trigger only explicitly configured actions.
+
 ### 1. Separate evidence dimensions and assessment scope
 
 Add `QuickTrain.Reputation` for derived assessments and their evaluation workflows. Keep the global User and authoritative Attempts, QuestionResponses and ReviewDecisions in their existing domains, retaining source references rather than a parallel event store. The [assessment contract](specs/worker-reputation/spec.md#requirement-scoped-assessments-preserve-evidence-and-uncertainty) owns metric/evidence states and the independent freshness metadata.

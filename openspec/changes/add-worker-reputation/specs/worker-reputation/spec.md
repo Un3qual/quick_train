@@ -699,16 +699,25 @@ Configured reviewer/action and admission rules SHALL initially use the following
 | Substantive human-review acceptance, when selected | 90% |
 | Worker peer agreement | 80% |
 | Combined answer quality | 90% |
-| Reliability | 95% |
+| Reliability | 94% |
 
 These SHALL be starting values for explicitly configured rules, including project entry rules that consult organization/global metrics, rather than new score-calculation inputs or automatic restrictions. Authorized organization defaults and draft-project overrides SHALL be able to adjust the bounded thresholds independently through ordinary configuration resolution and activation freezing. Project overrides SHALL NOT change independent organization/global calculation settings, and global settings SHALL remain platform-controlled. Human-review scoring SHALL remain unselected by default. The eighty-percent worker agreement minimum SHALL measure the worker's rate across eligible scored question comparisons, separately from the coverage and consensus percentages needed to make each question comparison eligible.
 
 Each rule SHALL retain its evidence minimum, selected contributors, declared scope, explicit lifetime or EWMA quality/reliability basis or all-history experience basis, reviewer-only admission exclusions, and configured action. No starting threshold SHALL select a signal, enable an automatic action, or introduce a platform-wide restriction. Experience SHALL have no default entry gate; any supported broader-history experience requirement SHALL explicitly choose its positive answered-question minimum. Existing active projects SHALL retain their prior frozen contracts.
 
 #### Scenario: Initial reliability tolerates one failure among twenty eligible attempts
-- **WHEN** a configured reliability rule explicitly selects lifetime, uses its initial ninety-five-percent threshold and twenty-attempt minimum, and has nineteen completions and one eligible expiration or confirmed unexcused return
+- **WHEN** a configured reliability rule explicitly selects lifetime, uses its initial ninety-four-percent threshold and twenty-attempt minimum, and has nineteen completions and one eligible expiration or confirmed unexcused return
 - **THEN** its established ninety-five-percent reliability meets the threshold; eighteen completions and two such outcomes establish ninety percent and trigger only the rule's configured action
 - **AND** excused returns and returns awaiting review remain excluded from the scoring denominator and minimum, without disappearing from reviewer reports
+
+#### Scenario: Initial EWMA reliability tolerates an isolated eligible failure
+- **WHEN** a configured reliability rule uses EWMA, the initial half-life one hundred, effective-sample minimum twenty and ninety-four-percent threshold, and has twenty completions followed by one eligible expiration or confirmed unexcused return
+- **THEN** its twenty-one actual observations establish approximately 20.963 effective observations and 94.9008-percent reliability, meeting the threshold while retaining the failure's ordinary weight and provenance without a first-failure exception
+
+#### Scenario: Recent eligible failures lower EWMA reliability despite strong lifetime history
+- **WHEN** a configured reliability rule uses the initial EWMA settings and has two hundred completions followed by ten eligible failures
+- **THEN** its established EWMA reliability is approximately 91.2660 percent and falls below the ninety-four-percent threshold, triggering only the rule's configured action
+- **AND** lifetime reliability remains separately reported at approximately 95.2381 percent without overriding or being averaged into the EWMA rule
 
 #### Scenario: Initial worker agreement uses scored questions rather than the consensus vote
 - **WHEN** a lifetime reviewer-only agreement rule has thirty eligible question comparisons, twenty-four of which agree with the established peers
