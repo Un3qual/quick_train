@@ -60,6 +60,16 @@ Specify selection, authorization, budget limits, and how sampling interacts with
 
 The [reputation contract](changes/add-worker-reputation/specs/worker-reputation/spec.md#requirement-human-review-is-supplementary-worker-evidence) specifies consumption of actual substantive reviews, supplementary human-review scoring unselected by default, and explicit opt-in and insufficient-evidence rules. This future capability supplies sampling workflow and provenance rather than a second reputation scorer. [Labelbox's quality strategy](https://labelbox.com/guides/how-to-create-a-quality-strategy-for-your-data-labeling-project/) provides a precedent for reducing manual review to a sample while using benchmarks and applicable consensus.
 
+## Reviewer calibration and consistent acceptance criteria
+
+Status: approved practice direction, recorded 2026-10-09. Ownership: answer-review workflow and organization review guidance; a dedicated calibration workflow remains future work outside `add-worker-reputation` and `add-organization-quality-reports`.
+
+Start manually: select a small shared set of examples, have reviewers independently record their judgment and explanation, compare the disagreements, clarify what counts as acceptable work, and repeat on further examples when useful. Discuss borderline cases as well as clear successes/failures. The purpose is consistent application of an acceptance rubric, not forcing agreement or rating reviewers by agreement with a majority. Organizations can use the resulting guidance when performing ordinary production reviews; no per-worker human-review quota is implied.
+
+Use only examples that the participants are authorized to inspect within their organization. Keep practice judgments separate from production `ReviewDecision` records: practice must not change effective verdicts, worker reputation, experience, access, pay, submissions or exports, and must not disclose private keys/evidence through worker routes. Applying an actual production correction still requires the existing authorized review or key-correction action and its retained history.
+
+If manual practice proves useful, consider a dedicated workflow for recording independent practice judgments/explanations, comparing them and retaining rubric guidance. Sampling, storage, presentation and workflow details remain for a future change; no reviewer reputation, weighted voting, certification or automatic access gate is approved. The separate [organization quality reports](changes/add-organization-quality-reports/proposal.md) can help identify instructions or answer patterns to investigate without becoming a reviewer-calibration engine.
+
 ## Quality of original answers after reviewer correction
 
 Status: approved future direction, recorded 2026-10-09. Ownership: answer review, corrected-answer representation and type-specific grading; outside `add-worker-reputation`.

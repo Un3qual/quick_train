@@ -232,6 +232,8 @@ Money uses integer minor units and explicit currencies, never floats. Ledger tra
 
 [add-worker-reputation](../add-worker-reputation/proposal.md) owns known-answer checks, repeated peer disagreement, scoped assessments, organization defaults/project overrides, reviewer information, and recoverable new-work restrictions. Its [design](../add-worker-reputation/design.md) retains the approved compensation integration terms and competitor research; its [specs](../add-worker-reputation/specs/worker-reputation/spec.md) and [tasks](../add-worker-reputation/tasks.md) govern future implementation. This record retains the cross-domain boundary only and does not maintain a second reputation plan.
 
+[Organization quality reports](../add-organization-quality-reports/proposal.md) separately extend check-design and categorical answer diagnostics over the reputation change's key/matcher read paths. They are investigation tools, not another worker score or collection gate. [Reviewer calibration](../../future-features.md#reviewer-calibration-and-consistent-acceptance-criteria) starts as a manual practice; a dedicated workflow remains future work.
+
 ### M. Authorization and GraphQL boundaries for later domains
 
 Organization management actions use the shared organization-capability path and require an active account, active organization, active membership, and explicit capabilities such as dataset, form, and project management, task review, and finance management.
