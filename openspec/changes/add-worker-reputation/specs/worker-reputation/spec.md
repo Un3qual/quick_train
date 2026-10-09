@@ -707,6 +707,20 @@ Each rule SHALL retain its evidence minimum, selected contributors, declared sco
 
 Score recovery SHALL use the ordinary calculation for the chosen view and the same configured inclusive threshold. EWMA improvement SHALL follow newer eligible outcomes under the retained half-life, without a separate recovery threshold, fixed completion quota, recovery counter or waiting period. Example recovery counts SHALL NOT become admission requirements. This describes historical performance values; authorized project-local reinstatement SHALL retain its separate subsequent-evidence filter without resetting historical metrics or bypassing other rules.
 
+#### Scenario: Initial EWMA correctness tolerates an isolated mistake in a short history
+- **WHEN** a configured known-answer rule uses EWMA, the initial half-life one hundred, effective-sample minimum twenty and ninety-percent threshold, and has twenty correct outcomes followed by one incorrect outcome
+- **THEN** its twenty-one actual observations establish approximately 20.963 effective observations and 94.9008-percent correctness, meeting the threshold
+- **AND** a separate history with nineteen correct outcomes followed by two incorrect outcomes has the same evidence size but approximately 89.8368-percent correctness, falling below the threshold and triggering only its configured action
+
+#### Scenario: Recent incorrect answers lower established EWMA correctness
+- **WHEN** the same initial known-answer rule has two hundred correct outcomes followed by ten incorrect outcomes
+- **THEN** its established EWMA correctness is approximately 91.2660 percent and still meets the ninety-percent threshold, while two further incorrect outcomes lower it to approximately 89.6341 percent and trigger only its configured action
+- **AND** these counts illustrate the ordinary weighted calculation rather than a fixed allowed-error count or consecutive-error rule
+
+#### Scenario: Selected substantive human review uses the same quality threshold
+- **WHEN** a selected substantive human-review rule uses EWMA, the initial half-life one hundred, effective-sample minimum twenty and ninety-percent threshold, and has nineteen eligible accepted outcomes followed by two eligible rejected outcomes
+- **THEN** its established acceptance rate is approximately 89.8368 percent and triggers only its configured action; automatic initial acceptance supplies no eligible review outcome
+
 #### Scenario: Initial reliability tolerates one failure among twenty eligible attempts
 - **WHEN** a configured reliability rule explicitly selects lifetime, uses its initial ninety-four-percent threshold and twenty-attempt minimum, and has nineteen completions and one eligible expiration or confirmed unexcused return
 - **THEN** its established ninety-five-percent reliability meets the threshold; eighteen completions and two such outcomes establish ninety percent and trigger only the rule's configured action
