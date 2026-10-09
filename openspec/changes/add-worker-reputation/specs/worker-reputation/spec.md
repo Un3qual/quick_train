@@ -114,8 +114,8 @@ Each scope SHALL apply source filtering, deduplication, and the evaluation cutof
 - **WHEN** a worker has one hundred twenty eligible submitted answered questions by the cutoff in a scope using the initial EWMA half-life
 - **THEN** experience reports all one hundred twenty with scope, all-history basis, dates and cutoff; performance views use their own eligible observations without a one-hundred-observation cap
 
-#### Scenario: Shorter quality history does not revoke earned experience
-- **WHEN** an organization changes its quality/reliability count limit from one hundred to fifty and a worker has eighty eligible submitted answered questions in that organization
+#### Scenario: Faster performance decay does not revoke earned experience
+- **WHEN** an organization changes its quality/reliability EWMA half-life from one hundred to fifty and a worker has eighty eligible submitted answered questions in that organization
 - **THEN** the recalculated experience total remains eighty and meets an eighty-question organization entry requirement, without overriding other admission rules
 
 #### Scenario: Older experience does not expire or reset
