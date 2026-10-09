@@ -172,11 +172,16 @@ When known-answer scoring/enforcement is enabled, activation SHALL advise that o
 - **THEN** activation validates the global basis/settings instead of rejecting the broader rule for a lack of local peers
 
 ### Requirement: Broader setting edits preserve feasible frozen entry requirements
-Mutable organization/global settings changes SHALL preserve the static feasibility of automatic entry requirements in already-frozen active projects consulting that scope. An edit SHALL fail without partial settings changes if it disables a required contributor or makes a required EWMA minimum unattainable, accounting for both the assessment minimum and the rule's declared minimum. Lifetime requirements SHALL not acquire an EWMA capacity limit, and reviewer-only impossible requirements SHALL retain advisory behavior. Valid changes SHALL refresh the broader assessment under its existing revision guard without rewriting frozen project rules or historical assessments. Activation and broader settings edits SHALL serialize the feasibility check so a concurrent new frozen requirement cannot be omitted. This is static configuration validation, not a guarantee of actual eligible worker evidence or a prohibition on authorized source corrections.
+Mutable organization/global settings changes SHALL preserve the static feasibility of automatic entry requirements in already-frozen active and paused projects consulting that scope. Pausing and resuming SHALL retain the same frozen requirements and SHALL NOT remove a project from this compatibility protection. An edit SHALL fail without partial settings changes if it disables a required contributor or makes a required EWMA minimum unattainable, accounting for both the assessment minimum and the rule's declared minimum. Lifetime requirements SHALL not acquire an EWMA capacity limit, and reviewer-only impossible requirements SHALL retain advisory behavior. Valid changes SHALL refresh the broader assessment under its existing revision guard without rewriting frozen project rules or historical assessments. Activation and broader settings edits SHALL serialize the feasibility check so a concurrent new frozen requirement cannot be omitted. This is static configuration validation, not a guarantee of actual eligible worker evidence or a prohibition on authorized source corrections.
 
 #### Scenario: A shorter half-life would strand an active entry rule
 - **WHEN** an active project requires eighty effective organization EWMA observations and an organization edit proposes half-life ten
 - **THEN** the edit is rejected because its approximately 28.865 limit cannot satisfy that frozen rule, retaining the previous settings
+
+#### Scenario: Pausing cannot bypass broader-setting compatibility
+- **WHEN** a project requiring eighty effective organization EWMA observations is paused and an organization edit proposes half-life ten before it resumes
+- **THEN** the edit is rejected because its approximately 28.865 limit cannot satisfy the paused project's frozen rule, retaining the previous settings so resumption preserves a feasible requirement
+- **AND** a concurrent pause or resume cannot omit that requirement from the guarded check because both active and paused projects remain included
 
 #### Scenario: A lifetime requirement permits an otherwise valid half-life change
 - **WHEN** an active project requires eighty lifetime organization known-answer observations and an otherwise valid edit changes half-life to ten
