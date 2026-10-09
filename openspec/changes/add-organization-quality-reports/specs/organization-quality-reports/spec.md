@@ -22,7 +22,7 @@ Worker sessions SHALL retain their existing account-required, optional-membershi
 - **THEN** no protected report or distinguishable target information is disclosed
 
 ### Requirement: Check design is summarized independently of worker evidence
-A check SHALL mean a private known-answer key designated for an exact task/question/input contract. Check-design reports SHALL group current project task/question instances by their pinned published question identity, showing authored check counts, enabled supported check counts, disabled checks, unsupported checks and questions with no designated checks. They SHALL distinguish having no checks from having checks that are currently disabled or unevaluable. A key revision SHALL NOT count as another authored check, and removed draft tasks SHALL NOT appear as current project inventory. A project SHALL be able to inspect draft inventory as well as its frozen active contract.
+A check SHALL mean a successfully authored private known-answer key designated for an exact task/question/input contract. Check-design reports SHALL group current project task/question instances by their pinned published question identity, showing authored check counts, enabled supported check counts, disabled checks and questions with no designated checks. They SHALL distinguish having no checks from having checks that are currently disabled. Rejected unsupported-key requests SHALL NOT create an inventory entry or an unsupported-check category. A key revision SHALL NOT count as another authored check, and removed draft tasks SHALL NOT appear as current project inventory. A project SHALL be able to inspect draft inventory as well as its frozen active contract.
 
 For boolean and static single-choice questions, reports SHALL count expected canonical values among enabled supported checks, including valid categories with zero checks. Different published question contracts SHALL NOT be merged. Task-input identities SHALL NOT be treated as comparable categories across different task inputs merely because their labels or positions match. Initial categorical distributions SHALL be unavailable for task-input choices and other answer families; their inventory and supported match-rate diagnostics SHALL remain available independently.
 
@@ -35,6 +35,10 @@ Reports SHALL explain that authored-check counts describe reference design rathe
 #### Scenario: A question lacks currently usable checks
 - **WHEN** one question has no designated keys and another has only disabled keys
 - **THEN** the report distinguishes those conditions and does not imply either supplied worker correctness evidence
+
+#### Scenario: Unsupported key authoring is rejected
+- **WHEN** an author requests unsupported grading for a question without a designated key and authoring fails
+- **THEN** the inventory continues to report that question as having no designated checks, without counting the rejected request as an authored or unsupported check
 
 #### Scenario: Task-input display labels are reused
 - **WHEN** different tasks use the same choice label or position for different input identities
@@ -60,13 +64,17 @@ These diagnostics SHALL NOT declare a worker or reference definitively wrong fro
 - **THEN** the summary reports no evaluated successes or failures and unavailable accuracy, independently of worker-assessment states
 
 ### Requirement: On-demand reports use coherent bounded read results
-Each report SHALL capture its authorized project contract, relevant current key revisions/enabled states, necessary source facts and one server cutoff in a coherent read snapshot. Project summaries SHALL NOT combine independently captured exact-question responses as though they shared one snapshot. Exact diagnostics SHALL identify their captured key revision and enabled state; project summaries SHALL identify their cutoff and current-key all-history diagnostic basis. Changes committed before capture SHALL be reflected; changes after capture SHALL NOT alter the response. A later request, including drilldown, SHALL use its own identified snapshot rather than promise historical replay of an earlier response.
+Each report SHALL capture its authorized project contract, relevant current key revisions/enabled states, necessary source facts and one server cutoff in a coherent read snapshot. Project summaries SHALL NOT combine independently captured exact-question responses as though they shared one snapshot. Exact diagnostics SHALL identify their captured key revision and enabled state; project summaries SHALL identify their cutoff and current-key all-history diagnostic basis. Each returned question group SHALL expose captured key-revision provenance: exact task/question/input/key identities, revision identities and enabled states for its designated checks, including disabled keys excluded from evaluated counts. Provenance SHALL come from the same capture as that group's totals, rather than from a later read of current keys. Changes committed before capture SHALL be reflected; changes after capture SHALL NOT alter the response. A later request, including drilldown or provenance pagination, SHALL use its own identified snapshot rather than promise historical replay of an earlier response.
 
-Question groups and categorical pair lists SHALL be bounded and paginated, with counts covering the stated group rather than only its returned page. Reports SHALL have no persisted completed-report authority, background refresh or pending-report lifecycle. They SHALL remain independent of completed/pending worker assessments and SHALL reuse the existing exact-question diagnostic semantics rather than another grading rule or configurable report window.
+Question groups, key-revision references and categorical pair lists SHALL be bounded and paginated, with counts covering the stated group rather than only its returned page. A provenance page SHALL state the total captured reference count and whether its returned list is complete; later pages SHALL accompany their references with the full-group totals and cutoff from their own capture. Reports SHALL have no persisted completed-report authority, background refresh or pending-report lifecycle. They SHALL remain independent of completed/pending worker assessments and SHALL reuse worker-reputation's exact-question diagnostic semantics rather than another grading rule or configurable report window.
 
 #### Scenario: A key is corrected during calculation
 - **WHEN** a project report captures key revision three and revision four commits afterward
-- **THEN** its counts consistently use the captured revision three, and the next report request reflects revision four without waiting for worker-assessment recalculation
+- **THEN** its counts consistently use the captured revision three, its question-group provenance identifies that exact key at revision three and its captured enabled state, and the next report request reflects revision four without waiting for worker-assessment recalculation
+
+#### Scenario: One question group uses several task-specific keys
+- **WHEN** a project summary groups answers to one pinned question across tasks whose keys have different current revisions or enabled states
+- **THEN** it identifies each captured task/question/input/key/revision reference and enabled state through bounded provenance pages, without implying one group-wide key revision or counting disabled keys as evaluated answers
 
 #### Scenario: Drilldown follows an earlier summary
 - **WHEN** a reviewer opens an exact-question diagnostic after a key correction committed following their project summary
@@ -75,3 +83,7 @@ Question groups and categorical pair lists SHALL be bounded and paginated, with 
 #### Scenario: A report spans several pages
 - **WHEN** the authorized project has more question groups or categorical pairs than one page permits
 - **THEN** the response returns a bounded page with counts for each stated full group, without truncating the underlying evaluated sample to that page
+
+#### Scenario: A provenance page follows a key correction
+- **WHEN** a reviewer requests another page of key-revision references after a correction committed following the earlier summary
+- **THEN** the page identifies its own cutoff, captured revisions and corresponding full-group totals, without claiming to complete the earlier summary's captured provenance

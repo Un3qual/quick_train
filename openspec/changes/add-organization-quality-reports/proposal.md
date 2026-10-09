@@ -1,11 +1,11 @@
 ## Why
 
-Organizations need to see whether their known-answer checks cover the questions they are collecting and what errors appear against those references. Worker reputation and its existing exact-question diagnostics provide the underlying evidence, but do not explain project check design or recurring answer confusions.
+Organizations need to see whether their known-answer checks cover the questions they are collecting and what errors appear against those references. Worker reputation and its planned exact-question diagnostics will provide the underlying evidence, but do not explain project check design or recurring answer confusions.
 
 ## What Changes
 
-- Add project check-design summaries: check counts per pinned question, questions without checks, disabled or unsupported checks, and expected-answer distributions for comparable boolean and static single-choice questions. These are advisory counts of authored checks, not guaranteed delivery to every worker.
-- Add project question-quality summaries and categorical reference-versus-submitted answer counts, with drilldown to the existing exact task/question/input diagnostics. Show denominators and unavailable results explicitly so a low-volume question or faulty reference is not mistaken for proven worker failure.
+- Add project check-design summaries: check counts per pinned question, questions without checks, disabled checks, and expected-answer distributions for comparable boolean and static single-choice questions. Count only successfully authored keys; unsupported key requests remain authoring validation failures. These are advisory counts of authored checks, not guaranteed delivery to every worker.
+- Add project question-quality summaries and categorical reference-versus-submitted answer counts, with captured key-revision provenance per question group and drilldown to the planned exact task/question/input diagnostics. Show denominators and unavailable results explicitly so a low-volume question or faulty reference is not mistaken for proven worker failure.
 - Reuse organization-scoped backend queries, private key permissions, the shared typed matcher and coherent on-demand report snapshots. Reports do not change keys, scores, access, pay, submitted answers or project state.
 
 Explicit non-goals: runtime implementation during this planning request; a frontend; an overall project quality score; automatic balancing, pauses or worker penalties; guaranteed per-worker checks; a second grading engine; stored report projections or refresh jobs; spatial/semantic error analysis; reviewer ratings or weighted voting. Reviewer calibration starts as a [manual practice](../../future-features.md#reviewer-calibration-and-consistent-acceptance-criteria), with a dedicated workflow deferred. Informational worker task/project counts remain in [worker reputation](../add-worker-reputation/proposal.md).

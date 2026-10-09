@@ -4,7 +4,7 @@ See [proposal.md](proposal.md) for motivation and [the reporting spec](specs/org
 
 ## Goals / Non-Goals
 
-**Goals:** Reuse native Ash queries and the existing diagnostic capture/matching boundary, give organization applications bounded project summaries, and keep management inventory separate from answer-review authority.
+**Goals:** Reuse native Ash queries and the diagnostic capture/matching boundary planned in `add-worker-reputation`, give organization applications bounded project summaries, and keep management inventory separate from answer-review authority.
 
 **Non-Goals:** No new report resource, event stream, score, matcher, scheduling lifecycle or frontend. A manual reviewer-calibration practice does not require practice tables or production review actions. See the proposal for other scope exclusions.
 
@@ -20,7 +20,7 @@ Alternative considered: a separately persisted reporting domain. These values ar
 
 Reuse reputation's short read-only `REPEATABLE READ` capture helper. Materialize the authorized pinned question contracts, current key revisions/enabled states, relevant lightweight submitted answer inputs and server cutoff on one connection, then close the transaction and run the existing typed matcher. No row locks, writes, lazy reads escaping capture or independent exact-report calls stitched into a project snapshot. Corrections committed later change the next request; reports neither publish assessments nor enqueue refreshes.
 
-Use native filters/aggregates for inventory and grouping where they express the same contract. Keep known-answer comparison in the shared matcher rather than duplicate it in SQL. Produce evaluated/correct/incorrect counts and canonical categorical pairs from the same graded inputs. A later drilldown is another request with its own revision/cutoff, not historical snapshot replay.
+Use native filters/aggregates for inventory and grouping where they express the same contract. Inventory counts only successfully authored keys and their current enabled/disabled states; unsupported authoring requests create no inventory entry or new retained unsupported-key state. Keep known-answer comparison in the shared matcher rather than duplicate it in SQL. Produce evaluated/correct/incorrect counts and canonical categorical pairs from the same graded inputs. Return each question group's captured exact task/question/input/key identities, revision identities and enabled states alongside its totals, including disabled keys that contributed no evaluated answers. These are references to retained key revisions, not another report resource. A later drilldown is another request with its own revision/cutoff, not historical snapshot replay.
 
 Alternative considered: reuse completed worker grades. Their cutoffs, settings and eligibility repairs may differ and their EWMA weights do not describe the all-history question sample.
 
@@ -28,7 +28,7 @@ Alternative considered: reuse completed worker grades. Their cutoffs, settings a
 
 Group by the pinned published question identity within one project. Boolean values and static single-choice canonical option identities provide the initial distributions and reference/submitted pairs; task-input choices retain counts and exact diagnostics without a misleading cross-input categorical grouping. Return explicit availability for other families instead of implementing speculative geometry or semantic classifiers.
 
-Select a bounded question page, then capture the complete relevant evidence for those groups, so page limits do not truncate their denominators. Paginate categorical pair output after counting the full question sample. Use stable question/answer identities for deterministic ordering; do not keep snapshots alive across page requests. Inventory totals come from native aggregates. Measure queries, returned rows/bytes and matching time for large projects before considering an additional optimization; pagination bounds output, not the work required for exact counts within a selected group.
+Select a bounded question page, then capture the complete relevant evidence for those groups, so page limits do not truncate their denominators. Paginate categorical pairs and key-revision references after counting the full question sample; provenance pages identify the total reference count and whether the returned list is complete. A later provenance page repeats its own coherently captured group totals and cutoff rather than imply it completes an older snapshot after a key change. Use stable question/answer/key identities for deterministic ordering; do not keep snapshots alive across page requests. Inventory totals come from native aggregates. Measure queries, returned rows/bytes and matching time for large projects before considering an additional optimization; pagination bounds output, not the work required for exact counts within a selected group.
 
 Alternative considered: an exhaustive matrix or generic diagnostics framework for every answer family. Sparse canonical pair counts cover the approved categorical need and reuse existing diagnostics for the rest.
 
