@@ -423,7 +423,7 @@ Current concerns SHALL follow the latest completed applicable calculation and ru
 
 Related workers SHALL remain visible in the general paginated list when a required completed assessment is missing. A missing calculation SHALL be represented by an absent completed-assessment reference and per-scope initial-calculation-pending freshness metadata, with no fabricated cutoff, metric state, rate, or evidence count. It SHALL NOT mean zero observations or insufficient evidence and SHALL NOT add another evidence state. Insufficient-evidence and below-threshold filters SHALL use completed metrics only; the awaiting-classification filter and permitted return counts/detail SHALL use retained return facts independently of assessment availability. List reads SHALL remain bounded and SHALL NOT calculate every worker's history to produce a page.
 
-Authorized single-worker detail reads SHALL reuse the existing initial-calculation preparation and guarded-publication path for missing assessments in the requested report scopes. Preparation SHALL occur after scoped read authorization and outside allocation/source-owner locks; current read authority and the global work relationship SHALL be rechecked after waits before returning protected results. A concurrently completed assessment SHALL be reused, and an invalidated candidate SHALL repeat preparation outside those locks under the existing guards. Detail reads SHALL reuse existing completed inputs during refresh rather than force full recalculation on every read. Preparing a report assessment SHALL NOT issue work, append an access decision, or broaden source-read authority.
+Authorized single-worker detail reads SHALL return the latest completed inputs in each requested report scope, including their pending/as-of metadata. For a missing assessment, detail SHALL return the initial-calculation-pending representation above and request or reuse durable background calculation through the existing initialization and refresh-scheduling path. Bounded initialization/enqueue operations SHALL follow the existing ownership and durability rules; detail reads SHALL NOT scan full historical evidence, calculate or publish an assessment inline, or retry preparation while waiting for calculation. Current read authority and the global work relationship SHALL be rechecked after initialization/enqueue waits before returning protected results. Repeated reads MAY reuse durable work covering the current request, and later reads SHALL use a concurrently or subsequently completed assessment. Existing completed inputs SHALL remain usable during refresh rather than force recalculation on every read. Background report calculation SHALL use the shared capture/scoring/guarded-publication path without issuing work, appending an access decision, or broadening source-read authority. Admission SHALL retain its separate synchronous preparation for missing required initial assessments.
 
 Delivery in this change SHALL be through the scoped backend queries for organization applications to display. Reputation email/webhook notifications and acknowledgment, dismissal, or escalation workflows SHALL remain outside this change. No frontend or notification subsystem SHALL be required to make the reviewer information available.
 
@@ -451,12 +451,20 @@ Delivery in this change SHALL be through the scoped backend queries for organiza
 - **WHEN** a related worker has a return awaiting classification and no completed project assessment because initial calculation is still queued
 - **THEN** the general list and awaiting-classification filter retain that worker and their permitted return facts, identifying missing calculation through freshness metadata without a fabricated zero count, insufficient-evidence state, or poor-quality concern
 
-#### Scenario: Detail calculates retained history for the first time
+#### Scenario: Detail requests missing calculations in the background
 - **WHEN** an authorized reviewer opens one related worker's detail and a requested assessment is missing despite eligible retained history
-- **THEN** the read prepares and guarded-publishes that assessment through the existing calculation path before returning its actual metrics, without waiting for the queued job, calculating every listed worker, or creating work/access-decision records
+- **THEN** detail returns initial-calculation-pending metadata and permitted return facts, requests or reuses durable background calculation, and does not scan that worker's historical evidence or wait for scoring/publication before returning
+
+#### Scenario: A later detail read uses the completed result
+- **WHEN** the requested background calculation has published before an authorized reviewer reads detail again
+- **THEN** detail uses the completed result and its actual metrics, counts, cutoff and freshness without another inline calculation or creation of work/access-decision records
+
+#### Scenario: Repeated detail reads await the same calculation
+- **WHEN** repeated authorized detail reads encounter a missing requested assessment and durable refresh work already covers the current request
+- **THEN** they can reuse that work and return initial-calculation-pending metadata without treating unprocessed history as zero evidence, a failure, or a reason to pause work
 
 #### Scenario: A completed empty sample is different from missing computation
-- **WHEN** an initial detail calculation completes with zero eligible observations for an enabled signal
+- **WHEN** the requested background calculation completes with zero eligible observations for an enabled signal and an authorized reviewer reads detail again
 - **THEN** the completed result reports zero and insufficient evidence under the ordinary rules, rather than retaining the missing-calculation marker or inventing a new evidence state
 
 ### Requirement: Keys and check designations remain private
