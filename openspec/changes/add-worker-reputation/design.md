@@ -31,6 +31,8 @@ The selected model replaces hard count/time windows and their time-expiry schedu
 
 The [starting reliability threshold scenarios](specs/worker-reputation/spec.md#requirement-configured-rules-have-explicit-starting-thresholds) calibrate tolerance for an isolated eligible failure near the initial evidence minimum while identifying a recent failure streak. Keep the shared half-life and ordinary outcome weights; add no first-failure exception or separate grace counter. Thresholds still trigger only explicitly configured actions.
 
+Recovery follows those same weights and thresholds as newer eligible outcomes arrive. The worked recovery count is illustrative, not a quota, counter or waiting period. Reviewer-only rules permit continued work; authorized reinstatement of a selected project-local automatic rule uses its existing subsequent-evidence contract while historical performance retains earlier failures.
+
 ### 1. Separate evidence dimensions and assessment scope
 
 Add `QuickTrain.Reputation` for derived assessments and their evaluation workflows. Keep the global User and authoritative Attempts, QuestionResponses and ReviewDecisions in their existing domains, retaining source references rather than a parallel event store. The [assessment contract](specs/worker-reputation/spec.md#requirement-scoped-assessments-preserve-evidence-and-uncertainty) owns metric/evidence states and the independent freshness metadata.

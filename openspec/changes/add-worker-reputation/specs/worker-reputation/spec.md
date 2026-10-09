@@ -705,6 +705,8 @@ These SHALL be starting values for explicitly configured rules, including projec
 
 Each rule SHALL retain its evidence minimum, selected contributors, declared scope, explicit lifetime or EWMA quality/reliability basis or all-history experience basis, reviewer-only admission exclusions, and configured action. No starting threshold SHALL select a signal, enable an automatic action, or introduce a platform-wide restriction. Experience SHALL have no default entry gate; any supported broader-history experience requirement SHALL explicitly choose its positive answered-question minimum. Existing active projects SHALL retain their prior frozen contracts.
 
+Score recovery SHALL use the ordinary calculation for the chosen view and the same configured inclusive threshold. EWMA improvement SHALL follow newer eligible outcomes under the retained half-life, without a separate recovery threshold, fixed completion quota, recovery counter or waiting period. Example recovery counts SHALL NOT become admission requirements. This describes historical performance values; authorized project-local reinstatement SHALL retain its separate subsequent-evidence filter without resetting historical metrics or bypassing other rules.
+
 #### Scenario: Initial reliability tolerates one failure among twenty eligible attempts
 - **WHEN** a configured reliability rule explicitly selects lifetime, uses its initial ninety-four-percent threshold and twenty-attempt minimum, and has nineteen completions and one eligible expiration or confirmed unexcused return
 - **THEN** its established ninety-five-percent reliability meets the threshold; eighteen completions and two such outcomes establish ninety percent and trigger only the rule's configured action
@@ -718,6 +720,11 @@ Each rule SHALL retain its evidence minimum, selected contributors, declared sco
 - **WHEN** a configured reliability rule uses the initial EWMA settings and has two hundred completions followed by ten eligible failures
 - **THEN** its established EWMA reliability is approximately 91.2660 percent and falls below the ninety-four-percent threshold, triggering only the rule's configured action
 - **AND** lifetime reliability remains separately reported at approximately 95.2381 percent without overriding or being averaged into the EWMA rule
+
+#### Scenario: Successful outcomes restore historical EWMA reliability through ordinary weighting
+- **WHEN** a worker who can continue receiving work has two hundred completions followed by ten eligible failures and then forty-three more completions under the initial EWMA settings
+- **THEN** historical EWMA reliability is approximately 93.9885 percent, below the ninety-four-percent threshold, and the next eligible completion raises it to approximately 94.0386 percent, meeting that same threshold
+- **AND** the earlier failures remain retained and weighted; forty-four completions is this example's result rather than a fixed recovery quota, and waiting without changed evidence or settings does not improve the score
 
 #### Scenario: Initial worker agreement uses scored questions rather than the consensus vote
 - **WHEN** a lifetime reviewer-only agreement rule has thirty eligible question comparisons, twenty-four of which agree with the established peers
