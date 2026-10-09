@@ -661,6 +661,12 @@ Each eligible assessed-worker answer to one exact task/question/input contract S
 - **WHEN** a completed task with target ten has eight eligible other answers, six matching A and two matching B, under the initial parameters
 - **THEN** coverage is met but the seventy-five-percent consensus is insufficient, so the comparison contributes no scored observation; seven matching A out of those eight would meet the consensus threshold
 
+#### Scenario: Ten peers distinguish split opinion from the consensus boundary
+- **WHEN** separate completed-task fixtures each have a frozen target of eleven, ten eligible distinct other-worker answers to an included unkeyed single-choice question, and an assessed worker answering B under the initial parameters
+- **THEN** the fixture with six peers choosing A and four choosing B supplies no scored comparison, worker minimum-evidence credit or EWMA rank advancement because sixty-percent consensus is insufficient
+- **AND** the fixture with eight peers choosing A and two choosing B meets the inclusive eighty-percent consensus boundary and supplies exactly one disagreement observation, not ten pairwise failures or automatic satisfaction of the worker evidence minimum
+- **AND** both fixtures retain submitted answers for authorized inspection; one eligible disagreement alone cannot establish a repeated-disagreement concern, and the initial peer action remains reviewer information
+
 #### Scenario: Consensus uses all eligible peers
 - **WHEN** a completed task with target ten has nine eligible other answers, seven matching A and two matching B, under the initial parameters
 - **THEN** the comparison is unavailable because seven out of nine is below eighty percent, rather than selecting eight peers whose seven matching answers would meet it
