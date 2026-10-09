@@ -546,6 +546,12 @@ Revision/predecessor validation, current authorization, the history append, and 
 - **WHEN** an authorized manager corrects or disables that key
 - **THEN** its old evaluation remains explainable, affected assessments are recalculated, and restrictions based on the faulty evidence are reevaluated without editing submissions
 
+#### Scenario: Independent investigation repairs an incorrect categorical reference
+- **WHEN** an enabled key expects A, one hundred distinct workers submit one valid answer each with ninety choosing B and ten choosing A, and an authorized manager independently confirms B is correct and corrects the key
+- **THEN** the next exact-question report evaluates one hundred answers under the corrected revision, showing ninety correct and ten incorrect instead of ten correct and ninety incorrect, without waiting for worker-assessment refresh
+- **AND** affected project, organization and global assessments recalculate each worker's own eligible observation under the corrected key, retaining its identity and original submission time; the hundred-worker report does not supply a hundred observations to any one worker
+- **AND** earlier keys, assessments and linked decisions remain retained, pending worker assessments keep their existing completed-input behavior, and subsequent admission uses repaired completed inputs without retaining unsupported failure reasons as a denial latch
+
 #### Scenario: A stale recalculation finishes later
 - **WHEN** a calculation using an older key or review finishes after a calculation using its correction
 - **THEN** it cannot restore the obsolete assessment or restriction
