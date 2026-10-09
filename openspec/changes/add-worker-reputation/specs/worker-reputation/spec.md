@@ -767,6 +767,8 @@ Score recovery SHALL use the ordinary calculation for the chosen view and the sa
 #### Scenario: Recent incorrect answers lower established EWMA correctness
 - **WHEN** the same initial known-answer rule has two hundred correct outcomes followed by ten incorrect outcomes
 - **THEN** its established EWMA correctness is approximately 91.2660 percent and still meets the ninety-percent threshold, while two further incorrect outcomes lower it to approximately 89.6341 percent and trigger only its configured action
+- **AND** lifetime correctness is approximately 95.2381 percent after ten errors and 94.3396 percent after twelve; the latter remains above its threshold without hiding the EWMA concern or overriding the rule's chosen basis
+- **AND** a reviewer-only action reports that concern without restricting work, while an explicitly enabled automatic action affects only new project work under the existing admission contract and preserves already-issued work
 - **AND** these counts illustrate the ordinary weighted calculation rather than a fixed allowed-error count or consecutive-error rule
 
 #### Scenario: Selected substantive human review uses the same quality threshold
