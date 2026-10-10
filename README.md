@@ -56,7 +56,8 @@ adapter implementing streaming staging writes within the publication deadline an
 access contract. The in-memory adapter verifies byte generation and opaque access contracts in
 tests; it does not provide HTTP delivery. Export record counts use GraphQL integers and
 numeric JSONL headers (format version 2); configured targets and published integer answers
-also remain GraphQL integers.
+also remain GraphQL integers. Unfinished older exports reproduce the encoding fixed by
+their retained upload checksum; this compatibility path does not change new export counts.
 
 ## Toolchain
 

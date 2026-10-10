@@ -576,6 +576,43 @@ defmodule QuickTrain.Tasks.ResultExportTest do
       do: InMemory.write_staging(key, ["corrupt"], cap, deadline_ms)
   end
 
+  test "a format-one pending upload completes with its original bytes after an upgrade", scope do
+    {:ok, export} = request(scope)
+    snapshot = Tasks.seal_export_snapshot!(export.id, authorize?: false)
+
+    # These are the literal format-one bytes emitted before numeric count headers.
+    bytes =
+      ~s({"form_version_id":"#{snapshot.form_version_id}","format_version":1,) <>
+        ~s("kind":"header","mode":"accepted","organization_id":"#{snapshot.organization_id}",) <>
+        ~s("project_id":"#{snapshot.project_id}","record_count":"0",) <>
+        ~s("schema_version_id":"#{scope.project.schema_version_id}",) <>
+        ~s("snapshot_at":"#{DateTime.to_iso8601(snapshot.snapshot_at)}"}) <> "\n"
+
+    pending =
+      Assets.create_pending_asset!(
+        %{
+          organization_id: snapshot.organization_id,
+          result_export_id: snapshot.id,
+          sha256: :crypto.hash(:sha256, bytes),
+          byte_size: byte_size(bytes),
+          media_type: "application/x-ndjson"
+        },
+        authorize?: false
+      )
+
+    Tasks.attach_export_pending_asset!(snapshot, %{pending_asset_id: pending.id},
+      authorize?: false
+    )
+
+    assert :ok = Tasks.process_result_export(export.id, authorize?: false)
+    ready = Ash.get!(ResultExport, export.id, authorize?: false)
+    assert ready.pending_asset_id == pending.id
+    assert ready.snapshot_at == snapshot.snapshot_at
+    assert ready.record_count == 0
+    assert {:ok, ^bytes} = InMemory.read_sealed(download!(scope, export.id).read_access)
+    assert [%{"format_version" => 1, "record_count" => "0"}] = jsonl(bytes)
+  end
+
   test "a failed upload is replaced before expiry without changing the sealed snapshot", scope do
     {:ok, export} = request(scope)
     old = Application.fetch_env!(:quick_train, :assets)
