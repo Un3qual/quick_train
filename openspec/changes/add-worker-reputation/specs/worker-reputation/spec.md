@@ -87,6 +87,33 @@ Global reputation SHALL describe general eligible work history, not certify comp
 - **WHEN** an authorized organization changes its default worker minimum or EWMA half-life
 - **THEN** its organization assessment is refreshed and later activations can use the revised defaults, while active projects retain their frozen settings and the platform's global calculation settings remain unchanged
 
+### Requirement: Faulty source evidence has a global-only remedy
+Suspicious-key diagnostics SHALL automatically identify sufficiently evidenced disagreement between submitted answers and an applicable reference for authorized reviewers in the owning organization. They SHALL reuse supported typed matching and the applicable completed-task, distinct-worker, coverage and consensus safeguards, and expose the supporting counts and captured key revision. Known-answer precedence SHALL remain effective: diagnostic comparisons SHALL NOT become scored peer evidence. Warnings SHALL be available through the existing scoped question-diagnostic reads rather than require routine platform vetting, a trusted-organization registry, email/webhook delivery or an acknowledgment/escalation lifecycle.
+
+A warning SHALL be an investigation prompt, not a determination of truth. It SHALL NOT automatically rewrite or disable a key, exclude global evidence, classify a worker failure, or pause work. Owning-organization managers SHALL investigate and use existing authorized key correction/disabling operations; affected assessments SHALL then refresh automatically through the existing repair workflow.
+
+For exceptional faulty or abusive source evidence, a platform-controlled maintenance operation SHALL be able to exclude a specified known-answer key's grades or a specified project's quality/reliability observations from global calculations, and explicitly restore them later. Organization capabilities SHALL NOT authorize this operation or override a platform exclusion. The operation SHALL identify its source, actor and reason, advance global settings provenance, and durably request affected global assessment recalculation. A key correction alone SHALL NOT silently remove a platform exclusion. Exclusions SHALL apply to positive and negative observations alike before global counts, eligibility, decay ordering and scoring; project and organization assessments SHALL retain their own ordinary source rules. Excluding a key SHALL NOT make its designated question eligible for scored peer fallback. Experience SHALL remain a count of submitted answered questions rather than a judgment of their quality.
+
+Original submissions, keys/revisions, reviews, return decisions and earlier completed assessments/access decisions SHALL remain retained. Exclusion SHALL NOT delete evidence, fabricate replacement credit, impose a worker block, revoke issued work or reopen frozen project configuration. Global-only selection changes SHALL use the existing settings-repair and pending-completed-input contracts. Any explicitly configured global entry rule SHALL continue to evaluate the resulting evidence under its ordinary minimum rules; removal of faulty grades SHALL NOT promise admission when remaining evidence is insufficient. Initial reviewer-only defaults SHALL remain effective.
+
+#### Scenario: Submitted answers conflict with a reference
+- **WHEN** a completed exact task/question has sufficiently covered distinct answers forming a qualifying consensus that disagrees with its enabled key
+- **THEN** the owning organization's authorized reviewers receive a diagnostic warning and supporting counts/revision for investigation
+- **AND** the warning itself changes no key, reputation source eligibility, review verdict or access rule
+
+#### Scenario: The owning organization repairs a faulty key
+- **WHEN** an authorized manager corrects or disables an investigated key
+- **THEN** existing repair work automatically recalculates affected project, organization and global assessments while retaining the original evidence and prior calculations
+
+#### Scenario: Platform maintenance excludes an uncooperative source
+- **WHEN** an authorized platform operator excludes a faulty key or a project's quality/reliability evidence from global scoring
+- **THEN** affected global assessments are durably refreshed without changing local assessments or submitted-question experience, and ordinary organization managers cannot bypass the exclusion
+- **AND** the operation and resulting calculations retain attributable source-selection provenance without disclosing foreign source details to global-summary readers
+
+#### Scenario: An exclusion leaves too little global evidence
+- **WHEN** excluded source observations leave a global metric below its evidence minimum
+- **THEN** the recalculated metric reports insufficient evidence rather than a manufactured passing score, and only explicitly configured entry rules can affect a later work request
+
 ### Requirement: Answer quality reliability and experience have distinct roles
 Assessments SHALL retain all five signals while distinguishing answer quality, completion reliability, and experience. A combined score in this change SHALL mean an answer-quality result whose possible contributors are known-answer correctness, substantive human review, and peer agreement only. Known-answer correctness SHALL measure matching against eligible supplied keys; substantive human review SHALL measure acceptance among answers with effective human accept/reject decisions, excluding automatic acceptance; peer agreement SHALL measure agreement among eligible completed comparisons under the existing safeguards. Known-answer correctness SHALL have the greatest weight when included, with peer agreement a smaller contribution. Signal selection, minimum evidence, known-answer precedence, and reviewer-only admission exclusions SHALL continue to apply, and combined quality SHALL use the normalized weighted-average contract below.
 
