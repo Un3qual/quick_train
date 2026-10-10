@@ -28,6 +28,19 @@ Activation SHALL atomically validate and freeze authored tasks and inputs, bindi
 ### Requirement: Organization defaults resolve into explicit project reputation settings
 Reputation configuration SHALL support organization defaults and draft-project overrides using a bounded set of typed settings: enabled signals, minimum worker samples, peer count floor and coverage fraction, consensus thresholds and numeric tolerance, one observation-based EWMA half-life, admission thresholds, evidence scope and each performance rule's lifetime/EWMA basis, and each signal's enforcement action. Score weights SHALL come from the central application definition, not organization/project overrides, and activation SHALL retain their effective values with the frozen configuration. Configuration management SHALL use explicit organization scope, active account/organization/membership, and the existing `projects.manage` capability under the [operation mapping](../worker-reputation/spec.md#requirement-reputation-operations-fail-closed-within-organization-scope); foreign references SHALL fail closed. Project settings SHALL resolve atomically at activation into one complete effective configuration. Later organization-default or application-default weight changes SHALL NOT silently change an active project's scoring or enforcement rules. Customer-authored formulas and weight overrides SHALL NOT be accepted. A combined answer-quality admission requirement SHALL select at least one enabled known-answer correctness, substantive human-review, or peer-agreement signal configured for automatic access decisions. Reliability and experience SHALL remain separate inputs for their own permitted rules and SHALL NOT be accepted as combined-score contributors. Disabled and reviewer-only signals SHALL NOT contribute to its value or count as missing evidence. Organization/global entry requirements SHALL obey the same signal selection without changing those independent assessments. Invalid combinations or unsupported grading contracts, including gates using aggregates with excluded contributors, SHALL fail activation without partially freezing the project.
 
+The initial application defaults SHALL resolve selections and actions as follows:
+
+| Metric | Initial scoring/reporting selection | Initial action |
+| --- | --- | --- |
+| Known-answer correctness | Enabled and selected for combined reviewer quality | Inform reviewers |
+| Peer agreement | Enabled and selected for combined reviewer quality | Inform reviewers |
+| Substantive human review | Unselected for scoring; existing verdicts remain retained and inspectable | Inform reviewers if explicitly selected without an action override |
+| Reliability | Enabled as a separate metric | Inform reviewers |
+| Combined answer quality | Derived from selected known-answer correctness and peer agreement under the existing evidence/weighting contract | Inform reviewers |
+| Experience | Report all-history submitted answered-question counts; never a quality contributor | No default entry requirement |
+
+These defaults SHALL enable no automatic project-local restrictions or organization/global entry requirements. Authorized organization defaults or draft-project overrides SHALL have to explicitly opt into each automatic rule before activation freezes it. Selecting human-review scoring alone SHALL retain the informational action; changing a threshold alone SHALL enable no automatic rule. Combined quality SHALL remain a derived metric rather than an additional source signal, and an automatic combined rule SHALL retain the contributor-selection validation above.
+
 Initial project defaults SHALL use minimum worker samples of twenty for known-answer correctness, twenty for substantive human review when selected, and thirty for peer agreement under the [effective-sample contract](../worker-reputation/spec.md#requirement-evidence-minimums-account-for-ewma-weight-concentration). Lifetime uses actual counts and EWMA uses effective sample size independently per signal. Peer minima SHALL NOT mean that many other workers per question; each comparison still requires its own distinct-peer and consensus safeguards. Each scope SHALL provide both views with an initial EWMA half-life of one hundred newer eligible observations and no hard history cap. Authorized organization defaults and draft-project overrides SHALL be able to change minima and half-life through typed validation and activation freezing; customer contributor-weight overrides SHALL remain unsupported. Human-review scoring SHALL remain unselected by default. Organization/global assessments SHALL retain their own explicit scoped defaults rather than inherit source-project settings. Draft or frozen project overrides SHALL NOT reconfigure broader assessments. Organization-default edits SHALL refresh the organization's own assessment without changing active project contracts or global settings. A source project's frozen agreement-scoring selection SHALL determine whether its comparisons supply scored peer evidence in any scope; reviewer-only action SHALL remain distinct from disabled scoring. These defaults SHALL NOT silently change existing active projects.
 
 Peer settings SHALL initially use a count floor of two, an eighty-percent coverage fraction applied to the source task's frozen target minus one with rounding up, and a separate eighty-percent consensus threshold over all eligible actual other answers, as defined by the [peer-comparison contract](../worker-reputation/spec.md#requirement-peer-comparison-requires-sufficient-comparable-evidence). Activation SHALL validate and retain these effective values with the frozen project configuration. Authorized defaults/draft overrides SHALL be able to adjust the bounded peer parameters independently; changing coverage SHALL NOT implicitly change consensus or the worker's separate comparison minimum. The peer count floor SHALL be an integer of at least two, and coverage SHALL be positive and no greater than one. Consensus SHALL be a finite percentage greater than fifty and no greater than one hundred, independently of the worker agreement action threshold.
@@ -43,6 +56,16 @@ Percentage action/admission thresholds SHALL be finite values from zero through 
 #### Scenario: A project overrides organization defaults
 - **WHEN** a draft project overrides the disagreement action and then activates
 - **THEN** activation freezes that explicit action together with the resolved remaining defaults
+
+#### Scenario: Initial selections and actions are frozen
+- **WHEN** an otherwise valid draft activates without organization-default or project overrides
+- **THEN** correctness and peer agreement are selected for combined reviewer quality, reliability is enabled separately, human-review scoring is unselected and experience remains reportable
+- **AND** signal and combined-quality concerns only inform reviewers, with no automatic local restriction or broader entry requirement
+
+#### Scenario: Default peer evidence is unattainable
+- **WHEN** an otherwise valid draft with submission target one activates using the initial reviewer-only peer selection
+- **THEN** activation provides the existing unattainable-evidence advisory without rejecting the project or creating an access requirement
+- **AND** peer agreement and the combined reviewer score remain insufficient where their selected evidence cannot be established, while available correctness, reliability and experience remain independently reportable
 
 #### Scenario: A draft overrides one starting action threshold
 - **WHEN** an organization uses the initial ninety-percent correctness threshold and an authorized draft-project override chooses eighty-five percent
@@ -75,6 +98,7 @@ Percentage action/admission thresholds SHALL be finite values from zero through 
 #### Scenario: An organization explicitly includes human review
 - **WHEN** an authorized organization default or draft-project override selects human review as a quality contributor
 - **THEN** activation freezes that selection and its minimum alongside the other effective settings, without requiring a review quota or later removing that contribution merely because reviews are sparse
+- **AND** absent an explicit action override, human review only informs reviewers and creates no automatic access requirement
 
 #### Scenario: Initial project evidence defaults are frozen
 - **WHEN** an otherwise valid draft activates without overriding the initial worker minima, half-life or rule history basis
