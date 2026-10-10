@@ -97,3 +97,11 @@ Status: deferred on 2026-10-07; outside the current reputation change.
 Allow organizations to choose signal weights, with project overrides if needed. The initial reputation implementation keeps weights centrally defined in application code and supplies them explicitly to the shared calculation, making developer adjustments straightforward without exposing customer controls. Other approved organization/project settings remain in scope.
 
 Before exposing weights, specify valid combinations, treatment of missing evidence, activation-time freezing, and how local weighting remains independent of platform-controlled global reputation. Reuse the existing calculation and effective-configuration model rather than introducing customer-authored formulas or another scoring engine.
+
+## Historical quality-report manifests
+
+Deferred on 2026-10-10 until a concrete auditing requirement exists. Initial organization summaries return counts, their calculation cutoff and individual exact-task diagnostic drilldowns. Consider a complete retained reference manifest or historical report replay only if organizations need to reconstruct every key revision behind an old report; add neither manifest pagination nor revision-set fingerprints now.
+
+## Larger API count representations
+
+Deferred on 2026-10-10 until actual scale requires them. Initial export and planned reputation/report API contracts use ordinary GraphQL Int counts, and JSONL exports use numeric counts. Any future larger scalar/encoding must define its external contract without clamping authoritative counts; add no special decimal-string count handling to the initial API.

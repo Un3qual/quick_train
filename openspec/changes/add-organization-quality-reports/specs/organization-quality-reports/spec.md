@@ -64,17 +64,19 @@ These diagnostics SHALL NOT declare a worker or reference definitively wrong fro
 - **THEN** the summary reports no evaluated successes or failures and unavailable accuracy, independently of worker-assessment states
 
 ### Requirement: On-demand reports use coherent bounded read results
-Each report SHALL capture its authorized project contract, relevant current key revisions/enabled states, necessary source facts and one server cutoff in a coherent read snapshot. Project summaries SHALL NOT combine independently captured exact-question responses as though they shared one snapshot. Exact diagnostics SHALL identify their captured key revision and enabled state; project summaries SHALL identify their cutoff and current-key all-history diagnostic basis. Each returned question group SHALL expose captured key-revision provenance: exact task/question/input/key identities, revision identities and enabled states for its designated checks, including disabled keys excluded from evaluated counts. Provenance SHALL come from the same capture as that group's totals, rather than from a later read of current keys. Changes committed before capture SHALL be reflected; changes after capture SHALL NOT alter the response. A later request, including drilldown or provenance pagination, SHALL use its own identified snapshot rather than promise historical replay of an earlier response.
+Each report SHALL capture its authorized project contract, relevant current key revisions/enabled states, necessary source facts and one server cutoff in a coherent read snapshot. Project summaries SHALL NOT combine independently captured exact-question responses as though they shared one snapshot. Returned question groups SHALL identify their pinned published question, evaluated/correct/incorrect counts, available match rate, cutoff and current-key all-history diagnostic basis. Key revisions and enabled states SHALL be captured internally with the answers they grade; changes committed before capture SHALL be reflected and changes after capture SHALL NOT alter the response.
 
-Question groups, key-revision references and categorical pair lists SHALL be bounded and paginated, with counts covering the stated group rather than only its returned page. A provenance page SHALL state the total captured reference count and whether its returned list is complete; later pages SHALL accompany their references with the full-group totals and cutoff from their own capture. Reports SHALL have no persisted completed-report authority, background refresh or pending-report lifecycle. They SHALL remain independent of completed/pending worker assessments and SHALL reuse worker-reputation's exact-question diagnostic semantics rather than another grading rule or configurable report window.
+Project summaries SHALL NOT return a manifest of all contributing task/question/input/key revisions, paginate key-revision references or introduce a revision-set fingerprint. Authorized reviewers SHALL inspect an individual exact task/question/input through the existing diagnostic drilldown, which SHALL identify that request's captured key revision, enabled state, counts and cutoff. A later request SHALL use its own identified snapshot rather than promise to reproduce an earlier summary. Full historical report manifests/replay SHALL remain outside this change and subject to a concrete future auditing need.
+
+Reported counts SHALL use ordinary numeric GraphQL Int in the initial API, with larger count representations deferred. Question groups and categorical pair lists SHALL be bounded and paginated, with counts covering the stated group rather than only its returned page. Reports SHALL have no persisted completed-report authority, background refresh or pending-report lifecycle. They SHALL remain independent of completed/pending worker assessments and SHALL reuse worker-reputation's exact-question diagnostic semantics rather than another grading rule or configurable report window.
 
 #### Scenario: A key is corrected during calculation
 - **WHEN** a project report captures key revision three and revision four commits afterward
-- **THEN** its counts consistently use the captured revision three, its question-group provenance identifies that exact key at revision three and its captured enabled state, and the next report request reflects revision four without waiting for worker-assessment recalculation
+- **THEN** its counts consistently use the internally captured revision three and identify their report cutoff, while the next report request reflects revision four without waiting for worker-assessment recalculation
 
 #### Scenario: One question group uses several task-specific keys
 - **WHEN** a project summary groups answers to one pinned question across tasks whose keys have different current revisions or enabled states
-- **THEN** it identifies each captured task/question/input/key/revision reference and enabled state through bounded provenance pages, without implying one group-wide key revision or counting disabled keys as evaluated answers
+- **THEN** it grades each answer against its own captured applicable key, excludes disabled evaluations and returns the group's totals and cutoff without implying a shared key revision or returning a paginated revision manifest
 
 #### Scenario: Drilldown follows an earlier summary
 - **WHEN** a reviewer opens an exact-question diagnostic after a key correction committed following their project summary
@@ -83,7 +85,3 @@ Question groups, key-revision references and categorical pair lists SHALL be bou
 #### Scenario: A report spans several pages
 - **WHEN** the authorized project has more question groups or categorical pairs than one page permits
 - **THEN** the response returns a bounded page with counts for each stated full group, without truncating the underlying evaluated sample to that page
-
-#### Scenario: A provenance page follows a key correction
-- **WHEN** a reviewer requests another page of key-revision references after a correction committed following the earlier summary
-- **THEN** the page identifies its own cutoff, captured revisions and corresponding full-group totals, without claiming to complete the earlier summary's captured provenance

@@ -49,8 +49,8 @@ defmodule QuickTrain.Tasks.Exports.Jsonl do
 
     fields = %{
       kind: :header,
-      format_version: 1,
-      record_count: Integer.to_string(export.record_count),
+      format_version: 2,
+      record_count: export.record_count,
       snapshot_at: export.snapshot_at,
       organization_id: export.organization_id,
       project_id: export.project_id,
