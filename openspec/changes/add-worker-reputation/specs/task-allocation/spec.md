@@ -142,3 +142,22 @@ Public allocation outcomes and retained decision-history disclosure SHALL obey t
 #### Scenario: A completed assessment introduces a restriction
 - **WHEN** recalculation publishes evidence that fails the project's configured rules after work was issued using previous completed inputs
 - **THEN** subsequent issuance observes that failure while already-issued work remains available under its existing authorization and lease rules
+
+## ADDED Requirements
+
+### Requirement: Organization staff and worker participation remain separate
+Organization users with management, authoring or review authority SHALL NOT also participate as workers in that same organization. Shared worker eligibility SHALL enforce this separation for self-service fetch and direct assignment before reputation preparation or new issuance. Organization-member audiences, open external access and explicit worker allow entries SHALL NOT bypass it. Organization membership alone SHALL NOT designate a user as staff or exclude an ordinary internal worker. The single global User model SHALL remain unchanged; staff authority in one organization SHALL NOT prevent otherwise eligible work in another.
+
+Permission changes SHALL preserve the separation without erasing retained worker identities, attempts, responses, assessments or decisions. Existing self-review exclusions and the distinct reinstating-actor check SHALL remain effective for decisions about historical work. Staff/worker separation SHALL NOT become a reputation score, configurable signal, reinstatement exemption or new account/persona lifecycle.
+
+#### Scenario: Staff cannot use another audience route
+- **WHEN** a user with management, authoring or review authority in the owning organization requests or is assigned its work through an organization-member, open-external or explicitly allowed route
+- **THEN** shared eligibility denies worker participation before reputation preparation or issuance, without treating staff authority as worker consent or an audience exception
+
+#### Scenario: Membership alone permits internal work
+- **WHEN** an active organization member has no management, authoring or review authority there and otherwise satisfies its worker audience and admission requirements
+- **THEN** membership remains a valid internal-worker route rather than making that user staff
+
+#### Scenario: One account has different roles in different organizations
+- **WHEN** the same active global User has staff authority in organization A and otherwise qualifies as a worker in organization B without staff authority there
+- **THEN** A excludes that user from its worker pool while B evaluates its ordinary worker eligibility and reputation without creating another identity
