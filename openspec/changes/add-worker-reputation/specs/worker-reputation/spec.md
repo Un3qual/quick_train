@@ -89,21 +89,43 @@ Global reputation SHALL describe general eligible work history, not certify comp
 - **WHEN** an authorized organization changes its default worker minimum or EWMA half-life
 - **THEN** its organization assessment is refreshed and later activations can use the revised defaults, while active projects retain their frozen settings and the platform's global calculation settings remain unchanged
 
-### Requirement: Faulty source evidence has a global-only remedy
-Suspicious-key diagnostics SHALL automatically identify sufficiently evidenced disagreement between submitted answers and an applicable reference for authorized reviewers in the owning organization. They SHALL reuse supported typed matching and the applicable completed-task, distinct-worker, coverage and consensus safeguards, and expose the supporting counts and captured key revision. Known-answer precedence SHALL remain effective: diagnostic comparisons SHALL NOT become scored peer evidence. Warnings SHALL be available through the existing scoped question-diagnostic reads rather than require routine platform vetting, a trusted-organization registry, email/webhook delivery or an acknowledgment/escalation lifecycle.
+### Requirement: Question diagnostics warn about low reference-match rates
+Scoped exact-question diagnostics SHALL automatically expose a "Low reference-match rate—review this question" warning when an enabled reference has sufficient distinct-worker coverage and the evaluated reference-match rate is low. Reference-match rate SHALL mean the number of evaluated submitted answers matching the captured key divided by all evaluated submitted answers under the same exact task/question/pinned-input contract. Matching SHALL use the key's own supported typed matching and numeric tolerance, not peer numeric tolerance or a median. The label SHALL describe matching against a supplied reference rather than claim that the reference is correct, workers are inaccurate or the key is faulty.
+
+The warning sample SHALL include every eligible valid answered QuestionResponse from successfully submitted attempts through the report cutoff, deduplicated by worker. It SHALL exclude drafts, unfinished/unsubmitted answers, skips and absent answers, without excluding a particular assessed worker or filtering/weighting by review verdict or worker reputation. The source task SHALL have reached its frozen submission target T. With F and P taken from the source project's frozen peer floor and coverage settings, the minimum evaluated distinct-worker count SHALL be `max(F + 1, ceil(P * T))`. Initial values F = two and P = eighty percent SHALL require at least three workers and eighty-percent coverage of the full requested count. Skips SHALL NOT reduce T. Organization/global assessment settings, worker observation minima, EWMA, reinstatement, source-project peer-scoring selection and question peer exclusion SHALL NOT reconfigure or suppress this enabled-key diagnostic.
+
+Once completion and coverage are met, a reference-match rate of twenty percent or less SHALL trigger the warning inclusively. This initial diagnostic threshold SHALL be application-owned and independent of peer consensus and worker reputation/admission thresholds; this release SHALL add no customer warning-setting fields. Comparisons SHALL use unrounded values, so presentation rounding SHALL NOT change the outcome. A zero evaluated count or disabled key SHALL yield no low-match warning, and unmet completion/coverage SHALL leave counts available without fabricating a sufficiently evidenced warning. Warning calculation SHALL NOT require a common alternative answer, numeric concentration or peer consensus. Existing consensus safeguards SHALL remain unchanged for scored worker peer agreement; diagnostic comparisons SHALL NOT become scored peer evidence.
+
+Warnings SHALL be derived through the existing on-demand scoped question-diagnostic reads with their captured key revision and cutoff, supporting matching/nonmatching/evaluated counts, actual/required coverage and used match-rate threshold. Available answer-pattern summaries MAY supply investigation context, but their absence SHALL NOT suppress a warning or require a second calculation/report lifecycle. No routine platform vetting, trusted-organization registry, email/webhook delivery or acknowledgment/escalation lifecycle SHALL be required.
 
 A warning SHALL be an investigation prompt, not a determination of truth. It SHALL NOT automatically rewrite or disable a key, exclude global evidence, classify a worker failure, or pause work. Owning-organization managers SHALL investigate and use existing authorized key correction/disabling operations; affected assessments SHALL then refresh automatically through the existing repair workflow.
+
+#### Scenario: Dispersed failures still produce a warning
+- **WHEN** a completed task requested one hundred answers, fifty workers select B and fifty select C against an enabled reference A
+- **THEN** the exact-question diagnostic reports zero of one hundred matching and warns despite the absence of a qualifying alternative-answer consensus
+- **AND** the warning itself changes no key, reputation source eligibility, review verdict, score or access rule
+
+#### Scenario: Warning boundaries use unrounded evaluated answers
+- **WHEN** a completed task requested one hundred submissions and eighty distinct workers supply evaluated answers while twenty skip
+- **THEN** coverage is met, sixteen matching answers trigger the inclusive twenty-percent warning and seventeen matching answers do not
+- **AND** seventy-nine evaluated answers would not meet coverage even if none matched, because skipped answers do not lower the requested-count denominator
+
+#### Scenario: Small and disabled samples cannot warn
+- **WHEN** a completed task requested three submissions and all three evaluated answers fail its enabled key
+- **THEN** the diagnostic can warn under the initial coverage floor
+- **AND** a task requesting only one or two submissions cannot meet that floor, while zero evaluated answers or a disabled key supply no low-match warning
+
+#### Scenario: Worker peer settings do not turn a warning into scoring
+- **WHEN** a completed keyed question has sufficient low-match evidence but peer scoring is disabled, its question is excluded from peer reputation or its workers have insufficient reputation history
+- **THEN** the owning organization's authorized reviewer can still inspect the low reference-match warning and counts without creating peer observations or changing worker scoring/admission rules
+
+### Requirement: Faulty source evidence has a global-only remedy
 
 For exceptional faulty or abusive source evidence, a platform-controlled maintenance operation SHALL be able to exclude a specified known-answer key's grades or a specified project's quality/reliability observations from global calculations, and explicitly restore them later. Organization capabilities SHALL NOT authorize this operation or override a platform exclusion. The operation SHALL identify its source, actor and reason, advance global settings provenance, and durably request affected global assessment recalculation. A key correction alone SHALL NOT silently remove a platform exclusion. Exclusions SHALL apply to positive and negative observations alike before global counts, eligibility, decay ordering and scoring; project and organization assessments SHALL retain their own ordinary source rules. Excluding a key SHALL NOT make its designated question eligible for scored peer fallback. Experience SHALL remain a count of submitted answered questions rather than a judgment of their quality.
 
 Global settings mutation, including source exclusion/restoration, SHALL be available only through a private server-side operator command invoking internal Ash operations. It SHALL NOT be exposed through public GraphQL, organization capabilities, a new platform role or a user-supplied operator flag. Trusted access to execute commands on the deployment SHALL supply operator authority; the command SHALL require an identified active global User for attribution, a nonblank reason, valid exact source references and the expected current global settings revision. The attributed User identity alone SHALL confer no authority. Each invocation and retry SHALL recheck trusted execution and the attributed account before mutation. A stale revision attempting a changed selection SHALL fail without partial writes; an already-effective identical selection SHALL require no new revision or duplicate refresh work. Settings/source-selection changes, actor/reason provenance, revision advancement and durable refresh intent SHALL commit atomically through the existing global settings path. This narrowly scoped command SHALL NOT depend on restoring the separate deferred operator-onboarding workflow.
 
 Original submissions, keys/revisions, reviews, return decisions and earlier completed assessments/access decisions SHALL remain retained. Exclusion SHALL NOT delete evidence, fabricate replacement credit, impose a worker block, revoke issued work or reopen frozen project configuration. Global-only selection changes SHALL use the existing settings-repair and pending-completed-input contracts. Any explicitly configured global entry rule SHALL continue to evaluate the resulting evidence under its ordinary minimum rules; removal of faulty grades SHALL NOT promise admission when remaining evidence is insufficient. Initial reviewer-only defaults SHALL remain effective.
-
-#### Scenario: Submitted answers conflict with a reference
-- **WHEN** a completed exact task/question has sufficiently covered distinct answers forming a qualifying consensus that disagrees with its enabled key
-- **THEN** the owning organization's authorized reviewers receive a diagnostic warning and supporting counts/revision for investigation
-- **AND** the warning itself changes no key, reputation source eligibility, review verdict or access rule
 
 #### Scenario: The owning organization repairs a faulty key
 - **WHEN** an authorized manager corrects or disables an investigated key
