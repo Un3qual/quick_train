@@ -18,6 +18,8 @@ The current reputation change includes one draft-question peer-participation boo
 
 Further controls for known-answer/human-review participation or question weights remain outside the current change. Decide their exact relationship to organization/project defaults in a future question-contract change, without a general formula system. Preserve published immutability and active contracts; coordinate eligible selection, denominators, evidence minima, enforcement exclusions, explanations and any necessary repairs through the pinned question contract. The [reputation design](changes/add-worker-reputation/design.md#future-question-capabilities) records this boundary.
 
+Question-specific numeric peer tolerances are approved future work, recorded 2026-10-11. One absolute tolerance cannot serve numeric questions with different units/scales, such as height in centimeters and a zero-to-one confidence value. The current reputation change uses exact organization/global numeric peer matching (tolerance zero), while project defaults/draft overrides may retain one frozen project tolerance and authoring guidance recommends zero for mixed scales. Known-answer keys keep their own authored tolerances in every scope. A future question contract must define tolerance authoring/validation, units or scale semantics, publication freezing, scope precedence and repair behavior before non-exact broader numeric peer matching is enabled; do not add unit normalization, another settings hierarchy or a generic grader framework now.
+
 ## Spatial grading for bounding boxes and segmentation
 
 Status: approved future direction, recorded 2026-10-07. Ownership: question types, reference-answer authoring, and annotation comparison; outside the current reputation change.
