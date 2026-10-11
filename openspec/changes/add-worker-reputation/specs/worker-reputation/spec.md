@@ -1063,6 +1063,8 @@ A previously allowed worker SHALL NOT receive a new restriction, a reputation-up
 ### Requirement: First access does not depend on a queued initial calculation
 If any required initial assessment is missing, the ordinary admission request SHALL authorize preparation, detect committed allocation retries, and calculate the missing assessment from eligible evidence before entering the allocation transaction or taking its Project/User/task locks. Unprocessed history SHALL NOT be classified as absent or require a queued-job wait. Completed inputs awaiting refresh SHALL remain usable with their pending/as-of metadata.
 
+Authorization for new direct assignments consulting global reputation SHALL include the [existing work-relationship prerequisite](#requirement-global-reputation-use-in-direct-assignment-requires-a-work-relationship) before global assessment initialization, preparation or reads. Worker-initiated fetch SHALL NOT require a prior relationship to evaluate its own global entry requirements. Committed allocation retries SHALL retain the existing issued-work authorization path.
+
 Under allocation locks, the request SHALL recheck current authorization, project state/configuration, the request key, the latest completed assessments in all required scopes, and reinstatement. It SHALL use concurrently completed assessments when available; otherwise it SHALL validate and publish the needed prepared candidates under the fixed-snapshot guards before evaluating admission. If a guard changed and a required completed assessment is still missing, it SHALL release allocation locks before preparing again in the request. Evidence scans, peer comparisons, and full history calculations SHALL NOT run while allocation locks are held; bounded rule evaluation over completed assessment metrics SHALL be permitted. Insufficient local evidence SHALL permit participation while configured organization/global entry requirements remain effective. No queued warm-up lifecycle, qualification attempt, or reputation-updating retry outcome SHALL be introduced.
 
 #### Scenario: Eligible prior history has not been assessed yet
@@ -1083,6 +1085,7 @@ Operations SHALL reuse the existing organization-scoped capabilities through the
 | Inspect, classify, or correct worker returns and their classification history | `tasks.review`, with the existing self-review prohibition |
 | Reinstate a worker for selected project-local reputation rules | `projects.manage` |
 | Read current or historical global assessment values through any API path | `tasks.review` plus the qualifying organization work relationship, exposing only bounded global fields |
+| Issue new directly assigned work whose admission consults global reputation | Existing `tasks.assign` and target-worker eligibility, plus the qualifying organization work relationship; no report-read capability is implied or required |
 | Change global calculation settings or exclude/restore global sources | Private trusted server operator execution and active attributed User; no organization grant or public GraphQL route |
 
 Every organization-scoped operation and replay SHALL recheck the actor's current active account, owning organization, active membership, and required grant. Private global maintenance SHALL use the separate trusted-execution and attribution checks above. Key inspection under `projects.manage` SHALL be an explicit scoped management read rather than implicit general source-read authority. Management alone SHALL NOT grant reputation reports or supporting-answer access; those reads SHALL require `tasks.review`. Review authority alone SHALL NOT grant settings/key mutations or reinstatement. An actor MAY hold both grants. Mere project-read permission, organization membership, or authority to perform work SHALL NOT grant either operation class. Worker-route privacy, the ordinary scoring of authorized key authors/readers who also work, return self-review denial, and bounded global disclosure SHALL remain unchanged. Global calculation settings SHALL remain platform-controlled.
@@ -1114,33 +1117,33 @@ The global summary SHALL expose only aggregate metrics and evidence states, cont
 
 The same qualifying work relationship and bounded-field limits SHALL apply to every organization-facing disclosure of current or historical global assessment values, including direct assessment reads, nested GraphQL relationships, access-decision history, and derived explanations. A reference retained in an organization's decision SHALL NOT grant global read authority. Readers SHALL recheck current scoped review authority and the relationship before disclosing protected values, including after relevant waits; historical authorization or internal admission use SHALL NOT substitute for that check.
 
-Otherwise authorized organization decision-history reads MAY expose their permitted organization/project metadata, including assignment outcome, request context, time and the organization's frozen rules, while protected global values SHALL remain unavailable without that relationship. Scores, evidence states/counts, effective settings, supporting dates, cutoffs and freshness from the global assessment SHALL NOT leak through history fields, reason text, errors or nested assessment traversal. Direct global reads and traversal without authority SHALL fail closed under the existing nondisclosure rules. This restriction SHALL NOT erase or rewrite the retained internal decision, assessment references or audit inputs, change admission, or make an unstarted assignment establish a relationship. Once current authority and a qualifying relationship exist, historical global values MAY be disclosed only within the same aggregate-field limits; foreign source identities and detailed provenance SHALL remain protected.
+Otherwise authorized organization decision-history reads MAY expose their permitted organization/project metadata, including assignment outcome, request context, time and the organization's frozen rules, while protected global values SHALL remain unavailable without that relationship. Scores, evidence states/counts, effective settings, supporting dates, cutoffs and freshness from the global assessment SHALL NOT leak through history fields, reason text, errors or nested assessment traversal. Direct global reads and traversal without authority SHALL fail closed under the existing nondisclosure rules. The disclosure boundary SHALL NOT erase or rewrite the retained internal decision, assessment references or audit inputs, change evaluation for an authorized request, or make an unstarted assignment establish a relationship. New direct assignments SHALL additionally satisfy the global-use prerequisite below. Once current authority and a qualifying relationship exist, historical global values MAY be disclosed only within the same aggregate-field limits; foreign source identities and detailed provenance SHALL remain protected.
 
 #### Scenario: A reviewer investigates a worker who requested work
 - **WHEN** a worker's authorized work request is denied by the organization's project reputation rule and a currently authorized organization reviewer reads their global summary
 - **THEN** the retained request relationship permits the bounded aggregate summary without exposing evidence or organization names from other sources
 
-#### Scenario: A manager creates an assignment denial for an unrelated worker
-- **WHEN** an assignment manager targets an otherwise eligible active user in an open-external project and a broader reputation rule denies issuance
-- **THEN** the denial is retained but grants no reputation-list or global-summary relationship, even to an organization reviewer
+#### Scenario: A manager targets an unrelated worker under a global entry rule
+- **WHEN** an assignment manager targets an otherwise eligible active user in an open-external project with a global entry rule but no qualifying organization work relationship
+- **THEN** the assignment fails its authorization prerequisite before consulting global reputation, creating no attempt or global-input reputation decision and granting no reputation-list or global-summary relationship
 
 #### Scenario: An assigned worker has not participated
-- **WHEN** a manager issues an assignment to an unrelated worker who has neither requested nor started, saved or submitted work for the organization
+- **WHEN** a manager issues an assignment without a global entry requirement to an unrelated worker who has neither requested nor started, saved or submitted work for the organization
 - **THEN** the assignment alone grants no global-summary relationship; the worker's later authorized participation can establish one
 
-#### Scenario: Assignment-denial history cannot reveal unrelated global inputs
-- **WHEN** a manager-created assignment denial references a global assessment for a worker with no qualifying organization work relationship, and an otherwise authorized organization reviewer reads that decision's history
-- **THEN** permitted organization/project metadata remains readable but the referenced global scores, states/counts, settings, dates, cutoff and freshness remain unavailable, including through reason text, errors or nested assessment reads
-- **AND** the complete internal audit record remains retained without granting global-report or source-read authority
+#### Scenario: Organization-only assignment-denial history cannot grant global access
+- **WHEN** a manager-created assignment denial under an organization-only entry rule concerns a worker with no qualifying organization work relationship, and an otherwise authorized organization reviewer reads that decision's history
+- **THEN** permitted organization/project history remains readable without a consulted global assessment reference or authority to read global values through another direct or nested path
+- **AND** the complete internal audit record remains retained without granting global-report or foreign-source-read authority
 
 #### Scenario: Successful unstarted assignment history has the same privacy boundary
-- **WHEN** a manager-issued assignment passed its global entry rule but the worker has neither requested nor performed work for the organization, including after returning that unstarted assignment
-- **THEN** authorized assignment-history reads can identify the issued outcome and permitted organization/project metadata without disclosing its consulted global values or permitting nested global assessment traversal
+- **WHEN** a manager-issued assignment without a global entry requirement succeeds but the worker has neither requested nor performed work for the organization, including after returning that unstarted assignment
+- **THEN** authorized assignment-history reads can identify the issued outcome and permitted organization/project metadata without a consulted global assessment reference or authority for global assessment traversal
 - **AND** the assignment or return alone establishes no global relationship and changes no retained assessment or decision
 
-#### Scenario: A later qualifying request permits bounded historical disclosure
-- **WHEN** a worker later makes an ordinarily authorized worker-initiated work request establishing the organization's relationship, and a currently authorized reviewer reads an earlier assignment decision's consulted global inputs
-- **THEN** history may disclose the permitted aggregate values from that decision's retained immutable global assessment, rather than substitute the worker's current result
+#### Scenario: A qualifying global assignment retains bounded historical disclosure
+- **WHEN** a worker has a qualifying organization work relationship before a global-dependent assignment, and a currently authorized reviewer later reads that assignment decision's consulted global inputs after another assessment has published
+- **THEN** history may disclose the permitted aggregate values from the decision's retained immutable global assessment, rather than substitute the worker's current result
 - **AND** foreign source identities and detailed provenance remain inaccessible through direct or nested reads, and current review authority and relationship checks remain required
 
 #### Scenario: A reviewer attempts arbitrary worker lookup
@@ -1150,6 +1153,30 @@ Otherwise authorized organization decision-history reads MAY expose their permit
 #### Scenario: A global metric includes another organization's work
 - **WHEN** an authorized reviewer inspects a global metric derived partly from another organization's submissions and review decisions
 - **THEN** only aggregate metrics, counts, settings, observation dates, and freshness are disclosed, with no other organization names or source evidence
+
+### Requirement: Global reputation use in direct assignment requires a work relationship
+For new manager-initiated direct assignment whose frozen project admission rules consult global quality, reliability or experience, allocation SHALL require an existing qualifying organization work relationship before initializing, preparing, reading or evaluating the target worker's global assessment. This SHALL reuse the [global-summary work-relationship predicate](#requirement-global-summary-disclosure-requires-an-organization-work-relationship): retained ordinarily authorized worker-initiated requested work or actual performed work in the owning organization, including another project of that organization. Membership, an audience allow entry, manager-initiated requests or denials, and unstarted assignments, including returned ones, SHALL NOT satisfy this prerequisite.
+
+After ordinary authorization and committed allocation retry resolution, a missing relationship SHALL produce the ordinary scoped work-access denial independently of the target's global score, evidence state, count, availability, freshness or the configured global threshold. It SHALL create no attempt, presentation or reputation decision referencing global inputs, and SHALL NOT initialize or enqueue a global assessment for that assignment request. Current assignment authority, target eligibility and the relationship SHALL be rechecked after preparation/lock waits before global admission evaluation and new issuance. The check SHALL add no consent flag, relationship resource, report-read capability requirement or alternative reputation formula.
+
+Worker-initiated fetch SHALL evaluate its own global entry requirements without requiring a preexisting relationship. A retained ordinarily authorized worker-initiated reputation denial SHALL establish the existing requested-work relationship, including when global evidence is insufficient; a later assignment SHALL still evaluate every configured rule normally rather than treat that relationship as a reputation pass. Assignments using only project/organization reputation SHALL require no additional work relationship. Already-issued work and committed allocation retries SHALL retain their ordinary current authorization without reapplying this new-issuance prerequisite. Internal global use after the check SHALL still grant no report-read or foreign-source authority.
+
+#### Scenario: Assignment thresholds cannot probe an unrelated worker
+- **WHEN** a manager attempts new assignments to the same otherwise eligible unrelated worker through projects with different global score or experience requirements
+- **THEN** every assignment fails the missing work-relationship prerequisite before global preparation or reads, independently of whether the hidden evidence would satisfy each requirement
+- **AND** membership, allow entries, manager-created denials and unstarted assignments or their returns cannot turn the attempts into a qualifying relationship
+
+#### Scenario: A worker request enables ordinary subsequent global evaluation
+- **WHEN** an otherwise authorized worker with no prior organization work relationship fetches work, a global entry rule denies it for insufficient evidence, and a manager later attempts assignment under a global entry rule
+- **THEN** the fetch evaluates and retains its global-input denial normally, establishing the requested-work relationship, and the later assignment can consult global reputation but still denies issuance while that rule remains unsatisfied
+
+#### Scenario: Prior work in another project supplies the relationship
+- **WHEN** an otherwise eligible worker performed work in Project A and a manager assigns new work in Project B of the same organization under a global entry rule
+- **THEN** the existing organization relationship satisfies the prerequisite without prior work in B, and assignment evaluates B's ordinary audience, capacity and reputation rules without granting report-read authority
+
+#### Scenario: Local assignment does not require prior participation
+- **WHEN** a manager assigns otherwise eligible work to an unrelated worker and the project's automatic rules consult only project/organization reputation or no reputation inputs
+- **THEN** this global-use prerequisite does not prevent assignment, while the ordinary rules still apply and the unstarted assignment establishes no global-summary relationship
 
 ### Requirement: Recalculation is reproducible and safe to repeat
 Assessments SHALL be rebuildable from retained authoritative evidence and the applicable scoped configuration. Equivalent captured evidence and calculation inputs SHALL yield equivalent metrics and counts. Repeated calculation, submission retries, key corrections, and review retries SHALL NOT double-count evidence or duplicate restriction effects. Readers SHALL be able to distinguish a pending recalculation from an up-to-date calculation and identify the completed inputs used for each access evaluation. Repeated jobs SHALL preserve completed inputs until a replacement publishes; pending work SHALL NOT itself create or clear a restriction, and historical denials SHALL NOT override a fresh admission evaluation.
