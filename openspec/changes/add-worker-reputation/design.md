@@ -334,15 +334,15 @@ These first-party sources were reviewed during the approved discussion on 2026-1
 - **[Global scores combine incompatible local assumptions]** → Pool eligible source evidence under platform rules instead of averaging local scores; preserve source-project and pinned-question peer exclusions in every scope and keep private organization evidence inaccessible. Global history does not certify every task-specific skill.
 - **[Future pay changes surprise workers]** → Keep quoted rate and bonus rules in immutable funded Finance offers; apply later changes to future work.
 
-## Migration Plan
+## Schema Setup
 
-This request creates planning artifacts only. Runtime implementation will add resources and explicit capability grants without modifying existing global users, form/question identities, task inputs, submitted answers, review chains, or sealed export bytes.
+This request creates planning artifacts only. QuickTrain is unreleased under the root [release-status instructions](../../../AGENTS.md#release-status). Runtime implementation targets the approved contract directly through generated Ash resources, ordinary schema migrations and existing capability checks. No legacy-project configuration, historical-data backfill or production rollout/rollback workflow is required. Development fixtures and disposable databases can be updated for the current contract.
 
-Existing active projects retain their pre-reputation admission behavior. New draft configuration resolves on activation; adding defaults must not silently opt active projects into enforcement. Historical evidence can be assessed only under the approved pooled-source eligibility, lifetime/EWMA, and provenance rules, never by inventing historical known-answer keys. Implement and verify the bounded global disclosure contract before enabling global admission. Historical released attempts without a captured reason must remain unclassified/awaiting review rather than be inferred unexcused; retained return evidence and classification history must survive controlled rollback alongside keys and reinstatement.
+New project configuration resolves on activation. Implement and verify the bounded global disclosure contract before enabling global admission. Within the implemented product, published contracts, issued work, immutable submissions, correction histories and retained assessments/decisions keep their approved runtime protections.
 
-The additive Question participation attribute defaults to true for existing definitions, preserving their prior included behavior. Native published-version copy must preserve authored false values. New exclusions are authored in drafts and fixed by publication; reading the latest form version must never change projects pinned to an older contract. Include authoring/publication races, copy behavior, scoped grants and excluded-question feasibility in the focused implementation checks.
+The Question participation attribute defaults to true when omitted. Native published-version copy must preserve authored false values. Exclusions are authored in drafts and fixed by publication; reading the latest form version must never change projects pinned to an older contract. Include authoring/publication races, copy behavior, scoped grants and excluded-question feasibility in the focused implementation checks.
 
-Test migration up/down/reapply in a disposable database containing existing collection evidence. Deployment rollback must preserve newly created keys, return reasons/classification histories, correction histories, and reinstatement records rather than dropping authoritative evidence. Keep additive tables and disable use through a controlled deployment rollback; reconcile pending jobs before resuming enforcement. No production cleanup/destructive downgrade is authorized by this plan.
+Verify generated schema setup in a clean disposable database and exercise the resource constraints and retained-history references. Do not add legacy fixtures or compatibility branches to preserve earlier unreleased data layouts.
 
 ## Implementation Readiness
 

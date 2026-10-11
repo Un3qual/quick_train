@@ -50,7 +50,7 @@ For a new return, the worker SHALL explicitly select one main `reason_code` from
 | `work_preference` | Prefer different work. |
 | `other` | Other. |
 
-A live unexpired release SHALL validate this input and persist it atomically with the actual released outcome; invalid input SHALL NOT partially release the attempt or persist a reason. Successful release SHALL still free capacity immediately and start awaiting review. Choosing any preset or entering custom text SHALL NOT automatically excuse or penalize the return. Identical retries SHALL preserve the original selected code and both text fields without duplicating a return; a terminal retry SHALL NOT replace those fields with later input. Historical returns without captured reason fields SHALL remain retained without fabricated preset choices or custom text and SHALL retain the existing awaiting-review behavior until an authorized decision establishes a classification.
+A live unexpired release SHALL validate this input and persist it atomically with the actual released outcome; invalid input SHALL NOT partially release the attempt or persist a reason. Successful release SHALL still free capacity immediately and start awaiting review. Choosing any preset or entering custom text SHALL NOT automatically excuse or penalize the return. Identical retries SHALL preserve the original selected code and both text fields without duplicating a return; a terminal retry SHALL NOT replace those fields with later input.
 
 #### Scenario: A preset return includes optional details
 - **WHEN** an authorized worker selects `input_problem`, provides a comment describing the broken image, and releases a live unexpired attempt without Other text

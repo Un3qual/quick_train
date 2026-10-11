@@ -6,6 +6,10 @@ context: |
   GraphQL foundations, normalized datasets/assets, versioned forms, and project/task
   collection. It deliberately omits a frontend and finance/reputation domains.
 
+  Follow the repository-wide Release status instructions in root AGENTS.md. QuickTrain
+  remains unreleased until the user explicitly says otherwise; earlier unreleased
+  contracts do not require legacy compatibility or data migration planning.
+
   Use the repository toolchain through mise. Keep Erlang, Elixir, Node.js, OpenSpec,
   and backend dependencies on stable GA releases with exact pins where the repository
   already uses them. Update .mise.toml, mix.exs, and mix.lock together when dependency
