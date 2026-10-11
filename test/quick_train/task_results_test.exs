@@ -576,17 +576,10 @@ defmodule QuickTrain.Tasks.ResultExportTest do
       do: InMemory.write_staging(key, ["corrupt"], cap, deadline_ms)
   end
 
-  test "a format-one pending upload completes with its original bytes after an upgrade", scope do
+  test "generation cannot replace retained pending upload facts with different content", scope do
     {:ok, export} = request(scope)
     snapshot = Tasks.seal_export_snapshot!(export.id, authorize?: false)
-
-    # These are the literal format-one bytes emitted before numeric count headers.
-    bytes =
-      ~s({"form_version_id":"#{snapshot.form_version_id}","format_version":1,) <>
-        ~s("kind":"header","mode":"accepted","organization_id":"#{snapshot.organization_id}",) <>
-        ~s("project_id":"#{snapshot.project_id}","record_count":"0",) <>
-        ~s("schema_version_id":"#{scope.project.schema_version_id}",) <>
-        ~s("snapshot_at":"#{DateTime.to_iso8601(snapshot.snapshot_at)}"}) <> "\n"
+    bytes = "unexpected content\n"
 
     pending =
       Assets.create_pending_asset!(
@@ -604,13 +597,20 @@ defmodule QuickTrain.Tasks.ResultExportTest do
       authorize?: false
     )
 
-    assert :ok = Tasks.process_result_export(export.id, authorize?: false)
-    ready = Ash.get!(ResultExport, export.id, authorize?: false)
-    assert ready.pending_asset_id == pending.id
-    assert ready.snapshot_at == snapshot.snapshot_at
-    assert ready.record_count == 0
-    assert {:ok, ^bytes} = InMemory.read_sealed(download!(scope, export.id).read_access)
-    assert [%{"format_version" => 1, "record_count" => "0"}] = jsonl(bytes)
+    assert {:error, _error} = Tasks.process_result_export(export.id, authorize?: false)
+    failed = Ash.get!(ResultExport, export.id, authorize?: false)
+    assert failed.state == :failed
+    assert failed.pending_asset_id == pending.id
+    assert failed.snapshot_at == snapshot.snapshot_at
+    assert failed.record_count == 0
+
+    retained = Ash.get!(Asset, pending.id, authorize?: false)
+    assert retained.state == :pending
+
+    assert Map.take(retained, [:sha256, :byte_size, :media_type]) ==
+             Map.take(pending, [:sha256, :byte_size, :media_type])
+
+    assert {:error, _error} = download(scope, export.id)
   end
 
   test "a failed upload is replaced before expiry without changing the sealed snapshot", scope do

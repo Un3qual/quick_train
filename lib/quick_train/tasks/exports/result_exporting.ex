@@ -117,7 +117,7 @@ defmodule QuickTrain.Tasks.Exports.ResultExporting do
       )
 
     try do
-      facts = write_output!(export, path)
+      facts = Jsonl.write!(export, path)
 
       with {:ok, asset} <- pending_asset(export, facts),
            :ok <- write(asset, path),
@@ -127,22 +127,6 @@ defmodule QuickTrain.Tasks.Exports.ResultExporting do
       end
     after
       File.rm(path)
-    end
-  end
-
-  defp write_output!(%{pending_asset_id: nil} = export, path), do: Jsonl.write!(export, path)
-
-  defp write_output!(export, path) do
-    expected = Map.take(owned_asset!(export), [:sha256, :byte_size, :media_type])
-    facts = Jsonl.write!(export, path)
-
-    if facts == expected do
-      facts
-    else
-      # Retained upload facts pin the old encoding too. The locked pending-asset
-      # check still rejects content that matches neither supported format.
-      File.rm!(path)
-      Jsonl.write!(export, path, 1)
     end
   end
 
