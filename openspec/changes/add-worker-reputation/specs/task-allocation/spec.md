@@ -91,6 +91,8 @@ After lock waits, allocation SHALL recheck authorization, project state/configur
 
 Insufficient local history SHALL permit participation while separately configured established organization/global entry requirements remain effective. Pending peer comparisons SHALL NOT be mistaken for stale computation or used for enforcement. Reviewer-only signals SHALL NOT affect automatic admission through their values, missing evidence, or pending recalculation. These checks SHALL NOT alter task capacity, require replacement answers, or change existing review verdicts. A restriction SHALL affect only its project and SHALL remain separate from explicit account or audience blocks.
 
+Public allocation outcomes and retained decision-history disclosure SHALL obey the [global work-relationship and bounded-disclosure contract](../worker-reputation/spec.md#requirement-global-summary-disclosure-requires-an-organization-work-relationship). Internally consulting a global assessment for direct assignment SHALL NOT authorize its disclosure through response/history fields, reason text, errors or nested relationships. Otherwise permitted assignment outcomes and organization/project metadata SHALL remain available, without changing admission or the complete retained internal audit record.
+
 #### Scenario: Another calculation publishes during first-time preparation
 - **WHEN** an initial request prepares a missing assessment outside allocation locks and a concurrent calculation publishes it before the request obtains those locks
 - **THEN** the locked phase uses the completed assessment when evaluating admission rather than overwriting it with the candidate or scanning evidence again under the locks

@@ -1024,8 +1024,10 @@ Each request for new project work SHALL evaluate the frozen project's automatic 
 
 Access evaluations SHALL retain their outcome, reasons, time and scoped request context, references to the frozen Project configuration and the exact completed assessments/reinstatements actually consulted, identification of the consulted rules/bases, and the pending or missing-scope facts observed at evaluation time. The retained frozen configuration SHALL supply rule settings and history bases; the referenced immutable assessments SHALL supply effective calculation settings, rates, actual/effective sample sizes and as-of cutoffs. Decisions SHALL NOT copy those settings or metrics into another stored snapshot. The referenced owners SHALL remain retained and history reads SHALL use those references and decision-time freshness facts rather than current settings, mutable head references or current pending flags. Retaining an earlier outcome SHALL NOT make it authoritative for a later new-work request. Replaying an already committed allocation SHALL retain the existing allocation retry contract instead of rechecking reputation for new issuance.
 
+History disclosure SHALL follow the [global work-relationship and bounded-disclosure contract](#requirement-global-summary-disclosure-requires-an-organization-work-relationship) independently of retaining the consulted assessment references. Authority to read an organization's decision SHALL NOT itself authorize disclosure of the referenced global assessment's values or protected provenance.
+
 #### Scenario: Later calculation and settings changes preserve decision history
-- **WHEN** a decision used a completed assessment while refresh was pending and a later settings edit and replacement calculation change the current head and clear its pending state
+- **WHEN** a decision used a completed assessment while refresh was pending, a later settings edit and replacement calculation change the current head and clear its pending state, and a history reader has current authority for each disclosed input scope
 - **THEN** history still resolves the earlier decision's frozen rules, original completed settings/metrics/sample sizes/cutoff and reinstatement references, and shows that refresh was pending at decision time
 - **AND** the decision retains these immutable inputs by reference rather than duplicating their values or reconstructing them from the current head
 
@@ -1077,10 +1079,10 @@ Operations SHALL reuse the existing organization-scoped capabilities through the
 | Author draft-question peer participation | `forms.manage` under the owning organization's Forms authoring and publication rules |
 | Read/manage organization reputation defaults and draft-project settings | `projects.manage` |
 | Create, inspect, correct, disable, or re-enable known-answer keys and inspect their retained management history | `projects.manage` |
-| Read scoped reputation reports, assessments, access-decision history, and supporting own-organization evidence, including relevant keys/history | `tasks.review` |
+| Read scoped reputation reports, assessments, access-decision history, and supporting own-organization evidence, including relevant keys/history | `tasks.review`; disclosure of any referenced global values additionally requires the qualifying organization work relationship and bounded global fields |
 | Inspect, classify, or correct worker returns and their classification history | `tasks.review`, with the existing self-review prohibition |
 | Reinstate a worker for selected project-local reputation rules | `projects.manage` |
-| Read a bounded global summary | `tasks.review` plus the qualifying organization work relationship |
+| Read current or historical global assessment values through any API path | `tasks.review` plus the qualifying organization work relationship, exposing only bounded global fields |
 | Change global calculation settings or exclude/restore global sources | Private trusted server operator execution and active attributed User; no organization grant or public GraphQL route |
 
 Every organization-scoped operation and replay SHALL recheck the actor's current active account, owning organization, active membership, and required grant. Private global maintenance SHALL use the separate trusted-execution and attribution checks above. Key inspection under `projects.manage` SHALL be an explicit scoped management read rather than implicit general source-read authority. Management alone SHALL NOT grant reputation reports or supporting-answer access; those reads SHALL require `tasks.review`. Review authority alone SHALL NOT grant settings/key mutations or reinstatement. An actor MAY hold both grants. Mere project-read permission, organization membership, or authority to perform work SHALL NOT grant either operation class. Worker-route privacy, the ordinary scoring of authorized key authors/readers who also work, return self-review denial, and bounded global disclosure SHALL remain unchanged. Global calculation settings SHALL remain platform-controlled.
@@ -1110,6 +1112,10 @@ An authorized organization reviewer SHALL be able to read a worker's bounded glo
 
 The global summary SHALL expose only aggregate metrics and evidence states, contributing observation and distinct task/project counts, selected contributors, lifetime/EWMA bases, raw/effective sample sizes and effective calculation settings including half-life, supporting original observation dates, calculation cutoff, and pending-refresh status. It SHALL NOT expose contributing organizations' or projects' names, source record references, submitted answers, known-answer keys, review details, or return reasons/classification history from other organizations. Detailed calculation provenance SHALL remain retained for audit without becoming cross-organization disclosure. Reviewers MAY separately inspect their own organization's evidence under existing scoped permissions. Internal global input use for authorized admission SHALL NOT grant the requesting organization a general summary-read or management capability. This requirement SHALL add no worker-facing reputation breakdown or dispute workflow.
 
+The same qualifying work relationship and bounded-field limits SHALL apply to every organization-facing disclosure of current or historical global assessment values, including direct assessment reads, nested GraphQL relationships, access-decision history, and derived explanations. A reference retained in an organization's decision SHALL NOT grant global read authority. Readers SHALL recheck current scoped review authority and the relationship before disclosing protected values, including after relevant waits; historical authorization or internal admission use SHALL NOT substitute for that check.
+
+Otherwise authorized organization decision-history reads MAY expose their permitted organization/project metadata, including assignment outcome, request context, time and the organization's frozen rules, while protected global values SHALL remain unavailable without that relationship. Scores, evidence states/counts, effective settings, supporting dates, cutoffs and freshness from the global assessment SHALL NOT leak through history fields, reason text, errors or nested assessment traversal. Direct global reads and traversal without authority SHALL fail closed under the existing nondisclosure rules. This restriction SHALL NOT erase or rewrite the retained internal decision, assessment references or audit inputs, change admission, or make an unstarted assignment establish a relationship. Once current authority and a qualifying relationship exist, historical global values MAY be disclosed only within the same aggregate-field limits; foreign source identities and detailed provenance SHALL remain protected.
+
 #### Scenario: A reviewer investigates a worker who requested work
 - **WHEN** a worker's authorized work request is denied by the organization's project reputation rule and a currently authorized organization reviewer reads their global summary
 - **THEN** the retained request relationship permits the bounded aggregate summary without exposing evidence or organization names from other sources
@@ -1121,6 +1127,21 @@ The global summary SHALL expose only aggregate metrics and evidence states, cont
 #### Scenario: An assigned worker has not participated
 - **WHEN** a manager issues an assignment to an unrelated worker who has neither requested nor started, saved or submitted work for the organization
 - **THEN** the assignment alone grants no global-summary relationship; the worker's later authorized participation can establish one
+
+#### Scenario: Assignment-denial history cannot reveal unrelated global inputs
+- **WHEN** a manager-created assignment denial references a global assessment for a worker with no qualifying organization work relationship, and an otherwise authorized organization reviewer reads that decision's history
+- **THEN** permitted organization/project metadata remains readable but the referenced global scores, states/counts, settings, dates, cutoff and freshness remain unavailable, including through reason text, errors or nested assessment reads
+- **AND** the complete internal audit record remains retained without granting global-report or source-read authority
+
+#### Scenario: Successful unstarted assignment history has the same privacy boundary
+- **WHEN** a manager-issued assignment passed its global entry rule but the worker has neither requested nor performed work for the organization, including after returning that unstarted assignment
+- **THEN** authorized assignment-history reads can identify the issued outcome and permitted organization/project metadata without disclosing its consulted global values or permitting nested global assessment traversal
+- **AND** the assignment or return alone establishes no global relationship and changes no retained assessment or decision
+
+#### Scenario: A later qualifying request permits bounded historical disclosure
+- **WHEN** a worker later makes an ordinarily authorized worker-initiated work request establishing the organization's relationship, and a currently authorized reviewer reads an earlier assignment decision's consulted global inputs
+- **THEN** history may disclose the permitted aggregate values from that decision's retained immutable global assessment, rather than substitute the worker's current result
+- **AND** foreign source identities and detailed provenance remain inaccessible through direct or nested reads, and current review authority and relationship checks remain required
 
 #### Scenario: A reviewer attempts arbitrary worker lookup
 - **WHEN** an otherwise authorized reviewer supplies a worker identity without a qualifying scoped request or performed-work relationship
