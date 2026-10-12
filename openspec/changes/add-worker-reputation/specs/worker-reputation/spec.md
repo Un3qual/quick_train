@@ -1310,6 +1310,49 @@ Calculation capture SHALL check relevant pending Tasks in the same consistent sn
 - **WHEN** all affected scope requests and jobs are durable and discovery clears the Task flag while some replacement assessments remain queued
 - **THEN** head-sequence lag still indicates their pending calculation, and retrying that already-finished discovery does not repeat fan-out
 
+### Requirement: Project completion refresh discovery runs outside closure fan-out
+Project completion SHALL preserve ordinary bulk terminalization with one retained completion cutoff: live attempts whose deadlines have passed become expired, and remaining live attempts become cancelled. Only newly terminalized eligible expirations SHALL supply closure-related reliability evidence; cancellations and never-started direct assignments SHALL remain excluded. Expiration observations SHALL retain their original lease deadlines and source identities rather than acquire the closure/discovery time as their scoring date.
+
+Closure SHALL commit its terminal outcomes, completion cutoff, one native Project discovery marker and one durable Project-linked discovery job atomically. It SHALL NOT synchronously enumerate all affected workers, initialize their assessment heads or insert their individual calculation jobs before completion commits. After commit, discovery SHALL enumerate distinct affected workers from retained closure-expiration facts in bounded pages and request each affected project, organization and global assessment under ordinary eligibility. Every page's head requests and calculation jobs SHALL commit or roll back together. Retries MAY repeat requests but SHALL NOT miss workers, duplicate scored expirations or erase newer repair/settings requests. An identical completed-project retry SHALL NOT terminalize attempts again, change the cutoff or reset unfinished discovery.
+
+The existing native Project SHALL retain one internal non-null `completion_refresh_pending` boolean, initially false, with no public field or customer mutation. Completion SHALL set it with the discovery job; enqueue failure SHALL roll back closure and its marker. Discovery SHALL clear it only after every required scope request/job is durable. Failure, cancellation or exhausted retries SHALL leave it true; job absence or later Project archival SHALL NOT clear it or remove the retained closure batch. An already-cleared discovery retry SHALL require no repeated fan-out. No separate closure ledger or page-progress resource SHALL be added.
+
+Capture and authorized freshness reads SHALL consult relevant pending Projects through native worker participation, closure-expiration eligibility and scope, independently of individual head-sequence lag. Pending closure discovery SHALL require a full current-snapshot calculation rather than reusing a base whose unchanged head sequence could conceal newly terminalized expirations. A calculation MAY already include these outcomes before discovery requests it; later requests SHALL use current native facts without counting them again. Clearing the marker SHALL leave no interval without either discovery pending or its durable head requests indicating unfinished updates. Existing completed assessments SHALL remain usable throughout, with ordinary authority and bounded global disclosure unchanged.
+
+Completion SHALL leave successfully submitted attempts and answers intact even when that worker has other tasks unfinished. Saved answers from unfinished attempts SHALL remain unsubmitted drafts, without automatic submission, inferred skips, review acceptance, answer-quality/experience credit or result/export inclusion. A closed project's unfinished attempts SHALL no longer permit answer editing or submission under the existing collection contract. Project closure SHALL NOT make a Task reach its frozen submission target, reduce peer coverage requirements or turn preliminary comparisons into scored peer evidence.
+
+#### Scenario: A large project closes with overdue work
+- **WHEN** staff complete a Project with many live eligible overdue attempts
+- **THEN** closure commits native terminal outcomes and one durable discovery request without waiting for individual worker heads/jobs, and background pages request their affected scopes using original deadlines
+
+#### Scenario: Staff close before a worker's deadline
+- **WHEN** staff complete a Project while a worker's unfinished attempt is still within its lease
+- **THEN** that attempt becomes cancelled with no reliability failure; saved draft answers remain stored but unsubmitted and excluded from results, exports, answer quality and experience
+
+#### Scenario: Submitted and unfinished tasks coexist
+- **WHEN** a worker submitted Task A but only saved some answers in Task B before staff complete the Project
+- **THEN** A's submission retains its ordinary result/review and reputation eligibility, B's saved answers remain unsubmitted drafts, and only B's eligible overdue expiration could add reliability evidence
+
+#### Scenario: Closure discovery has not visited a worker
+- **WHEN** Project completion has committed eligible expirations but discovery has not advanced that worker's affected heads
+- **THEN** authorized freshness includes pending closure discovery, and a calculation cannot reuse the unchanged base as proof that those expirations are already covered
+
+#### Scenario: Closure discovery retries a committed page
+- **WHEN** discovery committed some worker pages and then failed or exhausted retries
+- **THEN** the Project marker remains true and retry can revisit pages and finish remaining scope requests without losing newer guards or duplicating scored outcomes
+
+#### Scenario: Closure job insertion fails
+- **WHEN** required discovery-job insertion fails during completion
+- **THEN** Project completion, bulk terminalization and its discovery marker roll back together
+
+#### Scenario: Archival follows closure while discovery is unfinished
+- **WHEN** staff archive a completed Project before expiration discovery finishes
+- **THEN** its marker and retained completion batch remain available and discovery still schedules required reputation updates
+
+#### Scenario: Discovery finishes before calculations publish
+- **WHEN** all affected scope requests/jobs are durable and discovery clears the Project marker
+- **THEN** ordinary head-sequence lag continues to show unfinished calculations, completed inputs remain usable and a finished discovery retry does no fan-out
+
 ### Requirement: Lifetime and EWMA preserve distinct performance views
 Each completed project, organization and global assessment SHALL provide separate lifetime and observation-based EWMA views of known-answer correctness, substantive human review, peer agreement, combined answer quality, and completion reliability. Both views SHALL use the same scoped eligible source observations, effective signal selection, matching/comparison rules and calculation cutoff. Lifetime SHALL weight every eligible observation equally. EWMA SHALL give progressively less weight to older observations; no hard count cap, elapsed-time cutoff, or blend of the two views SHALL apply. Experience SHALL remain a separate all-history answered-question count without decay.
 
