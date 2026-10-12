@@ -1234,6 +1234,10 @@ The submission that first makes a Task reach its frozen submission target SHALL 
 
 Until all affected scope requests are durable, incomplete discovery SHALL remain durably discoverable and SHALL contribute to scoped pending-refresh metadata independently of head-sequence lag. A calculation SHALL NOT reuse a completed peer contribution as current merely because that worker's discovery request has not yet advanced its head. A full capture MAY already include newly completed peer groups before discovery reaches that worker; the later request SHALL NOT append them a second time. Discovery completion SHALL mean scope requests are durable, not that all replacement assessments have published. Existing completed assessments SHALL remain usable throughout. This deferral SHALL NOT weaken immediate repair invalidation for key/review/return changes, settings or reinstatement.
 
+The existing native Task SHALL retain one internal non-null `peer_refresh_pending` boolean, initially false. Its target-reaching submission SHALL set the flag and persist its discovery job atomically; failure to persist discovery work SHALL roll back that source change and flag. Discovery SHALL clear the flag only after all affected scope requests and their calculation jobs are durable. Failure, cancellation, or exhausted job retries SHALL leave it true; queue retention or job absence SHALL NOT clear it. Retrying completed discovery with the flag already false SHALL require no repeated fan-out. The flag SHALL express incomplete scope-request coverage rather than calculation completion, create no separate progress resource, and expose no public GraphQL field or worker/organization mutation.
+
+Calculation capture SHALL check relevant pending Tasks in the same consistent snapshot as its head, settings and evidence, scoped by native worker participation and peer-source eligibility. A pending Task that may supply new peer inputs SHALL require a full current-snapshot calculation rather than incremental reuse of previously completed peer inputs. Authorized freshness reads SHALL include relevant incomplete discovery until those requests are durable; subsequent head-sequence lag SHALL then describe unfinished calculation. Clearing the flag SHALL NOT create an interval where neither discovery nor its resulting head requests indicate pending work. Existing scope authority and bounded global disclosure SHALL apply before consulting this protected freshness input.
+
 #### Scenario: The last worker completes a large Task
 - **WHEN** the final submission completes a Task shared by three hundred workers
 - **THEN** submission commits its own source changes and durable Task discovery work without requiring the request to initialize, advance and enqueue every other worker's scope heads
@@ -1250,6 +1254,18 @@ Until all affected scope requests are durable, incomplete discovery SHALL remain
 #### Scenario: A full calculation sees a Task before discovery requests it
 - **WHEN** a full calculation includes a newly completed Task and its delayed discovery request arrives afterward
 - **THEN** the subsequent calculation resolves current native evidence without adding the already-included group as a second peer observation
+
+#### Scenario: Persisting discovery work fails with the final submission
+- **WHEN** a target-reaching submission cannot persist its required discovery job
+- **THEN** terminal submission and the Task flag roll back together without committed undiscoverable peer evidence
+
+#### Scenario: Discovery fails before every worker has a durable request
+- **WHEN** discovery fails or exhausts retries after committing only some worker pages
+- **THEN** the Task flag stays true, affected authorized reads retain pending metadata and calculations cannot mistake undiscovered peer evidence for an unchanged completed population
+
+#### Scenario: Discovery finished but calculations are still queued
+- **WHEN** all affected scope requests and jobs are durable and discovery clears the Task flag while some replacement assessments remain queued
+- **THEN** head-sequence lag still indicates their pending calculation, and retrying that already-finished discovery does not repeat fan-out
 
 ### Requirement: Lifetime and EWMA preserve distinct performance views
 Each completed project, organization and global assessment SHALL provide separate lifetime and observation-based EWMA views of known-answer correctness, substantive human review, peer agreement, combined answer quality, and completion reliability. Both views SHALL use the same scoped eligible source observations, effective signal selection, matching/comparison rules and calculation cutoff. Lifetime SHALL weight every eligible observation equally. EWMA SHALL give progressively less weight to older observations; no hard count cap, elapsed-time cutoff, or blend of the two views SHALL apply. Experience SHALL remain a separate all-history answered-question count without decay.
