@@ -25,10 +25,12 @@ Channel both "measure twice, cut once" and "yagni". Fight scope creep. Try to ho
 - Preserve the single global `User` model. Organization membership is relational and optional;
   all sessions still require an account.
 - Keep authorization fail-closed and explicitly scoped to an organization.
-- Keep management, authoring and review staff separate from workers within each organization.
-  Ordinary membership alone may still qualify an internal worker, and the same global User
-  may be staff in one organization and a worker in another. Preserve retained work ownership
-  and self-review exclusions when permissions change; add no separate global account type.
+- Users with current management, authoring, review or assignment authority in any
+  organization cannot work in any organization. Use one shared Ash `NotStaff` policy
+  check derived from effective grants; check the target worker on direct assignment.
+  Ordinary membership alone may still qualify an internal worker. Keep staff access
+  organization-scoped, preserve retained work ownership and self-review exclusions
+  when permissions change, and add no separate global account type or persona lifecycle.
 - Run `mise run verify` before merging changes.
 - Channel YAGNI when writing code. A simpler solution is always better.
 - If Elixir, Ash, or another library has a built-in way to accomplish something, use that rather than hand-rolling a solution.

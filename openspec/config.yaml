@@ -19,6 +19,10 @@ context: |
   every session requires an active account. Organization management requires an active
   membership; task workers may also qualify through a project's explicit external audience
   route. Authorization must remain fail-closed and explicitly scoped to an organization.
+  Users with effective management, authoring, review or assignment authority in any
+  organization cannot work in any organization. Enforce this through one shared Ash
+  NotStaff check, including the target worker on direct assignment, without a separate
+  account type. Ordinary membership alone remains compatible with internal work.
 
   Prefer Ash resources, actions, changes, validations, policies, relationships, and
   generators over direct Ecto implementation. GraphQL is the only application API;

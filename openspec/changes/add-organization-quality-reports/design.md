@@ -12,7 +12,7 @@ See [proposal.md](proposal.md) for motivation and [the reporting spec](specs/org
 
 ### Extend existing scoped read actions
 
-Use Ash read actions and typed GraphQL results in the owning project/reputation reporting paths. Reuse current authority helpers: `projects.manage` for explicit key-design reads; `tasks.review` for answer diagnostics. Authorize before protected capture and recheck current authority before returning results. Do not broaden general source policies to make the joins work. Native organization/project filtering and pinned-contract relationships supply the data; no direct Ecto boundary is justified.
+Use Ash read actions and typed GraphQL results in the owning project/reputation reporting paths. Reuse current authority helpers: `projects.manage` for explicit key-design reads; `tasks.review` for answer diagnostics. Authorize before protected capture. Once the evidence transaction closes, perform a fresh current-authority check through Ash outside that snapshot before returning protected results. Rechecking inside `REPEATABLE READ` would miss a revocation committed after the snapshot began. Deny disclosure on lost authority or a failed check; this final authority read neither changes the captured evidence nor requires another evidence capture. Do not broaden general source policies to make the joins work. Native organization/project filtering and pinned-contract relationships supply the data; no direct Ecto boundary is justified.
 
 Alternative considered: a separately persisted reporting domain. These values are derived on demand and need no independent lifecycle or ownership records.
 

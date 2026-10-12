@@ -146,18 +146,31 @@ Public allocation outcomes and retained decision-history disclosure SHALL obey t
 ## ADDED Requirements
 
 ### Requirement: Organization staff and worker participation remain separate
-Organization users with management, authoring or review authority SHALL NOT also participate as workers in that same organization. Shared worker eligibility SHALL enforce this separation for self-service fetch and direct assignment before reputation preparation or new issuance. Organization-member audiences, open external access and explicit worker allow entries SHALL NOT bypass it. Organization membership alone SHALL NOT designate a user as staff or exclude an ordinary internal worker. The single global User model SHALL remain unchanged; staff authority in one organization SHALL NOT prevent otherwise eligible work in another.
+Users with effective management, authoring, review or assignment authority in any organization SHALL NOT participate as workers in any organization. One shared current-authority check SHALL enforce this exclusion before reputation preparation or issuance and on subsequent worker operations: protected worker reads, start, answer save, submission and committed-allocation retries. Self-service actions SHALL check the actor; direct assignment SHALL check the target worker while independently authorizing its staff caller with scoped `tasks.assign`. Organization-member audiences, open external access and explicit worker allow entries SHALL NOT bypass the exclusion. Organization membership alone SHALL NOT designate a user as staff or exclude an ordinary internal worker. The single global User model SHALL remain unchanged, and global worker exclusion SHALL grant no cross-organization staff authority.
 
-Permission changes SHALL preserve the separation without erasing retained worker identities, attempts, responses, assessments or decisions. Existing self-review exclusions and the distinct reinstating-actor check SHALL remain effective for decisions about historical work. Staff/worker separation SHALL NOT become a reputation score, configurable signal, reinstatement exemption or new account/persona lifecycle.
+Every worker operation SHALL evaluate current effective authority, including after existing authorization waits. After a staff grant commits, subsequent worker operations on an already-issued attempt SHALL be denied even when the grant belongs to another organization. The retained owner SHALL still be able to release the attempt through a cleanup-only path without protected work content, answer editing/submission or quality/experience credit; the ordinary return-classification contract SHALL remain effective. Permission changes SHALL NOT erase retained worker identities, attempts, responses, assessments or decisions, or retroactively change submitted-answer grading. Existing self-review exclusions and the distinct reinstating-actor check SHALL remain effective for decisions about historical work. Staff/worker separation SHALL NOT become a reputation score, configurable signal, reinstatement exemption, grant-rejection/cancellation lifecycle or new account/persona lifecycle.
 
 #### Scenario: Staff cannot use another audience route
-- **WHEN** a user with management, authoring or review authority in the owning organization requests or is assigned its work through an organization-member, open-external or explicitly allowed route
+- **WHEN** a user with management, authoring, review or assignment authority in any organization requests or is assigned work through an organization-member, open-external or explicitly allowed route
 - **THEN** shared eligibility denies worker participation before reputation preparation or issuance, without treating staff authority as worker consent or an audience exception
 
 #### Scenario: Membership alone permits internal work
-- **WHEN** an active organization member has no management, authoring or review authority there and otherwise satisfies its worker audience and admission requirements
+- **WHEN** an active organization member has no effective staff authority in any organization and otherwise satisfies its worker audience and admission requirements
 - **THEN** membership remains a valid internal-worker route rather than making that user staff
 
-#### Scenario: One account has different roles in different organizations
+#### Scenario: Staff authority elsewhere excludes worker participation
 - **WHEN** the same active global User has staff authority in organization A and otherwise qualifies as a worker in organization B without staff authority there
-- **THEN** A excludes that user from its worker pool while B evaluates its ordinary worker eligibility and reputation without creating another identity
+- **THEN** worker participation is denied in both organizations without creating another identity or granting staff access to B
+
+#### Scenario: A staff caller assigns a nonstaff worker
+- **WHEN** an authorized staff caller with `tasks.assign` assigns an otherwise eligible nonstaff worker
+- **THEN** the target's shared nonstaff check passes and ordinary assignment/admission checks apply; the caller's staff status does not prohibit assigning someone else
+
+#### Scenario: Assignment authority does not permit self-assignment
+- **WHEN** a caller has only `tasks.assign` as staff authority and attempts to assign themselves as worker
+- **THEN** the target-worker check denies issuance without preparing reputation, even through an open-external or explicitly allowed audience
+
+#### Scenario: A live worker gains staff authority
+- **WHEN** a worker holds a live attempt in organization B and is granted staff authority in organization A
+- **THEN** subsequent protected worker reads, start, answer save, submission and allocation replay are denied; retained work remains owned by that user and earlier submitted grading remains unchanged
+- **AND** the owner can release the attempt through cleanup without receiving protected work content or editing/submitting answers, under ordinary return-classification rules
