@@ -1229,6 +1229,33 @@ Each recalculation SHALL use a new consistent snapshot of currently committed so
 - **WHEN** an incremental candidate extended one completed assessment but another calculation publishes before it acquires the publication mutex
 - **THEN** it skips if the current result already covers its request or prepares again from current inputs, without adding its delta onto the different completed base
 
+### Requirement: Calculations process complete evidence without materializing complete answer populations
+Reputation calculations and exact-question diagnostics SHALL process native answer and outcome inputs in bounded pages within their one coherent read snapshot. This SHALL cover known-answer correctness, substantive human review, reliability, peer agreement, full rebuilds and proven append batches. Experience and equivalent informational counts SHALL use native aggregates where their eligibility is database-expressible. Page boundaries SHALL NOT truncate evidence, change denominators, reset lifetime/EWMA accumulators, consume extra decay positions, alter original chronological ordering or change selected-rule reinstatement samples. Derived quality and evidence states SHALL use the finished eligible per-signal results.
+
+A single peer group SHALL also use bounded answer reads rather than materialize every peer answer. Its exact result SHALL use all eligible distinct other-worker answers under the existing typed equality, median, tolerance, coverage and consensus rules. Matching-dependent eligibility SHALL precede each observation's fold. Every page, required relationship load, numeric population count/middle-value read and repeated consensus/concentration pass SHALL use the same captured snapshot and effective settings; separate page transactions or a fixed event-time cutoff alone SHALL NOT establish snapshot consistency. Complete source reads and reduction SHALL finish before that snapshot closes. Failed or incomplete processing SHALL publish no partial assessment or return partial diagnostic counts as a complete report.
+
+This requirement bounds loaded answer populations, not the total size of retained source/revision provenance, compact coverage identities or an individual answer. It SHALL NOT introduce another answer store, evidence ledger or historical approximation. Bounded processing SHALL preserve existing metric timing: Task completion and peer/warning coverage gates SHALL NOT delay independent eligible known-answer, human-review, reliability or experience facts until the requested response count is reached.
+
+#### Scenario: A full history spans several answer pages
+- **WHEN** the same scoped history is rebuilt with different bounded page sizes, including timestamp ties and excluded observations crossing a page boundary
+- **THEN** lifetime/EWMA metrics, raw/effective counts, informational coverage, post-reinstatement results and access outcomes are equivalent, without loading the complete answer history
+
+#### Scenario: One question has more peers than a page permits
+- **WHEN** an eligible peer group is larger than the configured answer page size
+- **THEN** bounded processing yields the same coverage, consensus and single worker grade as evaluating its entire eligible peer population, including odd/even numeric medians, self-exclusion and groups without consensus
+
+#### Scenario: Evidence changes between answer pages
+- **WHEN** a submission or key/review/return change commits after a paged calculation established its read snapshot
+- **THEN** every remaining page and repeated pass uses the originally captured population and inputs, with later publication subject to the ordinary source-frontier and repair guards
+
+#### Scenario: A diagnostic scan stops before the final page
+- **WHEN** a source read or matcher fails partway through an exact-question diagnostic
+- **THEN** no partial counts are returned as a complete report, and a subsequent request captures and calculates its own consistent snapshot
+
+#### Scenario: An incomplete Task supplies independent quality evidence
+- **WHEN** a worker successfully submits an evaluable known-answer response before the Task reaches its frozen target
+- **THEN** correctness and experience can refresh under their ordinary eligibility rules, while peer scoring and low reference-match warnings still wait for their own completion and coverage conditions
+
 ### Requirement: Completed peer discovery runs outside submission fan-out
 The submission that first makes a Task reach its frozen submission target SHALL durably request Task-linked peer discovery in the same transaction. It SHALL request the submitting worker's ordinary affected scope calculations without synchronously expanding every other worker's heads and jobs. Discovery SHALL enumerate distinct submitted workers from the completed Task in bounded pages after commit and durably request each affected project, organization and global assessment from current native evidence. Every page's head requests and corresponding calculation jobs SHALL commit or roll back together. A committed terminal-submission retry SHALL NOT create another source change; discovery retries MAY repeat refresh requests but SHALL NOT miss workers or duplicate scored observations. Review-only changes SHALL NOT trigger peer fan-out.
 
