@@ -36,6 +36,14 @@ Attempts SHALL transition from claimed/assigned to in-progress on start or first
 
 ## ADDED Requirements
 
+### Requirement: Worker participation requires no separate claim confirmation
+Task participation SHALL mean one worker's allocation, drafts and terminal outcome for one shared Task. References to the existing Attempt resource identify current integration code, not a second business entity or a requirement for legacy naming aliases. Self-service fetch SHALL return usable work without requiring workers to separately confirm a claim and then confirm start. First save SHALL continue to start participation implicitly, and explicit start SHALL remain optional for that self-service flow. Direct assignment SHALL retain the distinction between issued work and deliberate worker participation. One worker need not complete every Task in the Project; existing per-Task uniqueness and whole-form submission requirements remain effective pending the separate allocation/work-unit discussion.
+
+#### Scenario: A worker starts the next available work unit
+- **WHEN** the worker requests work and begins answering its returned bundle
+- **THEN** allocation and ordinary first-save behavior provide participation without another required claim/start confirmation
+
+
 ### Requirement: Worker returns capture reasons without waiting for classification
 An authorized worker's release operation SHALL retain the supplied return reason with the released attempt in the same transaction, preserving current owner authorization, lock, lease, terminal-state, and capacity rules. Review of the reason SHALL NOT delay release or keep task capacity reserved. An actual released attempt SHALL be a returned-work observation; a release attempted after the lease deadline SHALL retain the ordinary expired outcome rather than become a second returned observation. A repeated release SHALL preserve the original reason and outcome without duplicating evidence or rewriting a terminal attempt. Return classification SHALL be a separate authorized organization-review operation and SHALL NOT replace ordinary task-answer review or reopen collection.
 
