@@ -20,32 +20,25 @@ Self-service allocation SHALL use the authenticated active global User and expli
 - **THEN** new issuance stops in that project while otherwise authorized bundle reads, saves, submission, and receipt access continue under their existing lifecycle and lease rules
 
 ### Requirement: Leases and allocation retries are durable
-Attempts SHALL transition from claimed/assigned to in-progress on start or first save, and from a live state to submitted, expired, released, or cancelled. Terminal attempts SHALL never revive. Lease deadlines SHALL use server time, remain fixed after issuance, and be enforced after lock waits whether cleanup has run or not. Every fetch and assignment SHALL require a caller-supplied UUID request key. Invalid UUID input SHALL fail normal argument validation before selecting work or persisting collection changes. A successful allocation SHALL durably associate the validated request key with project, requesting actor, operation, and worker. An identical retry SHALL return the same attempt's current authorized result without a new lease; changed arguments with the same key SHALL conflict. Replaying an existing allocation SHALL apply current access authorization for that issued attempt, not the reputation admission gate for new work. A no-allocation result SHALL not be required to consume a key.
+TaskParticipations SHALL use states active, submitted, returned, expired and cancelled. Start or first save SHALL set started_at without changing active state; only a deliberate worker action SHALL establish start for a direct assignment. A live participation SHALL mean active with an unexpired fixed deadline. Terminal participations SHALL never revive. The database deadline SHALL remain authoritative without a per-participation expiration job, a separate Lease entity or an in-memory reservation service. Deadline expiry alone SHALL NOT establish worker fault or a reputation failure. Lease deadlines SHALL use server time, remain fixed after issuance, and be enforced after lock waits whether cleanup has run or not. Every fetch and assignment SHALL require a caller-supplied UUID request key. Invalid UUID input SHALL fail normal argument validation before selecting work or persisting collection changes. A successful allocation SHALL durably associate the validated request key with project, requesting actor, operation, and worker. An identical retry SHALL return the same participation's current authorized result without a new lease; changed arguments with the same key SHALL conflict. Replaying an existing allocation SHALL apply current access authorization for that issued participation, not reputation admission for new work. A no-allocation result SHALL not be required to consume a key.
 
 #### Scenario: A response is lost after allocation commits
 - **WHEN** the caller retries the same allocation key and arguments
-- **THEN** it receives the original attempt without creating another or extending its deadline
+- **THEN** it receives the original participation without creating another or extending its deadline
 
 #### Scenario: Expiration cleanup is delayed
-- **WHEN** an attempt deadline has passed but its expiration job has not run
-- **THEN** work reads/saves/submission are denied and candidate-task allocation records its expiry and frees its live capacity before deciding whether to issue another attempt
+- **WHEN** a participation deadline has passed but its expired state has not yet been recorded
+- **THEN** work reads/saves/submission are denied and candidate-task allocation records its expiry and frees its live capacity before deciding whether to issue another participation
 
 #### Scenario: A suspension follows a lost allocation response
-- **WHEN** issuance commits, its response is lost, and a reputation-only suspension is recorded before an identical retry
-- **THEN** the retry returns the original currently authorized result without a new attempt or lease, while a fresh allocation request is denied new issuance
+- **WHEN** issuance commits, its response is lost, and completed reputation becomes failing before an identical retry
+- **THEN** retry returns the original currently authorized result without another participation/deadline, while a fresh allocation evaluates current admission
+
 
 ## ADDED Requirements
 
-### Requirement: Worker participation requires no separate claim confirmation
-Task participation SHALL mean one worker's allocation, drafts and terminal outcome for one shared Task. References to the existing Attempt resource identify current integration code, not a second business entity or a requirement for legacy naming aliases. Self-service fetch SHALL return usable work without requiring workers to separately confirm a claim and then confirm start. First save SHALL continue to start participation implicitly, and explicit start SHALL remain optional for that self-service flow. Direct assignment SHALL retain the distinction between issued work and deliberate worker participation. One worker need not complete every Task in the Project; existing per-Task uniqueness and whole-form submission requirements remain effective pending the separate allocation/work-unit discussion.
-
-#### Scenario: A worker starts the next available work unit
-- **WHEN** the worker requests work and begins answering its returned bundle
-- **THEN** allocation and ordinary first-save behavior provide participation without another required claim/start confirmation
-
-
 ### Requirement: Worker returns capture reasons without waiting for classification
-An authorized worker's release operation SHALL retain the supplied return reason with the released attempt in the same transaction, preserving current owner authorization, lock, lease, terminal-state, and capacity rules. Review of the reason SHALL NOT delay release or keep task capacity reserved. An actual released attempt SHALL be a returned-work observation; a release attempted after the lease deadline SHALL retain the ordinary expired outcome rather than become a second returned observation. A repeated release SHALL preserve the original reason and outcome without duplicating evidence or rewriting a terminal attempt. Return classification SHALL be a separate authorized organization-review operation and SHALL NOT replace ordinary task-answer review or reopen collection.
+An authorized worker's release operation SHALL retain the supplied return reason with the returned participation in the same transaction, preserving current owner authorization, lock, lease, terminal-state, and capacity rules. Review of the reason SHALL NOT delay release or keep task capacity reserved. An actual returned participation SHALL be a returned-work observation; a release attempted after the lease deadline SHALL retain the ordinary expired outcome rather than become a second returned observation. A repeated release SHALL preserve the original reason and outcome without duplicating evidence or rewriting a terminal attempt. Return classification SHALL be a separate authorized organization-review operation and SHALL NOT replace ordinary task-answer review or reopen collection.
 
 For a new return, the worker SHALL explicitly select one main `reason_code` from the shared application-defined choices below; no reason SHALL be preselected. Selecting `other` SHALL expose a required nonblank `other_reason` text field. Other choices SHALL NOT accept `other_reason`. A separate optional `comment` field SHALL be available for every choice, including Other. Each text field SHALL accept at most one thousand characters independently, not a shared combined limit. An omitted or blank comment SHALL be valid. The selected code, custom reason if present, and comment SHALL remain distinct retained worker-provided source fields, separate from a reviewer's classification and decision reason.
 
@@ -58,7 +51,7 @@ For a new return, the worker SHALL explicitly select one main `reason_code` from
 | `work_preference` | Prefer different work. |
 | `other` | Other. |
 
-A live unexpired release SHALL validate this input and persist it atomically with the actual released outcome; invalid input SHALL NOT partially release the attempt or persist a reason. Successful release SHALL still free capacity immediately and start awaiting review. Choosing any preset or entering custom text SHALL NOT automatically excuse or penalize the return. Identical retries SHALL preserve the original selected code and both text fields without duplicating a return; a terminal retry SHALL NOT replace those fields with later input.
+A live unexpired release SHALL validate this input and persist it atomically with the actual returned outcome; invalid input SHALL NOT partially release the attempt or persist a reason. Successful release SHALL still free capacity immediately and start awaiting review. Choosing any preset or entering custom text SHALL NOT automatically excuse or penalize the return. Identical retries SHALL preserve the original selected code and both text fields without duplicating a return; a terminal retry SHALL NOT replace those fields with later input.
 
 #### Scenario: A preset return includes optional details
 - **WHEN** an authorized worker selects `input_problem`, provides a comment describing the broken image, and releases a live unexpired attempt without Other text
@@ -66,7 +59,7 @@ A live unexpired release SHALL validate this input and persist it atomically wit
 
 #### Scenario: Other retains its reason separately from comments
 - **WHEN** an authorized worker selects `other` with nonblank custom reason text and an optional additional comment
-- **THEN** the released attempt retains the code, custom reason, and comment as separate source fields without assigning an automatic excused/unexcused classification
+- **THEN** the returned participation retains the code, custom reason, and comment as separate source fields without assigning an automatic excused/unexcused classification
 
 #### Scenario: Invalid reason input cannot partially release work
 - **WHEN** a live unexpired release omits the selected code, supplies an unknown/multiple choice, selects Other with missing/blank custom text, supplies Other text for a preset, or exceeds one thousand characters in either text field
@@ -81,7 +74,7 @@ A live unexpired release SHALL validate this input and persist it atomically wit
 - **THEN** the return remains awaiting review with its selected reason visible, and contributes no reliability failure until an authorized reviewer establishes an unexcused classification
 
 #### Scenario: Release retry preserves worker-provided fields
-- **WHEN** the already-released attempt is retried with the original payload or later input
+- **WHEN** the already-returned participation is retried with the original payload or later input
 - **THEN** its original code, Other text, comment, and terminal outcome remain unchanged without another return observation
 
 #### Scenario: A return needs investigation

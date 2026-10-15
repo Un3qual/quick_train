@@ -9,7 +9,7 @@ Operator setup and background maintenance were removed during early dataset/asse
 ## What Changes
 
 - Restore operator-only organization manager setup and explicit dataset/asset capability grants, using ordinary Ash actions where possible.
-- Restore bounded authentication retention, staging cleanup, expired-open-import cleanup, and recovery of pending rows whose Oban jobs are cancelled or discarded.
+- Restore bounded authentication retention, staging cleanup, expired-open-import cleanup, and recovery of pending rows in imports whose processing job is cancelled or discarded.
 - Revalidate storage guarantees, retention intervals, schedules, schema metadata, and concurrency tests against the implementation at that time.
 
 ## Capabilities

@@ -91,3 +91,8 @@ Reported counts SHALL use ordinary numeric GraphQL Int in the initial API, with 
 #### Scenario: A report spans several pages
 - **WHEN** the authorized project has more question groups or categorical pairs than one page permits
 - **THEN** the response returns a bounded page with counts for each stated full group, without truncating the underlying evaluated sample to that page
+
+#### Scenario: Early key concerns remain preliminary
+- **WHEN** an authorized reviewer follows an exact-question diagnostic before its Task reaches the requested submission target
+- **THEN** the shared diagnostic may show a clearly labeled preliminary low reference-match warning under the reputation contract, with evaluated/requested counts and captured key/cutoff
+- **AND** no report job or scored peer observation is created, and completed-sample warnings retain their independent completion/coverage requirement

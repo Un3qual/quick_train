@@ -29,7 +29,7 @@ The system SHALL lock and recheck imports before deleting expired open imports a
 - **THEN** cleanup preserves the sealed import and all provenance
 
 ### Requirement: Terminal jobs cannot strand import progress
-The system SHALL recover pending rows for discarded or cancelled import-row jobs through a durable callback or a bounded exact-worker reconciler. It SHALL atomically record sanitized failure under the row lock without creating a revision, skip terminal rows, drain backlogs without starvation, and preserve job evidence until recovery.
+The system SHALL recover pending rows for discarded or cancelled import processing jobs, scoped by immutable import identity through a durable callback or a bounded exact-worker reconciler, paging the affected import's pending rows. It SHALL atomically record sanitized failure under the row lock without creating a revision, skip terminal rows, drain backlogs without starvation, and preserve job evidence until recovery.
 
 #### Scenario: Terminal jobs exceed one recovery page
 - **WHEN** a backlog includes both already-terminal rows and pending rows
