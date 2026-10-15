@@ -1229,7 +1229,7 @@ Worker refresh requests SHALL use the same Repo transaction as their head change
 
 A newly required job SHALL initially be scheduled five seconds after the request. This SHALL be an application-owned starting delay without a customer setting or a promise of completion within five seconds. Reusing a waiting job SHALL preserve its original scheduled time. Each worker job SHALL carry only worker identity and resolve currently requested scopes/counters from existing heads after claim; a stale scope/sequence argument list SHALL NOT limit its coverage.
 
-Reusing a candidate SHALL require locking and rereading its persisted queue row on that same transaction connection, confirming it is still this worker's refresh job in `scheduled` or `available` state, and retaining the lock through commit. This SHALL order claim/evidence capture after the committed request. An executing, retryable, suspended or terminal candidate SHALL NOT substitute for future execution. A missing persisted ID, deleted candidate, changed identity or non-waiting state SHALL require a new persisted job rather than an assumption of coverage. Uniqueness/conflict results alone SHALL NOT establish coverage. Actual insertion/database failure SHALL roll back the request transaction. Ordinary durable fallback insertion MAY create duplicates; early coverage checks and guarded publication SHALL preserve correctness without a new coordinator or coverage resource.
+The helper SHALL find and lock at most one persisted waiting queue row in one query on that same transaction connection, using `FOR UPDATE SKIP LOCKED` and filtering by refresh worker module, target worker identity and state in `scheduled` or `available`. A found row SHALL be reused with its lock held through commit, ordering claim/evidence capture after the committed request. If no row is found, the helper SHALL insert a new persisted job through ordinary Oban insertion with uniqueness disabled. It SHALL require no separate uniqueness lookup or candidate recheck. Actual insertion/database failure SHALL roll back the request transaction. Concurrent lookups MAY skip locked waiting rows or see no committed row and insert duplicates; early coverage checks and guarded publication SHALL preserve correctness without a new coordinator or coverage resource.
 
 A request arriving after capture, after an early no-op or during completion SHALL own its future execution coverage, including newly requested scopes. Job completion SHALL use ordinary publication/Oban completion or retry without a separate finish-time discovery/enqueue loop. Ordinary worker retries SHALL preserve pending intent and immutable completed values; a retry after successful publication SHALL skip already-covered calculation. These rules SHALL NOT alter scoped authorization, discovery markers, score/evidence semantics, synchronous first-assessment preparation or continued use of completed inputs.
 
@@ -1241,13 +1241,13 @@ A request arriving after capture, after an early no-op or during completion SHAL
 - **WHEN** a request locks and confirms a waiting refresh before Oban can claim it
 - **THEN** that job cannot be claimed until the request's source/head changes commit, and its capture can observe the committed request
 
-#### Scenario: Oban claims the candidate first
-- **WHEN** a candidate starts before a new request obtains its reuse lock
-- **THEN** the fresh recheck rejects that candidate for reuse and the request persists a future job before commit, even if the executing job has already captured older inputs
+#### Scenario: Oban claims the waiting job first
+- **WHEN** Oban locks or starts a waiting job before a new request's lookup can lock it
+- **THEN** the lookup skips the locked row or excludes its executing state and the request reuses another waiting job or persists a new job before commit, even if the executing job has already captured older inputs
 
-#### Scenario: Deduplication does not confirm a waiting job
-- **WHEN** insertion returns no persisted ID or the locked candidate is missing, belongs to a different worker/job, or is executing, retryable, suspended or terminal
-- **THEN** the helper requires a newly persisted job and may accept a harmless duplicate rather than commit uncovered intent
+#### Scenario: No reusable waiting job is found
+- **WHEN** the lookup finds no unlocked row matching this worker, refresh module and waiting states, including when concurrent requests see no committed job or another transaction holds the only matching row lock
+- **THEN** the helper persists a new job and accepts any harmless duplicate rather than commit uncovered intent
 
 #### Scenario: A future job cannot be persisted
 - **WHEN** a source/request transaction cannot safely reuse a waiting job and the new job insertion fails
