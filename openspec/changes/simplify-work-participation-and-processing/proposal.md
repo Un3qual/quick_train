@@ -10,7 +10,7 @@ Workers should receive a small, usable work unit in one step. Durable task reser
 - Derive automatic acceptance from submitted answers and frozen review mode. Store only explicit human review decisions, preserving attributable corrections and conflict checks.
 - Process a sealed dataset import with one durable job that pages pending rows and reuses each row's atomic transaction.
 - Remove the unused asset-verification worker. Retain result-export jobs and synchronous asset finalization.
-- Explain Project, Task and Question boundaries to organizations, including submission targets and allowed skips.
+- Explain Project, Task and Question boundaries to organizations, including submission targets and allowed skips. Keep ordinary small-Task validation/submission atomic without per-question jobs/checkpoints; retain bulk-history and API pagination safeguards.
 
 Non-goals: runtime implementation during this planning pass, a payment system, per-question quotas, multiple-task prefetch, in-memory allocation authority, a lease service, generic batching infrastructure or production compatibility work.
 

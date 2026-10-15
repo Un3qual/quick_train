@@ -638,7 +638,7 @@ Revision/predecessor validation, current authorization, history and any required
 
 #### Scenario: Key repair precedes background discovery
 - **WHEN** a key correction commits and its discovery job has not yet visited an affected worker
-- **THEN** that worker's existing heads already report repair pending and reject publication or incremental reuse of prepared old-key inputs, while retaining the last completed assessment under ordinary admission rules
+- **THEN** that worker's existing heads already report repair pending and reject publication or reuse of prepared old-key inputs, while retaining the last completed assessment under ordinary admission rules
 
 #### Scenario: Repair discovery retries after a newer correction
 - **WHEN** an older revision's discovery page retries after a newer correction or submission advanced an affected head
@@ -1215,7 +1215,7 @@ Worker-initiated fetch SHALL evaluate its own global entry requirements without 
 ### Requirement: Recalculation is reproducible and safe to repeat
 Assessments SHALL be rebuildable from retained authoritative evidence and the applicable scoped configuration. Equivalent captured evidence and calculation inputs SHALL yield equivalent metrics and counts. Repeated calculation, submission retries, key corrections, and review retries SHALL NOT double-count evidence or duplicate restriction effects. Readers SHALL be able to distinguish a pending recalculation from an up-to-date calculation and identify the completed inputs used for each access evaluation. Repeated jobs SHALL preserve completed inputs until a replacement publishes; pending work SHALL NOT itself create or clear a restriction, and historical denials SHALL NOT override a fresh admission evaluation.
 
-Calculations MAY extend saved lifetime totals and EWMA accumulators only when the captured inputs prove the complete new eligible batch follows the saved original chronological order and the completed base remains valid. Such an incremental result SHALL represent the same complete scoped population and yield equivalent counts, rates, evidence states and access outcomes as a full calculation under those inputs. Job arrival order, an event-time cutoff or an increasing response identity alone SHALL NOT prove that no evidence was missed or already included. Missing update coverage, an older-positioned new observation, or changed grading/eligibility/configuration/reinstatement inputs SHALL use an exact rebuild of the affected worker/scope. Late peer/review evidence and corrections SHALL preserve the original answer time and identity rather than count as new later observations. Publication SHALL validate an incremental candidate's exact completed base as well as ordinary protection guards; a retry SHALL NOT apply the same batch twice or apply it to an unrelated newer base.
+The initial implementation SHALL rebuild each changed metric from its complete eligible native history under the captured inputs. Other completed metric values MAY be reused only when current captured inputs and protection guards prove they are unchanged. Late evidence and corrections SHALL preserve the original source time/identity and logical observation rather than count as new later work. Saved-prefix extension and its optimization-specific publication protocol SHALL remain outside this initial change; no source-batch coverage ledger or incremental calculation path SHALL be required.
 
 Each recalculation SHALL use a new consistent snapshot of currently committed source evidence and its captured calculation inputs. Original event-time cutoffs SHALL filter that snapshot rather than reconstruct which records were committed in an earlier database snapshot. Retained immutable completed assessment values, effective settings and provenance SHALL remain the audit record for their linked access decisions. Peer provenance SHALL reference the immutable completed task/question/input group and the assessed worker's submitted response, with captured settings and supporting counts; it SHALL NOT copy that group's complete peer-answer identity population into each worker assessment. Lifetime/EWMA views and rule-specific reinstatement results SHALL share their assessment's source references, retaining distinct cutoffs/results without duplicating the underlying evidence. Authorized inspection SHALL resolve retained native sources under existing privacy rules, not a new peer-manifest resource or historical-report replay service. Later source commits and calculations SHALL NOT rewrite those historical records.
 
@@ -1231,24 +1231,27 @@ Each recalculation SHALL use a new consistent snapshot of currently committed so
 - **WHEN** corrected evidence makes a required assessment stale before a worker fetches new work
 - **THEN** allocation evaluates the latest completed assessment inputs with applicable reinstatement and ordinary authorization while the repaired result is calculated
 
-#### Scenario: New observations extend a valid completed base
-- **WHEN** capture proves a complete new eligible batch follows every affected signal's saved original ordering and the completed base and protection inputs remain valid
-- **THEN** extending lifetime totals and EWMA accumulators yields equivalent metrics, counts, evidence states and access outcomes to a full calculation without rereading historical answer values
+#### Scenario: New observations refresh the complete changed history
+- **WHEN** a worker's changed metric is refreshed after new eligible source evidence commits
+- **THEN** the initial implementation rebuilds that metric from the captured complete eligible history, preserving its ordinary publication guards without an incremental prefix path
 
 #### Scenario: Peer evidence arrives behind newer observations
 - **WHEN** a Tuesday answer becomes eligible peer evidence on Friday after newer peer observations have already been assessed
 - **THEN** recalculation rebuilds the affected worker/scope with that answer in its original Tuesday position rather than appending it as Friday evidence or counting it twice
 
-#### Scenario: A saved append base is replaced before publication
-- **WHEN** an incremental candidate extended one completed assessment but another calculation publishes before it acquires the publication mutex
-- **THEN** it skips if the current result already covers its request or prepares again from current inputs, without adding its delta onto the different completed base
-
 ### Requirement: Calculations process complete evidence without materializing complete answer populations
-Reputation calculations and exact-question diagnostics SHALL process native answer and outcome inputs in bounded pages within their one coherent read snapshot. This SHALL cover known-answer correctness, substantive human review, reliability, peer agreement, full rebuilds and proven append batches. Experience and equivalent informational counts SHALL use native aggregates where their eligibility is database-expressible. Page boundaries SHALL NOT truncate evidence, change denominators, reset lifetime/EWMA accumulators, consume extra decay positions, alter original chronological ordering or change selected-rule reinstatement samples. Derived quality and evidence states SHALL use the finished eligible per-signal results.
+Reputation calculations and exact-question diagnostics SHALL process native answer and outcome inputs in bounded pages within their one coherent read snapshot. This SHALL cover known-answer correctness, substantive human review, reliability and peer agreement, including full rebuilds. Experience and equivalent informational counts SHALL use native aggregates where their eligibility is database-expressible. Page boundaries SHALL NOT truncate evidence, change denominators, reset lifetime/EWMA accumulators, consume extra decay positions, alter original chronological ordering or change selected-rule reinstatement samples. Derived quality and evidence states SHALL use the finished eligible per-signal results.
+
+These bulk-evidence requirements SHALL NOT require paging the small question-definition set and draft outcomes of one worker's Task. That Task MAY be loaded together and SHALL retain atomic validation/submission without per-question processing jobs, checkpoints or resumable submission states. Existing public pagination, source/typed-child bounds and scoped authorization SHALL remain effective. This exception SHALL NOT authorize loading a whole worker history or all workers' answers to a question as one Task bundle.
 
 A single peer group SHALL also use bounded answer reads rather than materialize every peer answer. Its exact result SHALL use all eligible distinct-worker group answers under the existing typed equality, median, tolerance, coverage and consensus rules. Matching-dependent eligibility SHALL precede each observation's fold. Every page, required relationship load, numeric population count/middle-value read and repeated consensus/concentration pass SHALL use the same captured snapshot and effective settings; separate page transactions or a fixed event-time cutoff alone SHALL NOT establish snapshot consistency. Complete source reads and reduction SHALL finish before that snapshot closes. Failed or incomplete processing SHALL publish no partial assessment or return partial diagnostic counts as a complete report.
 
 This requirement bounds loaded answer populations, not the total size of retained source/revision provenance, compact coverage identities or an individual answer. It SHALL NOT introduce another answer store, evidence ledger or historical approximation. Bounded processing SHALL preserve existing metric timing: Task completion and peer/warning coverage gates SHALL NOT delay independent eligible known-answer, human-review, reliability or experience facts until the requested response count is reached.
+
+#### Scenario: One worker submits a small Task
+- **WHEN** a worker submits a Task containing a few questions
+- **THEN** its question set and own draft outcomes may be loaded and validated together in one atomic submission without per-question processing jobs or intermediate submission states
+- **AND** ordinary reputation refresh remains separate, with bounded reads for any growing history or peer population
 
 #### Scenario: A full history spans several answer pages
 - **WHEN** the same scoped history is rebuilt with different bounded page sizes, including timestamp ties and excluded observations crossing a page boundary
