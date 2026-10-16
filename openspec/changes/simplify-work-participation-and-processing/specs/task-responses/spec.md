@@ -25,3 +25,10 @@ A single worker's small Task MAY load its question definitions and own draft out
 - **WHEN** a worker submits a Task with three answered questions
 - **THEN** all offered questions validate and freeze in one atomic submission without per-question processing jobs or intermediate submission states
 - **AND** a missing or invalid question still rejects the whole submission without publishing partial results
+
+### Requirement: Response writes are explicitly exposed
+GraphQL SHALL expose deliberate typed save/submit operations returning TaskParticipation with its revision and paginated typed outcomes. Outcomes SHALL identify their owning TaskParticipation; separate Response query roots SHALL not exist. GraphQL SHALL expose paginated typed outcome inspection; generic submitted-outcome/child update and delete mutations SHALL not exist. Responses SHALL satisfy the pinned published form constraints and existing HTTP request behavior. This change SHALL add no separate answer/reason/explanation byte limit, offered-question cap, span-count ceiling, or combined annotation budget. Invalid operations SHALL fail atomically and all collections SHALL follow existing Relay keyset pagination conventions.
+
+#### Scenario: A span answer violates its published contract
+- **WHEN** a draft replacement violates the pinned question's published annotation constraint
+- **THEN** the whole question write fails without replacing the previous draft answer
