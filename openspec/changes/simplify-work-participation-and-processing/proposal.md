@@ -25,6 +25,7 @@ None.
 - `task-allocation`: task-level reservations, reduced participation lifecycle and narrower worker-read locking.
 - `task-responses`: participation-owned drafts and saves without shared Task write locks.
 - `task-review`: implicit automatic acceptance with explicit human decisions and predecessors.
+- `task-results`: participation metadata and returned outcomes, with narrower worker bound-value/source-download authorization guards.
 - `dataset-imports`: one processing job per sealed import with bounded, retry-safe row processing.
 - `projects`: authoring guidance for independently completable Tasks and their Question bundles.
 

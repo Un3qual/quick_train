@@ -34,6 +34,8 @@ Use Ash actions/queries and the repository's existing database lock helpers. Kee
 
 Keeping the current broad helper everywhere would serialize independent workers on the same Task. Removing all locks would permit draft writes after submission or closure. Split helpers by the invariants each action protects and verify save-vs-submit/terminalization, closure, assignment and last-slot races before accepting the narrower path.
 
+Implement the [result/source contract delta](specs/task-results/spec.md) with this collection change, before reputation integration. Current [worker source reads](../../../lib/quick_train/tasks/access/read_actions.ex) still use the broad Attempt guard, and [audit evidence filters](../../../lib/quick_train/tasks/access/read_access.ex) still use released outcomes. Update these code paths, participation metadata and generated interfaces in tasks 1.1–1.4. The main task-results spec describes the existing implementation; synchronize this delta only after the replacement behavior is implemented and verified. Archived changes remain records of their earlier implementation, not queues for this follow-up work.
+
 ### Automatic acceptance is a default, human review is a fact
 
 Derive effective verdict from the latest explicit human decision; otherwise submitted answered outcomes in automatic mode are accepted and those in manual mode are pending. Skips are non-reviewable. Persist no system-origin ReviewDecision. Frozen review mode plus the immutable submission explains automatic acceptance; it is not substantive human-review quality evidence.
