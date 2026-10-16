@@ -1,8 +1,8 @@
 ## Why
 
-Image tasks need verified source facts and compliant media delivery, while ordinary task collection can ship without them. This change preserves the image-dependent portion split from `add-project-task-collection` and implements it after both core collection and the separately scoped detailed-media foundation are available.
+Image tasks need verified source facts and compliant media delivery, while ordinary task collection can ship without them. This change preserves the image-dependent portion split from `add-project-task-collection` and implements it after core collection, the [participation and processing simplification](../simplify-work-participation-and-processing/proposal.md), and the separately scoped detailed-media foundation are available.
 
-**Implementation status: blocked** until core collection is implemented/archived and the detailed-media/storage prerequisite is concretely specified, linked, and implemented. Defining that separate foundation is outside this integration proposal.
+**Implementation status: blocked** until core collection is implemented/archived, the participation and processing simplification is implemented, and the detailed-media/storage prerequisite is concretely specified, linked, and implemented. Defining that separate foundation is outside this integration proposal.
 
 ## What Changes
 

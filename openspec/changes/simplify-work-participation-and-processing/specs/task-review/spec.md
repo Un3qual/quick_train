@@ -59,4 +59,4 @@ Task state SHALL derive from native submitted-attempt counts and frozen project 
 
 #### Scenario: A closed task receives a correction
 - **WHEN** an accepted outcome in a satisfied completed project is rejected
-- **THEN** the outcome's accepted-result visibility changes, while the task remains satisfied and all attempts stay terminal
+- **THEN** the outcome's accepted-result visibility changes, while the task remains satisfied, task-target counting and allocation demand remain unchanged, and all attempts stay terminal

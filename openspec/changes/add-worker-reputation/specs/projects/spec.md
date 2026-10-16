@@ -197,7 +197,7 @@ When known-answer scoring/enforcement is enabled, activation SHALL advise that o
 - **THEN** that lifetime count requirement is not rejected for the EWMA limit, and actual lifetime performance is evaluated at admission
 
 #### Scenario: A peer rule requires more workers than the Task can supply
-- **WHEN** a local automatic peer rule requires four distinct group workers but the submission target is three
+- **WHEN** a local automatic peer rule uses a configured distinct-worker group floor of four but the submission target is three
 - **THEN** activation fails because only three group workers are possible, without increasing the target
 
 #### Scenario: A small target cannot meet the default peer floor

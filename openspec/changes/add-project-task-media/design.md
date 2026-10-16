@@ -1,8 +1,8 @@
 ## Context
 
-**Implementation status: blocked.** Core collection must be implemented and archived, and the separate detailed-media/storage prerequisite still needs a concrete change name, durable spec paths, and a verified implementation. This document specifies the later integration; it does not make that integration ready to apply.
+**Implementation status: blocked.** Core collection must be implemented and archived, followed by the approved participation and processing simplification. The separate detailed-media/storage prerequisite still needs a concrete change name, durable spec paths, and a verified implementation. This document specifies the later integration; it does not make that integration ready to apply.
 
-See `proposal.md` for the split and release order. `add-project-task-collection` now delivers complete core collection, including text spans and opaque downloads/exports, and rejects image-dependent contracts. This change owns the deferred image execution that previously prevented that core change from closing. Both core collection and the separate detailed-media foundation must be implemented before this follow-up is applied.
+See `proposal.md` for the split and release order. `add-project-task-collection` now delivers complete core collection, including text spans and opaque downloads/exports, and rejects image-dependent contracts. This change owns the deferred image execution that previously prevented that core change from closing. Core collection, [participation and processing simplification](../simplify-work-participation-and-processing/proposal.md), and the separate detailed-media foundation must all be implemented before this follow-up is applied.
 
 The existing form contract already contains image-intended requirements, `bound_value` presentation elements, image-choice renderers, and spatial definitions. Retain those IDs and representations. There is no separate image presentation-kind enum to add. The current detailed-media foundation is recorded but not yet a concrete implemented change; its required integration contract below is the entry gate for this follow-up, never for core collection.
 
@@ -74,7 +74,7 @@ Start with installed Ash generators and generate/review additive migrations and 
 
 ## Migration Plan
 
-1. Verify/archive core collection and verify the implemented detailed-media/real-storage prerequisites; update dependency links and resolve any drift in these deltas.
+1. Verify/archive core collection, verify the implemented participation and processing simplification, and verify the implemented detailed-media/real-storage prerequisites; update dependency links and resolve any drift in these deltas.
 2. Generate additive spatial/attachment migrations and snapshots, preserving all published definitions, existing projects, attempts, question outcomes, review decisions, and export bytes.
 3. Extend supported activation and typed API operations only with the verified integration deployed. Previously rejected draft image projects can then be explicitly activated; existing frozen projects do not gain or change inputs/questions.
 4. Verify up/down/reapply in a disposable database and both media-enabled and media-unavailable paths. For production rollback, stop new image allocation and preserve existing evidence; do not drop spatial tables holding real answers.

@@ -20,7 +20,9 @@ Every import SHALL begin in persisted phase `open` with a server-calculated immu
 - **THEN** no processing job is inserted and derived progress reports the existing row outcomes
 
 ### Requirement: Row processing is idempotent and retryable
-The import processing job SHALL page the sealed import's pending rows in bounded reads rather than materialize the complete import or create one job per row. Each row SHALL retain its existing independent transaction: lock the row, return without changes if already terminal, and atomically commit its item revision reference and terminal succeeded, unchanged or failed outcome. Expected permanent row-validation failures SHALL record a sanitized terminal failed outcome and allow processing of other rows. Transient infrastructure failures SHALL leave the current row pending for bounded job retry; they SHALL NOT be misreported as invalid source input. Retry SHALL resume from pending rows without duplicating committed revisions or repeating terminal rows. Successful completion SHALL require no pending rows.
+The import processing job SHALL page the sealed import's pending rows in bounded keyset reads ordered by immutable row identity rather than materialize the complete import or create one job per row. Each row SHALL retain its existing independent transaction: lock the row, return without changes if already terminal, and atomically commit its item revision reference and terminal succeeded, unchanged or failed outcome. Expected permanent row-validation failures SHALL record a sanitized terminal failed outcome and allow processing of other rows. Transient infrastructure failures SHALL leave the current row pending for bounded job retry; they SHALL NOT be misreported as invalid source input. Retry SHALL start a new keyset traversal of remaining pending rows rather than resume a persisted cursor, and SHALL NOT duplicate committed revisions or repeat terminal rows. Successful completion SHALL require no pending rows.
+
+An unexpected exception or otherwise unclassified processing failure SHALL roll back the current row and fail the import job through ordinary Oban error handling; it SHALL NOT become a terminal source-validation failure or be swallowed to report success. One bounded Oban attempt budget SHALL cover the entire import. Committed row progress SHALL NOT reset that budget. Per-row retry counters and automatic attempt resets SHALL NOT be introduced.
 
 Automatic terminal-job recovery remains deferred to restore-operator-bootstrap-and-maintenance. A discarded or cancelled import job may leave pending rows; derived progress SHALL report them honestly rather than invent completion. Job pruning is not coordinated with that deferred recovery. No separate progress counters, row-job fan-out or generic chunk-processing lifecycle SHALL be added.
 
@@ -39,6 +41,19 @@ Automatic terminal-job recovery remains deferred to restore-operator-bootstrap-a
 #### Scenario: Infrastructure fails
 - **WHEN** a database or storage dependency fails transiently during a row transaction
 - **THEN** the row remains pending and standard bounded job retry can resume without manufacturing a source-validation failure
+
+#### Scenario: An unexpected row failure repeats
+- **WHEN** earlier row outcomes have committed and a later row repeatedly raises an unexpected internal exception
+- **THEN** that row's transaction rolls back and the import job fails and retries within its shared attempt budget, preserving committed rows without reporting a source-validation failure
+- **AND** later rows may remain pending until the cause is fixed and processing recovers; the import is not reported complete
+
+#### Scenario: Terminal rows do not shift later pages
+- **WHEN** processing makes an earlier page terminal before reading the next page of pending rows
+- **THEN** keyset traversal reaches the remaining rows without offset-based skips, and a retry restarts from remaining pending rows rather than its previous execution's cursor
+
+#### Scenario: Progress does not reset the import retry budget
+- **WHEN** successive import-job executions commit row progress but encounter transient failures on different later rows
+- **THEN** each failed execution consumes the same bounded import-wide attempt budget, and exhaustion preserves committed outcomes while leaving unfinished rows pending
 
 #### Scenario: Retry exhaustion leaves unresolved progress visible
 - **WHEN** the import job exhausts its attempts or is cancelled before all rows are terminal

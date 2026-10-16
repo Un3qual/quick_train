@@ -14,7 +14,7 @@
 ## 3. Bounded import processing and useful jobs
 
 - [ ] 3.1 Use the existing worker/action conventions to replace row-job fan-out with one ProcessImport job atomically inserted at seal when pending rows exist. Preserve concurrent/replayed seal behavior and empty-import completion.
-- [ ] 3.2 Stream pending rows in bounded pages through the existing per-row process action. Verify crash/retry after a committed row, expected permanent failure isolation, transient failure rollback, no skipped pending rows and honest retry-exhaustion progress. Benchmark large imports and memory/query behavior before considering chunks.
+- [ ] 3.2 Stream pending rows in bounded keyset pages ordered by immutable row identity through the existing per-row process action. Verify crash/retry after a committed row, expected permanent failure isolation, transient/unexpected failure rollback, no skipped pending rows, cursor restart on retry and honest exhaustion of the shared import-wide attempt budget without progress resets. Benchmark large imports, failures distributed across different rows and memory/query behavior before considering chunks.
 - [ ] 3.3 Remove ProcessImportRow and unused VerifyAsset plus orphan enqueue/queue paths; preserve synchronous asset verification and export jobs. Keep deferred maintenance documentation aligned with import-scoped recovery.
 
 ## 4. Integration verification
