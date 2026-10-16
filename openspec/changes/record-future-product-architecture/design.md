@@ -8,6 +8,8 @@ This change has `skip_specs: true`. Everything below is a durable, non-normative
 
 On 2026-09-12, the Projects and Tasks scope was promoted into [add-project-task-collection](../archive/2026-09-13-add-project-task-collection/proposal.md), with its own design, capability deltas, and implementation tasks. That proposal selects a new project for later enrollment, records offered question sets per attempt, and specifies immutable export snapshots. The user then selected core collection before detailed media: image presentation/choice, spatial answers, and mask uploads now belong to [add-project-task-media](../add-project-task-media/proposal.md). Only that follow-up depends on verified media support; core collection can be implemented and archived first. For the MVP, the user subsequently deferred proposal-added count/byte ceilings and mask quota accounting until actual usage informs them. The current [database-identities specification](../../specs/database-identities/spec.md) supersedes the archived proposal's PostgreSQL-generated identity design: use Ash `uuid_primary_key` for backend records and `Ash.UUID.generate/0` for internal UUIDs while retaining separate caller-supplied retry tokens. The dedicated proposals retain existing foundation behavior and published form constraints and govern their respective scope; core collection is now implemented with typed evidence, review, and sealed exports, while image-dependent execution remains deferred to the media change.
 
+On 2026-10-05, the approved worker reputation system was promoted into [add-worker-reputation](../add-worker-reputation/proposal.md). That change owns its proposal, design, behavioral deltas, implementation tasks, competitor research, and future compensation integration contract. It supersedes the earlier fixed-only calculation, global/organization-only assessment scope, and deferral of reputation-based pay. Reputation is planned, not implemented; Finance remains separately scoped.
+
 ## Goals / Non-Goals
 
 **Goals:**
@@ -46,7 +48,7 @@ funding, settlement, and eligibility workflows rather than generic services.
 - Projects bind one form version to one stable dataset cohort and configuration.
 - Tasks own fetched selections, allocation, attempts, responses, review, and raw result evidence.
 - Finance owns offers, reservations, ledger accounting, earnings, and payouts.
-- Reputation owns global and organization-scoped rebuildable worker projections.
+- Reputation owns project, organization, and platform-controlled global worker assessments as rebuildable projections.
 - Existing Accounts, Organizations, Authorization, and EnterpriseIdentity remain foundations.
 
 Cross-domain workflows are named for their responsibility, such as `ProjectActivation`, `TaskSelection`, and `WorkSettlement`. There is no generic Core, CRUD, Services, Operations, or DurableDelivery product layer.
@@ -98,6 +100,7 @@ A planned project pins:
 - typed form-to-dataset bindings;
 - grouping and selection configuration;
 - worker audience and eligibility settings;
+- when Reputation is implemented, resolved reputation settings and enforcement actions;
 - automatic or manual review;
 - per-question answer, skip, and escalation settings;
 - coverage settings; and
@@ -221,19 +224,15 @@ Approved `QuickTrain.Finance` concepts:
 
 Organization price and worker payout are separate amounts. Future rate models may pay per accepted response, per accepted question, via base plus components, quality bonuses, qualification bands, or zero-cost internal work. The exact commercial model and payment provider remain intentionally unresolved for the Finance change.
 
-Fetching paid work must reserve the maximum organization charge atomically so QuickTrain does not offer work it cannot pay for. Skips, rejections, and partial answers remain neutral task facts; the pinned rate terms determine monetary treatment. A worker's offer is frozen at fetch and cannot change retroactively.
+Optional reputation-based pay bands, quality bonuses, and their frozen-offer requirements are recorded in [the reputation change's Finance integration contract](../add-worker-reputation/design.md#6-keep-compensation-commitments-in-finance). Finance owns offers, maximum-charge reservations, settlement, and payouts; that integration does not make Finance a prerequisite for reputation.
 
 Money uses integer minor units and explicit currencies, never floats. Ledger transactions balance within one currency. Corrections use reversal postings. Worker earnings and external payouts are separate so payout failure never erases earned money. Provider deposits, transfers, fees, refunds, disputes, and webhooks reconcile to the internal ledger with idempotency keys.
 
-### L. Reputation is deliberately simple and rebuildable
+### L. Reputation is owned by its dedicated change
 
-The first reputation change adds one global and zero-or-more organization-scoped WorkerReputation projections per user. Dimensions may include quality, reliability, agreement, experience, accepted or rejected counts, skips, and expirations.
+[add-worker-reputation](../add-worker-reputation/proposal.md) owns known-answer checks, repeated peer disagreement, scoped assessments, organization defaults/project overrides, reviewer information, and recoverable new-work restrictions. Its [design](../add-worker-reputation/design.md) retains the approved compensation integration terms and competitor research; its [specs](../add-worker-reputation/specs/worker-reputation/spec.md) and [tasks](../add-worker-reputation/tasks.md) govern future implementation. This record retains the cross-domain boundary only and does not maintain a second reputation plan.
 
-There are no reputation-policy tables, policy versions, per-organization formulas, duplicated reputation-event table, or ReputationAdjustment resource. Calculation is hardcoded in application code. Authoritative evidence already exists in Attempts, QuestionResponses, skips, ReviewDecisions, and future consensus or adjudication records.
-
-If the formula changes, a future batch recalculation job rebuilds every profile. Corrections happen in authoritative task and review evidence and flow into recalculation.
-
-Skipping is tracked but is not automatically a negative signal because it may indicate a bad question or unsuitable source data. Organizations may configure straightforward project admission thresholds against global or organization-scoped reputation, but they do not customize the calculation. Reputation-based dynamic compensation is deferred; any eventual rate quote remains frozen at fetch.
+[Organization quality reports](../add-organization-quality-reports/proposal.md) separately extend check-design and categorical answer diagnostics over the reputation change's key/matcher read paths. They are investigation tools, not another worker score or collection gate. [Reviewer calibration](../../future-features.md#reviewer-calibration-and-consistent-acceptance-criteria) starts as a manual practice; a dedicated workflow remains future work.
 
 ### M. Authorization and GraphQL boundaries for later domains
 
@@ -264,8 +263,8 @@ Future tests cover lifecycle actions, policies, GraphQL integration, normalized 
 - Precomputed random task materialization or unused stored pairings.
 - King-of-the-hill and Elo selection implementations; only their extension boundary is established initially.
 - Audio or video range annotations.
-- Automatic consensus, canonical resolution, or final-answer synthesis.
-- Per-organization reputation formulas or reputation policy, version, adjustment, or duplicate event tables.
+- Canonical resolution or final-answer synthesis. Derived peer-agreement measurements for reputation are permitted by section L.
+- Customer-authored reputation formulas, generic policy/version engines, arbitrary reputation adjustments, or duplicate reputation-event streams. The dedicated reputation change owns scoped settings, answer-key provenance, and future offer integration.
 - A final commercial rate model or payment provider in the core Tasks change.
 - Frontend implementation.
 

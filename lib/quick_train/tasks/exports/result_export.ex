@@ -158,7 +158,6 @@ defmodule QuickTrain.Tasks.Exports.ResultExport do
   end
 
   graphql do
-    attribute_types record_count: :string
     type :result_export
     derive_filter? false
     derive_sort? false

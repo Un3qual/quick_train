@@ -9,7 +9,7 @@ Operator setup and background maintenance were removed during early dataset/asse
 ## What Changes
 
 - Restore operator-only organization manager setup and explicit dataset/asset capability grants, using ordinary Ash actions where possible.
-- Restore bounded authentication retention, staging cleanup, expired-open-import cleanup, and recovery of pending rows whose Oban jobs are cancelled or discarded.
+- Restore bounded authentication retention, staging cleanup, expired-open-import cleanup, and recovery of pending rows in imports whose processing job is cancelled or discarded. Allow retained-job retry when appropriate; any terminal recovery failure must retain operational provenance rather than misreport invalid source input.
 - Revalidate storage guarantees, retention intervals, schedules, schema metadata, and concurrency tests against the implementation at that time.
 
 ## Capabilities
@@ -22,6 +22,6 @@ None in this deferred proposal. On resumption, reconcile the authentication, ass
 
 ## Impact
 
-Affects Accounts, Organizations, Authorization, Assets, Datasets, storage adapters, Oban configuration, schema migrations, and operator documentation. No runtime code is added by this proposal. The current removal is tracked in section 14 of `add-normalized-datasets-and-assets/tasks.md`.
+Affects Accounts, Organizations, Authorization, Assets, Datasets, storage adapters, Oban configuration, schema migrations, and operator documentation. No runtime code is added by this proposal. Required recovery code remains explicitly tracked in the [design follow-up](design.md#deferred-code-follow-up) and unchecked task 2.5. The current removal is tracked in section 14 of `add-normalized-datasets-and-assets/tasks.md`.
 
 Non-goals: automatic implementation now, a generic bootstrap/recovery framework, wildcard grants, frontend onboarding, or restoring old code unchanged merely because it existed.

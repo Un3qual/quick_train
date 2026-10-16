@@ -311,7 +311,7 @@ defmodule QuickTrainWeb.ProjectTaskCollectionTest do
     ready = request(conn, status)
     refute ready["errors"]
     assert ready["data"]["resultExport"]["state"] == "ready"
-    assert ready["data"]["resultExport"]["recordCount"] == "0"
+    assert ready["data"]["resultExport"]["recordCount"] == 0
 
     download =
       "{ resultExportDownload(#{scope(ctx)}, exportId: \"#{export["id"]}\") { asset { id mediaType } readAccess { uri expiresAt } } }"

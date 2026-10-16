@@ -1,11 +1,16 @@
 ## ADDED Requirements
 
 ### Requirement: Spatial annotation provenance is exact
-Each spatial region SHALL identify the exact TaskInput, its bound source DatasetValue, and a label from the question's published label set. The source SHALL match the question's required image source and exact allocated immutable revision. Region counts SHALL satisfy the published question bounds; zero regions SHALL be an answered outcome only when its minimum is zero. Foreign labels, wrong source values, and unallocated inputs SHALL fail. Every spatial write SHALL use the core Project/Task/Attempt lock order, post-lock owner/eligibility/lease/state checks, draft revision check, and immutable submission boundary. No spatial payload SHALL be persisted as JSONB.
+Each spatial region SHALL identify the exact TaskInput, its bound source DatasetValue, and a label from the question's published label set. The source SHALL match the question's required image source and exact allocated immutable revision. Region counts SHALL satisfy the published question bounds; zero regions SHALL be an answered outcome only when its minimum is zero. Foreign labels, wrong source values, and unallocated inputs SHALL fail. Every spatial draft write SHALL use Project protection plus the owning participation lock and existing selected-response/child coordination, retained through commit, without a shared Task write-conflicting lock, following the approved [collection guard](../../../simplify-work-participation-and-processing/specs/task-responses/spec.md#requirement-one-draft-becomes-one-immutable-submission). It SHALL preserve post-lock owner, eligibility, Project lifecycle, live participation state and database deadline checks, the draft revision check, and the immutable submission boundary. Submission and capacity-changing transitions SHALL retain Project → Task → participation ordering. No spatial payload SHALL be persisted as JSONB.
 
 #### Scenario: An annotation targets an unbound field
 - **WHEN** a worker supplies a valid value from the allocated revision that is not the question's bound source
 - **THEN** the write fails without attaching the region to that value
+
+#### Scenario: Independent workers edit spatial drafts on the same Task
+- **WHEN** eligible workers with separate live participations edit their spatial drafts for the same Task
+- **THEN** their edits use their own participation/response guards without serializing through a shared Task write-conflicting lock
+- **AND** each edit still respects its draft revision, current ownership, Project lifecycle, deadline and submission immutability
 
 ### Requirement: Bounding boxes and polygons use normalized valid geometry
 Bounding boxes SHALL use finite normalized coordinates with `0 <= x_min < x_max <= 1` and `0 <= y_min < y_max <= 1`. Polygon regions SHALL contain at least three distinct ordered points within `[0,1]`, have nonzero area, and form a simple non-self-intersecting ring with implicit closure. Repeated closing points, holes within one region, and non-finite coordinates SHALL be rejected. Multiple independent regions SHALL be permitted within the published question constraints. Image execution SHALL require the separately implemented verified-media and serving prerequisites; opaque readiness alone SHALL not validate image sources.

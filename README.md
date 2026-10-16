@@ -54,8 +54,12 @@ image rendering and spatial answers remain in the separate media change.
 Task workers use the `task_maintenance` and `task_exports` Oban queues. Exports require a storage
 adapter implementing streaming staging writes within the publication deadline and existing verification and
 access contract. The in-memory adapter verifies byte generation and opaque access contracts in
-tests; it does not provide HTTP delivery. Accumulated result counts are GraphQL decimal strings;
-configured targets and published integer answers remain GraphQL integers.
+tests; it does not provide HTTP delivery. Export record counts use GraphQL integers and
+numeric JSONL headers (format version 2); configured targets and published integer answers
+also remain GraphQL integers. Nonnegative API counts range from zero through
+2,147,483,647; larger API count representations are deferred. This representation limit
+is separate from paged JSONL generation, which has no additional record-count ceiling
+and remains subject to the configured Assets/provider publication limits.
 
 ## Toolchain
 

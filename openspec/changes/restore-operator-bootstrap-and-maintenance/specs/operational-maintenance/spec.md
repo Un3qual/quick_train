@@ -29,7 +29,16 @@ The system SHALL lock and recheck imports before deleting expired open imports a
 - **THEN** cleanup preserves the sealed import and all provenance
 
 ### Requirement: Terminal jobs cannot strand import progress
-The system SHALL recover pending rows for discarded or cancelled import-row jobs through a durable callback or a bounded exact-worker reconciler. It SHALL atomically record sanitized failure under the row lock without creating a revision, skip terminal rows, drain backlogs without starvation, and preserve job evidence until recovery.
+The system SHALL recover pending rows for discarded or cancelled import processing jobs, scoped by immutable import identity through a durable callback or a bounded exact-worker reconciler, paging the affected import's pending rows. Recovery SHALL allow retrying the retained import job when processing can appropriately resume, using the existing independent row transactions and processing only remaining pending rows. A discarded or cancelled job SHALL NOT by itself establish that its source rows failed validation or require every unfinished row to become failed. If the selected recovery policy instead terminalizes pending rows, it SHALL atomically record sanitized operational failure under each row's lock without creating a revision or misreporting invalid source input. Recovery SHALL recheck rows against late commits, skip terminal rows, drain backlogs without starvation, and preserve job evidence until recovery.
+
+#### Scenario: A recoverable import resumes processing
+- **WHEN** an import job is discarded after a transient infrastructure failure and retrying its retained job is appropriate
+- **THEN** recovery can retry that job to process remaining pending rows without marking them failed solely because the job was discarded
+- **AND** committed row outcomes and revisions remain unchanged and are not processed again
+
+#### Scenario: Terminal recovery records operational failure
+- **WHEN** the selected recovery policy terminalizes an unfinished row because processing cannot resume
+- **THEN** recovery locks and rechecks that row, preserving a concurrently committed terminal outcome or otherwise recording sanitized operational failure without creating a revision or claiming the source input failed validation
 
 #### Scenario: Terminal jobs exceed one recovery page
 - **WHEN** a backlog includes both already-terminal rows and pending rows

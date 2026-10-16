@@ -64,7 +64,7 @@ defmodule QuickTrain.Storage.S3ExportTest do
       """)["resultExport"]
 
     assert status["state"] == "ready"
-    assert status["recordCount"] == "1"
+    assert status["recordCount"] == 1
     assert status["snapshotAt"] == DateTime.to_iso8601(sealed.snapshot_at)
 
     query = """
@@ -97,8 +97,8 @@ defmodule QuickTrain.Storage.S3ExportTest do
              response.body |> String.split("\n", trim: true) |> Enum.map(&Jason.decode!/1)
 
     assert header["kind"] == "header"
-    assert header["format_version"] == 1
-    assert header["record_count"] == "1"
+    assert header["format_version"] == 2
+    assert header["record_count"] == 1
     assert header["snapshot_at"] == DateTime.to_iso8601(sealed.snapshot_at)
     assert header["organization_id"] == ctx.context.org.id
     assert header["project_id"] == ctx.project.id
