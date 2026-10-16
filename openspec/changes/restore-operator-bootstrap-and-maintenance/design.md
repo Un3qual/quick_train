@@ -18,10 +18,14 @@ Restore useful operator setup and unattended maintenance once there is a concret
 
 There is no operator bootstrap or manager grant convenience action. Primitive organization, membership, role, and capability actions remain, with test-only fixture composition. Expired session/OIDC records, staging objects, in-memory adapter access tokens, and abandoned imports accumulate. Abandoned imports retain their idempotency keys. Cancelled or exhausted import jobs can leave rows and batch progress pending; ordinary Oban pruning may later remove job evidence. Expiry checks and normal finalization/processing still work. This state is suitable for current development, not unattended persistent operation.
 
+## Deferred code follow-up
+
+Runtime recovery still requires implementation when this change is explicitly resumed; this planning correction adds none. The current [import worker](../../../lib/quick_train/datasets/workers/process_import_row.ex) and [sealing action](../../../lib/quick_train/datasets/dataset_import/actions/finalize.ex) still use row jobs; the [approved collection change](../simplify-work-participation-and-processing/tasks.md#3-bounded-import-processing-and-useful-jobs) owns their replacement with one import job. Build recovery against that resulting implementation using native Oban retry and the existing Ash row-lock/processing boundary. Implement explicit operational failure provenance if terminal recovery is selected, and coordinate [job retention](../../../config/config.exs) with recovery. Track this work in [task 2.5](tasks.md#2-restore-the-selected-capabilities); do not restore the removed row-job reconciler unchanged or mark valid source input invalid merely because its job stopped.
+
 ## Migration Plan
 
 Review the removal migration and current database before restoring columns or indexes. QuickTrain is unreleased; target current approved schema directly rather than backfill removed maintenance fields for compatibility. Do not infer missing recovery evidence or rely on pruned jobs. Decide how to handle accumulated staging, old imports, and pending rows without deleting immutable content. Revalidate the specifications before implementation.
 
 ## Verification
 
-Restore meaningful lifecycle, authorization, concurrency, and provider-contract tests for the selected design. Exercise rollback, concurrent identical bootstrap, inactive conflicts, live-state retention, publication/cleanup races, late uploads, sealed-history preservation, terminal-job backlog draining, and recovery-versus-pruning. Run the repository verification gate and independent OpenSpec validation.
+Restore meaningful lifecycle, authorization, concurrency, and provider-contract tests for the selected design. Exercise rollback, concurrent identical bootstrap, inactive conflicts, live-state retention, publication/cleanup races, late uploads, sealed-history preservation, recoverable import retry without duplicate revisions, terminal recovery retaining operational rather than source-validation failure provenance, terminal-job backlog draining, and recovery-versus-pruning. Run the repository verification gate and independent OpenSpec validation.
