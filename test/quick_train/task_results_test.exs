@@ -219,7 +219,7 @@ defmodule QuickTrain.Tasks.ResultExportTest do
     assert %DateTime{} = ready.snapshot_at
     access = download!(scope, export.id)
     assert {:ok, bytes} = InMemory.read_sealed(access.read_access)
-    assert [%{"kind" => "header", "format_version" => 1, "record_count" => "0"}] = jsonl(bytes)
+    assert [%{"kind" => "header", "format_version" => 2, "record_count" => 0}] = jsonl(bytes)
     assert :ok = QuickTrain.Tasks.process_result_export(export.id, authorize?: false)
     assert Ash.get!(ResultExport, export.id, authorize?: false).asset_id == ready.asset_id
   end
@@ -234,7 +234,7 @@ defmodule QuickTrain.Tasks.ResultExportTest do
     assert :ok = QuickTrain.Tasks.process_result_export(export.id, authorize?: false)
     {:ok, bytes} = InMemory.read_sealed(download!(scope, export.id).read_access)
     [header | rows] = jsonl(bytes)
-    assert header["record_count"] == Integer.to_string(length(rows))
+    assert header["record_count"] == length(rows)
 
     assert Enum.map(rows, &{&1["kind"], &1["id"]}) ==
              Enum.sort(Enum.map(rows, &{&1["kind"], &1["id"]}))
@@ -329,7 +329,7 @@ defmodule QuickTrain.Tasks.ResultExportTest do
     {:ok, bytes} = InMemory.read_sealed(download!(scope, export.id).read_access)
     [header, result] = jsonl(bytes)
 
-    assert header["record_count"] == "1"
+    assert header["record_count"] == 1
     rows = result["inputs"]
     assert length(rows) == length(scope.source.revisions)
     assert MapSet.size(MapSet.new(rows, & &1["id"])) == 100
@@ -441,7 +441,7 @@ defmodule QuickTrain.Tasks.ResultExportTest do
     assert :ok = QuickTrain.Tasks.process_result_export(export.id, authorize?: false)
     {:ok, bytes} = InMemory.read_sealed(download!(scope, export.id).read_access)
     [header | rows] = jsonl(bytes)
-    assert header["record_count"] == Integer.to_string(sealed.record_count)
+    assert header["record_count"] == sealed.record_count
 
     assert Enum.any?(
              rows,
@@ -576,6 +576,43 @@ defmodule QuickTrain.Tasks.ResultExportTest do
       do: InMemory.write_staging(key, ["corrupt"], cap, deadline_ms)
   end
 
+  test "generation cannot replace retained pending upload facts with different content", scope do
+    {:ok, export} = request(scope)
+    snapshot = Tasks.seal_export_snapshot!(export.id, authorize?: false)
+    bytes = "unexpected content\n"
+
+    pending =
+      Assets.create_pending_asset!(
+        %{
+          organization_id: snapshot.organization_id,
+          result_export_id: snapshot.id,
+          sha256: :crypto.hash(:sha256, bytes),
+          byte_size: byte_size(bytes),
+          media_type: "application/x-ndjson"
+        },
+        authorize?: false
+      )
+
+    Tasks.attach_export_pending_asset!(snapshot, %{pending_asset_id: pending.id},
+      authorize?: false
+    )
+
+    assert {:error, _error} = Tasks.process_result_export(export.id, authorize?: false)
+    failed = Ash.get!(ResultExport, export.id, authorize?: false)
+    assert failed.state == :failed
+    assert failed.pending_asset_id == pending.id
+    assert failed.snapshot_at == snapshot.snapshot_at
+    assert failed.record_count == 0
+
+    retained = Ash.get!(Asset, pending.id, authorize?: false)
+    assert retained.state == :pending
+
+    assert Map.take(retained, [:sha256, :byte_size, :media_type]) ==
+             Map.take(pending, [:sha256, :byte_size, :media_type])
+
+    assert {:error, _error} = download(scope, export.id)
+  end
+
   test "a failed upload is replaced before expiry without changing the sealed snapshot", scope do
     {:ok, export} = request(scope)
     old = Application.fetch_env!(:quick_train, :assets)
@@ -609,7 +646,7 @@ defmodule QuickTrain.Tasks.ResultExportTest do
     assert Ash.get!(Asset, asset.id, authorize?: false).result_export_id == export.id
 
     {:ok, bytes} = InMemory.read_sealed(download!(scope, export.id).read_access)
-    assert [%{"kind" => "header", "record_count" => "0"}] = jsonl(bytes)
+    assert [%{"kind" => "header", "record_count" => 0}] = jsonl(bytes)
     assert :crypto.hash(:sha256, bytes) == asset.sha256
   end
 
@@ -650,7 +687,7 @@ defmodule QuickTrain.Tasks.ResultExportTest do
       assert replacement.sha256 == pending.sha256
 
       {:ok, bytes} = InMemory.read_sealed(download!(scope, export.id).read_access)
-      assert [%{"kind" => "header", "record_count" => "0"}] = jsonl(bytes)
+      assert [%{"kind" => "header", "record_count" => 0}] = jsonl(bytes)
       assert :crypto.hash(:sha256, bytes) == pending.sha256
       assert :ok = Tasks.process_result_export(export.id, authorize?: false)
       assert Ash.get!(ResultExport, export.id, authorize?: false).asset_id == ready.asset_id

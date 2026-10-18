@@ -13,7 +13,7 @@
 - [ ] 2.2 Implement bounded authentication retention independently of expiry and replay enforcement.
 - [ ] 2.3 Implement safe staging retirement and publication reconciliation for the chosen provider.
 - [ ] 2.4 Implement expired-open-import deletion while preserving sealed history and referenced records.
-- [ ] 2.5 Implement terminal import-row recovery and coordinate backlog capacity with evidence retention and pruning.
+- [ ] 2.5 Implement import-scoped recovery against the collection change's import worker, as recorded in the [deferred code follow-up](design.md#deferred-code-follow-up). Allow retained-job retry when appropriate, preserve committed row outcomes/revisions, distinguish any terminal operational failure from source validation failure, and coordinate backlog capacity with evidence retention and pruning. Verify retry, terminal failure and late-commit races; this code work remains deferred and unimplemented.
 
 ## 3. Verify and document
 

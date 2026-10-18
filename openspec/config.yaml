@@ -6,6 +6,10 @@ context: |
   GraphQL foundations, normalized datasets/assets, versioned forms, and project/task
   collection. It deliberately omits a frontend and finance/reputation domains.
 
+  Follow the repository-wide Release status instructions in root AGENTS.md. QuickTrain
+  remains unreleased until the user explicitly says otherwise; earlier unreleased
+  contracts do not require legacy compatibility or data migration planning.
+
   Use the repository toolchain through mise. Keep Erlang, Elixir, Node.js, OpenSpec,
   and backend dependencies on stable GA releases with exact pins where the repository
   already uses them. Update .mise.toml, mix.exs, and mix.lock together when dependency
@@ -15,6 +19,10 @@ context: |
   every session requires an active account. Organization management requires an active
   membership; task workers may also qualify through a project's explicit external audience
   route. Authorization must remain fail-closed and explicitly scoped to an organization.
+  Users with effective management, authoring, review or assignment authority in any
+  organization cannot work in any organization. Enforce this through one shared Ash
+  NotStaff check, including the target worker on direct assignment, without a separate
+  account type. Ordinary membership alone remains compatible with internal work.
 
   Prefer Ash resources, actions, changes, validations, policies, relationships, and
   generators over direct Ecto implementation. GraphQL is the only application API;

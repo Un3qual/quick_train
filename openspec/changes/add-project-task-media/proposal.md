@@ -1,8 +1,8 @@
 ## Why
 
-Image tasks need verified source facts and compliant media delivery, while ordinary task collection can ship without them. This change preserves the image-dependent portion split from `add-project-task-collection` and implements it after both core collection and the separately scoped detailed-media foundation are available.
+Image tasks need verified source facts and compliant media delivery, while ordinary task collection can ship without them. This change preserves the image-dependent portion split from `add-project-task-collection` and implements it after core collection, the [participation and processing simplification](../simplify-work-participation-and-processing/proposal.md), and the separately scoped detailed-media foundation are available.
 
-**Implementation status: blocked** until core collection is implemented/archived and the detailed-media/storage prerequisite is concretely specified, linked, and implemented. Defining that separate foundation is outside this integration proposal.
+**Implementation status: blocked** until core collection is implemented/archived, the participation and processing simplification is implemented, and the detailed-media/storage prerequisite is concretely specified, linked, and implemented. Defining that separate foundation is outside this integration proposal.
 
 ## What Changes
 
@@ -36,7 +36,7 @@ Explicit non-goals:
 
 ## Impact
 
-- Core collection is implemented and [archived](../archive/2026-09-13-add-project-task-collection/proposal.md), and its specifications are in the main spec tree. This follow-up's deltas retain that baseline; recheck them against the current main specs and the detailed-media foundation once that prerequisite is implemented.
+- Core collection is implemented and [archived](../archive/2026-09-13-add-project-task-collection/proposal.md), and its specifications are in the main spec tree. Before media integration, also implement the approved [participation and processing simplification](../simplify-work-participation-and-processing/proposal.md). Rebase these deltas on its narrower draft-write guards and the current main specs, then verify the detailed-media foundation.
 - Also require the detailed-media/storage work recorded in [the future architecture](../record-future-product-architecture/design.md#deferred-file-interpretation-and-http-storage-integration). It must provide immutable source/hash/dimension facts, source/mask validation, approved rendering access, and real transfer endpoints. Its eventual change name is not assigned here; its acceptance contract is explicit in this design.
 - Adds Ash resources and additive migrations inside the existing Tasks domain, extends Projects/Tasks GraphQL actions and Assets authorization, and preserves all existing projects, attempts, and submitted/exported evidence.
 - These are backend-only product additions within the existing Projects/Tasks boundary. Accounts, Organizations, Authorization, Forms, Datasets, and the opaque Assets contract retain their reusable foundation responsibilities; no frontend or generic media framework is introduced here.

@@ -5,6 +5,19 @@ I like ambitious ideas, simple systems, and software that feels obvious. Do not 
 
 Channel both "measure twice, cut once" and "yagni". Fight scope creep. Try to honor the dev's intent in both a minimal and realistic fashion.
 
+## Release status
+
+- QuickTrain is unreleased. This applies repository-wide to all future code, API, schema,
+  specification, design, and planning changes until the user explicitly says QuickTrain
+  is released. Do not infer release from a PR, merge, deployment, tag, or version number.
+- Target the current approved design directly. Breaking changes are acceptable; do not
+  add backward-compatibility paths, legacy-data migrations/backfills, or production
+  rollout/rollback plans solely to preserve an earlier unreleased contract. Development
+  fixtures and disposable databases may be updated for the new contract.
+- Ordinary schema migrations needed to create or evolve the current database remain
+  appropriate. Runtime authorization, integrity, immutability, and audit-history rules
+  remain product requirements rather than legacy compatibility obligations.
+
 ## General instructions
 - Use `mise` for the repository toolchain.
 - Keep the backend on stable/GA dependency releases and update `.mise.toml`, `mix.exs`, and the
@@ -12,6 +25,12 @@ Channel both "measure twice, cut once" and "yagni". Fight scope creep. Try to ho
 - Preserve the single global `User` model. Organization membership is relational and optional;
   all sessions still require an account.
 - Keep authorization fail-closed and explicitly scoped to an organization.
+- Users with current management, authoring, review or assignment authority in any
+  organization cannot work in any organization. Use one shared Ash `NotStaff` policy
+  check derived from effective grants; check the target worker on direct assignment.
+  Ordinary membership alone may still qualify an internal worker. Keep staff access
+  organization-scoped, preserve retained work ownership and self-review exclusions
+  when permissions change, and add no separate global account type or persona lifecycle.
 - Run `mise run verify` before merging changes.
 - Channel YAGNI when writing code. A simpler solution is always better.
 - If Elixir, Ash, or another library has a built-in way to accomplish something, use that rather than hand-rolling a solution.
