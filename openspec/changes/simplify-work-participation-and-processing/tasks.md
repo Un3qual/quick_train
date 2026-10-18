@@ -9,7 +9,7 @@
 
 - [ ] 2.1 Derive effective review status from explicit human decisions or frozen submission/review mode using Ash facilities. Remove system-acceptance row creation and origin-only fields/actions that have no remaining purpose.
 - [ ] 2.2 Preserve first-decision absence, successor/predecessor and UUID retry checks, attribution and scoped authorization. Verify competing first reviews, corrections after closure, skip rejection and self-review exclusion.
-- [ ] 2.3 Use the shared effective verdict in review reads, receipts, accepted-result filters and export snapshot selection. Verify automatic accepted status with absent decision reference, manual pending status, human override and no automatic human-quality evidence.
+- [ ] 2.3 Use the shared effective verdict in review reads, receipts, accepted-result filters and export snapshot selection. Update the export serializer to emit the frozen Project review_mode once in every header and interpret answered results from the pinned human decision or that default, keeping skips distinct. Verify automatic acceptance with an absent decision reference, manual pending status, human override, no automatic human-quality evidence, and generation/retry after the first human review preserves the sealed null reference, empty history and original default interpretation under the [result contract](specs/task-results/spec.md#requirement-result-context-makes-answers-interpretable).
 
 ## 3. Bounded import processing and useful jobs
 

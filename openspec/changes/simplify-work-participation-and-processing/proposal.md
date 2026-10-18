@@ -7,7 +7,7 @@ Workers should receive a small, usable work unit in one step. Durable task reser
 - **BREAKING**: Name the existing worker-attempt entity TaskParticipation and use one active state plus submitted, returned, expired and cancelled outcomes. Keep allocation origin and start time as independent facts.
 - Reserve one response slot per Task using a durable fixed deadline; enforce expiry in allocation and worker actions without an individual expiration job.
 - Remove shared Task write locks from worker reads, start and draft saves; retain participation, Project and capacity protections where required.
-- Derive automatic acceptance from submitted answers and frozen review mode. Store only explicit human review decisions, preserving attributable corrections and conflict checks.
+- Derive automatic acceptance from submitted answers and frozen review mode. Store only explicit human review decisions, preserving attributable corrections and conflict checks. Include the frozen review mode once in export headers so absent decisions remain interpretable without synthetic review records.
 - Process a sealed dataset import with one durable job that pages pending rows and reuses each row's atomic transaction.
 - Remove the unused asset-verification worker. Retain result-export jobs and synchronous asset finalization.
 - Explain Project, Task and Question boundaries to organizations, including submission targets and allowed skips. Keep ordinary small-Task validation/submission atomic without per-question jobs/checkpoints; retain bulk-history and API pagination safeguards.
@@ -25,7 +25,7 @@ None.
 - `task-allocation`: task-level reservations, reduced participation lifecycle and narrower worker-read locking.
 - `task-responses`: participation-owned drafts and saves without shared Task write locks.
 - `task-review`: implicit automatic acceptance with explicit human decisions and predecessors.
-- `task-results`: participation metadata and returned outcomes, with narrower worker bound-value/source-download authorization guards.
+- `task-results`: participation metadata and returned outcomes, narrower worker bound-value/source-download authorization guards, and interpretable frozen review defaults in sealed exports.
 - `dataset-imports`: one processing job per sealed import with bounded, retry-safe row processing.
 - `projects`: authoring guidance for independently completable Tasks and their Question bundles.
 

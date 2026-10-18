@@ -20,6 +20,8 @@ Collection context SHALL reuse canonical Forms, Datasets, Assets, and ProjectInp
 
 Result-only readers SHALL resolve question keys/prompts/families/renderers, complete typed constraints, selected options and labels, pinned presentation elements, input requirements, bound field identities, and exact source values without additional forms/datasets/assets grants. The at-most-one text, integer, decimal, selection, and annotation constraint objects SHALL retain original IDs and fields. Absent constraints SHALL remain distinguishable from present null bounds, and decimals SHALL remain exact. The export header SHALL include published question definitions with their fixed typed constraints and options, plus shared labels, presentation, and bindings. Interactive options and labels SHALL remain typed connections.
 
+Every export header SHALL include the frozen Project's `review_mode`, either `automatic` or `manual`, separately from the export selection `mode`, either `accepted` or `audit`. An answered result's effective status SHALL follow its pinned human decision when present; without one, the frozen review mode SHALL distinguish automatic acceptance from pending manual review. Submitted skips SHALL remain skipped rather than inherit either answer default. Generation and retries SHALL use the sealed decision reference rather than the latest live review state. A result sealed without a decision SHALL retain its null decision reference, empty review history and frozen-mode interpretation after a later first human review. This SHALL require no synthetic review decision, separate stored verdict or copied review-mode snapshot column.
+
 The complete pinned presentation sequence and per-participation input order SHALL explain the whole form. Nonempty exports SHALL include shared pinned form context once in the header. Each result SHALL embed its actual input order, exact revision identities, and bound typed values. For an exact input revision and binding, absence of a value in that input SHALL denote optional absence. Asset context SHALL include immutable identity/hash/size/media facts, never file bytes, credentials, or expiring URLs. New source downloads SHALL be separately authorized and short-lived. Worker bound-value reads and source-download authorization SHALL acquire Project protection and the owning TaskParticipation lock, retain them through the protected read/authorization, and use no shared Task write-conflicting lock. They SHALL recheck current eligibility, ownership, exact task/input membership, active or paused Project state, live participation state, and the database wall-clock lease deadline after lock waits. Storage descriptor issuance SHALL remain outside the database transaction with its authorized expiry bounded by the worker lease. No unbound-field or general organization browsing SHALL be authorized.
 
 #### Scenario: A result-only reader interprets an answer
@@ -33,6 +35,22 @@ The complete pinned presentation sequence and per-participation input order SHAL
 #### Scenario: Instructions explain a response
 - **WHEN** a pinned form includes headings, instructions, and bound-value placements
 - **THEN** results preserve the original sequence and actual input order without substituting a newer form version
+
+#### Scenario: An audit export explains automatic acceptance
+- **WHEN** an audit snapshot selects an answered outcome in automatic mode with no human decision
+- **THEN** its header identifies review_mode as automatic and the result is interpretable as accepted with a null decision reference and empty review history, without implying substantive human review
+
+#### Scenario: An audit export explains pending manual review
+- **WHEN** an audit snapshot selects an answered outcome in manual mode with no human decision
+- **THEN** its header identifies review_mode as manual and the result is interpretable as pending with a null decision reference and empty review history
+
+#### Scenario: A first human review follows export sealing
+- **WHEN** an audit snapshot seals an automatically accepted answer without a human decision and its first human rejection commits before generation or retry
+- **THEN** that sealed export keeps the null decision reference, empty review history and automatic acceptance interpretation, while a new snapshot can pin the rejection and use its verdict instead of the automatic default
+
+#### Scenario: A review default does not accept a skip
+- **WHEN** an audit export includes a submitted skip under either frozen review mode
+- **THEN** the result remains skipped with no human decision rather than being interpreted as an accepted or pending answered outcome
 
 #### Scenario: Independent workers read sources for the same Task
 - **WHEN** eligible owners of separate live participations read their bound values or authorize source downloads for the same Task
